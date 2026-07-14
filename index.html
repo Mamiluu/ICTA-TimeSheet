@@ -360,7 +360,6 @@
   function save(){
     try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
   }
-
   eventDetails.value = state.meta.details || '';
   eventDate.value = state.meta.date || '';
   eventLocation.value = state.meta.location || '';
@@ -519,7 +518,6 @@
 
   function submitRow(row){
     // Guards against double-submit from a double-click/double-tap that lands
-    // before the disabled button has actually re-rendered.
     if(row.submitting || row.submitted) return;
     if(!row.name || !row.name.trim()){
       alert('Please enter at least a name before submitting.');
