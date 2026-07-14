@@ -144,6 +144,7 @@
     border:none; background:none; cursor:pointer; font-size:14px; line-height:1; padding:2px 4px;
   }
   table.roster td.rowdel button.submit-btn{ color:#0a7a3a; font-weight:bold; }
+  table.roster td.rowdel button:disabled{ color:#aaa; cursor:default; }
   table.roster td.rowdel button:not(.submit-btn){ color:#c22; }
   table.roster td.rowdel .submitted-tag{ color:#0a7a3a; font-weight:bold; font-size:14px; }
 
@@ -364,8 +365,13 @@
     });
   });
 
+  function generateClientId(){
+    if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'cid-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+  }
+
   function newRow(){
-    return { id:null, submitted:false, name:'', org:'', email:'', phone:'', sign:'' };
+    return { id:null, clientId: generateClientId(), submitted:false, submitting:false, name:'', org:'', email:'', phone:'', sign:'' };
   }
 
   function render(){
@@ -387,6 +393,8 @@
       num.textContent = idx + 1;
       tr.appendChild(num);
 
+      var locked = row.submitted || row.submitting;
+
       ['name','org','email','phone'].forEach(function(field){
         var td = document.createElement('td');
         var textarea = document.createElement('textarea');
@@ -395,8 +403,8 @@
         textarea.inputMode = field === 'email' ? 'email' : (field === 'phone' ? 'tel' : 'text');
         textarea.value = row[field];
         textarea.placeholder = field === 'name' ? 'Full name' : field === 'org' ? 'Organization' : field === 'email' ? 'name@example.com' : 'Phone number';
-        textarea.readOnly = row.submitted;
-        if(!row.submitted){
+        textarea.readOnly = locked;
+        if(!locked){
           textarea.addEventListener('keydown', function(e){
             if(e.key === 'Enter'){ e.preventDefault(); }
           });
@@ -418,14 +426,14 @@
         var img = document.createElement('img');
         img.src = row.sign;
         wrap.appendChild(img);
-        if(!row.submitted){
+        if(!locked){
           var editBtn = document.createElement('button');
           editBtn.textContent = 'Redo';
           editBtn.addEventListener('click', function(){ openSignatureModal(idx); });
           wrap.appendChild(editBtn);
         }
         signTd.appendChild(wrap);
-      } else if(!row.submitted){
+      } else if(!locked){
         var signBtn = document.createElement('button');
         signBtn.textContent = 'Sign';
         signBtn.style.fontSize = '11px';
@@ -449,15 +457,23 @@
       } else {
         var submitBtn = document.createElement('button');
         submitBtn.className = 'submit-btn';
-        submitBtn.textContent = '✓';
-        submitBtn.title = 'Submit this entry';
-        submitBtn.addEventListener('click', function(){ submitRow(row); });
+        if(row.submitting){
+          submitBtn.textContent = '…';
+          submitBtn.disabled = true;
+          submitBtn.title = 'Submitting…';
+        } else {
+          submitBtn.textContent = '✓';
+          submitBtn.title = 'Submit this entry';
+          submitBtn.addEventListener('click', function(){ submitRow(row); });
+        }
         actionTd.appendChild(submitBtn);
 
         var delBtn = document.createElement('button');
         delBtn.textContent = '✕';
         delBtn.title = 'Remove row';
+        delBtn.disabled = row.submitting;
         delBtn.addEventListener('click', function(){
+          if(row.submitting) return;
           state.rows.splice(idx, 1);
           save();
           render();
@@ -484,6 +500,9 @@
   }
 
   function submitRow(row){
+    // Guards against double-submit from a double-click/double-tap that lands
+    // before the disabled button has actually re-rendered.
+    if(row.submitting || row.submitted) return;
     if(!row.name || !row.name.trim()){
       alert('Please enter at least a name before submitting.');
       return;
@@ -492,7 +511,14 @@
       alert('This form is not yet connected to the shared sheet, so it can only save on this device. Ask the organizer to finish setup.');
       return;
     }
+    if(!row.clientId) row.clientId = generateClientId();
+
+    row.submitting = true;
+    save();
+    render();
+
     var payload = {
+      clientId: row.clientId,
       name: row.name || '',
       org: row.org || '',
       email: row.email || '',
@@ -506,16 +532,22 @@
     })
       .then(function(res){ return res.json(); })
       .then(function(data){
+        row.submitting = false;
         if(data && data.ok){
           row.submitted = true;
           row.id = data.id;
           save();
           render();
         } else {
+          save();
+          render();
           alert('Could not submit — please try again.');
         }
       })
       .catch(function(){
+        row.submitting = false;
+        save();
+        render();
         alert('Network error — could not reach the shared sheet. Please check your connection and try again.');
       });
   }

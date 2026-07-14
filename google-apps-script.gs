@@ -1,5 +1,5 @@
 var SHEET_NAME = 'Attendance';
-var HEADERS = ['Timestamp', 'Name', 'Organization', 'Email', 'Phone', 'Signature'];
+var HEADERS = ['Timestamp', 'Name', 'Organization', 'Email', 'Phone', 'Signature', 'ClientID'];
 
 function getSheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -7,6 +7,11 @@ function getSheet_() {
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_NAME);
     sheet.appendRow(HEADERS);
+  } else {
+    var existingHeader = sheet.getRange(1, 1, 1, HEADERS.length).getValues()[0];
+    if (existingHeader.join('|') !== HEADERS.join('|')) {
+      sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
+    }
   }
   return sheet;
 }
@@ -37,13 +42,35 @@ function doPost(e) {
   try {
     var body = JSON.parse(e.postData.contents);
     var sheet = getSheet_();
+    var clientId = body.clientId || '';
+
+    // Idempotency guard: if this exact submission (by client-generated id)
+    // already made it into the sheet — e.g. the first request actually
+    // succeeded but the response was lost on a flaky connection and the
+    // client retried, or a double-tap slipped through — return the
+    // existing row instead of creating a duplicate.
+    if (clientId) {
+      var lastRow = sheet.getLastRow();
+      if (lastRow > 1) {
+        var clientIds = sheet.getRange(2, 7, lastRow - 1, 1).getValues();
+        for (var i = 0; i < clientIds.length; i++) {
+          if (clientIds[i][0] === clientId) {
+            return ContentService
+              .createTextOutput(JSON.stringify({ ok: true, id: i + 1, duplicate: true }))
+              .setMimeType(ContentService.MimeType.JSON);
+          }
+        }
+      }
+    }
+
     sheet.appendRow([
       new Date(),
       body.name || '',
       body.org || '',
       body.email || '',
       body.phone || '',
-      body.signature || ''
+      body.signature || '',
+      clientId
     ]);
     var id = sheet.getLastRow() - 1; // minus header row
     return ContentService
