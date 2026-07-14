@@ -301,14 +301,14 @@
 </div>
 
 <div class="toolbar">
-  <button class="primary" id="addRowBtn">+ Add Attendee</button>
+  <button class="primary" id="addRowBtn">+ Add another row (admin)</button>
   <button class="secondary" id="refreshBtn">Refresh</button>
   <button id="exportCsvBtn">Export CSV</button>
   <button id="printBtn">Print / Save as PDF</button>
   <button id="resetBtn">Reset Sheet</button>
 </div>
 <div id="backendWarning" class="backend-warning" style="display:none;">⚠ This copy isn't connected to a shared sheet yet — entries will only be visible on this device. See setup instructions.</div>
-<div class="hint">Fill the Event Details once at the top, then each attendee fills their row and taps ✓ to submit — same as signing the paper sheet. Tap the SIGN cell to draw a signature. <span id="submittedCount"></span></div>
+<div class="hint">A blank row is ready below — fill it in and tap ✓ to submit, same as signing the paper sheet. Tap the SIGN cell to draw a signature. <span id="submittedCount"></span></div>
 
 <footer class="credit">Digital replica of the ICT Authority paper attendance sheet.</footer>
 
@@ -333,10 +333,18 @@
   };
   var POLL_INTERVAL_MS = 25000;
 
+  // Ordinary visitors always get exactly one ready-to-fill row — like the
+  // next open line on a paper sheet — with no button needed. Bulk-adding
+  // extra rows (e.g. an organizer entering people on their behalf) is an
+  // admin-only action, unlocked by opening the page with ?admin=1 in the URL.
+  var isAdmin = /(?:^|[?&])admin=1(?:&|$)/.test(location.search);
+
   var STORAGE_KEY = 'icta_attendance_sheet_v1';
   var rosterBody = document.getElementById('rosterBody');
   var backendWarning = document.getElementById('backendWarning');
   var submittedCount = document.getElementById('submittedCount');
+  var addRowBtn = document.getElementById('addRowBtn');
+  if(addRowBtn) addRowBtn.style.display = isAdmin ? '' : 'none';
   var eventDetails = document.getElementById('eventDetails');
   var eventDate = document.getElementById('eventDate');
   var eventLocation = document.getElementById('eventLocation');
@@ -372,6 +380,15 @@
 
   function newRow(){
     return { id:null, clientId: generateClientId(), submitted:false, submitting:false, name:'', org:'', email:'', phone:'', sign:'' };
+  }
+
+  // Guarantees there is always exactly one open, unsubmitted row waiting
+  // for whoever is at this device — the digital equivalent of "the next
+  // blank line" on a paper sign-in sheet. Ordinary visitors never need to
+  // click anything to get a row to fill in.
+  function ensureDraftRow(){
+    var hasDraft = state.rows.some(function(r){ return !r.submitted; });
+    if(!hasDraft) state.rows.push(newRow());
   }
 
   function render(){
@@ -475,6 +492,7 @@
         delBtn.addEventListener('click', function(){
           if(row.submitting) return;
           state.rows.splice(idx, 1);
+          ensureDraftRow();
           save();
           render();
         });
@@ -536,6 +554,7 @@
         if(data && data.ok){
           row.submitted = true;
           row.id = data.id;
+          ensureDraftRow();
           save();
           render();
         } else {
@@ -575,6 +594,7 @@
           };
         });
         state.rows = remoteRows.concat(drafts);
+        ensureDraftRow();
         save();
         render();
       })
@@ -593,6 +613,7 @@
     if(confirm('Clear the Event Details and any unsubmitted draft rows on this device? Attendees already submitted to the shared sheet will not be affected.')){
       state.meta = { details:'', date:'', location:'' };
       state.rows = state.rows.filter(function(r){ return r.submitted; });
+      ensureDraftRow();
       eventDetails.value = '';
       eventDate.value = '';
       eventLocation.value = '';
@@ -717,6 +738,7 @@
   });
   window.addEventListener('beforeprint', regrowAll);
 
+  ensureDraftRow();
   render();
 
   if(CONFIG.SCRIPT_URL){
