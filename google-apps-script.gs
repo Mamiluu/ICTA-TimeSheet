@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+// Proprietary and confidential. See LICENSE in the repository root.
+// Unauthorized copying, modification, or distribution is prohibited.
+
 var ATTENDANCE_SHEET_NAME = 'Attendance';
 var EVENTS_SHEET_NAME = 'Events';
 var ATTENDANCE_HEADERS = ['Timestamp', 'EventID', 'Name', 'Organization', 'Email', 'Phone', 'Signature', 'ClientID'];
