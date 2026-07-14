@@ -1,8 +1,3 @@
-// ICT Authority Attendance Sheet — backend for the shared roster.
-// Paste this whole file into Extensions > Apps Script on the Google Sheet
-// you want to use as the attendance database. See SETUP-INSTRUCTIONS.md
-// in this folder for the full deployment walkthrough.
-
 var SHEET_NAME = 'Attendance';
 var HEADERS = ['Timestamp', 'Name', 'Organization', 'Email', 'Phone', 'Signature'];
 
