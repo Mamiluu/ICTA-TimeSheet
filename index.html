@@ -745,6 +745,22 @@
     if(backendWarning) backendWarning.style.display = 'none';
     loadRemote();
     setInterval(loadRemote, POLL_INTERVAL_MS);
+
+    // A fixed poll interval can't feel instant for someone actively
+    // watching (e.g. editing the Sheet in another tab, then switching
+    // back here) — so refetch immediately whenever this tab regains
+    // focus, rather than making everyone poll faster just for that case.
+    var lastFocusRefetch = 0;
+    function refetchOnReturn(){
+      var now = Date.now();
+      if(now - lastFocusRefetch < 3000) return; // avoid duplicate bursts
+      lastFocusRefetch = now;
+      loadRemote();
+    }
+    document.addEventListener('visibilitychange', function(){
+      if(!document.hidden) refetchOnReturn();
+    });
+    window.addEventListener('focus', refetchOnReturn);
   } else if(backendWarning){
     backendWarning.style.display = 'block';
   }
