@@ -138,10 +138,14 @@
     flex:none;
   }
   table.roster tr.empty-row td{ color:#999; font-style:italic; }
-  table.roster td.rowdel{ text-align:center; vertical-align:middle; }
+  table.roster tr.submitted-row{ background:#f4faf6; }
+  table.roster td.rowdel{ text-align:center; vertical-align:middle; white-space:nowrap; }
   table.roster td.rowdel button{
-    border:none; background:none; color:#c22; cursor:pointer; font-size:14px; line-height:1;
+    border:none; background:none; cursor:pointer; font-size:14px; line-height:1; padding:2px 4px;
   }
+  table.roster td.rowdel button.submit-btn{ color:#0a7a3a; font-weight:bold; }
+  table.roster td.rowdel button:not(.submit-btn){ color:#c22; }
+  table.roster td.rowdel .submitted-tag{ color:#0a7a3a; font-weight:bold; font-size:14px; }
 
   .toolbar{
     max-width:900px;
@@ -183,6 +187,19 @@
   }
   :root[data-theme="dark"] .hint,
   @media (prefers-color-scheme: dark){ .hint{ color:#aaa; } }
+  #submittedCount{ font-weight:600; }
+
+  .backend-warning{
+    max-width:900px;
+    width:100%;
+    font-size:12px;
+    color:#8a5a00;
+    background:#fff6e0;
+    border:1px solid #f0c36d;
+    border-radius:6px;
+    padding:8px 12px;
+    margin:-6px 0 14px;
+  }
 
   /* --- Signature modal --- */
   .modal-backdrop{
@@ -260,12 +277,12 @@
   <table class="roster" id="roster">
     <colgroup>
       <col style="width:4%">
-      <col style="width:21%">
-      <col style="width:15%">
-      <col style="width:24%">
-      <col style="width:13%">
-      <col style="width:19%">
-      <col style="width:4%">
+      <col style="width:22%">
+      <col style="width:14%">
+      <col style="width:22%">
+      <col style="width:12%">
+      <col style="width:16%">
+      <col style="width:10%">
     </colgroup>
     <thead>
       <tr>
@@ -284,11 +301,13 @@
 
 <div class="toolbar">
   <button class="primary" id="addRowBtn">+ Add Attendee</button>
-  <button class="secondary" id="exportCsvBtn">Export CSV</button>
+  <button class="secondary" id="refreshBtn">Refresh</button>
+  <button id="exportCsvBtn">Export CSV</button>
   <button id="printBtn">Print / Save as PDF</button>
   <button id="resetBtn">Reset Sheet</button>
 </div>
-<div class="hint">Fill the Event Details once at the top, then each attendee adds their own row — same layout as the paper sign-in sheet. Tap the SIGN cell to draw a signature. Data is saved automatically in this browser.</div>
+<div id="backendWarning" class="backend-warning" style="display:none;">⚠ This copy isn't connected to a shared sheet yet — entries will only be visible on this device. See setup instructions.</div>
+<div class="hint">Fill the Event Details once at the top, then each attendee fills their row and taps ✓ to submit — same as signing the paper sheet. Tap the SIGN cell to draw a signature. <span id="submittedCount"></span></div>
 
 <footer class="credit">Digital replica of the ICT Authority paper attendance sheet.</footer>
 
@@ -306,8 +325,17 @@
 
 <script>
 (function(){
+  var CONFIG = {
+    // Paste your deployed Google Apps Script Web App URL here (ends in /exec).
+    // Leave blank to run in local-only mode (no shared roster).
+    SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzMKstRNnI5DKZnPtgMexeiiG6wEWzSekeZe-6Ttq3Z0QgT5hTg0UbKKq7o2z7O7SOz/exec'
+  };
+  var POLL_INTERVAL_MS = 25000;
+
   var STORAGE_KEY = 'icta_attendance_sheet_v1';
   var rosterBody = document.getElementById('rosterBody');
+  var backendWarning = document.getElementById('backendWarning');
+  var submittedCount = document.getElementById('submittedCount');
   var eventDetails = document.getElementById('eventDetails');
   var eventDate = document.getElementById('eventDate');
   var eventLocation = document.getElementById('eventLocation');
@@ -337,7 +365,7 @@
   });
 
   function newRow(){
-    return { name:'', org:'', email:'', phone:'', sign:'' };
+    return { id:null, submitted:false, name:'', org:'', email:'', phone:'', sign:'' };
   }
 
   function render(){
@@ -347,10 +375,12 @@
       tr.className = 'empty-row';
       tr.innerHTML = '<td class="num">1</td><td colspan="6">No attendees yet — click "+ Add Attendee" to fill in a row.</td>';
       rosterBody.appendChild(tr);
+      updateSubmittedCount();
       return;
     }
     state.rows.forEach(function(row, idx){
       var tr = document.createElement('tr');
+      if(row.submitted) tr.className = 'submitted-row';
 
       var num = document.createElement('td');
       num.className = 'num';
@@ -365,14 +395,17 @@
         textarea.inputMode = field === 'email' ? 'email' : (field === 'phone' ? 'tel' : 'text');
         textarea.value = row[field];
         textarea.placeholder = field === 'name' ? 'Full name' : field === 'org' ? 'Organization' : field === 'email' ? 'name@example.com' : 'Phone number';
-        textarea.addEventListener('keydown', function(e){
-          if(e.key === 'Enter'){ e.preventDefault(); }
-        });
-        textarea.addEventListener('input', function(){
-          row[field] = textarea.value;
-          autoGrow(textarea);
-          save();
-        });
+        textarea.readOnly = row.submitted;
+        if(!row.submitted){
+          textarea.addEventListener('keydown', function(e){
+            if(e.key === 'Enter'){ e.preventDefault(); }
+          });
+          textarea.addEventListener('input', function(){
+            row[field] = textarea.value;
+            autoGrow(textarea);
+            save();
+          });
+        }
         td.appendChild(textarea);
         tr.appendChild(td);
       });
@@ -385,12 +418,14 @@
         var img = document.createElement('img');
         img.src = row.sign;
         wrap.appendChild(img);
-        var editBtn = document.createElement('button');
-        editBtn.textContent = 'Redo';
-        editBtn.addEventListener('click', function(){ openSignatureModal(idx); });
-        wrap.appendChild(editBtn);
+        if(!row.submitted){
+          var editBtn = document.createElement('button');
+          editBtn.textContent = 'Redo';
+          editBtn.addEventListener('click', function(){ openSignatureModal(idx); });
+          wrap.appendChild(editBtn);
+        }
         signTd.appendChild(wrap);
-      } else {
+      } else if(!row.submitted){
         var signBtn = document.createElement('button');
         signBtn.textContent = 'Sign';
         signBtn.style.fontSize = '11px';
@@ -398,25 +433,49 @@
         signBtn.style.cursor = 'pointer';
         signBtn.addEventListener('click', function(){ openSignatureModal(idx); });
         signTd.appendChild(signBtn);
+      } else {
+        signTd.textContent = '—';
       }
       tr.appendChild(signTd);
 
-      var delTd = document.createElement('td');
-      delTd.className = 'rowdel';
-      var delBtn = document.createElement('button');
-      delBtn.textContent = '✕';
-      delBtn.title = 'Remove row';
-      delBtn.addEventListener('click', function(){
-        state.rows.splice(idx, 1);
-        save();
-        render();
-      });
-      delTd.appendChild(delBtn);
-      tr.appendChild(delTd);
+      var actionTd = document.createElement('td');
+      actionTd.className = 'rowdel';
+      if(row.submitted){
+        var tag = document.createElement('span');
+        tag.className = 'submitted-tag';
+        tag.textContent = '✓';
+        tag.title = 'Submitted to the shared sheet';
+        actionTd.appendChild(tag);
+      } else {
+        var submitBtn = document.createElement('button');
+        submitBtn.className = 'submit-btn';
+        submitBtn.textContent = '✓';
+        submitBtn.title = 'Submit this entry';
+        submitBtn.addEventListener('click', function(){ submitRow(row); });
+        actionTd.appendChild(submitBtn);
+
+        var delBtn = document.createElement('button');
+        delBtn.textContent = '✕';
+        delBtn.title = 'Remove row';
+        delBtn.addEventListener('click', function(){
+          state.rows.splice(idx, 1);
+          save();
+          render();
+        });
+        actionTd.appendChild(delBtn);
+      }
+      tr.appendChild(actionTd);
 
       rosterBody.appendChild(tr);
       tr.querySelectorAll('textarea').forEach(autoGrow);
     });
+    updateSubmittedCount();
+  }
+
+  function updateSubmittedCount(){
+    if(!submittedCount) return;
+    var n = state.rows.filter(function(r){ return r.submitted; }).length;
+    submittedCount.textContent = n === 1 ? '1 person submitted so far.' : (n + ' people submitted so far.');
   }
 
   function autoGrow(el){
@@ -424,17 +483,92 @@
     el.style.height = el.scrollHeight + 'px';
   }
 
+  function submitRow(row){
+    if(!row.name || !row.name.trim()){
+      alert('Please enter at least a name before submitting.');
+      return;
+    }
+    if(!CONFIG.SCRIPT_URL){
+      alert('This form is not yet connected to the shared sheet, so it can only save on this device. Ask the organizer to finish setup.');
+      return;
+    }
+    var payload = {
+      name: row.name || '',
+      org: row.org || '',
+      email: row.email || '',
+      phone: row.phone || '',
+      signature: row.sign || ''
+    };
+    fetch(CONFIG.SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    })
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        if(data && data.ok){
+          row.submitted = true;
+          row.id = data.id;
+          save();
+          render();
+        } else {
+          alert('Could not submit — please try again.');
+        }
+      })
+      .catch(function(){
+        alert('Network error — could not reach the shared sheet. Please check your connection and try again.');
+      });
+  }
+
+  function loadRemote(){
+    if(!CONFIG.SCRIPT_URL) return;
+    fetch(CONFIG.SCRIPT_URL)
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        if(!data || !data.ok || !Array.isArray(data.rows)) return;
+        var existingIds = {};
+        state.rows.forEach(function(r){ if(r.submitted) existingIds[r.id] = true; });
+        var added = false;
+        data.rows.forEach(function(rr){
+          if(!existingIds[rr.id]){
+            state.rows.push({
+              id: rr.id,
+              submitted: true,
+              name: rr.name || '',
+              org: rr.org || '',
+              email: rr.email || '',
+              phone: rr.phone || '',
+              sign: rr.signature || ''
+            });
+            added = true;
+          }
+        });
+        if(added){
+          state.rows.sort(function(a,b){
+            if(a.submitted && b.submitted) return a.id - b.id;
+            if(a.submitted) return -1;
+            if(b.submitted) return 1;
+            return 0;
+          });
+          save();
+          render();
+        }
+      })
+      .catch(function(){ /* offline — keep showing last known state */ });
+  }
+
   document.getElementById('addRowBtn').addEventListener('click', function(){
     state.rows.push(newRow());
     save();
     render();
-    var inputs = rosterBody.querySelectorAll('tr:last-child input');
-    if(inputs.length) inputs[0].focus();
+    var fields = rosterBody.querySelectorAll('tr:last-child textarea');
+    if(fields.length) fields[0].focus();
   });
 
   document.getElementById('resetBtn').addEventListener('click', function(){
-    if(confirm('Clear the entire sheet (event details and all attendees)? This cannot be undone.')){
-      state = { meta: { details:'', date:'', location:'' }, rows: [] };
+    if(confirm('Clear the Event Details and any unsubmitted draft rows on this device? Attendees already submitted to the shared sheet will not be affected.')){
+      state.meta = { details:'', date:'', location:'' };
+      state.rows = state.rows.filter(function(r){ return r.submitted; });
       eventDetails.value = '';
       eventDate.value = '';
       eventLocation.value = '';
@@ -442,6 +576,9 @@
       render();
     }
   });
+
+  var refreshBtn = document.getElementById('refreshBtn');
+  if(refreshBtn) refreshBtn.addEventListener('click', loadRemote);
 
   document.getElementById('printBtn').addEventListener('click', function(){
     window.print();
@@ -557,5 +694,13 @@
   window.addEventListener('beforeprint', regrowAll);
 
   render();
+
+  if(CONFIG.SCRIPT_URL){
+    if(backendWarning) backendWarning.style.display = 'none';
+    loadRemote();
+    setInterval(loadRemote, POLL_INTERVAL_MS);
+  } else if(backendWarning){
+    backendWarning.style.display = 'block';
+  }
 })();
 </script>
