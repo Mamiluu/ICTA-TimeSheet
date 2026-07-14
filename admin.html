@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<meta charset="UTF-8">
+<title>ICT Authority — Event Admin</title>
+<style>
+  :root{
+    --ink:#1a1a1a;
+    --line:#000;
+    --paper:#fff;
+    --muted:#555;
+    --accent:#c8102e;
+    --accent2:#0a7a3a;
+    --bg:#e9e9e9;
+  }
+  @media (prefers-color-scheme: dark){ :root{ --bg:#1e1e1e; } }
+  :root[data-theme="dark"]{ --bg:#1e1e1e; }
+  :root[data-theme="light"]{ --bg:#e9e9e9; }
+
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    padding:24px 12px 60px;
+    background:var(--bg);
+    font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif;
+    color:var(--ink);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .sheet{
+    background:var(--paper);
+    color:#000;
+    width:100%;
+    max-width:900px;
+    padding:28px 32px;
+    box-shadow:0 4px 24px rgba(0,0,0,.25);
+    border-radius:4px;
+    margin-bottom:20px;
+  }
+  h1.title{ font-size:18px; margin:0 0 4px; }
+  .sub{ font-size:12.5px; color:#666; margin:0 0 18px; }
+  h2.section{ font-size:14px; margin:0 0 12px; border-bottom:1.5px solid var(--line); padding-bottom:6px; }
+
+  label{ font-weight:bold; font-size:12.5px; display:block; margin-bottom:4px; }
+  input[type=text], input[type=date], input[type=password]{
+    width:100%;
+    font-family:inherit;
+    font-size:13px;
+    padding:8px 9px;
+    border:1px solid #ccc;
+    border-radius:4px;
+    margin-bottom:12px;
+  }
+  .row{ display:flex; gap:12px; }
+  .row > div{ flex:1; }
+
+  button{
+    font-family:inherit;
+    font-size:13px;
+    padding:9px 16px;
+    border-radius:6px;
+    border:1px solid #ccc;
+    background:#fff;
+    color:#222;
+    cursor:pointer;
+  }
+  button.primary{ background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  button.secondary{ background:var(--accent2); border-color:var(--accent2); color:#fff; }
+  button:hover{ filter:brightness(0.95); }
+  button:disabled{ opacity:.6; cursor:default; }
+
+  .result{
+    margin-top:16px;
+    padding:14px;
+    border:1.5px solid var(--accent2);
+    border-radius:6px;
+    background:#f4faf6;
+    display:none;
+  }
+  .result.open{ display:block; }
+  .result .link-row{ display:flex; gap:8px; margin:8px 0; }
+  .result .link-row input{ margin:0; flex:1; }
+  .result img.qr{ display:block; margin-top:10px; border:1px solid #ddd; }
+
+  table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  th, td{ border:1px solid #ddd; padding:7px 8px; text-align:left; vertical-align:top; }
+  th{ background:#f4f4f4; font-size:12px; }
+  td.count{ text-align:center; font-weight:600; }
+  td.actions{ white-space:nowrap; }
+  td.actions button{ font-size:11px; padding:4px 8px; margin-right:4px; }
+
+  .empty{ color:#888; font-style:italic; font-size:13px; }
+  .error{ color:#c8102e; font-size:12.5px; margin:8px 0 0; }
+  .gate p{ font-size:13px; color:#444; }
+</style>
+
+<div class="sheet" id="gatePanel">
+  <h1 class="title">ICT Authority — Event Admin</h1>
+  <p class="sub">Create attendance-sheet events and get the link/QR code to share at each venue.</p>
+  <div class="gate">
+    <p>Enter the organizer admin token to continue.</p>
+    <input type="password" id="tokenInput" placeholder="Admin token">
+    <button class="primary" id="unlockBtn">Continue</button>
+    <p class="error" id="gateError" style="display:none;"></p>
+  </div>
+</div>
+
+<div id="adminContent" style="display:none; width:100%; max-width:900px;">
+  <div class="sheet">
+    <h2 class="section">Create a new event</h2>
+    <label for="newName">Event name</label>
+    <input type="text" id="newName" placeholder="e.g. Huduma Whitebox Sensitization — Mombasa">
+    <div class="row">
+      <div>
+        <label for="newDate">Date</label>
+        <input type="date" id="newDate">
+      </div>
+      <div>
+        <label for="newLocation">Location</label>
+        <input type="text" id="newLocation" placeholder="e.g. Kisauni Road, Mombasa">
+      </div>
+    </div>
+    <button class="primary" id="createBtn">Create event</button>
+    <p class="error" id="createError" style="display:none;"></p>
+
+    <div class="result" id="createResult">
+      <div><strong>Event created.</strong> Share this link or QR code at the venue:</div>
+      <div class="link-row">
+        <input type="text" id="resultLink" readonly>
+        <button id="copyLinkBtn">Copy</button>
+        <button id="openLinkBtn">Open</button>
+      </div>
+      <img class="qr" id="resultQr" width="180" height="180" alt="QR code for event link">
+    </div>
+  </div>
+
+  <div class="sheet">
+    <h2 class="section">All events nationwide</h2>
+    <button id="refreshEventsBtn">Refresh</button>
+    <div id="eventsWrap" style="margin-top:12px;"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // Keep this in sync with the SCRIPT_URL in index.html / ICTA_Attendance_Form.html —
+  // they must point at the same deployed Apps Script Web App.
+  var CONFIG = {
+    SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbw9igfxJscRq4L7zo-J6PtwNU1taCz9-Gwhmab-vM1MxYft-v7K11sq55rx265Jai7S/exec'
+  };
+  var TOKEN_KEY = 'icta_admin_token';
+
+  var gatePanel = document.getElementById('gatePanel');
+  var adminContent = document.getElementById('adminContent');
+  var tokenInput = document.getElementById('tokenInput');
+  var unlockBtn = document.getElementById('unlockBtn');
+  var gateError = document.getElementById('gateError');
+
+  function attendeePageUrl(){
+    // admin.html and the attendee page are served from the same folder.
+    return location.href.replace(/admin\.html.*$/, 'index.html');
+  }
+
+  function getToken(){ return localStorage.getItem(TOKEN_KEY) || ''; }
+  function setToken(t){ localStorage.setItem(TOKEN_KEY, t); }
+  function clearToken(){ localStorage.removeItem(TOKEN_KEY); }
+
+  function unlock(){
+    // There is no client-side way to validate the token — it's checked
+    // server-side on every write. Entering it just remembers it locally so
+    // it can be attached to createEvent requests; a wrong token surfaces as
+    // an error the first time this admin tries to create an event.
+    var t = tokenInput.value.trim();
+    if(!t){ gateError.textContent = 'Enter a token to continue.'; gateError.style.display = ''; return; }
+    setToken(t);
+    gatePanel.style.display = 'none';
+    adminContent.style.display = '';
+    loadEvents();
+  }
+  unlockBtn.addEventListener('click', unlock);
+  tokenInput.addEventListener('keydown', function(e){ if(e.key === 'Enter') unlock(); });
+
+  if(getToken()){
+    gatePanel.style.display = 'none';
+    adminContent.style.display = '';
+  }
+
+  // --- Create event ---
+  var newName = document.getElementById('newName');
+  var newDate = document.getElementById('newDate');
+  var newLocation = document.getElementById('newLocation');
+  var createBtn = document.getElementById('createBtn');
+  var createError = document.getElementById('createError');
+  var createResult = document.getElementById('createResult');
+  var resultLink = document.getElementById('resultLink');
+  var resultQr = document.getElementById('resultQr');
+
+  createBtn.addEventListener('click', function(){
+    var name = newName.value.trim();
+    createError.style.display = 'none';
+    if(!name){ createError.textContent = 'Event name is required.'; createError.style.display = ''; return; }
+
+    createBtn.disabled = true;
+    fetch(CONFIG.SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'createEvent',
+        adminToken: getToken(),
+        name: name,
+        date: newDate.value,
+        location: newLocation.value
+      })
+    })
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        createBtn.disabled = false;
+        if(!data || !data.ok){
+          var msg = (data && data.error) || 'Could not create event.';
+          if(/not authorized/i.test(msg)){
+            clearToken();
+            gatePanel.style.display = '';
+            adminContent.style.display = 'none';
+            gateError.textContent = 'That token was rejected. Enter the correct admin token.';
+            gateError.style.display = '';
+            return;
+          }
+          createError.textContent = msg;
+          createError.style.display = '';
+          return;
+        }
+        var url = attendeePageUrl() + '?event=' + encodeURIComponent(data.event.id);
+        resultLink.value = url;
+        resultQr.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(url);
+        createResult.classList.add('open');
+        newName.value = ''; newDate.value = ''; newLocation.value = '';
+        loadEvents();
+      })
+      .catch(function(){
+        createBtn.disabled = false;
+        createError.textContent = 'Network error — could not reach the backend.';
+        createError.style.display = '';
+      });
+  });
+
+  document.getElementById('copyLinkBtn').addEventListener('click', function(){
+    resultLink.select();
+    if(navigator.clipboard) navigator.clipboard.writeText(resultLink.value);
+    else document.execCommand('copy');
+  });
+  document.getElementById('openLinkBtn').addEventListener('click', function(){
+    window.open(resultLink.value, '_blank');
+  });
+
+  // --- Events list ---
+  var eventsWrap = document.getElementById('eventsWrap');
+
+  function loadEvents(){
+    eventsWrap.innerHTML = '<p class="empty">Loading…</p>';
+    fetch(CONFIG.SCRIPT_URL + '?action=events')
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        if(!data || !data.ok || !Array.isArray(data.events)){
+          eventsWrap.innerHTML = '<p class="empty">Could not load events.</p>';
+          return;
+        }
+        if(data.events.length === 0){
+          eventsWrap.innerHTML = '<p class="empty">No events created yet.</p>';
+          return;
+        }
+        var table = document.createElement('table');
+        table.innerHTML = '<thead><tr><th>Name</th><th>Date</th><th>Location</th><th>Submitted</th><th></th></tr></thead>';
+        var tbody = document.createElement('tbody');
+        data.events.forEach(function(ev){
+          var tr = document.createElement('tr');
+          var url = attendeePageUrl() + '?event=' + encodeURIComponent(ev.id);
+          tr.innerHTML =
+            '<td>' + escapeHtml(ev.name) + '</td>' +
+            '<td>' + escapeHtml(ev.date) + '</td>' +
+            '<td>' + escapeHtml(ev.location) + '</td>' +
+            '<td class="count">' + ev.count + '</td>' +
+            '<td class="actions"></td>';
+          var actionsTd = tr.querySelector('.actions');
+          var openBtn = document.createElement('button');
+          openBtn.textContent = 'Open';
+          openBtn.addEventListener('click', function(){ window.open(url, '_blank'); });
+          var copyBtn = document.createElement('button');
+          copyBtn.textContent = 'Copy link';
+          copyBtn.addEventListener('click', function(){
+            if(navigator.clipboard) navigator.clipboard.writeText(url);
+          });
+          actionsTd.appendChild(openBtn);
+          actionsTd.appendChild(copyBtn);
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        eventsWrap.innerHTML = '';
+        eventsWrap.appendChild(table);
+      })
+      .catch(function(){
+        eventsWrap.innerHTML = '<p class="empty">Network error — could not reach the backend.</p>';
+      });
+  }
+  document.getElementById('refreshEventsBtn').addEventListener('click', loadEvents);
+
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+
+  if(getToken()) loadEvents();
+})();
+</script>

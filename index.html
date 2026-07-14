@@ -88,6 +88,26 @@
     background:transparent;
   }
   .event-box input:focus{ outline:none; border-bottom:1px solid var(--accent); }
+  .event-box .field-value{
+    font-size:13px;
+    min-height:1.3em;
+    color:#111;
+  }
+  .event-box .field-value.muted{ color:#999; font-style:italic; }
+
+  .notice{
+    max-width:900px;
+    width:100%;
+    background:var(--paper);
+    color:#000;
+    border-radius:4px;
+    box-shadow:0 4px 24px rgba(0,0,0,.25);
+    padding:32px 28px;
+    text-align:center;
+  }
+  .notice h2{ margin:0 0 10px; font-size:16px; }
+  .notice p{ margin:0 0 6px; font-size:13.5px; color:#333; }
+  .notice a{ color:var(--accent2); }
 
   table.roster{
     width:100%;
@@ -244,6 +264,13 @@
   }
 </style>
 
+<div class="notice" id="noEventNotice" style="display:none;">
+  <h2 id="noEventTitle">No event selected</h2>
+  <p id="noEventBody">This link is missing an event. Ask your event organizer for the attendance link, or scan the QR code posted at the venue.</p>
+  <p><a href="admin.html">Event organizer? Manage events →</a></p>
+</div>
+
+<div id="mainContent">
 <div class="sheet" id="sheet">
   <div class="letterhead">
     <div class="addr">
@@ -260,17 +287,17 @@
 
   <div class="event-box">
     <div class="field">
-      <label for="eventDetails">EVENT DETAILS:</label>
-      <input type="text" id="eventDetails" placeholder="e.g. Huduma Whitebox Sensitization at Kenya Coast National Polytechnic (KCNP) &amp; e-Learning platform">
+      <label>EVENT DETAILS:</label>
+      <div class="field-value" id="eventDetailsDisplay">Loading…</div>
     </div>
     <div class="row">
       <div class="field">
-        <label for="eventDate">DATE:</label>
-        <input type="date" id="eventDate">
+        <label>DATE:</label>
+        <div class="field-value" id="eventDateDisplay">—</div>
       </div>
       <div class="field">
-        <label for="eventLocation">LOCATION:</label>
-        <input type="text" id="eventLocation" placeholder="e.g. Kisauni Road, Majengo, Jomo Kenyatta Avenue">
+        <label>LOCATION:</label>
+        <div class="field-value" id="eventLocationDisplay">—</div>
       </div>
     </div>
   </div>
@@ -310,7 +337,8 @@
 <div id="backendWarning" class="backend-warning" style="display:none;">⚠ This copy isn't connected to a shared sheet yet — entries will only be visible on this device. See setup instructions.</div>
 <div class="hint">A blank row is ready below — fill it in and tap ✓ to submit, same as signing the paper sheet. Tap the SIGN cell to draw a signature. <span id="submittedCount"></span></div>
 
-<footer class="credit">Digital replica of the ICT Authority paper attendance sheet.</footer>
+<footer class="credit">Digital replica of the ICT Authority paper attendance sheet. <a href="admin.html">Manage events</a></footer>
+</div>
 
 <div class="modal-backdrop" id="sigBackdrop">
   <div class="modal">
@@ -329,7 +357,7 @@
   var CONFIG = {
     // Paste your deployed Google Apps Script Web App URL here (ends in /exec).
     // Leave blank to run in local-only mode (no shared roster).
-    SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbyaFFlX6q9N45m8E57YlpEBQdR98RpFnjIKpmcTcjJqsmH8OsvSZfk6mJGGEiVro5QB/exec'
+    SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbw9igfxJscRq4L7zo-J6PtwNU1taCz9-Gwhmab-vM1MxYft-v7K11sq55rx265Jai7S/exec'
   };
   var POLL_INTERVAL_MS = 25000;
 
@@ -339,17 +367,45 @@
   // admin-only action, unlocked by opening the page with ?admin=1 in the URL.
   var isAdmin = /(?:^|[?&])admin=1(?:&|$)/.test(location.search);
 
-  var STORAGE_KEY = 'icta_attendance_sheet_v1';
+  // Every event run anywhere in the country is the same page, distinguished
+  // only by ?event=<id> in the URL — that id is what scopes local storage
+  // (so one kiosk device can be reused across events without drafts
+  // bleeding into each other) and what gets sent with every submission so
+  // the backend can keep each event's roster separate in the shared sheet.
+  function getEventIdFromUrl(){
+    var m = /(?:^|[?&])event=([^&]+)/.exec(location.search);
+    return m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : '';
+  }
+  var eventId = getEventIdFromUrl();
+
+  var noEventNotice = document.getElementById('noEventNotice');
+  var noEventTitle = document.getElementById('noEventTitle');
+  var noEventBody = document.getElementById('noEventBody');
+  var mainContent = document.getElementById('mainContent');
+
+  function showNotice(title, body){
+    mainContent.style.display = 'none';
+    noEventNotice.style.display = '';
+    noEventTitle.textContent = title;
+    noEventBody.textContent = body;
+  }
+
+  if(!eventId){
+    showNotice('No event selected', 'This link is missing an event. Ask your event organizer for the attendance link, or scan the QR code posted at the venue.');
+    return;
+  }
+
+  var STORAGE_KEY = 'icta_attendance_sheet_v1:' + eventId;
   var rosterBody = document.getElementById('rosterBody');
   var backendWarning = document.getElementById('backendWarning');
   var submittedCount = document.getElementById('submittedCount');
   var addRowBtn = document.getElementById('addRowBtn');
   if(addRowBtn) addRowBtn.style.display = isAdmin ? '' : 'none';
-  var eventDetails = document.getElementById('eventDetails');
-  var eventDate = document.getElementById('eventDate');
-  var eventLocation = document.getElementById('eventLocation');
+  var eventDetailsDisplay = document.getElementById('eventDetailsDisplay');
+  var eventDateDisplay = document.getElementById('eventDateDisplay');
+  var eventLocationDisplay = document.getElementById('eventLocationDisplay');
 
-  var state = load() || { meta: { details:'', date:'', location:'' }, rows: [] };
+  var state = load() || { meta: null, rows: [] };
 
   function load(){
     try{
@@ -360,17 +416,26 @@
   function save(){
     try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
   }
-  eventDetails.value = state.meta.details || '';
-  eventDate.value = state.meta.date || '';
-  eventLocation.value = state.meta.location || '';
-  [eventDetails, eventDate, eventLocation].forEach(function(el){
-    el.addEventListener('input', function(){
-      state.meta.details = eventDetails.value;
-      state.meta.date = eventDate.value;
-      state.meta.location = eventLocation.value;
-      save();
-    });
-  });
+
+  // Event name/date/location are set once by the organizer in the admin
+  // dashboard, not typed by whoever happens to be at this device — so here
+  // they're just displayed from whatever the backend (or, offline, the
+  // last cached copy) says about this eventId.
+  function applyEventMeta(){
+    var meta = state.meta;
+    if(!meta){
+      eventDetailsDisplay.textContent = 'Loading…';
+      eventDetailsDisplay.className = 'field-value muted';
+      eventDateDisplay.textContent = '—';
+      eventLocationDisplay.textContent = '—';
+      return;
+    }
+    eventDetailsDisplay.textContent = meta.name || '(untitled event)';
+    eventDetailsDisplay.className = 'field-value';
+    eventDateDisplay.textContent = meta.date || '—';
+    eventLocationDisplay.textContent = meta.location || '—';
+  }
+  applyEventMeta();
 
   function generateClientId(){
     if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
@@ -534,6 +599,7 @@
     render();
 
     var payload = {
+      event: eventId,
       clientId: row.clientId,
       name: row.name || '',
       org: row.org || '',
@@ -571,10 +637,18 @@
 
   function loadRemote(){
     if(!CONFIG.SCRIPT_URL) return;
-    fetch(CONFIG.SCRIPT_URL)
+    fetch(CONFIG.SCRIPT_URL + '?event=' + encodeURIComponent(eventId))
       .then(function(res){ return res.json(); })
       .then(function(data){
-        if(!data || !data.ok || !Array.isArray(data.rows)) return;
+        if(!data || !data.ok){
+          if(data && /not found/i.test(data.error || '')){
+            showNotice('Event not found', 'This event link doesn\'t match any event on record. Double-check the link or QR code from your organizer.');
+          }
+          return;
+        }
+        if(!Array.isArray(data.rows)) return;
+        state.meta = data.event || state.meta;
+        applyEventMeta();
         // The sheet is the source of truth for submitted rows: fully replace
         // our cached copy with it each time, so edits/deletes made directly
         // in the Sheet are reflected here too. Local drafts (not yet
@@ -608,13 +682,9 @@
   });
 
   document.getElementById('resetBtn').addEventListener('click', function(){
-    if(confirm('Clear the Event Details and any unsubmitted draft rows on this device? Attendees already submitted to the shared sheet will not be affected.')){
-      state.meta = { details:'', date:'', location:'' };
+    if(confirm('Clear any unsubmitted draft rows on this device? Attendees already submitted to the shared sheet will not be affected.')){
       state.rows = state.rows.filter(function(r){ return r.submitted; });
       ensureDraftRow();
-      eventDetails.value = '';
-      eventDate.value = '';
-      eventLocation.value = '';
       save();
       render();
     }
