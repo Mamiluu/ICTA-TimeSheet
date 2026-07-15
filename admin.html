@@ -453,7 +453,7 @@
         resultLink.value = url;
         resultQr.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(url);
         createResult.classList.add('open');
-        newName.value = ''; newDate.value = ''; newLocation.value = '';
+        newName.value = ''; newDate.value = ''; newDateDisplay.value = ''; newLocation.value = '';
         refreshCreateBtnState();
         loadEvents();
       })
@@ -521,12 +521,20 @@
           var renameBtn = document.createElement('button');
           renameBtn.textContent = 'Rename';
           renameBtn.addEventListener('click', function(){
-            enterEditMode(ev, actionsTd, nameTd, dateTd, locationTd, renameBtn, openBtn, copyBtn);
+            enterEditMode(ev, actionsTd, nameTd, dateTd, locationTd, renameBtn, openBtn, copyBtn, deleteBtn);
+          });
+
+          var deleteBtn = document.createElement('button');
+          deleteBtn.textContent = 'Delete';
+          deleteBtn.className = 'danger';
+          deleteBtn.addEventListener('click', function(){
+            deleteEvent(ev, deleteBtn);
           });
 
           actionsTd.appendChild(openBtn);
           actionsTd.appendChild(copyBtn);
           actionsTd.appendChild(renameBtn);
+          actionsTd.appendChild(deleteBtn);
 
           tr.appendChild(nameTd);
           tr.appendChild(dateTd);
