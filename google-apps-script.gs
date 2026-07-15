@@ -135,6 +135,10 @@ function doPost(e) {
       return handleCreateEvent_(body);
     }
 
+    if (body.action === 'updateEvent') {
+      return handleUpdateEvent_(body);
+    }
+
     return handleSubmitAttendance_(body);
   } catch (err) {
     return jsonOut_({ ok: false, error: String(err) });
@@ -143,24 +147,58 @@ function doPost(e) {
   }
 }
 
+// Name, date, and location are all mandatory — an event with no date/location
+// gives the venue nothing to distinguish it from any other sheet, so the
+// admin UI blocks submission client-side and this is the server-side backstop.
 function handleCreateEvent_(body) {
   var token = getAdminToken_();
   if (!token || body.adminToken !== token) {
     return jsonOut_({ ok: false, error: 'Not authorized' });
   }
   var name = body.name && String(body.name).trim();
-  if (!name) {
-    return jsonOut_({ ok: false, error: 'Event name is required' });
-  }
+  var date = body.date && String(body.date).trim();
+  var location = body.location && String(body.location).trim();
+  if (!name) return jsonOut_({ ok: false, error: 'Event name is required' });
+  if (!date) return jsonOut_({ ok: false, error: 'Event date is required' });
+  if (!location) return jsonOut_({ ok: false, error: 'Event location is required' });
 
   var sheet = getEventsSheet_();
   var eventId = slugify_(name) + '-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmmss');
-  sheet.appendRow([eventId, name, body.date || '', body.location || '', new Date()]);
+  sheet.appendRow([eventId, name, date, location, new Date()]);
 
   return jsonOut_({
     ok: true,
-    event: { id: eventId, name: name, date: body.date || '', location: body.location || '' }
+    event: { id: eventId, name: name, date: date, location: location }
   });
+}
+
+// Lets the admin correct/rename an event after creation (typos, venue
+// changes) without losing its EventID — and therefore without orphaning any
+// attendance rows already submitted against that ID.
+function handleUpdateEvent_(body) {
+  var token = getAdminToken_();
+  if (!token || body.adminToken !== token) {
+    return jsonOut_({ ok: false, error: 'Not authorized' });
+  }
+  var eventId = body.eventId && String(body.eventId).trim();
+  if (!eventId) return jsonOut_({ ok: false, error: 'Missing event id' });
+
+  var name = body.name && String(body.name).trim();
+  var date = body.date && String(body.date).trim();
+  var location = body.location && String(body.location).trim();
+  if (!name) return jsonOut_({ ok: false, error: 'Event name is required' });
+  if (!date) return jsonOut_({ ok: false, error: 'Event date is required' });
+  if (!location) return jsonOut_({ ok: false, error: 'Event location is required' });
+
+  var sheet = getEventsSheet_();
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === eventId) {
+      sheet.getRange(i + 1, 2, 1, 3).setValues([[name, date, location]]);
+      return jsonOut_({ ok: true, event: { id: eventId, name: name, date: date, location: location } });
+    }
+  }
+  return jsonOut_({ ok: false, error: 'Event not found' });
 }
 
 function handleSubmitAttendance_(body) {
