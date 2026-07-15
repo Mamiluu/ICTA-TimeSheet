@@ -488,7 +488,7 @@
         textarea.spellcheck = false;
         textarea.inputMode = field === 'email' ? 'email' : (field === 'phone' ? 'tel' : 'text');
         textarea.value = row[field];
-        textarea.placeholder = field === 'name' ? 'Full name' : field === 'org' ? 'Organization' : field === 'email' ? 'name@example.com' : 'Phone number';
+        textarea.placeholder = field === 'name' ? 'Full name' : field === 'org' ? 'Organization' : field === 'email' ? 'name@example.com' : '0712345678 or +254712345678';
         textarea.readOnly = locked;
         if(!locked){
           textarea.addEventListener('keydown', function(e){
