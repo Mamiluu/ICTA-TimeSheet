@@ -389,6 +389,17 @@
   var resultLink = document.getElementById('resultLink');
   var resultQr = document.getElementById('resultQr');
 
+  // Tracks whichever event the "Event created" panel is currently showing a
+  // link/QR for, so that deleting that same event from the table below (see
+  // deleteEvent()) can hide the panel instead of leaving a dead link on screen.
+  var lastCreatedEventId = null;
+  function hideCreateResult(){
+    createResult.classList.remove('open');
+    resultLink.value = '';
+    resultQr.src = '';
+    lastCreatedEventId = null;
+  }
+
   createDatePicker(newDateDisplay, newDate);
 
   // Name, date, and location are all mandatory before an event can be
@@ -450,6 +461,7 @@
           return;
         }
         var url = attendeePageUrl() + '?event=' + encodeURIComponent(data.event.id);
+        lastCreatedEventId = data.event.id;
         resultLink.value = url;
         resultQr.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(url);
         createResult.classList.add('open');
@@ -586,6 +598,7 @@
           window.alert(msg);
           return;
         }
+        if(ev.id === lastCreatedEventId) hideCreateResult();
         loadEvents();
       })
       .catch(function(){
