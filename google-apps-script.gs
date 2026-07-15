@@ -241,6 +241,10 @@ function normalizePhone_(raw) {
   return null;
 }
 
+function normalizeEmail_(raw) {
+  return String(raw || '').trim().toLowerCase();
+}
+
 function handleSubmitAttendance_(body) {
   var eventId = body.event || '';
   if (!eventId) return jsonOut_({ ok: false, error: 'Missing event' });
@@ -273,6 +277,19 @@ function handleSubmitAttendance_(body) {
     for (var k = 0; k < existingRows.length; k++) {
       if (existingRows[k][1] === eventId && normalizePhone_(existingRows[k][5]) === normalizedPhone) {
         return jsonOut_({ ok: false, error: 'ALREADY_SIGNED', message: 'This phone number has already signed in for this event.' });
+      }
+    }
+  }
+
+  // Email is optional, but when the attendee does give one, an exact match
+  // against an existing row is just as strong an identity signal as phone —
+  // unlike name, real people essentially never legitimately share an email
+  // address, so this is safe to hard-block too.
+  var normalizedEmail = normalizeEmail_(body.email);
+  if (normalizedEmail) {
+    for (var m = 0; m < existingRows.length; m++) {
+      if (existingRows[m][1] === eventId && normalizeEmail_(existingRows[m][4]) === normalizedEmail) {
+        return jsonOut_({ ok: false, error: 'ALREADY_SIGNED', message: 'This email address has already signed in for this event.' });
       }
     }
   }

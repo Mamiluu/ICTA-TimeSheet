@@ -623,18 +623,35 @@
     return { problems: problems, normalizedPhone: normalizedPhone };
   }
 
-  // One phone number = one attendee = one signature per event. This is a
-  // best-effort client-side check against whatever the device already knows
-  // about (last sync from the shared sheet); the server enforces the same
-  // rule authoritatively so two devices signing the same person in at once
-  // can't both slip through.
+  function normalizeName(name){
+    return String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  }
+
+  function normalizeEmail(email){
+    return String(email || '').trim().toLowerCase();
+  }
+
+  // Phone and email are mandatory-shape-validated (or absent), so an exact
+  // match on either is a reliable "this is the same attendee" signal and is
+  // hard-blocked. Name alone is not: common Kenyan names repeat across
+  // unrelated people, so a name-only match is surfaced as a confirmation
+  // prompt instead of an automatic rejection — this is a best-effort
+  // client-side check against whatever the device already knows about (last
+  // sync from the shared sheet); the server enforces the phone/email rule
+  // authoritatively so two devices signing the same person in at once can't
+  // both slip through.
   function findDuplicateSubmission(row, normalizedPhone){
+    var normalizedEmail = normalizeEmail(row.email);
+    var normalizedName = normalizeName(row.name);
+    var result = { phoneMatch: null, emailMatch: null, nameMatch: null };
     for(var i = 0; i < state.rows.length; i++){
       var r = state.rows[i];
       if(r === row || !r.submitted) continue;
-      if(r.phone && normalizeKenyanPhone(r.phone) === normalizedPhone) return r;
+      if(!result.phoneMatch && r.phone && normalizeKenyanPhone(r.phone) === normalizedPhone) result.phoneMatch = r;
+      if(!result.emailMatch && normalizedEmail && r.email && normalizeEmail(r.email) === normalizedEmail) result.emailMatch = r;
+      if(!result.nameMatch && normalizedName && r.name && normalizeName(r.name) === normalizedName) result.nameMatch = r;
     }
-    return null;
+    return result;
   }
 
   function submitRow(row){
@@ -646,9 +663,19 @@
       return;
     }
     var dupe = findDuplicateSubmission(row, check.normalizedPhone);
-    if(dupe){
-      alert('This phone number has already signed in for this event' + (dupe.name ? ' as "' + dupe.name + '"' : '') + '. Each attendee may only sign in once.');
+    var hardDupe = dupe.phoneMatch || dupe.emailMatch;
+    if(hardDupe){
+      alert('This ' + (dupe.phoneMatch ? 'phone number' : 'email address') + ' has already signed in for this event' + (hardDupe.name ? ' as "' + hardDupe.name + '"' : '') + '. Each attendee may only sign in once.');
       return;
+    }
+    if(dupe.nameMatch){
+      var proceed = confirm(
+        '"' + row.name.trim() + '" already signed in for this event with a different phone number' +
+        (dupe.nameMatch.phone ? ' (' + dupe.nameMatch.phone + ')' : '') + '.\n\n' +
+        'If that was you, press Cancel and re-check your phone number instead of signing in again.\n\n' +
+        'If you are a different person who happens to share this name, press OK to continue.'
+      );
+      if(!proceed) return;
     }
     if(!CONFIG.SCRIPT_URL){
       alert('This form is not yet connected to the shared sheet, so it can only save on this device. Ask the organizer to finish setup.');
