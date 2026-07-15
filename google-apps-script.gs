@@ -139,6 +139,10 @@ function doPost(e) {
       return handleUpdateEvent_(body);
     }
 
+    if (body.action === 'deleteEvent') {
+      return handleDeleteEvent_(body);
+    }
+
     return handleSubmitAttendance_(body);
   } catch (err) {
     return jsonOut_({ ok: false, error: String(err) });

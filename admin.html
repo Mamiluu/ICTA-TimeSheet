@@ -553,28 +553,80 @@
   }
   document.getElementById('refreshEventsBtn').addEventListener('click', loadEvents);
 
+  // Lets the admin remove an event that was created by mistake or never
+  // went through (typo, test entry, duplicate). The Events sheet row is
+  // deleted; any attendance rows already submitted under that ID are left
+  // in place rather than silently destroyed, so the confirmation prompt
+  // says so when count > 0.
+  function deleteEvent(ev, deleteBtn){
+    var warning = ev.count > 0
+      ? 'Delete "' + ev.name + '"? It already has ' + ev.count + ' submitted attendance record(s) — they will remain in the sheet but keep this event’s now-deleted ID. This cannot be undone.'
+      : 'Delete "' + ev.name + '"? This cannot be undone.';
+    if(!window.confirm(warning)) return;
+
+    deleteBtn.disabled = true;
+    fetch(CONFIG.SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'deleteEvent', adminToken: getToken(), eventId: ev.id })
+    })
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        if(!data || !data.ok){
+          var msg = (data && data.error) || 'Could not delete event.';
+          if(/not authorized/i.test(msg)){
+            clearToken();
+            gatePanel.style.display = '';
+            adminContent.style.display = 'none';
+            gateError.textContent = 'That token was rejected. Enter the correct admin token.';
+            gateError.style.display = '';
+            return;
+          }
+          deleteBtn.disabled = false;
+          window.alert(msg);
+          return;
+        }
+        loadEvents();
+      })
+      .catch(function(){
+        deleteBtn.disabled = false;
+        window.alert('Network error — could not reach the backend.');
+      });
+  }
+
   // Turns a row's Name/Date/Location cells into editable inputs so the admin
   // can fix a typo or venue change after the fact without losing the
   // event's ID (and therefore without orphaning attendance already
   // submitted against it). The same name/date/location-required rule that
   // gates creation applies here too.
-  function enterEditMode(ev, actionsTd, nameTd, dateTd, locationTd, renameBtn, openBtn, copyBtn){
+  function enterEditMode(ev, actionsTd, nameTd, dateTd, locationTd, renameBtn, openBtn, copyBtn, deleteBtn){
     var origName = ev.name, origDate = ev.date, origLocation = ev.location;
 
     var nameInput = document.createElement('input');
     nameInput.type = 'text'; nameInput.value = origName; nameInput.style.margin = '0';
+
+    var dateWrap = document.createElement('div');
+    dateWrap.className = 'datefield';
+    var dateDisplay = document.createElement('input');
+    dateDisplay.type = 'text'; dateDisplay.className = 'datefield-input'; dateDisplay.placeholder = 'Select a date';
+    dateDisplay.readOnly = true; dateDisplay.autocomplete = 'off';
+    dateDisplay.value = formatDisplayIso(origDate);
     var dateInput = document.createElement('input');
-    dateInput.type = 'date'; dateInput.value = origDate; dateInput.style.margin = '0';
+    dateInput.type = 'hidden'; dateInput.value = origDate;
+    dateWrap.appendChild(dateDisplay); dateWrap.appendChild(dateInput);
+    createDatePicker(dateDisplay, dateInput);
+
     var locationInput = document.createElement('input');
     locationInput.type = 'text'; locationInput.value = origLocation; locationInput.style.margin = '0';
 
     nameTd.textContent = ''; nameTd.appendChild(nameInput);
-    dateTd.textContent = ''; dateTd.appendChild(dateInput);
+    dateTd.textContent = ''; dateTd.appendChild(dateWrap);
     locationTd.textContent = ''; locationTd.appendChild(locationInput);
 
     openBtn.style.display = 'none';
     copyBtn.style.display = 'none';
     renameBtn.style.display = 'none';
+    deleteBtn.style.display = 'none';
 
     var saveBtn = document.createElement('button');
     saveBtn.textContent = 'Save';
@@ -591,7 +643,7 @@
 
     function exitEditMode(){
       saveBtn.remove(); cancelBtn.remove(); rowError.remove();
-      openBtn.style.display = ''; copyBtn.style.display = ''; renameBtn.style.display = '';
+      openBtn.style.display = ''; copyBtn.style.display = ''; renameBtn.style.display = ''; deleteBtn.style.display = '';
     }
 
     cancelBtn.addEventListener('click', function(){
