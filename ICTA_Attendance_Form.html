@@ -586,17 +586,56 @@
     el.style.height = el.scrollHeight + 'px';
   }
 
+  var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  // Accepts the two formats a Kenyan visitor actually types — local
+  // (0712345678, 10 digits) or international (+254712345678) — and
+  // normalizes both to the canonical +254 form so the shared sheet doesn't
+  // end up with the same number recorded three different ways.
+  function normalizeKenyanPhone(raw){
+    var v = String(raw || '').trim().replace(/[\s-]/g, '');
+    if(/^0\d{9}$/.test(v)) return '+254' + v.slice(1);
+    if(/^\+254\d{9}$/.test(v)) return v;
+    if(/^254\d{9}$/.test(v)) return '+' + v;
+    return null;
+  }
+
+  // A signed row is meant to stand in for a physical signature on a paper
+  // sheet, so name, a verifiable Kenyan phone number, and an actual
+  // signature are all mandatory; email is only checked for shape when the
+  // visitor chooses to give one.
+  function validateRow(row){
+    var problems = [];
+    if(!row.name || !row.name.trim()) problems.push('your name');
+
+    var normalizedPhone = null;
+    if(!row.phone || !row.phone.trim()){
+      problems.push('a phone number');
+    } else {
+      normalizedPhone = normalizeKenyanPhone(row.phone);
+      if(!normalizedPhone) problems.push('a valid Kenyan phone number (e.g. 0712345678 or +254712345678)');
+    }
+
+    if(row.email && row.email.trim() && !EMAIL_RE.test(row.email.trim())) problems.push('a valid email address');
+
+    if(!row.sign) problems.push('your signature (tap Sign)');
+
+    return { problems: problems, normalizedPhone: normalizedPhone };
+  }
+
   function submitRow(row){
     // Guards against double-submit from a double-click/double-tap that lands
     if(row.submitting || row.submitted) return;
-    if(!row.name || !row.name.trim()){
-      alert('Please enter at least a name before submitting.');
+    var check = validateRow(row);
+    if(check.problems.length){
+      alert('Please provide ' + check.problems.join(', ') + ' before submitting.');
       return;
     }
     if(!CONFIG.SCRIPT_URL){
       alert('This form is not yet connected to the shared sheet, so it can only save on this device. Ask the organizer to finish setup.');
       return;
     }
+    if(check.normalizedPhone) row.phone = check.normalizedPhone;
     if(!row.clientId) row.clientId = generateClientId();
 
     row.submitting = true;
