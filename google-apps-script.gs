@@ -205,6 +205,30 @@ function handleUpdateEvent_(body) {
   return jsonOut_({ ok: false, error: 'Event not found' });
 }
 
+// Removes an event that was created by mistake or never went through (typo,
+// test entry, duplicate). Attendance rows already submitted under that
+// EventID are deliberately left alone — deleting them too would silently
+// destroy real sign-in data, which is a much bigger mistake than a stray
+// row referencing a since-deleted event.
+function handleDeleteEvent_(body) {
+  var token = getAdminToken_();
+  if (!token || body.adminToken !== token) {
+    return jsonOut_({ ok: false, error: 'Not authorized' });
+  }
+  var eventId = body.eventId && String(body.eventId).trim();
+  if (!eventId) return jsonOut_({ ok: false, error: 'Missing event id' });
+
+  var sheet = getEventsSheet_();
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === eventId) {
+      sheet.deleteRow(i + 1);
+      return jsonOut_({ ok: true });
+    }
+  }
+  return jsonOut_({ ok: false, error: 'Event not found' });
+}
+
 function handleSubmitAttendance_(body) {
   var eventId = body.event || '';
   if (!eventId) return jsonOut_({ ok: false, error: 'Missing event' });
