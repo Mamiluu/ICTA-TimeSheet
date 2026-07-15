@@ -623,12 +623,31 @@
     return { problems: problems, normalizedPhone: normalizedPhone };
   }
 
+  // One phone number = one attendee = one signature per event. This is a
+  // best-effort client-side check against whatever the device already knows
+  // about (last sync from the shared sheet); the server enforces the same
+  // rule authoritatively so two devices signing the same person in at once
+  // can't both slip through.
+  function findDuplicateSubmission(row, normalizedPhone){
+    for(var i = 0; i < state.rows.length; i++){
+      var r = state.rows[i];
+      if(r === row || !r.submitted) continue;
+      if(r.phone && normalizeKenyanPhone(r.phone) === normalizedPhone) return r;
+    }
+    return null;
+  }
+
   function submitRow(row){
     // Guards against double-submit from a double-click/double-tap that lands
     if(row.submitting || row.submitted) return;
     var check = validateRow(row);
     if(check.problems.length){
       alert('Please provide ' + check.problems.join(', ') + ' before submitting.');
+      return;
+    }
+    var dupe = findDuplicateSubmission(row, check.normalizedPhone);
+    if(dupe){
+      alert('This phone number has already signed in for this event' + (dupe.name ? ' as "' + dupe.name + '"' : '') + '. Each attendee may only sign in once.');
       return;
     }
     if(!CONFIG.SCRIPT_URL){
@@ -668,7 +687,7 @@
         } else {
           save();
           render();
-          alert('Could not submit — please try again.');
+          alert((data && data.message) || 'Could not submit — please try again.');
         }
       })
       .catch(function(){
