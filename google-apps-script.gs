@@ -229,6 +229,18 @@ function handleDeleteEvent_(body) {
   return jsonOut_({ ok: false, error: 'Event not found' });
 }
 
+// Mirrors the client's normalizeKenyanPhone() so "0712345678" and
+// "+254712345678" are recognized as the same attendee regardless of which
+// form the client sent, or whether it sent one at all (defense in depth —
+// this endpoint must not trust client-side normalization).
+function normalizePhone_(raw) {
+  var v = String(raw || '').trim().replace(/[\s-]/g, '');
+  if (/^0\d{9}$/.test(v)) return '+254' + v.slice(1);
+  if (/^\+254\d{9}$/.test(v)) return v;
+  if (/^254\d{9}$/.test(v)) return '+' + v;
+  return null;
+}
+
 function handleSubmitAttendance_(body) {
   var eventId = body.event || '';
   if (!eventId) return jsonOut_({ ok: false, error: 'Missing event' });
@@ -236,6 +248,8 @@ function handleSubmitAttendance_(body) {
 
   var sheet = getAttendanceSheet_();
   var clientId = body.clientId || '';
+  var lastRow = sheet.getLastRow();
+  var existingRows = lastRow > 1 ? sheet.getRange(2, 1, lastRow - 1, 8).getValues() : [];
 
   // Idempotency guard: if this exact submission (by client-generated id)
   // already made it into the sheet — e.g. the first request actually
@@ -243,13 +257,22 @@ function handleSubmitAttendance_(body) {
   // client retried, or a double-tap slipped through — return the
   // existing row instead of creating a duplicate.
   if (clientId) {
-    var lastRow = sheet.getLastRow();
-    if (lastRow > 1) {
-      var clientIds = sheet.getRange(2, 8, lastRow - 1, 1).getValues();
-      for (var i = 0; i < clientIds.length; i++) {
-        if (clientIds[i][0] === clientId) {
-          return jsonOut_({ ok: true, id: i + 1, duplicate: true });
-        }
+    for (var i = 0; i < existingRows.length; i++) {
+      if (existingRows[i][7] === clientId) {
+        return jsonOut_({ ok: true, id: i + 1, duplicate: true });
+      }
+    }
+  }
+
+  // One phone number = one attendee = one signature per event. Enforced
+  // here (not just client-side) because the client's view of the sheet can
+  // be stale, and two different devices could otherwise both sign the same
+  // person in at nearly the same moment.
+  var normalizedPhone = normalizePhone_(body.phone);
+  if (normalizedPhone) {
+    for (var k = 0; k < existingRows.length; k++) {
+      if (existingRows[k][1] === eventId && normalizePhone_(existingRows[k][5]) === normalizedPhone) {
+        return jsonOut_({ ok: false, error: 'ALREADY_SIGNED', message: 'This phone number has already signed in for this event.' });
       }
     }
   }
