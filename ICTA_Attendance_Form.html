@@ -256,9 +256,11 @@
 
   @media print{
     body{ background:#fff; padding:0; }
-    .toolbar, .hint, footer.credit, table.roster td.rowdel, table.roster td.sign-cell button{ display:none !important; }
+    .toolbar, .hint, footer.credit, table.roster .action-col, table.roster td.sign-cell button{ display:none !important; }
     .sheet{ box-shadow:none; max-width:100%; padding:10px 18px; }
+    table.roster{ table-layout:auto; }
     table.roster td textarea, .event-box input{ border-color:transparent; }
+    table.roster tr.draft-row, table.roster tr.empty-row{ display:none !important; }
   }
 
   @media (max-width:640px){
@@ -315,7 +317,7 @@
       <col style="width:22%">
       <col style="width:12%">
       <col style="width:16%">
-      <col style="width:10%">
+      <col style="width:10%" class="action-col">
     </colgroup>
     <thead>
       <tr>
@@ -325,7 +327,7 @@
         <th>EMAIL</th>
         <th>PHONE</th>
         <th>SIGN</th>
-        <th></th>
+        <th class="action-col"></th>
       </tr>
     </thead>
     <tbody id="rosterBody"></tbody>
@@ -473,6 +475,7 @@
     state.rows.forEach(function(row, idx){
       var tr = document.createElement('tr');
       if(row.submitted) tr.className = 'submitted-row';
+      else if(!row.name && !row.org && !row.email && !row.phone && !row.sign) tr.className = 'draft-row';
 
       var num = document.createElement('td');
       num.className = 'num';
