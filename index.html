@@ -149,6 +149,14 @@
     min-height:1.35em;
   }
   table.roster td textarea:focus{ outline:none; background:#fffbe6; }
+  table.roster td .print-value{
+    display:none;
+    font-size:12.5px;
+    line-height:1.35;
+    padding:2px;
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
   table.roster td.sign-cell{ text-align:center; vertical-align:middle; padding-top:2px; padding-bottom:2px; }
   table.roster td.sign-cell .sig-wrap{ display:flex; align-items:center; justify-content:center; gap:5px; }
   table.roster td.sign-cell img{ max-height:24px; max-width:70%; display:block; }
@@ -261,6 +269,8 @@
     table.roster{ table-layout:auto; }
     table.roster td textarea, .event-box input{ border-color:transparent; }
     table.roster tr.draft-row, table.roster tr.empty-row{ display:none !important; }
+    table.roster td textarea{ display:none !important; }
+    table.roster td .print-value{ display:block !important; }
   }
 
   @media (max-width:640px){
