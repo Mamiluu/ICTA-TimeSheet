@@ -500,12 +500,13 @@
         textarea.rows = 1;
         textarea.spellcheck = false;
         textarea.inputMode = field === 'email' ? 'email' : (field === 'phone' ? 'tel' : 'text');
-        textarea.value = row[field];
+        var displayValue = field === 'phone' ? displayPhone(row[field]) : row[field];
+        textarea.value = displayValue;
         textarea.placeholder = field === 'name' ? 'Full name' : field === 'org' ? 'Organization' : field === 'email' ? 'name@example.com' : '0712345678 or +254712345678';
         textarea.readOnly = locked;
         var printValue = document.createElement('div');
         printValue.className = 'print-value';
-        printValue.textContent = row[field];
+        printValue.textContent = displayValue;
         if(!locked){
           textarea.addEventListener('keydown', function(e){
             if(e.key === 'Enter'){ e.preventDefault(); }
@@ -597,6 +598,10 @@
     if(!submittedCount) return;
     var n = state.rows.filter(function(r){ return r.submitted; }).length;
     submittedCount.textContent = n === 1 ? '1 person submitted so far.' : (n + ' people submitted so far.');
+  }
+
+  function displayPhone(v){
+    return /^254\d{9}$/.test(v || '') ? '+' + v : (v || '');
   }
 
   function autoGrow(el){
