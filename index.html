@@ -503,6 +503,9 @@
         textarea.value = row[field];
         textarea.placeholder = field === 'name' ? 'Full name' : field === 'org' ? 'Organization' : field === 'email' ? 'name@example.com' : '0712345678 or +254712345678';
         textarea.readOnly = locked;
+        var printValue = document.createElement('div');
+        printValue.className = 'print-value';
+        printValue.textContent = row[field];
         if(!locked){
           textarea.addEventListener('keydown', function(e){
             if(e.key === 'Enter'){ e.preventDefault(); }
@@ -510,10 +513,12 @@
           textarea.addEventListener('input', function(){
             row[field] = textarea.value;
             autoGrow(textarea);
+            printValue.textContent = textarea.value;
             save();
           });
         }
         td.appendChild(textarea);
+        td.appendChild(printValue);
         tr.appendChild(td);
       });
 
