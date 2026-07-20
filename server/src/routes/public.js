@@ -87,4 +87,4 @@ publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, 
     }
     throw err;
   }
-});
+}));

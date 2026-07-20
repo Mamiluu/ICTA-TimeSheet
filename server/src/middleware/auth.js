@@ -5,9 +5,12 @@ import { loadSessionUser } from '../lib/session.js';
 
 // Attaches req.user if a valid session cookie is present; never rejects by
 // itself. Downstream routes/guards decide what to do with an absent user.
-export async function attachUser(req, res, next) {
-  req.user = await loadSessionUser(req);
-  next();
+// Runs on every request, so a DB hiccup here must reach the error handler
+// via next(err) rather than crash the process as an unhandled rejection.
+export function attachUser(req, res, next) {
+  loadSessionUser(req)
+    .then((user) => { req.user = user; next(); })
+    .catch(next);
 }
 
 export function requireRole(role) {
