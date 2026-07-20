@@ -18,6 +18,15 @@ export function normalizeEmail(raw) {
   return v || null;
 }
 
+// Deliberately simple shape check, not a full RFC 5322 validator -- good
+// enough to reject the obviously-wrong ("blank", "no @", HTML-looking
+// values that would otherwise render unescaped in an admin table/audit
+// view) without rejecting real addresses on edge-case syntax.
+const EMAIL_SHAPE = /^[^\s<>"'&]+@[^\s<>"'&]+\.[^\s<>"'&]+$/;
+export function isValidEmailShape(email) {
+  return typeof email === 'string' && email.length <= 254 && EMAIL_SHAPE.test(email);
+}
+
 export function slugify(s) {
   const base = String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 40);
   return base || 'event';

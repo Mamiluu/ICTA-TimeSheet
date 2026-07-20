@@ -22,7 +22,23 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const app = express();
 
 app.set('trust proxy', 1); // Render/other reverse proxies sit in front of us; needed for correct req.ip and secure cookies.
-app.use(helmet());
+
+// The frontend is deliberately plain HTML/vanilla JS with no build step
+// (every page has its own inline <script>/<style> -- see the plan's
+// rationale for staying framework-free at this scale), so Helmet's default
+// CSP -- which blocks all inline script/style -- has to be relaxed for
+// script-src/style-src specifically. img-src additionally allows the QR
+// code image service admin.html embeds and data: URLs for signature images.
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      'script-src': ["'self'", "'unsafe-inline'"],
+      'style-src': ["'self'", "'unsafe-inline'"],
+      'img-src': ["'self'", 'data:', 'https://api.qrserver.com']
+    }
+  }
+}));
 app.use(cors({ origin: process.env.PUBLIC_APP_URL, credentials: true }));
 app.use(express.json({ limit: '2mb' })); // signatures are base64 data URLs, larger than a typical JSON body
 app.use(cookieParser());

@@ -10,6 +10,7 @@ import { destroyAllSessionsForUser } from '../lib/session.js';
 import { sendActivationEmail } from '../lib/mailer.js';
 import { writeAudit } from '../lib/audit.js';
 import { KENYA_COUNTIES, MAX_ACTIVE_COUNTY_ADMINS } from '../lib/constants.js';
+import { isValidEmailShape } from '../lib/normalize.js';
 import { ah } from '../lib/asyncHandler.js';
 
 export const superadminRouter = Router();
