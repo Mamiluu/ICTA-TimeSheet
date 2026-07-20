@@ -24,6 +24,6 @@ export function slugify(s) {
 }
 
 export function eventSlugId(name) {
-  const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15); // yyyyMMddHHmmss
+  const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14); // yyyyMMddHHmmss (14 digits, no trailing '.' from milliseconds)
   return `${slugify(name)}-${stamp}`;
 }
