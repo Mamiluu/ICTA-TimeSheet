@@ -29,3 +29,15 @@ var API = (function(){
     del: function(path){ return request('DELETE', path); }
   };
 })();
+
+// Every value rendered via string-concatenated innerHTML elsewhere on these
+// pages (event names, admin emails, audit metadata) originates from the
+// database, not a template -- always pass it through this first. Building
+// rows via textContent/DOM APIs is preferred where practical, but the
+// admin/superadmin activity tables interpolate several fields into one
+// innerHTML string for brevity, so escaping is the safety net there.
+function escapeHtml(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}

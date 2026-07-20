@@ -56,7 +56,7 @@ superadminRouter.get('/admins', ah(async (req, res) => {
 superadminRouter.post('/admins', ah(async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   const county = String(req.body.county || '').trim();
-  if (!email) return res.status(400).json({ ok: false, error: 'MISSING_EMAIL' });
+  if (!isValidEmailShape(email)) return res.status(400).json({ ok: false, error: 'INVALID_EMAIL' });
   if (!county || !KENYA_COUNTIES.includes(county)) {
     return res.status(400).json({ ok: false, error: 'INVALID_COUNTY' });
   }

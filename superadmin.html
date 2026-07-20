@@ -124,6 +124,8 @@
         createError.textContent = 'That email address is already registered.';
       } else if(r.data.error === 'INVALID_COUNTY'){
         createError.textContent = 'Choose a valid county.';
+      } else if(r.data.error === 'INVALID_EMAIL'){
+        createError.textContent = 'Enter a valid email address.';
       } else {
         createError.textContent = r.data.message || 'Could not create admin.';
       }
