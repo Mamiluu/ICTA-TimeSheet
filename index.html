@@ -223,18 +223,6 @@
   @media (prefers-color-scheme: dark){ .hint{ color:#aaa; } }
   #submittedCount{ font-weight:600; }
 
-  .backend-warning{
-    max-width:900px;
-    width:100%;
-    font-size:12px;
-    color:#8a5a00;
-    background:#fff6e0;
-    border:1px solid #f0c36d;
-    border-radius:6px;
-    padding:8px 12px;
-    margin:-6px 0 14px;
-  }
-
   /* --- Signature modal --- */
   .modal-backdrop{
     position:fixed; inset:0; background:rgba(0,0,0,.5);
@@ -351,7 +339,6 @@
   <button id="printBtn">Print / Save as PDF</button>
   <button id="resetBtn">Reset Sheet</button>
 </div>
-<div id="backendWarning" class="backend-warning" style="display:none;">⚠ This copy isn't connected to a shared sheet yet, entries will only be visible on this device. See setup instructions.</div>
 <div class="hint">A blank row is ready below, fill it in and tap ✓ to submit, same as signing the paper sheet. Tap the SIGN cell to draw a signature. <span id="submittedCount"></span></div>
 
 <footer class="credit">Digital replica of the ICT Authority paper attendance sheet.<br>© 2026 Asya Hafidh. All rights reserved.</footer>
@@ -412,7 +399,6 @@
 
   var STORAGE_KEY = 'icta_attendance_sheet_v1:' + eventId;
   var rosterBody = document.getElementById('rosterBody');
-  var backendWarning = document.getElementById('backendWarning');
   var submittedCount = document.getElementById('submittedCount');
   var addRowBtn = document.getElementById('addRowBtn');
   if(addRowBtn) addRowBtn.style.display = isAdmin ? '' : 'none';
@@ -914,7 +900,6 @@
   ensureDraftRow();
   render();
 
-  if(backendWarning) backendWarning.style.display = 'none';
   loadRemote();
   setInterval(loadRemote, POLL_INTERVAL_MS);
 
