@@ -27,20 +27,35 @@ deployed service is the whole app.
    since there's no admin above the super admin to send them an invite).
 5. `npm run dev`
 
-## Deploying
+## Deploying (Render + Neon)
 
-- **Database**: [Neon](https://neon.tech) free tier works well — set
-  `DATABASE_URL` with `?sslmode=require`.
-- **App**: [Render](https://render.com) as a Node web service, auto-deploy
-  from GitHub. Set all the `.env` variables above as environment
-  variables in the Render dashboard (never commit `.env`).
-- Render's free tier spins down after 15 minutes idle and cold-starts in
-  30-50s on the next request — fine for a pilot, but worth the paid
-  Starter tier before real go-live so attendees never hit a cold start at
-  a live event.
-- Run `npm run prisma:deploy` (not `prisma:migrate`) against the
-  production database the first time, then re-run it on every deploy
-  that adds a migration.
+A `render.yaml` blueprint at the repo root does most of this for you.
+
+1. **Database** — sign up at [neon.tech](https://neon.tech) (can use
+   "Continue with GitHub"), create a project, and copy its connection
+   string (make sure it ends in `?sslmode=require`).
+2. **App** — sign up at [render.com](https://render.com) using
+   "Continue with GitHub" (same GitHub account this repo lives on), then
+   **New > Blueprint** and point it at this repo. Render reads
+   `render.yaml` and creates the web service automatically, prompting
+   you to fill in the env vars marked `sync: false`:
+   - `DATABASE_URL` — the Neon connection string from step 1.
+   - `PUBLIC_APP_URL` — leave as `https://icta-attendance.onrender.com`
+     to match the service name in `render.yaml`, or whatever URL Render
+     actually assigns if that name was taken (check the Render dashboard
+     after the first deploy and update this if it differs).
+   - `GMAIL_SENDER_ADDRESS` / `GMAIL_APP_PASSWORD` — same as local setup.
+3. The blueprint's `buildCommand` already runs
+   `npx prisma migrate deploy` on every deploy, so schema migrations
+   (including the 14-cap trigger and the per-county unique index) apply
+   automatically — no separate manual step needed.
+4. After the first successful deploy, seed the super admin once via
+   Render's shell (Dashboard → service → **Shell** tab):
+   `npm run seed:superadmin -- <email> <password>`.
+5. Render's free tier spins down after 15 minutes idle and cold-starts in
+   30-50s on the next request — fine for a pilot, but worth the paid
+   Starter tier before real go-live so attendees never hit a cold start at
+   a live event.
 
 ## Notes
 
