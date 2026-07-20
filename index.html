@@ -371,11 +371,9 @@
 
 <script>
 (function(){
-  var CONFIG = {
-    // Paste your deployed Google Apps Script Web App URL here (ends in /exec).
-    // Leave blank to run in local-only mode (no shared roster).
-    SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbySToLm_I3jDoHtqstge1SsExAP4GCNYVUza1k0K7IBx4hKlaGc57XZcCYHV5959nc9/exec'
-  };
+  // Same origin as this page in production; the Node backend serves both
+  // the static pages and the /api/* routes (see server/src/index.js).
+  var API_BASE = '';
   var POLL_INTERVAL_MS = 25000;
 
   // Ordinary visitors always get exactly one ready-to-fill row — like the
@@ -700,10 +698,6 @@
       );
       if(!proceed) return;
     }
-    if(!CONFIG.SCRIPT_URL){
-      alert('This form is not yet connected to the shared sheet, so it can only save on this device. Ask the organizer to finish setup.');
-      return;
-    }
     if(check.normalizedPhone) row.phone = check.normalizedPhone;
     if(!row.clientId) row.clientId = generateClientId();
 
@@ -712,7 +706,6 @@
     render();
 
     var payload = {
-      event: eventId,
       clientId: row.clientId,
       name: row.name || '',
       org: row.org || '',
@@ -720,9 +713,9 @@
       phone: row.phone || '',
       signature: row.sign || ''
     };
-    fetch(CONFIG.SCRIPT_URL, {
+    fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/attendance', {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     })
       .then(function(res){ return res.json(); })
@@ -749,8 +742,7 @@
   }
 
   function loadRemote(){
-    if(!CONFIG.SCRIPT_URL) return;
-    fetch(CONFIG.SCRIPT_URL + '?event=' + encodeURIComponent(eventId))
+    fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId))
       .then(function(res){ return res.json(); })
       .then(function(data){
         if(!data || !data.ok){
@@ -922,28 +914,24 @@
   ensureDraftRow();
   render();
 
-  if(CONFIG.SCRIPT_URL){
-    if(backendWarning) backendWarning.style.display = 'none';
-    loadRemote();
-    setInterval(loadRemote, POLL_INTERVAL_MS);
+  if(backendWarning) backendWarning.style.display = 'none';
+  loadRemote();
+  setInterval(loadRemote, POLL_INTERVAL_MS);
 
-    // A fixed poll interval can't feel instant for someone actively
-    // watching (e.g. editing the Sheet in another tab, then switching
-    // back here) — so refetch immediately whenever this tab regains
-    // focus, rather than making everyone poll faster just for that case.
-    var lastFocusRefetch = 0;
-    function refetchOnReturn(){
-      var now = Date.now();
-      if(now - lastFocusRefetch < 3000) return; // avoid duplicate bursts
-      lastFocusRefetch = now;
-      loadRemote();
-    }
-    document.addEventListener('visibilitychange', function(){
-      if(!document.hidden) refetchOnReturn();
-    });
-    window.addEventListener('focus', refetchOnReturn);
-  } else if(backendWarning){
-    backendWarning.style.display = 'block';
+  // A fixed poll interval can't feel instant for someone actively
+  // watching (e.g. another device signing in at the same event, then
+  // switching back to this tab) — so refetch immediately whenever this tab
+  // regains focus, rather than making everyone poll faster just for that case.
+  var lastFocusRefetch = 0;
+  function refetchOnReturn(){
+    var now = Date.now();
+    if(now - lastFocusRefetch < 3000) return; // avoid duplicate bursts
+    lastFocusRefetch = now;
+    loadRemote();
   }
+  document.addEventListener('visibilitychange', function(){
+    if(!document.hidden) refetchOnReturn();
+  });
+  window.addEventListener('focus', refetchOnReturn);
 })();
 </script>
