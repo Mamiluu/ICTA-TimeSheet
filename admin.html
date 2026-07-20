@@ -6,76 +6,14 @@
 -->
 <meta charset="UTF-8">
 <title>ICT Authority — Event Admin</title>
+<link rel="stylesheet" href="assets/theme.css">
 <style>
-  :root{
-    --ink:#1a1a1a;
-    --line:#000;
-    --paper:#fff;
-    --muted:#555;
-    --accent:#c8102e;
-    --accent2:#0a7a3a;
-    --bg:#e9e9e9;
-  }
-  @media (prefers-color-scheme: dark){ :root{ --bg:#1e1e1e; } }
-  :root[data-theme="dark"]{ --bg:#1e1e1e; }
-  :root[data-theme="light"]{ --bg:#e9e9e9; }
+  .topbar{ width:100%; max-width:900px; display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .topbar .who{ font-size:12.5px; color:#666; }
+  .topbar nav button{ margin-left:8px; }
+  .topbar nav button.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
 
-  *{ box-sizing:border-box; }
-  body{
-    margin:0;
-    padding:24px 12px 60px;
-    background:var(--bg);
-    font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif;
-    color:var(--ink);
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-  }
-  .sheet{
-    background:var(--paper);
-    color:#000;
-    width:100%;
-    max-width:900px;
-    padding:28px 32px;
-    box-shadow:0 4px 24px rgba(0,0,0,.25);
-    border-radius:4px;
-    margin-bottom:20px;
-  }
-  h1.title{ font-size:18px; margin:0 0 4px; }
-  .sub{ font-size:12.5px; color:#666; margin:0 0 18px; }
-  h2.section{ font-size:14px; margin:0 0 12px; border-bottom:1.5px solid var(--line); padding-bottom:6px; }
-
-  label{ font-weight:bold; font-size:12.5px; display:block; margin-bottom:4px; }
-  input[type=text], input[type=password]{
-    width:100%;
-    font-family:inherit;
-    font-size:13px;
-    padding:8px 9px;
-    border:1px solid #ccc;
-    border-radius:4px;
-    margin-bottom:12px;
-  }
-  .row{ display:flex; gap:12px; }
-  .row > div{ flex:1; }
-
-  button{
-    font-family:inherit;
-    font-size:13px;
-    padding:9px 16px;
-    border-radius:6px;
-    border:1px solid #ccc;
-    background:#fff;
-    color:#222;
-    cursor:pointer;
-  }
-  button.primary{ background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
-  button.secondary{ background:var(--accent2); border-color:var(--accent2); color:#fff; }
-  button.danger{ border-color:var(--accent); color:var(--accent); }
-  button.danger:hover{ background:var(--accent); color:#fff; }
-  button:hover{ filter:brightness(0.95); }
-  button:disabled{ opacity:.6; cursor:default; }
-
-  /* --- Custom date field --- */
+  /* --- Custom date field (unchanged from the previous shared-token admin page) --- */
   .datefield{ position:relative; }
   .datefield-input{
     width:100%;
@@ -147,31 +85,19 @@
   .result .link-row input{ margin:0; flex:1; }
   .result img.qr{ display:block; margin-top:10px; border:1px solid #ddd; }
 
-  table{ width:100%; border-collapse:collapse; font-size:12.5px; }
-  th, td{ border:1px solid #ddd; padding:7px 8px; text-align:left; vertical-align:top; }
-  th{ background:#f4f4f4; font-size:12px; }
   td.count{ text-align:center; font-weight:600; }
-  td.actions{ white-space:nowrap; }
-  td.actions button{ font-size:11px; padding:4px 8px; margin-right:4px; }
-
-  .empty{ color:#888; font-style:italic; font-size:13px; }
-  .error{ color:#c8102e; font-size:12.5px; margin:8px 0 0; }
-  .gate p{ font-size:13px; color:#444; }
 </style>
 
-<div class="sheet" id="gatePanel">
-  <h1 class="title">ICT Authority — Event Admin</h1>
-  <p class="sub">Create attendance-sheet events and get the link/QR code to share at each venue.</p>
-  <div class="gate">
-    <p>Enter the organizer admin token to continue.</p>
-    <input type="password" id="tokenInput" placeholder="Admin token">
-    <button class="primary" id="unlockBtn">Continue</button>
-    <p class="error" id="gateError" style="display:none;"></p>
+<div class="topbar">
+  <div><strong>ICT Authority — Event Admin</strong><span id="whoCounty" style="font-size:12.5px;color:#666;margin-left:8px;"></span></div>
+  <div class="who">
+    <span id="whoEmail"></span>
+    <button id="logoutBtn" style="margin-left:10px;">Log out</button>
   </div>
 </div>
 
-<div id="adminContent" style="display:none; width:100%; max-width:900px;">
-  <div class="sheet">
+<div id="adminContent" style="width:100%; max-width:900px;">
+  <div class="sheet wide">
     <h2 class="section">Create a new event</h2>
     <label for="newName">Event name</label>
     <input type="text" id="newName" placeholder="e.g. Huduma Whitebox Sensitization — Mombasa">
@@ -202,46 +128,48 @@
     </div>
   </div>
 
-  <div class="sheet">
-    <h2 class="section">All events nationwide</h2>
+  <div class="sheet wide">
+    <h2 class="section">Your county's events</h2>
     <button id="refreshEventsBtn">Refresh</button>
     <div id="eventsWrap" style="margin-top:12px;"></div>
   </div>
 
-  <p style="text-align:center; font-size:11px; color:#888;">© 2026 Asya Hafidh. All rights reserved.</p>
+  <div class="sheet wide">
+    <h2 class="section">My activity</h2>
+    <button id="refreshAuditBtn">Refresh</button>
+    <div id="auditWrap" style="margin-top:12px;"></div>
+  </div>
+
+  <p class="footer-note">© 2026 Asya Hafidh. All rights reserved.</p>
 </div>
 
+<script src="assets/api.js"></script>
 <script>
 (function(){
-  // Keep this in sync with the SCRIPT_URL in index.html / ICTA_Attendance_Form.html —
-  // they must point at the same deployed Apps Script Web App.
-  var CONFIG = {
-    SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbySToLm_I3jDoHtqstge1SsExAP4GCNYVUza1k0K7IBx4hKlaGc57XZcCYHV5959nc9/exec'
-  };
-  var TOKEN_KEY = 'icta_admin_token';
-
-  var gatePanel = document.getElementById('gatePanel');
-  var adminContent = document.getElementById('adminContent');
-  var tokenInput = document.getElementById('tokenInput');
-  var unlockBtn = document.getElementById('unlockBtn');
-  var gateError = document.getElementById('gateError');
-
   function attendeePageUrl(){
     // admin.html and the attendee page are served from the same folder.
     return location.href.replace(/admin\.html.*$/, 'index.html');
   }
 
-  function getToken(){ return localStorage.getItem(TOKEN_KEY) || ''; }
-  function setToken(t){ localStorage.setItem(TOKEN_KEY, t); }
-  function clearToken(){ localStorage.removeItem(TOKEN_KEY); }
+  var whoEmail = document.getElementById('whoEmail');
+  var whoCounty = document.getElementById('whoCounty');
+  var logoutBtn = document.getElementById('logoutBtn');
 
-  // --- Custom date picker ---
-  // Replaces the OS-native <input type=date> popup (inconsistent across
-  // browsers/platforms) with one purpose-built widget shared by the create
-  // form and the inline rename editor. The visible field only ever shows a
-  // human-readable label; the ISO yyyy-mm-dd that the backend/sheet expects
-  // lives in a paired hidden input, so callers keep reading/writing that
-  // hidden input exactly as before.
+  logoutBtn.addEventListener('click', function(){
+    API.post('/api/auth/logout').then(function(){ location.href = 'login.html'; });
+  });
+
+  function requireSession(){
+    return API.get('/api/auth/me').then(function(r){
+      if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return null; }
+      if(r.data.user.role !== 'COUNTY_ADMIN'){ location.href = 'superadmin.html'; return null; }
+      whoEmail.textContent = r.data.user.email;
+      whoCounty.textContent = '— ' + r.data.user.county;
+      return r.data.user;
+    });
+  }
+
+  // --- Custom date picker (unchanged) ---
   var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   var DOW_SHORT = ['Su','Mo','Tu','We','Th','Fr','Sa'];
   var DOW_FULL_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -358,27 +286,7 @@
     return { close: close };
   }
 
-  function unlock(){
-    // There is no client-side way to validate the token — it's checked
-    // server-side on every write. Entering it just remembers it locally so
-    // it can be attached to createEvent requests; a wrong token surfaces as
-    // an error the first time this admin tries to create an event.
-    var t = tokenInput.value.trim();
-    if(!t){ gateError.textContent = 'Enter a token to continue.'; gateError.style.display = ''; return; }
-    setToken(t);
-    gatePanel.style.display = 'none';
-    adminContent.style.display = '';
-    loadEvents();
-  }
-  unlockBtn.addEventListener('click', unlock);
-  tokenInput.addEventListener('keydown', function(e){ if(e.key === 'Enter') unlock(); });
-
-  if(getToken()){
-    gatePanel.style.display = 'none';
-    adminContent.style.display = '';
-  }
-
-  // Create event
+  // --- Create event ---
   var newName = document.getElementById('newName');
   var newDate = document.getElementById('newDate');
   var newDateDisplay = document.getElementById('newDateDisplay');
@@ -389,23 +297,16 @@
   var resultLink = document.getElementById('resultLink');
   var resultQr = document.getElementById('resultQr');
 
-  // Tracks whichever event the "Event created" panel is currently showing a
-  // link/QR for, so that deleting that same event from the table below (see
-  // deleteEvent()) can hide the panel instead of leaving a dead link on screen.
-  var lastCreatedEventId = null;
+  var lastCreatedEventSlug = null;
   function hideCreateResult(){
     createResult.classList.remove('open');
     resultLink.value = '';
     resultQr.src = '';
-    lastCreatedEventId = null;
+    lastCreatedEventSlug = null;
   }
 
   createDatePicker(newDateDisplay, newDate);
 
-  // Name, date, and location are all mandatory before an event can be
-  // created — a sheet with no date/location is indistinguishable from any
-  // other at the venue. The button stays disabled until all three are
-  // filled; the click handler re-checks as a backstop against stale state.
   function newEventFieldsComplete(){
     return !!(newName.value.trim() && newDate.value.trim() && newLocation.value.trim());
   }
@@ -432,48 +333,26 @@
     }
 
     createBtn.disabled = true;
-    fetch(CONFIG.SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({
-        action: 'createEvent',
-        adminToken: getToken(),
-        name: name,
-        date: date,
-        location: location
-      })
-    })
-      .then(function(res){ return res.json(); })
-      .then(function(data){
-        if(!data || !data.ok){
-          var msg = (data && data.error) || 'Could not create event.';
-          if(/not authorized/i.test(msg)){
-            clearToken();
-            gatePanel.style.display = '';
-            adminContent.style.display = 'none';
-            gateError.textContent = 'That token was rejected. Enter the correct admin token.';
-            gateError.style.display = '';
-            return;
-          }
-          createError.textContent = msg;
-          createError.style.display = '';
-          refreshCreateBtnState();
-          return;
-        }
-        var url = attendeePageUrl() + '?event=' + encodeURIComponent(data.event.id);
-        lastCreatedEventId = data.event.id;
-        resultLink.value = url;
-        resultQr.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(url);
-        createResult.classList.add('open');
-        newName.value = ''; newDate.value = ''; newDateDisplay.value = ''; newLocation.value = '';
+    API.post('/api/admin/events', { name: name, date: date, location: location }).then(function(r){
+      if(!r.data.ok){
         refreshCreateBtnState();
-        loadEvents();
-      })
-      .catch(function(){
-        createError.textContent = 'Network error — could not reach the backend.';
+        createError.textContent = r.data.message || 'Could not create event.';
         createError.style.display = '';
-        refreshCreateBtnState();
-      });
+        return;
+      }
+      var url = attendeePageUrl() + '?event=' + encodeURIComponent(r.data.event.slug);
+      lastCreatedEventSlug = r.data.event.slug;
+      resultLink.value = url;
+      resultQr.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(url);
+      createResult.classList.add('open');
+      newName.value = ''; newDate.value = ''; newDateDisplay.value = ''; newLocation.value = '';
+      refreshCreateBtnState();
+      loadEvents();
+    }).catch(function(){
+      refreshCreateBtnState();
+      createError.textContent = 'Network error — could not reach the backend.';
+      createError.style.display = '';
+    });
   });
 
   document.getElementById('copyLinkBtn').addEventListener('click', function(){
@@ -485,133 +364,104 @@
     window.open(resultLink.value, '_blank');
   });
 
-  // Events list
+  // --- Events list ---
   var eventsWrap = document.getElementById('eventsWrap');
 
   function loadEvents(){
     eventsWrap.innerHTML = '<p class="empty">Loading…</p>';
-    fetch(CONFIG.SCRIPT_URL + '?action=events')
-      .then(function(res){ return res.json(); })
-      .then(function(data){
-        if(!data || !data.ok || !Array.isArray(data.events)){
-          eventsWrap.innerHTML = '<p class="empty">Could not load events.</p>';
-          return;
-        }
-        if(data.events.length === 0){
-          eventsWrap.innerHTML = '<p class="empty">No events created yet.</p>';
-          return;
-        }
-        var table = document.createElement('table');
-        table.innerHTML = '<thead><tr><th>Name</th><th>Date</th><th>Location</th><th>Submitted</th><th></th></tr></thead>';
-        var tbody = document.createElement('tbody');
-        data.events.forEach(function(ev){
-          var tr = document.createElement('tr');
-          var url = attendeePageUrl() + '?event=' + encodeURIComponent(ev.id);
+    API.get('/api/admin/events').then(function(r){
+      if(r.status !== 200 || !r.data.ok){
+        eventsWrap.innerHTML = '<p class="empty">Could not load events.</p>';
+        return;
+      }
+      if(r.data.events.length === 0){
+        eventsWrap.innerHTML = '<p class="empty">No events created yet.</p>';
+        return;
+      }
+      var table = document.createElement('table');
+      table.innerHTML = '<thead><tr><th>Name</th><th>Date</th><th>Location</th><th>Submitted</th><th></th></tr></thead>';
+      var tbody = document.createElement('tbody');
+      r.data.events.forEach(function(ev){
+        var tr = document.createElement('tr');
+        var url = attendeePageUrl() + '?event=' + encodeURIComponent(ev.slug);
 
-          var nameTd = document.createElement('td');
-          nameTd.textContent = ev.name;
-          var dateTd = document.createElement('td');
-          dateTd.textContent = ev.date;
-          var locationTd = document.createElement('td');
-          locationTd.textContent = ev.location;
-          var countTd = document.createElement('td');
-          countTd.className = 'count';
-          countTd.textContent = ev.count;
-          var actionsTd = document.createElement('td');
-          actionsTd.className = 'actions';
+        var nameTd = document.createElement('td');
+        nameTd.textContent = ev.name;
+        var dateTd = document.createElement('td');
+        dateTd.textContent = ev.date;
+        var locationTd = document.createElement('td');
+        locationTd.textContent = ev.location;
+        var countTd = document.createElement('td');
+        countTd.className = 'count';
+        countTd.textContent = ev.count;
+        var actionsTd = document.createElement('td');
+        actionsTd.className = 'actions';
 
-          var openBtn = document.createElement('button');
-          openBtn.textContent = 'Open';
-          openBtn.addEventListener('click', function(){ window.open(url, '_blank'); });
+        var openBtn = document.createElement('button');
+        openBtn.textContent = 'Open';
+        openBtn.addEventListener('click', function(){ window.open(url, '_blank'); });
 
-          var copyBtn = document.createElement('button');
-          copyBtn.textContent = 'Copy link';
-          copyBtn.addEventListener('click', function(){
-            if(navigator.clipboard) navigator.clipboard.writeText(url);
-          });
-
-          var renameBtn = document.createElement('button');
-          renameBtn.textContent = 'Rename';
-          renameBtn.addEventListener('click', function(){
-            enterEditMode(ev, actionsTd, nameTd, dateTd, locationTd, renameBtn, openBtn, copyBtn, deleteBtn);
-          });
-
-          var deleteBtn = document.createElement('button');
-          deleteBtn.textContent = 'Delete';
-          deleteBtn.className = 'danger';
-          deleteBtn.addEventListener('click', function(){
-            deleteEvent(ev, deleteBtn);
-          });
-
-          actionsTd.appendChild(openBtn);
-          actionsTd.appendChild(copyBtn);
-          actionsTd.appendChild(renameBtn);
-          actionsTd.appendChild(deleteBtn);
-
-          tr.appendChild(nameTd);
-          tr.appendChild(dateTd);
-          tr.appendChild(locationTd);
-          tr.appendChild(countTd);
-          tr.appendChild(actionsTd);
-          tbody.appendChild(tr);
+        var copyBtn = document.createElement('button');
+        copyBtn.textContent = 'Copy link';
+        copyBtn.addEventListener('click', function(){
+          if(navigator.clipboard) navigator.clipboard.writeText(url);
         });
-        table.appendChild(tbody);
-        eventsWrap.innerHTML = '';
-        eventsWrap.appendChild(table);
-      })
-      .catch(function(){
-        eventsWrap.innerHTML = '<p class="empty">Network error — could not reach the backend.</p>';
+
+        var renameBtn = document.createElement('button');
+        renameBtn.textContent = 'Rename';
+        renameBtn.addEventListener('click', function(){
+          enterEditMode(ev, actionsTd, nameTd, dateTd, locationTd, renameBtn, openBtn, copyBtn, deleteBtn);
+        });
+
+        var deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.className = 'danger';
+        deleteBtn.addEventListener('click', function(){
+          deleteEvent(ev, deleteBtn);
+        });
+
+        actionsTd.appendChild(openBtn);
+        actionsTd.appendChild(copyBtn);
+        actionsTd.appendChild(renameBtn);
+        actionsTd.appendChild(deleteBtn);
+
+        tr.appendChild(nameTd);
+        tr.appendChild(dateTd);
+        tr.appendChild(locationTd);
+        tr.appendChild(countTd);
+        tr.appendChild(actionsTd);
+        tbody.appendChild(tr);
       });
+      table.appendChild(tbody);
+      eventsWrap.innerHTML = '';
+      eventsWrap.appendChild(table);
+    }).catch(function(){
+      eventsWrap.innerHTML = '<p class="empty">Network error — could not reach the backend.</p>';
+    });
   }
   document.getElementById('refreshEventsBtn').addEventListener('click', loadEvents);
 
-  // Lets the admin remove an event that was created by mistake or never
-  // went through (typo, test entry, duplicate). The Events sheet row is
-  // deleted; any attendance rows already submitted under that ID are left
-  // in place rather than silently destroyed, so the confirmation prompt
-  // says so when count > 0.
   function deleteEvent(ev, deleteBtn){
     var warning = ev.count > 0
-      ? 'Delete "' + ev.name + '"? It already has ' + ev.count + ' submitted attendance record(s) — they will remain in the sheet but keep this event’s now-deleted ID. This cannot be undone.'
+      ? 'Delete "' + ev.name + '"? It already has ' + ev.count + ' submitted attendance record(s) — they will remain on record but this event will no longer be listed. This cannot be undone.'
       : 'Delete "' + ev.name + '"? This cannot be undone.';
     if(!window.confirm(warning)) return;
 
     deleteBtn.disabled = true;
-    fetch(CONFIG.SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'deleteEvent', adminToken: getToken(), eventId: ev.id })
-    })
-      .then(function(res){ return res.json(); })
-      .then(function(data){
-        if(!data || !data.ok){
-          var msg = (data && data.error) || 'Could not delete event.';
-          if(/not authorized/i.test(msg)){
-            clearToken();
-            gatePanel.style.display = '';
-            adminContent.style.display = 'none';
-            gateError.textContent = 'That token was rejected. Enter the correct admin token.';
-            gateError.style.display = '';
-            return;
-          }
-          deleteBtn.disabled = false;
-          window.alert(msg);
-          return;
-        }
-        if(ev.id === lastCreatedEventId) hideCreateResult();
-        loadEvents();
-      })
-      .catch(function(){
+    API.del('/api/admin/events/' + ev.id).then(function(r){
+      if(!r.data.ok){
         deleteBtn.disabled = false;
-        window.alert('Network error — could not reach the backend.');
-      });
+        window.alert(r.data.message || 'Could not delete event.');
+        return;
+      }
+      if(ev.slug === lastCreatedEventSlug) hideCreateResult();
+      loadEvents();
+    }).catch(function(){
+      deleteBtn.disabled = false;
+      window.alert('Network error — could not reach the backend.');
+    });
   }
 
-  // Turns a row's Name/Date/Location cells into editable inputs so the admin
-  // can fix a typo or venue change after the fact without losing the
-  // event's ID (and therefore without orphaning attendance already
-  // submitted against it). The same name/date/location-required rule that
-  // gates creation applies here too.
   function enterEditMode(ev, actionsTd, nameTd, dateTd, locationTd, renameBtn, openBtn, copyBtn, deleteBtn){
     var origName = ev.name, origDate = ev.date, origLocation = ev.location;
 
@@ -682,45 +532,61 @@
       }
 
       saveBtn.disabled = true;
-      fetch(CONFIG.SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          action: 'updateEvent',
-          adminToken: getToken(),
-          eventId: ev.id,
-          name: name,
-          date: date,
-          location: location
-        })
-      })
-        .then(function(res){ return res.json(); })
-        .then(function(data){
-          if(!data || !data.ok){
-            var msg = (data && data.error) || 'Could not update event.';
-            if(/not authorized/i.test(msg)){
-              clearToken();
-              gatePanel.style.display = '';
-              adminContent.style.display = 'none';
-              gateError.textContent = 'That token was rejected. Enter the correct admin token.';
-              gateError.style.display = '';
-              return;
-            }
-            saveBtn.disabled = false;
-            rowError.textContent = msg;
-            rowError.style.display = '';
-            return;
-          }
-          loadEvents();
-        })
-        .catch(function(){
+      API.put('/api/admin/events/' + ev.id, { name: name, date: date, location: location }).then(function(r){
+        if(!r.data.ok){
           saveBtn.disabled = false;
-          rowError.textContent = 'Network error — could not reach the backend.';
+          rowError.textContent = r.data.message || 'Could not update event.';
           rowError.style.display = '';
-        });
+          return;
+        }
+        loadEvents();
+      }).catch(function(){
+        saveBtn.disabled = false;
+        rowError.textContent = 'Network error — could not reach the backend.';
+        rowError.style.display = '';
+      });
     });
   }
 
-  if(getToken()) loadEvents();
+  // --- My activity (own audit trail) ---
+  var auditWrap = document.getElementById('auditWrap');
+
+  function loadAudit(){
+    auditWrap.innerHTML = '<p class="empty">Loading…</p>';
+    API.get('/api/admin/audit').then(function(r){
+      if(r.status !== 200 || !r.data.ok){
+        auditWrap.innerHTML = '<p class="empty">Could not load your activity.</p>';
+        return;
+      }
+      if(r.data.entries.length === 0){
+        auditWrap.innerHTML = '<p class="empty">No activity recorded yet.</p>';
+        return;
+      }
+      var table = document.createElement('table');
+      table.innerHTML = '<thead><tr><th>When</th><th>Action</th><th>Detail</th></tr></thead>';
+      var tbody = document.createElement('tbody');
+      r.data.entries.forEach(function(e){
+        var tr = document.createElement('tr');
+        var detail = e.metadata ? JSON.stringify(e.metadata) : (e.targetType ? e.targetType + ' ' + e.targetId : '');
+        tr.innerHTML =
+          '<td>' + new Date(e.createdAt).toLocaleString() + '</td>' +
+          '<td>' + e.action + '</td>' +
+          '<td style="font-size:11px;color:#666;">' + detail + '</td>';
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      auditWrap.innerHTML = '';
+      auditWrap.appendChild(table);
+    }).catch(function(){
+      auditWrap.innerHTML = '<p class="empty">Network error — could not reach the backend.</p>';
+    });
+  }
+  document.getElementById('refreshAuditBtn').addEventListener('click', loadAudit);
+
+  requireSession().then(function(user){
+    if(!user) return;
+    loadEvents();
+    loadAudit();
+  });
 })();
 </script>
