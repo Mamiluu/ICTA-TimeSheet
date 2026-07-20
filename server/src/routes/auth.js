@@ -9,10 +9,11 @@ import { createSession, destroySession, destroyAllSessionsForUser } from '../lib
 import { sendPasswordResetEmail } from '../lib/mailer.js';
 import { writeAudit } from '../lib/audit.js';
 import { loginLimiter, forgotPasswordLimiter } from '../middleware/rateLimit.js';
+import { ah } from '../lib/asyncHandler.js';
 
 export const authRouter = Router();
 
-authRouter.post('/login', loginLimiter, async (req, res) => {
+authRouter.post('/login', loginLimiter, ah(async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   const password = String(req.body.password || '');
   if (!email || !password) return res.status(400).json({ ok: false, error: 'MISSING_FIELDS' });
@@ -29,13 +30,13 @@ authRouter.post('/login', loginLimiter, async (req, res) => {
   await writeAudit({ actorId: user.id, action: 'LOGIN', req });
 
   res.json({ ok: true, user: { id: user.id, email: user.email, role: user.role, county: user.county } });
-});
+}));
 
-authRouter.post('/logout', async (req, res) => {
+authRouter.post('/logout', ah(async (req, res) => {
   if (req.user) await writeAudit({ actorId: req.user.id, action: 'LOGOUT', req });
   await destroySession(req, res);
   res.json({ ok: true });
-});
+}));
 
 authRouter.get('/me', (req, res) => {
   if (!req.user) return res.status(401).json({ ok: false, error: 'NOT_AUTHENTICATED' });
@@ -43,7 +44,7 @@ authRouter.get('/me', (req, res) => {
   res.json({ ok: true, user: { id, email, role, county } });
 });
 
-authRouter.post('/activate/:token', async (req, res) => {
+authRouter.post('/activate/:token', ah(async (req, res) => {
   const password = String(req.body.password || '');
   if (!isPasswordAcceptable(password)) {
     return res.status(400).json({ ok: false, error: 'WEAK_PASSWORD', message: 'Password must be at least 10 characters.' });
@@ -60,9 +61,9 @@ authRouter.post('/activate/:token', async (req, res) => {
   await writeAudit({ actorId: user.id, action: 'ACCOUNT_ACTIVATED', req });
 
   res.json({ ok: true });
-});
+}));
 
-authRouter.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
+authRouter.post('/forgot-password', forgotPasswordLimiter, ah(async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   // Always the same response, whether or not the email matches an account
   // or the account is active -- prevents using this endpoint to enumerate
