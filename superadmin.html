@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+  Proprietary and confidential. See LICENSE in the repository root.
+  Unauthorized copying, modification, or distribution is prohibited.
+-->
+<meta charset="UTF-8">
+<title>ICT Authority — Super Admin</title>
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  .topbar{ width:100%; max-width:900px; display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .topbar .who{ font-size:12.5px; color:#666; }
+  .cap-indicator{ font-size:13px; font-weight:600; margin-bottom:12px; }
+  .cap-indicator.full{ color:var(--accent); }
+  .audit-back{ margin-bottom:12px; }
+  .audit-meta{ font-size:12px; color:#666; margin-bottom:2px; }
+</style>
+
+<div class="topbar">
+  <div><strong>ICT Authority — Super Admin</strong></div>
+  <div class="who">
+    <span id="whoEmail"></span>
+    <button id="logoutBtn" style="margin-left:10px;">Log out</button>
+  </div>
+</div>
+
+<div class="sheet wide" id="createPanel">
+  <h2 class="section">Create a county admin</h2>
+  <div class="cap-indicator" id="capIndicator"></div>
+  <div class="row">
+    <div>
+      <label for="newEmail">Admin email (Gmail)</label>
+      <input type="email" id="newEmail" placeholder="admin@example.com">
+    </div>
+    <div>
+      <label for="newCounty">County</label>
+      <select id="newCounty"><option value="">Select a county…</option></select>
+    </div>
+  </div>
+  <button class="primary" id="createBtn">Create admin &amp; send activation email</button>
+  <p class="error" id="createError" style="display:none;"></p>
+  <p class="notice ok" id="createSuccess" style="display:none;"></p>
+</div>
+
+<div class="sheet wide" id="listPanel">
+  <h2 class="section">County admins</h2>
+  <button id="refreshBtn">Refresh</button>
+  <div id="adminsWrap" style="margin-top:12px;"></div>
+</div>
+
+<div class="sheet wide" id="auditPanel" style="display:none;">
+  <button class="audit-back" id="auditBackBtn">&larr; Back to admin list</button>
+  <h2 class="section" id="auditTitle">Audit trail</h2>
+  <div id="auditWrap"></div>
+</div>
+
+<p class="footer-note">© 2026 Asya Hafidh. All rights reserved.</p>
+
+<script src="assets/api.js"></script>
+<script>
+(function(){
+  var whoEmail = document.getElementById('whoEmail');
+  var logoutBtn = document.getElementById('logoutBtn');
+  var listPanel = document.getElementById('listPanel');
+  var createPanel = document.getElementById('createPanel');
+  var auditPanel = document.getElementById('auditPanel');
+
+  function requireSession(){
+    return API.get('/api/auth/me').then(function(r){
+      if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return null; }
+      if(r.data.user.role !== 'SUPER_ADMIN'){ location.href = 'admin.html'; return null; }
+      whoEmail.textContent = r.data.user.email;
+      return r.data.user;
+    });
+  }
+
+  logoutBtn.addEventListener('click', function(){
+    API.post('/api/auth/logout').then(function(){ location.href = 'login.html'; });
+  });
+
+  // --- Create admin ---
+  var newEmail = document.getElementById('newEmail');
+  var newCounty = document.getElementById('newCounty');
+  var createBtn = document.getElementById('createBtn');
+  var createError = document.getElementById('createError');
+  var createSuccess = document.getElementById('createSuccess');
+  var capIndicator = document.getElementById('capIndicator');
+
+  var countiesLoaded = false;
+  function populateCounties(counties){
+    if(countiesLoaded) return;
+    countiesLoaded = true;
+    counties.forEach(function(c){
+      var opt = document.createElement('option');
+      opt.value = c; opt.textContent = c;
+      newCounty.appendChild(opt);
+    });
+  }
+
+  createBtn.addEventListener('click', function(){
+    var email = newEmail.value.trim().toLowerCase();
+    var county = newCounty.value;
+    createError.style.display = 'none';
+    createSuccess.style.display = 'none';
+    if(!email || !county){
+      createError.textContent = 'Enter an email and choose a county.';
+      createError.style.display = '';
+      return;
+    }
+
+    createBtn.disabled = true;
+    API.post('/api/superadmin/admins', { email: email, county: county }).then(function(r){
+      createBtn.disabled = false;
+      if(r.status === 200 && r.data.ok){
+        createSuccess.textContent = 'Admin created for ' + county + '. An activation email was sent to ' + email + '.';
+        createSuccess.style.display = '';
+        newEmail.value = ''; newCounty.value = '';
+        loadAdmins();
+        return;
+      }
+      if(r.data.error === 'COUNTY_CAP_REACHED'){
+        createError.textContent = 'The pilot cap of ' + r.data.cap + ' active county admins has been reached. Disable an existing admin to free a slot.';
+      } else if(r.data.error === 'EMAIL_IN_USE'){
+        createError.textContent = 'That email address is already registered.';
+      } else if(r.data.error === 'INVALID_COUNTY'){
+        createError.textContent = 'Choose a valid county.';
+      } else {
+        createError.textContent = r.data.message || 'Could not create admin.';
+      }
+      createError.style.display = '';
+    }).catch(function(){
+      createBtn.disabled = false;
+      createError.textContent = 'Network error — could not reach the backend.';
+      createError.style.display = '';
+    });
+  });
+
+  // --- Admin list ---
+  var adminsWrap = document.getElementById('adminsWrap');
+
+  function statusBadge(status){
+    var cls = status === 'ACTIVE' ? 'active' : status === 'PENDING' ? 'pending' : 'disabled';
+    return '<span class="badge ' + cls + '">' + status + '</span>';
+  }
+
+  function fmt(dt){ return dt ? new Date(dt).toLocaleString() : '—'; }
+
+  function loadAdmins(){
+    adminsWrap.innerHTML = '<p class="empty">Loading…</p>';
+    API.get('/api/superadmin/admins').then(function(r){
+      if(r.status !== 200 || !r.data.ok){
+        adminsWrap.innerHTML = '<p class="empty">Could not load admins.</p>';
+        return;
+      }
+      populateCounties(r.data.counties);
+      capIndicator.textContent = r.data.activeCount + ' / ' + r.data.cap + ' active county admin slots used';
+      capIndicator.className = 'cap-indicator' + (r.data.activeCount >= r.data.cap ? ' full' : '');
+      createBtn.disabled = r.data.activeCount >= r.data.cap;
+
+      if(r.data.admins.length === 0){
+        adminsWrap.innerHTML = '<p class="empty">No county admins created yet.</p>';
+        return;
+      }
+
+      var table = document.createElement('table');
+      table.innerHTML = '<thead><tr><th>Email</th><th>County</th><th>Status</th><th>Last login</th><th></th></tr></thead>';
+      var tbody = document.createElement('tbody');
+
+      r.data.admins.forEach(function(a){
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + a.email + '</td>' +
+          '<td>' + a.county + '</td>' +
+          '<td>' + statusBadge(a.status) + '</td>' +
+          '<td>' + fmt(a.lastLoginAt) + '</td>';
+
+        var actionsTd = document.createElement('td');
+        actionsTd.className = 'actions';
+
+        var auditBtn = document.createElement('button');
+        auditBtn.textContent = 'Audit trail';
+        auditBtn.addEventListener('click', function(){ showAudit(a.id, a.email); });
+        actionsTd.appendChild(auditBtn);
+
+        if(a.status === 'ACTIVE'){
+          var disableBtn = document.createElement('button');
+          disableBtn.textContent = 'Disable';
+          disableBtn.className = 'danger';
+          disableBtn.addEventListener('click', function(){ setAdminStatus(a.id, 'disable', disableBtn); });
+          actionsTd.appendChild(disableBtn);
+        } else if(a.status === 'DISABLED'){
+          var reactivateBtn = document.createElement('button');
+          reactivateBtn.textContent = 'Reactivate';
+          reactivateBtn.className = 'secondary';
+          reactivateBtn.addEventListener('click', function(){ setAdminStatus(a.id, 'reactivate', reactivateBtn); });
+          actionsTd.appendChild(reactivateBtn);
+        }
+
+        tr.appendChild(actionsTd);
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      adminsWrap.innerHTML = '';
+      adminsWrap.appendChild(table);
+    }).catch(function(){
+      adminsWrap.innerHTML = '<p class="empty">Network error — could not reach the backend.</p>';
+    });
+  }
+
+  function setAdminStatus(id, action, btn){
+    var verb = action === 'disable' ? 'disable' : 'reactivate';
+    if(!window.confirm('Are you sure you want to ' + verb + ' this admin?')) return;
+    btn.disabled = true;
+    API.post('/api/superadmin/admins/' + id + '/' + action).then(function(r){
+      if(!r.data.ok){
+        btn.disabled = false;
+        if(r.data.error === 'COUNTY_CAP_REACHED'){
+          window.alert('Cannot reactivate: the pilot cap of ' + r.data.cap + ' active admins has been reached.');
+        } else {
+          window.alert(r.data.message || 'Could not update admin.');
+        }
+        return;
+      }
+      loadAdmins();
+    }).catch(function(){
+      btn.disabled = false;
+      window.alert('Network error — could not reach the backend.');
+    });
+  }
+
+  document.getElementById('refreshBtn').addEventListener('click', loadAdmins);
+
+  // --- Audit trail drill-down ---
+  var auditWrap = document.getElementById('auditWrap');
+  var auditTitle = document.getElementById('auditTitle');
+
+  function renderEntries(entries){
+    if(entries.length === 0){
+      auditWrap.innerHTML = '<p class="empty">No activity recorded yet.</p>';
+      return;
+    }
+    var table = document.createElement('table');
+    table.innerHTML = '<thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Detail</th></tr></thead>';
+    var tbody = document.createElement('tbody');
+    entries.forEach(function(e){
+      var tr = document.createElement('tr');
+      var actor = e.actor ? (e.actor.email + ' (' + e.actor.role + (e.actor.county ? ', ' + e.actor.county : '') + ')') : e.actorId;
+      var detail = e.metadata ? JSON.stringify(e.metadata) : (e.targetType ? e.targetType + ' ' + e.targetId : '');
+      tr.innerHTML =
+        '<td>' + new Date(e.createdAt).toLocaleString() + '</td>' +
+        '<td>' + actor + '</td>' +
+        '<td>' + e.action + '</td>' +
+        '<td style="font-size:11px;color:#666;">' + detail + '</td>';
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    auditWrap.innerHTML = '';
+    auditWrap.appendChild(table);
+  }
+
+  function showAudit(adminId, email){
+    listPanel.style.display = 'none';
+    createPanel.style.display = 'none';
+    auditPanel.style.display = '';
+    auditTitle.textContent = 'Audit trail — ' + email;
+    auditWrap.innerHTML = '<p class="empty">Loading…</p>';
+    API.get('/api/superadmin/admins/' + adminId + '/audit').then(function(r){
+      if(r.status !== 200 || !r.data.ok){
+        auditWrap.innerHTML = '<p class="empty">Could not load audit trail.</p>';
+        return;
+      }
+      renderEntries(r.data.entries);
+    });
+  }
+
+  document.getElementById('auditBackBtn').addEventListener('click', function(){
+    auditPanel.style.display = 'none';
+    listPanel.style.display = '';
+    createPanel.style.display = '';
+  });
+
+  requireSession().then(function(user){
+    if(user) loadAdmins();
+  });
+})();
+</script>
