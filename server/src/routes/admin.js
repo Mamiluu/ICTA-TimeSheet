@@ -35,16 +35,16 @@ function requireFields(body) {
   return { name, date, location, missing };
 }
 
-adminRouter.get('/events', async (req, res) => {
+adminRouter.get('/events', ah(async (req, res) => {
   const events = await prisma.event.findMany({
     where: { county: req.user.county, deletedAt: null },
     orderBy: { createdAt: 'desc' },
     include: { _count: { select: { attendance: true } } }
   });
   res.json({ ok: true, events: events.map((ev) => publicEvent(ev, ev._count.attendance)) });
-});
+}));
 
-adminRouter.post('/events', async (req, res) => {
+adminRouter.post('/events', ah(async (req, res) => {
   const { name, date, location, missing } = requireFields(req.body);
   if (missing.length) {
     return res.status(400).json({ ok: false, error: 'MISSING_FIELDS', message: `Please fill in ${missing.join(', ')}.` });
@@ -56,7 +56,7 @@ adminRouter.post('/events', async (req, res) => {
   await writeAudit({ actorId: req.user.id, action: 'EVENT_CREATE', targetType: 'Event', targetId: event.id, metadata: { name, date, location }, req });
 
   res.json({ ok: true, event: publicEvent(event, 0) });
-});
+}));
 
 // Looks up the event scoped to the caller's own county and returns 404 (not
 // 403) when it belongs to a different county, so a county admin can't use
@@ -67,7 +67,7 @@ async function findOwnEvent(req) {
   return event;
 }
 
-adminRouter.put('/events/:id', async (req, res) => {
+adminRouter.put('/events/:id', ah(async (req, res) => {
   const event = await findOwnEvent(req);
   if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
 
@@ -88,9 +88,9 @@ adminRouter.put('/events/:id', async (req, res) => {
   });
 
   res.json({ ok: true, event: publicEvent(updated) });
-});
+}));
 
-adminRouter.delete('/events/:id', async (req, res) => {
+adminRouter.delete('/events/:id', ah(async (req, res) => {
   const event = await findOwnEvent(req);
   if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
 
