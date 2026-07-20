@@ -171,8 +171,8 @@
       r.data.admins.forEach(function(a){
         var tr = document.createElement('tr');
         tr.innerHTML =
-          '<td>' + a.email + '</td>' +
-          '<td>' + a.county + '</td>' +
+          '<td>' + escapeHtml(a.email) + '</td>' +
+          '<td>' + escapeHtml(a.county) + '</td>' +
           '<td>' + statusBadge(a.status) + '</td>' +
           '<td>' + fmt(a.lastLoginAt) + '</td>';
 
@@ -250,10 +250,10 @@
       var actor = e.actor ? (e.actor.email + ' (' + e.actor.role + (e.actor.county ? ', ' + e.actor.county : '') + ')') : e.actorId;
       var detail = e.metadata ? JSON.stringify(e.metadata) : (e.targetType ? e.targetType + ' ' + e.targetId : '');
       tr.innerHTML =
-        '<td>' + new Date(e.createdAt).toLocaleString() + '</td>' +
-        '<td>' + actor + '</td>' +
-        '<td>' + e.action + '</td>' +
-        '<td style="font-size:11px;color:#666;">' + detail + '</td>';
+        '<td>' + escapeHtml(new Date(e.createdAt).toLocaleString()) + '</td>' +
+        '<td>' + escapeHtml(actor) + '</td>' +
+        '<td>' + escapeHtml(e.action) + '</td>' +
+        '<td style="font-size:11px;color:#666;">' + escapeHtml(detail) + '</td>';
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
