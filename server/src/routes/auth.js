@@ -78,9 +78,9 @@ authRouter.post('/forgot-password', forgotPasswordLimiter, ah(async (req, res) =
     }
   }
   res.json({ ok: true, message: 'If that email has an account, a reset link is on its way.' });
-});
+}));
 
-authRouter.post('/reset-password/:token', async (req, res) => {
+authRouter.post('/reset-password/:token', ah(async (req, res) => {
   const password = String(req.body.password || '');
   if (!isPasswordAcceptable(password)) {
     return res.status(400).json({ ok: false, error: 'WEAK_PASSWORD', message: 'Password must be at least 10 characters.' });
@@ -98,4 +98,4 @@ authRouter.post('/reset-password/:token', async (req, res) => {
   await writeAudit({ actorId: result.userId, action: 'PASSWORD_RESET_COMPLETED', req });
 
   res.json({ ok: true });
-});
+}));
