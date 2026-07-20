@@ -1,0 +1,132 @@
+// Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+// Proprietary and confidential. See LICENSE in the repository root.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  COUNTY_ADMIN
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  DISABLED
+}
+
+enum TokenType {
+  ACTIVATION
+  PASSWORD_RESET
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String?
+  role         Role
+  county       String?
+  status       UserStatus @default(PENDING)
+
+  createdById  String?
+  createdBy    User?      @relation("CreatedAdmins", fields: [createdById], references: [id])
+  createdAdmins User[]    @relation("CreatedAdmins")
+
+  createdAt    DateTime   @default(now())
+  disabledAt   DateTime?
+  lastLoginAt  DateTime?
+
+  tokens       AuthToken[]
+  sessions     Session[]
+  events       Event[]     @relation("EventOwner")
+  auditEntries AuditLog[]  @relation("Actor")
+
+  @@index([role, status])
+  @@index([county])
+}
+
+model AuthToken {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       TokenType
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, type])
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  ip        String?
+  userAgent String?
+
+  @@index([userId])
+}
+
+model Event {
+  id        String    @id @default(uuid())
+  slug      String    @unique
+  name      String
+  date      String
+  location  String
+  county    String
+  ownerId   String
+  owner     User      @relation("EventOwner", fields: [ownerId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  attendance Attendance[]
+
+  @@index([county])
+  @@index([ownerId])
+}
+
+model Attendance {
+  id              String   @id @default(uuid())
+  eventId         String
+  event           Event    @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  clientId        String
+  name            String
+  organization    String?
+  email           String?
+  emailNormalized String?
+  phone           String
+  phoneNormalized String
+  signature       String
+  createdAt       DateTime @default(now())
+
+  @@unique([eventId, clientId])
+  @@unique([eventId, phoneNormalized])
+  @@unique([eventId, emailNormalized])
+  @@index([eventId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String
+  actor      User     @relation("Actor", fields: [actorId], references: [id])
+  action     String
+  targetType String?
+  targetId   String?
+  metadata   Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId])
+}
