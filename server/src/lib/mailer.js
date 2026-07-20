@@ -11,6 +11,11 @@ function getTransporter() {
     host: 'smtp.gmail.com',
     port: 465,
     secure: true,
+    // Force IPv4: smtp.gmail.com is dual-stack, and several hosts (Render's
+    // free tier included) resolve/prefer its IPv6 address but have no
+    // outbound IPv6 route, which fails with ENETUNREACH before ever trying
+    // IPv4. Pinning family:4 skips the unreachable address entirely.
+    family: 4,
     auth: {
       user: process.env.GMAIL_SENDER_ADDRESS,
       pass: process.env.GMAIL_APP_PASSWORD
