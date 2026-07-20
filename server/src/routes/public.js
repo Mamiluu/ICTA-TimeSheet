@@ -6,6 +6,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { normalizePhone, normalizeEmail } from '../lib/normalize.js';
 import { attendanceLimiter } from '../middleware/rateLimit.js';
+import { ah } from '../lib/asyncHandler.js';
 
 export const publicRouter = Router();
 
@@ -21,7 +22,7 @@ function publicRow(r) {
   };
 }
 
-publicRouter.get('/events/:slug', async (req, res) => {
+publicRouter.get('/events/:slug', ah(async (req, res) => {
   const event = await prisma.event.findUnique({
     where: { slug: req.params.slug },
     include: { attendance: { orderBy: { createdAt: 'asc' } } }
@@ -33,9 +34,9 @@ publicRouter.get('/events/:slug', async (req, res) => {
     event: { id: event.slug, name: event.name, date: event.date, location: event.location },
     rows: event.attendance.map(publicRow)
   });
-});
+}));
 
-publicRouter.post('/events/:slug/attendance', attendanceLimiter, async (req, res) => {
+publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, res) => {
   const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
   if (!event || event.deletedAt) return res.json({ ok: false, error: 'Unknown event' });
 

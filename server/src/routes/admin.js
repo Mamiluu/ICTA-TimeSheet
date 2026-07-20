@@ -101,9 +101,9 @@ adminRouter.delete('/events/:id', ah(async (req, res) => {
   await writeAudit({ actorId: req.user.id, action: 'EVENT_DELETE', targetType: 'Event', targetId: event.id, metadata: { name: event.name }, req });
 
   res.json({ ok: true });
-});
+}));
 
-adminRouter.get('/audit', async (req, res) => {
+adminRouter.get('/audit', ah(async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize, 10) || 25));
 
@@ -118,4 +118,4 @@ adminRouter.get('/audit', async (req, res) => {
   ]);
 
   res.json({ ok: true, entries, total, page, pageSize });
-});
+}));
