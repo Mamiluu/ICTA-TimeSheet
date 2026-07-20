@@ -569,9 +569,9 @@
         var tr = document.createElement('tr');
         var detail = e.metadata ? JSON.stringify(e.metadata) : (e.targetType ? e.targetType + ' ' + e.targetId : '');
         tr.innerHTML =
-          '<td>' + new Date(e.createdAt).toLocaleString() + '</td>' +
-          '<td>' + e.action + '</td>' +
-          '<td style="font-size:11px;color:#666;">' + detail + '</td>';
+          '<td>' + escapeHtml(new Date(e.createdAt).toLocaleString()) + '</td>' +
+          '<td>' + escapeHtml(e.action) + '</td>' +
+          '<td style="font-size:11px;color:#666;">' + escapeHtml(detail) + '</td>';
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
