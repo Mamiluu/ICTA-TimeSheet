@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+  Proprietary and confidential. See LICENSE in the repository root.
+  Unauthorized copying, modification, or distribution is prohibited.
+-->
+<meta charset="UTF-8">
+<title>ICT Authority — Activate Account</title>
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  body{ justify-content:center; min-height:100vh; }
+</style>
+
+<div class="sheet" id="formPanel">
+  <h1 class="title">Activate your admin account</h1>
+  <p class="sub">Choose the password you'll use to log in from now on.</p>
+
+  <label for="password">New password</label>
+  <input type="password" id="password" autocomplete="new-password" placeholder="At least 10 characters">
+
+  <label for="confirm">Confirm password</label>
+  <input type="password" id="confirm" autocomplete="new-password" placeholder="Re-enter password">
+
+  <button class="primary" id="activateBtn" style="width:100%;">Activate account</button>
+  <p class="error" id="formError" style="display:none;"></p>
+</div>
+
+<div class="sheet" id="successPanel" style="display:none;">
+  <h1 class="title">Account activated</h1>
+  <p class="sub">Your password has been set. You can now log in.</p>
+  <button class="primary" id="goLoginBtn" style="width:100%;">Go to login</button>
+</div>
+
+<div class="sheet" id="invalidPanel" style="display:none;">
+  <h1 class="title">This link no longer works</h1>
+  <p class="sub" id="invalidReason">This activation link has already been used or has expired. Ask the super admin to send you a new invite.</p>
+</div>
+
+<p class="footer-note">© 2026 Asya Hafidh. All rights reserved.</p>
+
+<script src="assets/api.js"></script>
+<script>
+(function(){
+  var params = new URLSearchParams(location.search);
+  var token = params.get('token');
+
+  var formPanel = document.getElementById('formPanel');
+  var successPanel = document.getElementById('successPanel');
+  var invalidPanel = document.getElementById('invalidPanel');
+  var invalidReason = document.getElementById('invalidReason');
+
+  function showInvalid(message){
+    formPanel.style.display = 'none';
+    invalidPanel.style.display = '';
+    if(message) invalidReason.textContent = message;
+  }
+
+  if(!token){
+    showInvalid('No activation token was provided in this link.');
+    return;
+  }
+
+  var password = document.getElementById('password');
+  var confirm = document.getElementById('confirm');
+  var activateBtn = document.getElementById('activateBtn');
+  var formError = document.getElementById('formError');
+
+  function submit(){
+    formError.style.display = 'none';
+    if(password.value.length < 10){
+      formError.textContent = 'Password must be at least 10 characters.';
+      formError.style.display = '';
+      return;
+    }
+    if(password.value !== confirm.value){
+      formError.textContent = 'Passwords do not match.';
+      formError.style.display = '';
+      return;
+    }
+
+    activateBtn.disabled = true;
+    API.post('/api/auth/activate/' + encodeURIComponent(token), { password: password.value }).then(function(r){
+      if(r.status === 200 && r.data.ok){
+        formPanel.style.display = 'none';
+        successPanel.style.display = '';
+        return;
+      }
+      activateBtn.disabled = false;
+      if(r.data.error === 'ALREADY_USED' || r.data.error === 'EXPIRED_TOKEN' || r.data.error === 'INVALID_TOKEN'){
+        showInvalid(r.data.error === 'EXPIRED_TOKEN'
+          ? 'This activation link has expired. Ask the super admin to send you a new invite.'
+          : 'This activation link has already been used or is invalid. Ask the super admin to send you a new invite.');
+        return;
+      }
+      formError.textContent = r.data.message || 'Could not activate your account.';
+      formError.style.display = '';
+    }).catch(function(){
+      activateBtn.disabled = false;
+      formError.textContent = 'Network error — could not reach the backend.';
+      formError.style.display = '';
+    });
+  }
+
+  activateBtn.addEventListener('click', submit);
+  confirm.addEventListener('keydown', function(e){ if(e.key === 'Enter') submit(); });
+  document.getElementById('goLoginBtn').addEventListener('click', function(){ location.href = 'login.html'; });
+})();
+</script>
