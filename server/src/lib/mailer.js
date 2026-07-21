@@ -1,47 +1,41 @@
 // Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
 // Proprietary and confidential. See LICENSE in the repository root.
 
-import nodemailer from 'nodemailer';
-import dns from 'node:dns';
-import { promisify } from 'node:util';
+// Sent over Brevo's HTTPS API rather than SMTP. Render's free web services
+// block all outbound traffic on the SMTP ports (25/465/587) as an
+// anti-abuse measure -- see
+// https://render.com/changelog/free-web-services-will-no-longer-allow-outbound-traffic-to-smtp-ports
+// -- so nodemailer-over-SMTP can never connect from this deployment no
+// matter how it's configured. HTTPS on 443 isn't affected, which is what
+// every transactional-email API rides on.
+const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email';
 
-const lookup4 = promisify(dns.lookup);
+async function sendViaBrevo({ to, subject, html }) {
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) throw new Error('BREVO_API_KEY is not configured');
 
-const SMTP_HOST = 'smtp.gmail.com';
-const SMTP_PORT = 465;
-
-// nodemailer >=7 resolves the SMTP hostname itself (lib/shared/index.js
-// resolveHostname) and picks a *random* address out of the combined
-// A+AAAA record set -- the transport's `family` option is never consulted
-// there, it only reaches net.connect/tls.connect, which is a no-op once
-// the host has already been replaced with a literal IP. So on a host with
-// no outbound IPv6 route (Render's free tier included), roughly half of
-// all connection attempts picked smtp.gmail.com's AAAA record and failed
-// with ENETUNREACH -- intermittently, since it depends on which address
-// nodemailer's RNG picked that time.
-//
-// Resolving to a literal IPv4 address ourselves sidesteps nodemailer's
-// resolver entirely: it only resolves hostnames, and skips straight
-// through when `host` is already an IP (see the net.isIP check at the top
-// of resolveHostname). `tls.servername` keeps SNI and certificate
-// hostname validation pointed at the real name. Resolved fresh per call
-// (not cached) since Google rotates these addresses.
-async function createTransporter() {
-  const { address } = await lookup4(SMTP_HOST, { family: 4 });
-  return nodemailer.createTransport({
-    host: address,
-    port: SMTP_PORT,
-    secure: true,
-    tls: { servername: SMTP_HOST },
-    auth: {
-      user: process.env.GMAIL_SENDER_ADDRESS,
-      pass: process.env.GMAIL_APP_PASSWORD
-    }
+  const res = await fetch(BREVO_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'api-key': apiKey,
+      'Content-Type': 'application/json',
+      Accept: 'application/json'
+    },
+    body: JSON.stringify({
+      sender: { name: 'ICT Authority — Event Attendance', email: process.env.GMAIL_SENDER_ADDRESS },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html
+    })
   });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Brevo send failed (${res.status}): ${body}`);
+  }
 }
 
 const BRAND = {
-  from: () => `"ICT Authority — Event Attendance" <${process.env.GMAIL_SENDER_ADDRESS}>`,
   accent: '#c8102e'
 };
 
@@ -56,10 +50,10 @@ function wrapHtml(bodyHtml) {
 </body></html>`;
 }
 
-// Local/dev convenience: when GMAIL_APP_PASSWORD isn't configured for real
-// SMTP delivery (e.g. running against a scratch DB with no mail account
-// set up yet), print the link instead of only logging a send failure --
-// lets the activation/reset flow be exercised end-to-end without email.
+// Local/dev convenience: when BREVO_API_KEY isn't configured for real
+// delivery (e.g. running against a scratch DB with no mail account set up
+// yet), print the link instead of only logging a send failure -- lets the
+// activation/reset flow be exercised end-to-end without email.
 function devLogLink(label, url) {
   if (process.env.NODE_ENV !== 'production') {
     console.log(`[dev] ${label}: ${url}`);
@@ -74,13 +68,7 @@ export async function sendActivationEmail(toEmail, activateUrl, county) {
     <p style="margin:22px 0;"><a href="${activateUrl}" style="background:${BRAND.accent};color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Activate your account</a></p>
     <p style="font-size:11.5px;color:#888;">If the button doesn't work, copy this link: ${activateUrl}</p>
   `);
-  const transporter = await createTransporter();
-  await transporter.sendMail({
-    from: BRAND.from(),
-    to: toEmail,
-    subject: 'Activate your ICT Authority admin account',
-    html
-  });
+  await sendViaBrevo({ to: toEmail, subject: 'Activate your ICT Authority admin account', html });
 }
 
 export async function sendPasswordResetEmail(toEmail, resetUrl) {
@@ -91,11 +79,5 @@ export async function sendPasswordResetEmail(toEmail, resetUrl) {
     <p style="font-size:11.5px;color:#888;">If you didn't request this, you can safely ignore this email — your password will not change.</p>
     <p style="font-size:11.5px;color:#888;">If the button doesn't work, copy this link: ${resetUrl}</p>
   `);
-  const transporter = await createTransporter();
-  await transporter.sendMail({
-    from: BRAND.from(),
-    to: toEmail,
-    subject: 'Reset your ICT Authority admin password',
-    html
-  });
+  await sendViaBrevo({ to: toEmail, subject: 'Reset your ICT Authority admin password', html });
 }
