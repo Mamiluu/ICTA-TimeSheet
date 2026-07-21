@@ -97,6 +97,26 @@ superadminRouter.post('/admins', ah(async (req, res) => {
   res.json({ ok: true, admin: publicAdmin(admin) });
 }));
 
+// Fallback delivery path: activation email is best-effort (see
+// sendActivationEmailBestEffort above) and email deliverability for a
+// pilot with no verified sending domain is inherently unreliable, so this
+// lets a super admin hand the link to a pending admin directly (WhatsApp,
+// SMS, in person) instead of waiting on email. Issues a fresh token rather
+// than trying to recover the original -- only its hash is ever persisted
+// (see lib/tokens.js), so the raw value from account-creation time is
+// already gone.
+superadminRouter.post('/admins/:id/activation-link', ah(async (req, res) => {
+  const admin = await prisma.user.findUnique({ where: { id: req.params.id } });
+  if (!admin || admin.role !== 'COUNTY_ADMIN') return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  if (admin.status !== 'PENDING') return res.status(409).json({ ok: false, error: 'NOT_PENDING' });
+
+  const raw = await issueToken(admin.id, 'ACTIVATION');
+  const activateUrl = `${process.env.PUBLIC_APP_URL}/activate.html?token=${encodeURIComponent(raw)}`;
+  await writeAudit({ actorId: req.user.id, action: 'ADMIN_ACTIVATION_LINK_VIEWED', targetType: 'User', targetId: admin.id, req });
+
+  res.json({ ok: true, url: activateUrl });
+}));
+
 superadminRouter.post('/admins/:id/disable', ah(async (req, res) => {
   const admin = await prisma.user.findUnique({ where: { id: req.params.id } });
   if (!admin || admin.role !== 'COUNTY_ADMIN') return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
