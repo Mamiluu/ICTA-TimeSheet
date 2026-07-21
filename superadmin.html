@@ -184,6 +184,13 @@
         auditBtn.addEventListener('click', function(){ showAudit(a.id, a.email); });
         actionsTd.appendChild(auditBtn);
 
+        if(a.status === 'PENDING'){
+          var copyLinkBtn = document.createElement('button');
+          copyLinkBtn.textContent = 'Copy activation link';
+          copyLinkBtn.addEventListener('click', function(){ copyActivationLink(a.id, copyLinkBtn); });
+          actionsTd.appendChild(copyLinkBtn);
+        }
+
         if(a.status === 'ACTIVE'){
           var disableBtn = document.createElement('button');
           disableBtn.textContent = 'Disable';
@@ -233,6 +240,27 @@
         return;
       }
       loadAdmins();
+    }).catch(function(){
+      btn.disabled = false;
+      window.alert('Network error — could not reach the backend.');
+    });
+  }
+
+  function copyActivationLink(id, btn){
+    var originalText = btn.textContent;
+    btn.disabled = true;
+    API.post('/api/superadmin/admins/' + id + '/activation-link').then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){
+        window.alert(r.data.message || 'Could not generate an activation link.');
+        return;
+      }
+      navigator.clipboard.writeText(r.data.url).then(function(){
+        btn.textContent = 'Copied!';
+        setTimeout(function(){ btn.textContent = originalText; }, 2000);
+      }).catch(function(){
+        window.prompt('Copy this activation link:', r.data.url);
+      });
     }).catch(function(){
       btn.disabled = false;
       window.alert('Network error — could not reach the backend.');
