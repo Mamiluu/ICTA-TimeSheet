@@ -2,26 +2,42 @@
 // Proprietary and confidential. See LICENSE in the repository root.
 
 import nodemailer from 'nodemailer';
+import dns from 'node:dns';
+import { promisify } from 'node:util';
 
-let transporter = null;
+const lookup4 = promisify(dns.lookup);
 
-function getTransporter() {
-  if (transporter) return transporter;
-  transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
+const SMTP_HOST = 'smtp.gmail.com';
+const SMTP_PORT = 465;
+
+// nodemailer >=7 resolves the SMTP hostname itself (lib/shared/index.js
+// resolveHostname) and picks a *random* address out of the combined
+// A+AAAA record set -- the transport's `family` option is never consulted
+// there, it only reaches net.connect/tls.connect, which is a no-op once
+// the host has already been replaced with a literal IP. So on a host with
+// no outbound IPv6 route (Render's free tier included), roughly half of
+// all connection attempts picked smtp.gmail.com's AAAA record and failed
+// with ENETUNREACH -- intermittently, since it depends on which address
+// nodemailer's RNG picked that time.
+//
+// Resolving to a literal IPv4 address ourselves sidesteps nodemailer's
+// resolver entirely: it only resolves hostnames, and skips straight
+// through when `host` is already an IP (see the net.isIP check at the top
+// of resolveHostname). `tls.servername` keeps SNI and certificate
+// hostname validation pointed at the real name. Resolved fresh per call
+// (not cached) since Google rotates these addresses.
+async function createTransporter() {
+  const { address } = await lookup4(SMTP_HOST, { family: 4 });
+  return nodemailer.createTransport({
+    host: address,
+    port: SMTP_PORT,
     secure: true,
-    // Force IPv4: smtp.gmail.com is dual-stack, and several hosts (Render's
-    // free tier included) resolve/prefer its IPv6 address but have no
-    // outbound IPv6 route, which fails with ENETUNREACH before ever trying
-    // IPv4. Pinning family:4 skips the unreachable address entirely.
-    family: 4,
+    tls: { servername: SMTP_HOST },
     auth: {
       user: process.env.GMAIL_SENDER_ADDRESS,
       pass: process.env.GMAIL_APP_PASSWORD
     }
   });
-  return transporter;
 }
 
 const BRAND = {
@@ -58,7 +74,8 @@ export async function sendActivationEmail(toEmail, activateUrl, county) {
     <p style="margin:22px 0;"><a href="${activateUrl}" style="background:${BRAND.accent};color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Activate your account</a></p>
     <p style="font-size:11.5px;color:#888;">If the button doesn't work, copy this link: ${activateUrl}</p>
   `);
-  await getTransporter().sendMail({
+  const transporter = await createTransporter();
+  await transporter.sendMail({
     from: BRAND.from(),
     to: toEmail,
     subject: 'Activate your ICT Authority admin account',
@@ -74,7 +91,8 @@ export async function sendPasswordResetEmail(toEmail, resetUrl) {
     <p style="font-size:11.5px;color:#888;">If you didn't request this, you can safely ignore this email — your password will not change.</p>
     <p style="font-size:11.5px;color:#888;">If the button doesn't work, copy this link: ${resetUrl}</p>
   `);
-  await getTransporter().sendMail({
+  const transporter = await createTransporter();
+  await transporter.sendMail({
     from: BRAND.from(),
     to: toEmail,
     subject: 'Reset your ICT Authority admin password',
