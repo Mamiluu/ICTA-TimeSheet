@@ -198,6 +198,14 @@
           actionsTd.appendChild(reactivateBtn);
         }
 
+        if(a.status !== 'ACTIVE'){
+          var deleteBtn = document.createElement('button');
+          deleteBtn.textContent = 'Delete';
+          deleteBtn.className = 'danger';
+          deleteBtn.addEventListener('click', function(){ deleteAdmin(a.id, a.email, deleteBtn); });
+          actionsTd.appendChild(deleteBtn);
+        }
+
         tr.appendChild(actionsTd);
         tbody.appendChild(tr);
       });
@@ -221,6 +229,28 @@
           window.alert('Cannot reactivate: the pilot cap of ' + r.data.cap + ' active admins has been reached.');
         } else {
           window.alert(r.data.message || 'Could not update admin.');
+        }
+        return;
+      }
+      loadAdmins();
+    }).catch(function(){
+      btn.disabled = false;
+      window.alert('Network error — could not reach the backend.');
+    });
+  }
+
+  function deleteAdmin(id, email, btn){
+    if(!window.confirm('Permanently delete ' + email + '? This cannot be undone and frees up the email to be reused.')) return;
+    btn.disabled = true;
+    API.del('/api/superadmin/admins/' + id).then(function(r){
+      if(!r.data.ok){
+        btn.disabled = false;
+        if(r.data.error === 'MUST_DISABLE_FIRST'){
+          window.alert('Disable this admin before deleting it.');
+        } else if(r.data.error === 'HAS_ACTIVITY'){
+          window.alert('Cannot delete: this admin has activity history (logins, events). Keep it disabled instead.');
+        } else {
+          window.alert(r.data.message || 'Could not delete admin.');
         }
         return;
       }

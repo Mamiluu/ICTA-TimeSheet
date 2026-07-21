@@ -143,6 +143,33 @@ superadminRouter.post('/admins/:id/reactivate', ah(async (req, res) => {
   res.json({ ok: true, admin: publicAdmin(updated) });
 }));
 
+// Hard delete -- unlike disable, this removes the row entirely so the
+// email address can be reused. Restricted to PENDING/DISABLED admins:
+// an ACTIVE admin must be disabled first, which also revokes sessions
+// and gives a deliberate extra step before a destructive action.
+// AuthToken/Session rows cascade via the schema; AuditLog.actorId and
+// Event.ownerId do not, so if this admin ever logged in or owned an
+// event the DB will reject the delete with a foreign-key violation --
+// surfaced below as HAS_ACTIVITY rather than a raw 500.
+superadminRouter.delete('/admins/:id', ah(async (req, res) => {
+  const admin = await prisma.user.findUnique({ where: { id: req.params.id } });
+  if (!admin || admin.role !== 'COUNTY_ADMIN') return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  if (admin.status === 'ACTIVE') return res.status(409).json({ ok: false, error: 'MUST_DISABLE_FIRST' });
+
+  await writeAudit({ actorId: req.user.id, action: 'ADMIN_DELETE', targetType: 'User', targetId: admin.id, metadata: { email: admin.email, county: admin.county }, req });
+
+  try {
+    await prisma.user.delete({ where: { id: admin.id } });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
+      return res.status(409).json({ ok: false, error: 'HAS_ACTIVITY' });
+    }
+    throw err;
+  }
+
+  res.json({ ok: true });
+}));
+
 async function pagedAudit(where, req, res) {
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize, 10) || 25));
