@@ -336,8 +336,6 @@
 <div class="toolbar">
   <button class="primary" id="addRowBtn">+ Add another row (admin)</button>
   <button class="secondary" id="refreshBtn">Refresh</button>
-  <button id="exportCsvBtn">Export CSV</button>
-  <button id="printBtn">Print / Save as PDF</button>
   <button id="resetBtn">Reset Sheet</button>
 </div>
 <div class="hint">A blank row is ready below, fill it in and tap ✓ to submit, same as signing the paper sheet. Tap the SIGN cell to draw a signature. Made a mistake after submitting? Tap Edit on your row to fix it. <span id="submittedCount"></span></div>
@@ -366,9 +364,19 @@
 
   // Ordinary visitors always get exactly one ready-to-fill row — like the
   // next open line on a paper sheet — with no button needed. Bulk-adding
-  // extra rows (e.g. an organizer entering people on their behalf) is an
-  // admin-only action, unlocked by opening the page with ?admin=1 in the URL.
-  var isAdmin = /(?:^|[?&])admin=1(?:&|$)/.test(location.search);
+  // extra rows (e.g. an organizer entering people on their behalf) and
+  // clearing local drafts are kiosk-management conveniences reserved for
+  // whoever actually manages this event. That used to be gated by a
+  // guessable ?admin=1 URL flag -- anyone could type that in. It's now
+  // driven by canManage in the /api/events/:slug response, which the
+  // server only sets to true for a session belonging to this event's own
+  // county admin (or a super admin) -- see canManageEvent in public.js.
+  // Starts false and flips on (if at all) once loadRemote() confirms it.
+  var isAdmin = false;
+  // Export/print live exclusively in the authenticated admin dashboard now
+  // (see admin.html + GET /api/admin/events/:id/attendance), so every
+  // download of personal data -- name, phone, email, signature -- gets an
+  // audit trail. This page never offers those buttons at all, for anyone.
 
   // Every event run anywhere in the country is the same page, distinguished
   // only by ?event=<id> in the URL — that id is what scopes local storage
@@ -402,14 +410,12 @@
   var rosterBody = document.getElementById('rosterBody');
   var submittedCount = document.getElementById('submittedCount');
   var addRowBtn = document.getElementById('addRowBtn');
-  if(addRowBtn) addRowBtn.style.display = isAdmin ? '' : 'none';
-  // Export/print/reset operate on the whole shared roster, not just one
-  // visitor's own entry -- an ordinary attendee has no reason to hold
-  // those, only the organizer running the device (?admin=1).
-  ['exportCsvBtn', 'printBtn', 'resetBtn'].forEach(function(id){
-    var btn = document.getElementById(id);
-    if(btn) btn.style.display = isAdmin ? '' : 'none';
-  });
+  var resetBtn = document.getElementById('resetBtn');
+  function applyAdminVisibility(){
+    if(addRowBtn) addRowBtn.style.display = isAdmin ? '' : 'none';
+    if(resetBtn) resetBtn.style.display = isAdmin ? '' : 'none';
+  }
+  applyAdminVisibility();
   var eventDetailsDisplay = document.getElementById('eventDetailsDisplay');
   var eventDateDisplay = document.getElementById('eventDateDisplay');
   var eventLocationDisplay = document.getElementById('eventLocationDisplay');
@@ -863,6 +869,8 @@
         if(!Array.isArray(data.rows)) return;
         state.meta = data.event || state.meta;
         if(data.capacity) capacity = data.capacity;
+        isAdmin = !!data.canManage;
+        applyAdminVisibility();
         applyEventMeta();
         // The sheet is the source of truth for submitted rows: fully replace
         // our cached copy with it each time, so edits/deletes made directly
@@ -898,8 +906,22 @@
         ensureDraftRow();
         save();
         render();
+        triggerAutoPrintOnce();
       })
       .catch(function(){ /* offline — keep showing last known state */ });
+  }
+
+  // The admin dashboard's Print action (see admin.html) opens this exact
+  // page with &print=1 rather than duplicating the letterhead/roster
+  // markup and print stylesheet a second time elsewhere -- it just waits
+  // for the real data to render, then hands off to the browser's native
+  // print dialog, same as tapping Ctrl+P here would do.
+  var autoPrintRequested = /(?:^|[?&])print=1(?:&|$)/.test(location.search);
+  var autoPrintDone = false;
+  function triggerAutoPrintOnce(){
+    if(!autoPrintRequested || autoPrintDone) return;
+    autoPrintDone = true;
+    setTimeout(function(){ window.print(); }, 150);
   }
 
   document.getElementById('addRowBtn').addEventListener('click', function(){
@@ -921,31 +943,6 @@
 
   var refreshBtn = document.getElementById('refreshBtn');
   if(refreshBtn) refreshBtn.addEventListener('click', loadRemote);
-
-  document.getElementById('printBtn').addEventListener('click', function(){
-    window.print();
-  });
-
-  document.getElementById('exportCsvBtn').addEventListener('click', function(){
-    var lines = [['#','Name','Organization','Email','Phone'].join(',')];
-    state.rows.forEach(function(row, idx){
-      var vals = [idx+1, row.name, row.org, row.email, row.phone].map(function(v){
-        var s = String(v == null ? '' : v);
-        if(/[",\n]/.test(s)) s = '"' + s.replace(/"/g,'""') + '"';
-        return s;
-      });
-      lines.push(vals.join(','));
-    });
-    var blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8;' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'attendance-sheet.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  });
 
   // --- Signature modal ---
   var backdrop = document.getElementById('sigBackdrop');

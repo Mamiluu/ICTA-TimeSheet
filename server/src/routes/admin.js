@@ -103,6 +103,44 @@ adminRouter.delete('/events/:id', ah(async (req, res) => {
   res.json({ ok: true });
 }));
 
+function attendanceRow(r) {
+  return {
+    id: r.id,
+    timestamp: r.createdAt,
+    name: r.name,
+    org: r.organization,
+    email: r.email,
+    phone: r.phone,
+    signature: r.signature
+  };
+}
+
+// The one path an admin's own printing/exporting is meant to go through
+// (see index.html's ?admin=1 removal) -- name, phone, email, and a drawn
+// signature are personal data, so pulling the full roster for a local
+// download is logged just like every other admin action in this app, not
+// treated as a free read just because the sheet itself is publicly
+// viewable at the venue.
+adminRouter.get('/events/:id/attendance', ah(async (req, res) => {
+  const event = await findOwnEvent(req);
+  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+  const attendance = await prisma.attendance.findMany({
+    where: { eventId: event.id },
+    orderBy: { createdAt: 'asc' }
+  });
+  await writeAudit({
+    actorId: req.user.id,
+    action: 'EVENT_ATTENDANCE_EXPORTED',
+    targetType: 'Event',
+    targetId: event.id,
+    metadata: { name: event.name, rowCount: attendance.length },
+    req
+  });
+
+  res.json({ ok: true, event: publicEvent(event), rows: attendance.map(attendanceRow) });
+}));
+
 adminRouter.get('/audit', ah(async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize, 10) || 25));

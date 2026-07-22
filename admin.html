@@ -410,8 +410,21 @@
         var renameBtn = document.createElement('button');
         renameBtn.textContent = 'Rename';
         renameBtn.addEventListener('click', function(){
-          enterEditMode(ev, actionsTd, nameTd, dateTd, locationTd, renameBtn, openBtn, copyBtn, deleteBtn);
+          enterEditMode(ev, actionsTd, nameTd, dateTd, locationTd, renameBtn, openBtn, copyBtn, exportBtn, printBtn, deleteBtn);
         });
+
+        // Export/print are the only place personal data (name, phone,
+        // email, a drawn signature) leaves the shared sheet as a file or
+        // printout -- both go through the audited endpoint below rather
+        // than reading the on-screen roster, so there's a record of who
+        // pulled the full attendee list and when.
+        var exportBtn = document.createElement('button');
+        exportBtn.textContent = 'Export CSV';
+        exportBtn.addEventListener('click', function(){ exportEventCsv(ev, exportBtn); });
+
+        var printBtn = document.createElement('button');
+        printBtn.textContent = 'Print';
+        printBtn.addEventListener('click', function(){ printEventSheet(ev, printBtn); });
 
         var deleteBtn = document.createElement('button');
         deleteBtn.textContent = 'Delete';
@@ -423,6 +436,8 @@
         actionsTd.appendChild(openBtn);
         actionsTd.appendChild(copyBtn);
         actionsTd.appendChild(renameBtn);
+        actionsTd.appendChild(exportBtn);
+        actionsTd.appendChild(printBtn);
         actionsTd.appendChild(deleteBtn);
 
         tr.appendChild(nameTd);
@@ -462,7 +477,7 @@
     });
   }
 
-  function enterEditMode(ev, actionsTd, nameTd, dateTd, locationTd, renameBtn, openBtn, copyBtn, deleteBtn){
+  function enterEditMode(ev, actionsTd, nameTd, dateTd, locationTd, renameBtn, openBtn, copyBtn, exportBtn, printBtn, deleteBtn){
     var origName = ev.name, origDate = ev.date, origLocation = ev.location;
 
     var nameInput = document.createElement('input');

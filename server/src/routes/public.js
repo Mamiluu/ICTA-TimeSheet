@@ -23,6 +23,22 @@ function publicRow(r) {
   };
 }
 
+// This route has no requireRole guard -- the sheet itself is meant to be
+// readable by anyone holding the event link/QR, the same way a physical
+// clipboard sitting at a venue is readable by anyone standing there.
+// req.user is still populated when a session cookie is present (see
+// attachUser in index.js, mounted ahead of every router), so it costs
+// nothing to also tell a legitimately logged-in admin "you manage this
+// one" -- purely to reveal the on-page kiosk convenience tools (add a row
+// on someone's behalf, clear local drafts). Export/print for the record
+// are deliberately NOT unlocked here; those go through the audited
+// /api/admin/events/:id/attendance path from the admin's own dashboard.
+function canManageEvent(user, event) {
+  if (!user) return false;
+  if (user.role === 'SUPER_ADMIN') return true;
+  return user.role === 'COUNTY_ADMIN' && user.county === event.county;
+}
+
 publicRouter.get('/events/:slug', ah(async (req, res) => {
   const event = await prisma.event.findUnique({
     where: { slug: req.params.slug },
@@ -34,7 +50,8 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
     ok: true,
     event: { id: event.slug, name: event.name, date: event.date, location: event.location },
     rows: event.attendance.map(publicRow),
-    capacity: MAX_ATTENDANCE_PER_EVENT
+    capacity: MAX_ATTENDANCE_PER_EVENT,
+    canManage: canManageEvent(req.user, event)
   });
 }));
 
