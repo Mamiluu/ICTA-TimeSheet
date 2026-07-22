@@ -456,6 +456,62 @@
   }
   document.getElementById('refreshEventsBtn').addEventListener('click', loadEvents);
 
+  // Both go through GET /api/admin/events/:id/attendance -- scoped to this
+  // admin's own county and audited server-side -- rather than reading
+  // whatever's currently rendered on the public sheet, so the export
+  // always reflects the full roster and leaves a record of who took a
+  // copy of everyone's name/phone/email/signature and when.
+  function exportEventCsv(ev, btn){
+    btn.disabled = true;
+    API.get('/api/admin/events/' + ev.id + '/attendance').then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){
+        window.alert(r.data.message || 'Could not export attendance.');
+        return;
+      }
+      var lines = [['#', 'Name', 'Organization', 'Email', 'Phone', 'Submitted At'].join(',')];
+      r.data.rows.forEach(function(row, idx){
+        var vals = [idx + 1, row.name, row.org, row.email, row.phone, row.timestamp ? new Date(row.timestamp).toLocaleString() : ''].map(function(v){
+          var s = String(v == null ? '' : v);
+          if(/[",\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+          return s;
+        });
+        lines.push(vals.join(','));
+      });
+      var blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = (ev.name || 'attendance-sheet').replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }).catch(function(){
+      btn.disabled = false;
+      window.alert('Network error — could not reach the backend.');
+    });
+  }
+
+  function printEventSheet(ev, btn){
+    btn.disabled = true;
+    API.get('/api/admin/events/' + ev.id + '/attendance').then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){
+        window.alert(r.data.message || 'Could not open the sheet for printing.');
+        return;
+      }
+      // Opens the same letterhead-styled sheet attendees see, with &print=1
+      // so it triggers the browser's print dialog automatically once the
+      // roster has loaded -- reuses that page's print stylesheet rather
+      // than maintaining a second copy of the printable layout here.
+      window.open(attendeePageUrl() + '?event=' + encodeURIComponent(ev.slug) + '&print=1', '_blank');
+    }).catch(function(){
+      btn.disabled = false;
+      window.alert('Network error — could not reach the backend.');
+    });
+  }
+
   function deleteEvent(ev, deleteBtn){
     var warning = ev.count > 0
       ? 'Delete "' + ev.name + '"? It already has ' + ev.count + ' submitted attendance record(s) — they will remain on record but this event will no longer be listed. This cannot be undone.'
