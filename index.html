@@ -698,19 +698,21 @@
     return result;
   }
 
-  function submitRow(row){
-    // Guards against double-submit from a double-click/double-tap that lands
-    if(row.submitting || row.submitted) return;
+  // Shared by both the initial submit and a later edit: validates the row
+  // and checks it against everyone else already on the roster, prompting
+  // the visitor (via confirm/alert) when something looks wrong. Returns
+  // false if the caller should stop, otherwise the normalized phone.
+  function passesSubmitChecks(row){
     var check = validateRow(row);
     if(check.problems.length){
-      alert('Please provide ' + check.problems.join(', ') + ' before submitting.');
-      return;
+      alert('Please provide ' + check.problems.join(', ') + '.');
+      return false;
     }
     var dupe = findDuplicateSubmission(row, check.normalizedPhone);
     var hardDupe = dupe.phoneMatch || dupe.emailMatch;
     if(hardDupe){
       alert('This ' + (dupe.phoneMatch ? 'phone number' : 'email address') + ' has already signed in for this event' + (hardDupe.name ? ' as "' + hardDupe.name + '"' : '') + '. Each attendee may only sign in once.');
-      return;
+      return false;
     }
     if(dupe.nameMatch){
       var proceed = confirm(
@@ -719,9 +721,17 @@
         'If that was you, press Cancel and re-check your phone number instead of signing in again.\n\n' +
         'If you are a different person who happens to share this name, press OK to continue.'
       );
-      if(!proceed) return;
+      if(!proceed) return false;
     }
-    if(check.normalizedPhone) row.phone = check.normalizedPhone;
+    return check.normalizedPhone;
+  }
+
+  function submitRow(row){
+    // Guards against double-submit from a double-click/double-tap that lands
+    if(row.submitting || row.submitted) return;
+    var normalizedPhone = passesSubmitChecks(row);
+    if(normalizedPhone === false) return;
+    if(normalizedPhone) row.phone = normalizedPhone;
     if(!row.clientId) row.clientId = generateClientId();
 
     row.submitting = true;
@@ -754,6 +764,75 @@
           save();
           render();
           alert((data && data.message) || 'Could not submit — please try again.');
+        }
+      })
+      .catch(function(){
+        row.submitting = false;
+        save();
+        render();
+        alert('Network error — could not reach the shared sheet. Please check your connection and try again.');
+      });
+  }
+
+  // Editing is only offered on a row this device itself submitted (it's
+  // the only place row.clientId is ever known -- see loadRemote), so
+  // there's no ambiguity about whose entry is being changed.
+  function beginEdit(row){
+    if(row.editing || row.submitting) return;
+    row.editing = true;
+    row._snapshot = { name: row.name, org: row.org, email: row.email, phone: row.phone, sign: row.sign };
+    save();
+    render();
+  }
+
+  function cancelEdit(row){
+    if(row._snapshot){
+      row.name = row._snapshot.name;
+      row.org = row._snapshot.org;
+      row.email = row._snapshot.email;
+      row.phone = row._snapshot.phone;
+      row.sign = row._snapshot.sign;
+    }
+    row.editing = false;
+    delete row._snapshot;
+    save();
+    render();
+  }
+
+  function saveRowEdit(row){
+    if(row.submitting) return;
+    var normalizedPhone = passesSubmitChecks(row);
+    if(normalizedPhone === false) return;
+    if(normalizedPhone) row.phone = normalizedPhone;
+
+    row.submitting = true;
+    save();
+    render();
+
+    var payload = {
+      name: row.name || '',
+      org: row.org || '',
+      email: row.email || '',
+      phone: row.phone || '',
+      signature: row.sign || ''
+    };
+    fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/attendance/' + encodeURIComponent(row.clientId), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        row.submitting = false;
+        if(data && data.ok){
+          row.editing = false;
+          delete row._snapshot;
+          save();
+          render();
+        } else {
+          save();
+          render();
+          alert((data && data.message) || 'Could not save changes — please try again.');
         }
       })
       .catch(function(){
