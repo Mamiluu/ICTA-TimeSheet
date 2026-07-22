@@ -179,6 +179,7 @@
   table.roster td.rowdel button.submit-btn{ color:#0a7a3a; font-weight:bold; }
   table.roster td.rowdel button:disabled{ color:#aaa; cursor:default; }
   table.roster td.rowdel button:not(.submit-btn){ color:#c22; }
+  table.roster td.rowdel button.edit-btn{ color:#0a5fc2; font-size:11px; margin-left:4px; }
   table.roster td.rowdel .submitted-tag{ color:#0a7a3a; font-weight:bold; font-size:14px; }
 
   .toolbar{
@@ -339,7 +340,7 @@
   <button id="printBtn">Print / Save as PDF</button>
   <button id="resetBtn">Reset Sheet</button>
 </div>
-<div class="hint">A blank row is ready below, fill it in and tap ✓ to submit, same as signing the paper sheet. Tap the SIGN cell to draw a signature. <span id="submittedCount"></span></div>
+<div class="hint">A blank row is ready below, fill it in and tap ✓ to submit, same as signing the paper sheet. Tap the SIGN cell to draw a signature. Made a mistake after submitting? Tap Edit on your row to fix it. <span id="submittedCount"></span></div>
 
 <footer class="credit">Digital replica of the ICT Authority paper attendance sheet.<br>© 2026 Asya Hafidh. All rights reserved.</footer>
 </div>
@@ -402,6 +403,13 @@
   var submittedCount = document.getElementById('submittedCount');
   var addRowBtn = document.getElementById('addRowBtn');
   if(addRowBtn) addRowBtn.style.display = isAdmin ? '' : 'none';
+  // Export/print/reset operate on the whole shared roster, not just one
+  // visitor's own entry -- an ordinary attendee has no reason to hold
+  // those, only the organizer running the device (?admin=1).
+  ['exportCsvBtn', 'printBtn', 'resetBtn'].forEach(function(id){
+    var btn = document.getElementById(id);
+    if(btn) btn.style.display = isAdmin ? '' : 'none';
+  });
   var eventDetailsDisplay = document.getElementById('eventDetailsDisplay');
   var eventDateDisplay = document.getElementById('eventDateDisplay');
   var eventLocationDisplay = document.getElementById('eventLocationDisplay');
@@ -476,7 +484,7 @@
       num.textContent = idx + 1;
       tr.appendChild(num);
 
-      var locked = row.submitted || row.submitting;
+      var locked = (row.submitted && !row.editing) || row.submitting;
 
       ['name','org','email','phone'].forEach(function(field){
         var td = document.createElement('td');
@@ -537,12 +545,41 @@
 
       var actionTd = document.createElement('td');
       actionTd.className = 'rowdel';
-      if(row.submitted){
+      if(row.editing){
+        var saveBtn = document.createElement('button');
+        saveBtn.className = 'submit-btn';
+        if(row.submitting){
+          saveBtn.textContent = '…';
+          saveBtn.disabled = true;
+          saveBtn.title = 'Saving…';
+        } else {
+          saveBtn.textContent = '✓';
+          saveBtn.title = 'Save changes';
+          saveBtn.addEventListener('click', function(){ saveRowEdit(row); });
+        }
+        actionTd.appendChild(saveBtn);
+
+        var cancelEditBtn = document.createElement('button');
+        cancelEditBtn.textContent = '✕';
+        cancelEditBtn.title = 'Cancel editing';
+        cancelEditBtn.disabled = row.submitting;
+        cancelEditBtn.addEventListener('click', function(){ cancelEdit(row); });
+        actionTd.appendChild(cancelEditBtn);
+      } else if(row.submitted){
         var tag = document.createElement('span');
         tag.className = 'submitted-tag';
         tag.textContent = '✓';
         tag.title = 'Submitted to the shared sheet';
         actionTd.appendChild(tag);
+
+        if(row.clientId){
+          var editBtn = document.createElement('button');
+          editBtn.className = 'edit-btn';
+          editBtn.textContent = 'Edit';
+          editBtn.title = 'Fix a mistake in your entry';
+          editBtn.addEventListener('click', function(){ beginEdit(row); });
+          actionTd.appendChild(editBtn);
+        }
       } else {
         var submitBtn = document.createElement('button');
         submitBtn.className = 'submit-btn';

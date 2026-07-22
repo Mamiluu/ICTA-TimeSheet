@@ -88,3 +88,48 @@ publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, 
     throw err;
   }
 }));
+
+// Lets a visitor correct their own already-submitted row (typo in name,
+// wrong digit in phone, etc). There are no visitor accounts, so clientId
+// -- the random id their browser generated at submit time -- is the only
+// proof of "this is my row"; it works because publicRow() below never
+// echoes clientId back to anyone, so no other visitor's browser ever
+// learns it.
+publicRouter.patch('/events/:slug/attendance/:clientId', attendanceLimiter, ah(async (req, res) => {
+  const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
+  if (!event || event.deletedAt) return res.json({ ok: false, error: 'Unknown event' });
+
+  const clientId = String(req.params.clientId || '');
+  const existing = await prisma.attendance.findUnique({
+    where: { eventId_clientId: { eventId: event.id, clientId } }
+  });
+  if (!existing) {
+    return res.json({ ok: false, error: 'NOT_FOUND', message: 'This entry can only be edited from the device it was submitted on.' });
+  }
+
+  const phone = String(req.body.phone || '');
+  const phoneNormalized = normalizePhone(phone);
+  if (!phoneNormalized) return res.json({ ok: false, error: 'INVALID_PHONE', message: 'Enter a valid Kenyan phone number.' });
+  const emailNormalized = normalizeEmail(req.body.email);
+
+  try {
+    const row = await prisma.attendance.update({
+      where: { id: existing.id },
+      data: {
+        name: String(req.body.name || ''),
+        organization: req.body.org ? String(req.body.org) : null,
+        email: req.body.email ? String(req.body.email) : null,
+        emailNormalized,
+        phone,
+        phoneNormalized,
+        signature: String(req.body.signature || '')
+      }
+    });
+    return res.json({ ok: true, id: row.id });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return res.json({ ok: false, error: 'ALREADY_SIGNED', message: 'That phone number or email is already used by another attendee for this event.' });
+    }
+    throw err;
+  }
+}));
