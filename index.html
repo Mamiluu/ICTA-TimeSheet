@@ -859,11 +859,25 @@
         // The sheet is the source of truth for submitted rows: fully replace
         // our cached copy with it each time, so edits/deletes made directly
         // in the Sheet are reflected here too. Local drafts (not yet
-        // submitted) are untouched.
+        // submitted) are untouched. clientId is never sent back by the
+        // server (see publicRow in public.js), so it has to be carried
+        // forward from whatever we already knew locally, or a device's own
+        // rows would lose their Edit button on the very next poll. A row
+        // mid-edit is left completely alone so a slow poll can't overwrite
+        // what the visitor is actively typing.
+        var clientIdByRowId = {};
+        var editingById = {};
+        state.rows.forEach(function(r){
+          if(!r.submitted || !r.id) return;
+          if(r.clientId) clientIdByRowId[r.id] = r.clientId;
+          if(r.editing) editingById[r.id] = r;
+        });
         var drafts = state.rows.filter(function(r){ return !r.submitted; });
         var remoteRows = data.rows.map(function(rr){
+          if(editingById[rr.id]) return editingById[rr.id];
           return {
             id: rr.id,
+            clientId: clientIdByRowId[rr.id] || null,
             submitted: true,
             name: rr.name || '',
             org: rr.org || '',
