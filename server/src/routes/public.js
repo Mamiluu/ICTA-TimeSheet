@@ -33,7 +33,8 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
   res.json({
     ok: true,
     event: { id: event.slug, name: event.name, date: event.date, location: event.location },
-    rows: event.attendance.map(publicRow)
+    rows: event.attendance.map(publicRow),
+    capacity: MAX_ATTENDANCE_PER_EVENT
   });
 }));
 
@@ -56,6 +57,15 @@ publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, 
       where: { eventId_clientId: { eventId: event.id, clientId } }
     });
     if (existing) return res.json({ ok: true, id: existing.id, duplicate: true });
+  }
+
+  // A soft pilot-scale ceiling, not a security invariant like the county
+  // admin cap -- a count-then-insert check is good enough here. Worst case
+  // under a flood of simultaneous submissions right at the boundary is a
+  // handful of rows past 500, not a broken guarantee.
+  const attendeeCount = await prisma.attendance.count({ where: { eventId: event.id } });
+  if (attendeeCount >= MAX_ATTENDANCE_PER_EVENT) {
+    return res.json({ ok: false, error: 'EVENT_FULL', message: 'This event has reached its maximum of ' + MAX_ATTENDANCE_PER_EVENT + ' attendees.' });
   }
 
   try {
