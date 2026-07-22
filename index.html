@@ -862,6 +862,7 @@
         }
         if(!Array.isArray(data.rows)) return;
         state.meta = data.event || state.meta;
+        if(data.capacity) capacity = data.capacity;
         applyEventMeta();
         // The sheet is the source of truth for submitted rows: fully replace
         // our cached copy with it each time, so edits/deletes made directly
