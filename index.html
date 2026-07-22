@@ -573,12 +573,12 @@
         actionTd.appendChild(tag);
 
         if(row.clientId){
-          var editBtn = document.createElement('button');
-          editBtn.className = 'edit-btn';
-          editBtn.textContent = 'Edit';
-          editBtn.title = 'Fix a mistake in your entry';
-          editBtn.addEventListener('click', function(){ beginEdit(row); });
-          actionTd.appendChild(editBtn);
+          var editRowBtn = document.createElement('button');
+          editRowBtn.className = 'edit-btn';
+          editRowBtn.textContent = 'Edit';
+          editRowBtn.title = 'Fix a mistake in your entry';
+          editRowBtn.addEventListener('click', function(){ beginEdit(row); });
+          actionTd.appendChild(editRowBtn);
         }
       } else {
         var submitBtn = document.createElement('button');
