@@ -86,6 +86,13 @@
   .result img.qr{ display:block; margin-top:10px; border:1px solid #ddd; }
 
   td.count{ text-align:center; font-weight:600; }
+
+  /* The events table's action cell is nowrap (theme.css) and now carries
+     six buttons (Open/Copy/Rename/Export/Print/Delete) -- wide enough to
+     overflow on narrower screens. Scope the fix to this wrapper rather
+     than loosening nowrap globally in theme.css, which other pages (e.g.
+     superadmin.html's shorter action lists) don't need. */
+  #eventsWrap{ overflow-x:auto; }
 </style>
 
 <div class="topbar">
