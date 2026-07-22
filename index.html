@@ -415,6 +415,10 @@
   var eventLocationDisplay = document.getElementById('eventLocationDisplay');
 
   var state = load() || { meta: null, rows: [] };
+  // Fallback until the first successful loadRemote() confirms the real
+  // server-side cap (see MAX_ATTENDANCE_PER_EVENT) -- keeps the draft row
+  // behaving sensibly even if opened offline from a cached copy.
+  var capacity = 500;
 
   function load(){
     try{
@@ -460,6 +464,8 @@
   // blank line" on a paper sign-in sheet. Ordinary visitors never need to
   // click anything to get a row to fill in.
   function ensureDraftRow(){
+    var submitted = state.rows.filter(function(r){ return r.submitted; }).length;
+    if(submitted >= capacity) return;
     var hasDraft = state.rows.some(function(r){ return !r.submitted; });
     if(!hasDraft) state.rows.push(newRow());
   }
@@ -618,7 +624,8 @@
   function updateSubmittedCount(){
     if(!submittedCount) return;
     var n = state.rows.filter(function(r){ return r.submitted; }).length;
-    submittedCount.textContent = n === 1 ? '1 person submitted so far.' : (n + ' people submitted so far.');
+    var base = n === 1 ? '1 / ' + capacity + ' submitted so far.' : (n + ' / ' + capacity + ' submitted so far.');
+    submittedCount.textContent = n >= capacity ? base + ' This event has reached capacity — no further sign-ins are being accepted.' : base;
   }
 
   function displayPhone(v){
