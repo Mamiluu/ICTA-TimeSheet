@@ -115,12 +115,7 @@ function attendanceRow(r) {
   };
 }
 
-// The one path an admin's own printing/exporting is meant to go through
-// (see index.html's ?admin=1 removal) -- name, phone, email, and a drawn
-// signature are personal data, so pulling the full roster for a local
-// download is logged just like every other admin action in this app, not
-// treated as a free read just because the sheet itself is publicly
-// viewable at the venue.
+
 adminRouter.get('/events/:id/attendance', ah(async (req, res) => {
   const event = await findOwnEvent(req);
   if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
