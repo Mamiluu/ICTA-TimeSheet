@@ -58,9 +58,6 @@ adminRouter.post('/events', ah(async (req, res) => {
   res.json({ ok: true, event: publicEvent(event, 0) });
 }));
 
-// Looks up the event scoped to the caller's own county and returns 404 (not
-// 403) when it belongs to a different county, so a county admin can't use
-// response codes to fingerprint which event ids exist outside their own turf.
 async function findOwnEvent(req) {
   const event = await prisma.event.findUnique({ where: { id: req.params.id } });
   if (!event || event.deletedAt || event.county !== req.user.county) return null;
