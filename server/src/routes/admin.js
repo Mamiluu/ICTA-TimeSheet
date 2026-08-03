@@ -58,6 +58,7 @@ adminRouter.post('/events', ah(async (req, res) => {
   res.json({ ok: true, event: publicEvent(event, 0) });
 }));
 
+// Helper function to find an event by ID and ensure it belongs to the current user's county.
 async function findOwnEvent(req) {
   const event = await prisma.event.findUnique({ where: { id: req.params.id } });
   if (!event || event.deletedAt || event.county !== req.user.county) return null;
