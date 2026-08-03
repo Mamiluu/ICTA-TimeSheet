@@ -115,7 +115,7 @@ function attendanceRow(r) {
   };
 }
 
-
+// Returns the attendance rows for a given event, in chronological order.
 adminRouter.get('/events/:id/attendance', ah(async (req, res) => {
   const event = await findOwnEvent(req);
   if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
