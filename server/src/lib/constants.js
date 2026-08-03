@@ -2,7 +2,7 @@
 // Proprietary and confidential. See LICENSE in the repository root.
 
 // All 47 Kenyan counties, selectable when a super admin assigns a county
-// admin. The MAX_ACTIVE_COUNTY_ADMINS cap (14, the pilot phase size) limits
+// admin. The MAX_ACTIVE_COUNTY_ADMINS cap (24, the pilot phase size) limits
 // how many of these can have an active admin at once -- it does not
 // restrict which specific counties may be chosen.
 export const KENYA_COUNTIES = [
@@ -16,7 +16,7 @@ export const KENYA_COUNTIES = [
   'Homa Bay', 'Migori', 'Kisii', 'Nyamira', 'Nairobi'
 ];
 
-export const MAX_ACTIVE_COUNTY_ADMINS = 14;
+export const MAX_ACTIVE_COUNTY_ADMINS = 24;
 
 // Pilot-phase ceiling on how many people can sign in to a single event's
 // attendance sheet. Raise (or remove) once the pilot graduates to general

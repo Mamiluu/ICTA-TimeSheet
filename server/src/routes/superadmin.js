@@ -62,7 +62,7 @@ superadminRouter.post('/admins', ah(async (req, res) => {
   }
 
   // Friendly pre-check for a nicer error message before hitting the DB.
-  // The actual guarantee against a concurrent-request race for the 14th
+  // The actual guarantee against a concurrent-request race for the last
   // slot is the Postgres trigger installed in the migration (see
   // prisma/migrations/*_admin_constraints/migration.sql) -- this count can
   // be stale the instant after it's read, the trigger cannot.
@@ -81,7 +81,7 @@ superadminRouter.post('/admins', ah(async (req, res) => {
       return res.status(409).json({ ok: false, error: 'EMAIL_IN_USE' });
     }
     // Raised by the DB trigger (partial unique index on active-admin-per-county,
-    // or the 14-cap trigger) when this request lost a concurrency race against
+    // or the admin-cap trigger) when this request lost a concurrency race against
     // another create happening at the same instant.
     if (err instanceof Prisma.PrismaClientUnknownRequestError || err instanceof Prisma.PrismaClientKnownRequestError) {
       return res.status(409).json({ ok: false, error: 'CONFLICT', message: String(err.message || err) });

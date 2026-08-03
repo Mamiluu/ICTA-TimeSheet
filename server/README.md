@@ -1,7 +1,7 @@
 # ICT Authority Attendance — Backend
 
 Node.js + Express + Prisma/Postgres backend for the multi-tenant admin
-system: one super admin, up to 14 active county admins, event/attendance
+system: one super admin, up to 24 active county admins, event/attendance
 management, and per-admin audit trails. Also serves the static frontend
 (`../index.html`, `../admin.html`, etc.) from the repo root, so one
 deployed service is the whole app.
@@ -20,7 +20,7 @@ deployed service is the whole app.
      `src/lib/mailer.js`) — but no real email is sent.
 3. `npm run prisma:migrate` — applies the schema, including the
    hand-written migration for the one-active-admin-per-county partial
-   unique index and the 14-active-admin-cap trigger
+   unique index and the 24-active-admin-cap trigger
    (`prisma/migrations/*_admin_constraints/migration.sql`).
 4. `npm run seed:superadmin -- <email> <password>` — creates the one
    `SUPER_ADMIN` account directly (bypasses the activation-link flow,
@@ -47,7 +47,7 @@ A `render.yaml` blueprint at the repo root does most of this for you.
    - `GMAIL_SENDER_ADDRESS` / `GMAIL_APP_PASSWORD` — same as local setup.
 3. The blueprint's `buildCommand` already runs
    `npx prisma migrate deploy` on every deploy, so schema migrations
-   (including the 14-cap trigger and the per-county unique index) apply
+   (including the 24-cap trigger and the per-county unique index) apply
    automatically — no separate manual step needed.
 4. After the first successful deploy, seed the super admin once via
    Render's shell (Dashboard → service → **Shell** tab):
@@ -63,6 +63,6 @@ A `render.yaml` blueprint at the repo root does most of this for you.
   — disabling an admin or resetting a password deletes their session rows
   immediately, so access dies right away rather than riding out a token's
   expiry.
-- The 14-admin cap and one-admin-per-county rule are enforced by Postgres
+- The 24-admin cap and one-admin-per-county rule are enforced by Postgres
   itself (a trigger and a partial unique index), not just application
   code, so they hold even under concurrent requests.
