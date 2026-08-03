@@ -94,6 +94,7 @@ adminRouter.delete('/events/:id', ah(async (req, res) => {
   const event = await findOwnEvent(req);
   if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
 
+  // Soft-delete the event by setting deletedAt to the current timestamp.
   await prisma.event.update({ where: { id: event.id }, data: { deletedAt: new Date() } });
   await writeAudit({ actorId: req.user.id, action: 'EVENT_DELETE', targetType: 'Event', targetId: event.id, metadata: { name: event.name }, req });
 
