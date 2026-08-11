@@ -88,10 +88,10 @@
   td.count{ text-align:center; font-weight:600; }
 
   /* The events table's action cell is nowrap (theme.css) and now carries
-     six buttons (Open/Copy/Rename/Export/Print/Delete) -- wide enough to
-     overflow on narrower screens. Scope the fix to this wrapper rather
-     than loosening nowrap globally in theme.css, which other pages (e.g.
-     superadmin.html's shorter action lists) don't need. */
+     seven buttons (Open/Copy/Kiosk/Rename/Export/Print/Delete) -- wide
+     enough to overflow on narrower screens. Scope the fix to this wrapper
+     rather than loosening nowrap globally in theme.css, which other pages
+     (e.g. superadmin.html's shorter action lists) don't need. */
   #eventsWrap{ overflow-x:auto; }
 </style>
 
@@ -608,7 +608,7 @@
 
     function exitEditMode(){
       saveBtn.remove(); cancelBtn.remove(); rowError.remove();
-      openBtn.style.display = ''; copyBtn.style.display = ''; renameBtn.style.display = '';
+      openBtn.style.display = ''; copyBtn.style.display = ''; kioskBtn.style.display = ''; renameBtn.style.display = '';
       exportBtn.style.display = ''; printBtn.style.display = ''; deleteBtn.style.display = '';
     }
 
