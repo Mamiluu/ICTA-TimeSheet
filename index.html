@@ -220,9 +220,51 @@
     color:#666;
     margin:-6px 0 14px;
   }
-  :root[data-theme="dark"] .hint,
-  @media (prefers-color-scheme: dark){ .hint{ color:#aaa; } }
+  :root[data-theme="dark"] .hint{ color:#aaa; }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) .hint{ color:#aaa; }
+  }
   #submittedCount{ font-weight:600; }
+
+  .privacy-badge{
+    max-width:900px;
+    width:100%;
+    display:flex;
+    align-items:flex-start;
+    gap:9px;
+    background:#eef7f1;
+    border:1px solid #bfe3cc;
+    color:#0a5c2e;
+    border-radius:6px;
+    padding:10px 14px;
+    font-size:12.5px;
+    line-height:1.45;
+    margin-bottom:14px;
+  }
+  .privacy-badge .icon{ font-size:15px; line-height:1.45; flex:none; }
+  .privacy-badge strong{ font-weight:700; }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) .privacy-badge{ background:#123322; border-color:#1e5c3c; color:#8fe0b3; }
+  }
+  :root[data-theme="dark"] .privacy-badge{ background:#123322; border-color:#1e5c3c; color:#8fe0b3; }
+
+  .receipt-banner{
+    max-width:900px;
+    width:100%;
+    display:none;
+    background:#0a7a3a;
+    color:#fff;
+    border-radius:6px;
+    padding:14px 16px;
+    margin-bottom:14px;
+    font-size:13px;
+    line-height:1.5;
+    box-shadow:0 4px 14px rgba(10,122,58,.3);
+  }
+  .receipt-banner.show{ display:block; }
+  .receipt-banner .rb-title{ font-weight:700; font-size:14px; margin-bottom:3px; }
+  .receipt-banner .rb-title .tick{ display:inline-block; margin-right:6px; }
+  .receipt-banner .rb-sub{ opacity:.92; }
 
   /* --- Signature modal --- */
   .modal-backdrop{
