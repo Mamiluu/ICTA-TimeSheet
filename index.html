@@ -740,12 +740,13 @@
   }
 
   // A signed row is meant to stand in for a physical signature on a paper
-  // sheet, so name, a verifiable Kenyan phone number, and an actual
-  // signature are all mandatory; email is only checked for shape when the
-  // visitor chooses to give one.
+  // sheet, so name, organization, a verifiable Kenyan phone number, and an
+  // actual signature are all mandatory; email is only checked for shape
+  // when the visitor chooses to give one.
   function validateRow(row){
     var problems = [];
     if(!row.name || !row.name.trim()) problems.push('your name');
+    if(!row.org || !row.org.trim()) problems.push('your organization');
 
     var normalizedPhone = null;
     if(!row.phone || !row.phone.trim()){
