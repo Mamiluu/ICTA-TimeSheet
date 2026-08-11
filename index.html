@@ -842,6 +842,7 @@
           ensureDraftRow();
           save();
           render();
+          if(!isAdmin) showReceipt(row, data.duplicate);
         } else {
           save();
           render();
@@ -854,6 +855,19 @@
         render();
         alert('Network error — could not reach the shared sheet. Please check your connection and try again.');
       });
+  }
+
+  // A brief, screenshot-friendly confirmation that doubles as the visible
+  // proof the sealed-roster promise in the privacy badge is real: it names
+  // only the person who just signed, never anyone else on the sheet.
+  function showReceipt(row, wasDuplicate){
+    if(!receiptBanner) return;
+    receiptTitle.textContent = wasDuplicate ? 'Already on record' : 'You\'re checked in';
+    var when = new Date().toLocaleString();
+    receiptSub.textContent = (row.name ? row.name + ' — ' : '') + (state.meta && state.meta.name ? state.meta.name : 'this event') + '. Recorded ' + when + '. Your entry is sealed — only the event organizer can view the full attendance roster.';
+    receiptBanner.classList.add('show');
+    clearTimeout(showReceipt._t);
+    showReceipt._t = setTimeout(function(){ receiptBanner.classList.remove('show'); }, 12000);
   }
 
   // Editing is only offered on a row this device itself submitted (it's
