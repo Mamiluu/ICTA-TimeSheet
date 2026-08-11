@@ -441,6 +441,15 @@
   }
   var eventId = getEventIdFromUrl();
 
+  // &kiosk=1 forces this page to behave as a plain attendee view even on a
+  // device that's separately logged in as the event's admin -- see the
+  // matching kiosk handling in GET /events/:slug (public.js). Carried on
+  // every fetch below so a walk-in typing their row on the organizer's own
+  // laptop never causes the roster to render, no matter whose browser it
+  // physically is.
+  var kioskMode = /(?:^|[?&])kiosk=1(?:&|$)/.test(location.search);
+  var eventQuery = encodeURIComponent(eventId) + (kioskMode ? '?kiosk=1' : '');
+
   var noEventNotice = document.getElementById('noEventNotice');
   var noEventTitle = document.getElementById('noEventTitle');
   var noEventBody = document.getElementById('noEventBody');
