@@ -561,7 +561,7 @@
     });
   }
 
-  function enterEditMode(ev, actionsTd, nameTd, dateTd, locationTd, renameBtn, openBtn, copyBtn, exportBtn, printBtn, deleteBtn){
+  function enterEditMode(ev, actionsTd, nameTd, dateTd, locationTd, renameBtn, openBtn, copyBtn, kioskBtn, exportBtn, printBtn, deleteBtn){
     var origName = ev.name, origDate = ev.date, origLocation = ev.location;
 
     var nameInput = document.createElement('input');
@@ -587,6 +587,7 @@
 
     openBtn.style.display = 'none';
     copyBtn.style.display = 'none';
+    kioskBtn.style.display = 'none';
     renameBtn.style.display = 'none';
     exportBtn.style.display = 'none';
     printBtn.style.display = 'none';
