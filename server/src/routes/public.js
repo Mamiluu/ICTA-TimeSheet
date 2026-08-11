@@ -23,6 +23,14 @@ function publicRow(r) {
   };
 }
 
+// Same shape as publicRow, but for the one endpoint (my-attendance below)
+// where echoing clientId back is safe: the caller had to already know it to
+// ask the question in the first place, so this never teaches anyone
+// anything they didn't already know about their own row.
+function ownRow(r) {
+  return { ...publicRow(r), clientId: r.clientId };
+}
+
 // This route has no requireRole guard -- the sheet itself is meant to be
 // readable by anyone holding the event link/QR, the same way a physical
 // clipboard sitting at a venue is readable by anyone standing there.
