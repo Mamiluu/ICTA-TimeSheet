@@ -698,7 +698,7 @@
 
   function updateSubmittedCount(){
     if(!submittedCount) return;
-    var n = state.rows.filter(function(r){ return r.submitted; }).length;
+    var n = remoteSubmittedCount;
     var base = n === 1 ? '1 / ' + capacity + ' submitted so far.' : (n + ' / ' + capacity + ' submitted so far.');
     submittedCount.textContent = n >= capacity ? base + ' This event has reached capacity — no further sign-ins are being accepted.' : base;
   }
