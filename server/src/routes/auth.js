@@ -105,17 +105,34 @@ authRouter.post('/reset-password/:token', ah(async (req, res) => {
   if (!isPasswordAcceptable(password)) {
     return res.status(400).json({ ok: false, error: 'WEAK_PASSWORD', message: 'Password must be at least 10 characters.' });
   }
-
-  const result = await consumeToken(req.params.token, 'PASSWORD_RESET');
-  if (!result.ok) return res.status(400).json({ ok: false, error: result.error });
-
   const passwordHash = await hashPassword(password);
-  await prisma.user.update({ where: { id: result.userId }, data: { passwordHash } });
+
+  // Same reasoning as /activate above: consuming the token and updating
+  // the password must succeed or fail together, or a downstream hiccup
+  // burns an otherwise-good reset link and leaves the account stuck on its
+  // old (possibly compromised) password with no way to retry.
+  let userId;
+  try {
+    userId = await prisma.$transaction(async (tx) => {
+      const result = await consumeToken(req.params.token, 'PASSWORD_RESET', tx);
+      if (!result.ok) {
+        const err = new Error(result.error);
+        err.tokenError = result.error;
+        throw err;
+      }
+      await tx.user.update({ where: { id: result.userId }, data: { passwordHash } });
+      return result.userId;
+    });
+  } catch (err) {
+    if (err.tokenError) return res.status(400).json({ ok: false, error: err.tokenError });
+    throw err;
+  }
+
   // A password reset invalidates every other session for this account --
   // if someone else's session was open (or the reset was because the
   // account was compromised), it dies here rather than riding out its TTL.
-  await destroyAllSessionsForUser(result.userId);
-  await writeAudit({ actorId: result.userId, action: 'PASSWORD_RESET_COMPLETED', req });
+  await destroyAllSessionsForUser(userId);
+  writeAudit({ actorId: userId, action: 'PASSWORD_RESET_COMPLETED', req }).catch((err) => console.error('writeAudit failed', err));
 
   res.json({ ok: true });
 }));

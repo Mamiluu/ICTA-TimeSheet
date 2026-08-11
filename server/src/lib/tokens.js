@@ -34,14 +34,20 @@ export async function issueToken(userId, type) {
 // can ever match a row -- the other affects zero rows and is treated as
 // "already used." This is the compare-and-set that makes activation/reset
 // links genuinely single-use under concurrency, not just by convention.
-export async function consumeToken(rawToken, type) {
+//
+// `client` defaults to the plain prisma client, but callers that need the
+// consumption to live or die with a further write (see /activate and
+// /reset-password in auth.js) pass in a $transaction's tx client instead,
+// so a downstream failure rolls the consumption back too instead of
+// permanently burning an otherwise-valid link.
+export async function consumeToken(rawToken, type, client = prisma) {
   const tokenHash = hashToken(rawToken);
-  const token = await prisma.authToken.findUnique({ where: { tokenHash } });
+  const token = await client.authToken.findUnique({ where: { tokenHash } });
   if (!token || token.type !== type) return { ok: false, error: 'INVALID_TOKEN' };
   if (token.expiresAt < new Date()) return { ok: false, error: 'EXPIRED_TOKEN' };
   if (token.consumedAt) return { ok: false, error: 'ALREADY_USED' };
 
-  const result = await prisma.authToken.updateMany({
+  const result = await client.authToken.updateMany({
     where: { id: token.id, consumedAt: null },
     data: { consumedAt: new Date() }
   });
