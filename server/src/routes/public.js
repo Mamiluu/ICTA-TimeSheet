@@ -48,19 +48,55 @@ function canManageEvent(user, event) {
 }
 
 publicRouter.get('/events/:slug', ah(async (req, res) => {
-  const event = await prisma.event.findUnique({
-    where: { slug: req.params.slug },
-    include: { attendance: { orderBy: { createdAt: 'asc' } } }
-  });
+  const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
   if (!event || event.deletedAt) return res.json({ ok: false, error: 'Event not found' });
+
+  const manage = canManageEvent(req.user, event);
+
+  // The roster itself is now sealed: a plain visitor holding the event
+  // link/QR only ever learns the event details and how many people have
+  // signed in so far -- never who else signed in. Only a session that
+  // genuinely manages this event (its own county admin, or a super admin --
+  // see canManageEvent above) gets the full roster, the same way the old
+  // paper clipboard was only ever handed to a stranger, never left with
+  // them. Each visitor's own row is recovered separately via
+  // POST /events/:slug/my-attendance, keyed by the clientId only their own
+  // browser knows.
+  const [submittedCount, attendance] = await Promise.all([
+    prisma.attendance.count({ where: { eventId: event.id } }),
+    manage
+      ? prisma.attendance.findMany({ where: { eventId: event.id }, orderBy: { createdAt: 'asc' } })
+      : Promise.resolve([])
+  ]);
 
   res.json({
     ok: true,
     event: { id: event.slug, name: event.name, date: event.date, location: event.location },
-    rows: event.attendance.map(publicRow),
+    rows: attendance.map(publicRow),
+    submittedCount,
     capacity: MAX_ATTENDANCE_PER_EVENT,
-    canManage: canManageEvent(req.user, event)
+    canManage: manage
   });
+}));
+
+// Lets a visitor's own device recover exactly its own row(s) -- and nobody
+// else's -- after a reload, refresh, or revisit. clientIds are random
+// UUIDs generated client-side at submit time and never echoed back to any
+// *other* visitor (see publicRow above), so presenting one back here is
+// proof of authorship, not a lookup key anyone could guess or enumerate.
+publicRouter.post('/events/:slug/my-attendance', attendanceLimiter, ah(async (req, res) => {
+  const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
+  if (!event || event.deletedAt) return res.json({ ok: false, error: 'Unknown event' });
+
+  const clientIds = Array.isArray(req.body.clientIds)
+    ? [...new Set(req.body.clientIds.map(String).filter(Boolean))].slice(0, 25)
+    : [];
+  if (!clientIds.length) return res.json({ ok: true, rows: [] });
+
+  const rows = await prisma.attendance.findMany({
+    where: { eventId: event.id, clientId: { in: clientIds } }
+  });
+  res.json({ ok: true, rows: rows.map(ownRow) });
 }));
 
 publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, res) => {
