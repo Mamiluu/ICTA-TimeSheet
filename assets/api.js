@@ -17,13 +17,23 @@ var API = (function(){
       body: body ? JSON.stringify(body) : undefined
     }).then(function(res){
       // A body that fails to parse as JSON almost always means the request
-      // never reached the app at all -- Render's own gateway page during a
-      // deploy/restart, a proxy timeout, etc. -- not a real API response.
-      // Surfacing that as error:'BAD_RESPONSE' lets callers tell "the
-      // server was briefly down, try again" apart from an actual {ok:false}
-      // answer, instead of both collapsing into the same empty {} and
-      // whatever generic fallback text the caller happens to show for it.
-      return res.json().catch(function(){ return { ok: false, error: 'BAD_RESPONSE' }; }).then(function(data){
+      // never reached the app at all -- most commonly Render's free tier
+      // spinning back up after an idle period (see the dashboard's own
+      // "will spin down with inactivity" notice), or a gateway/proxy
+      // hiccup during a deploy -- not a real API response. Every page on
+      // this site follows the same `r.data.message || 'Could not do X.'`
+      // pattern, so setting `message` here once is enough to make every
+      // one of those call sites -- present and future -- show an honest
+      // "temporarily unavailable, try again" instead of misreporting a
+      // transient outage as "could not do X" (e.g. implying a delete was
+      // refused when the request never even reached the delete route).
+      return res.json().catch(function(){
+        return {
+          ok: false,
+          error: 'BAD_RESPONSE',
+          message: 'The server was temporarily unavailable (it may be waking up after being idle). Please wait a few seconds and try again.'
+        };
+      }).then(function(data){
         return { status: res.status, data: data };
       });
     });
