@@ -49,16 +49,36 @@ authRouter.post('/activate/:token', ah(async (req, res) => {
   if (!isPasswordAcceptable(password)) {
     return res.status(400).json({ ok: false, error: 'WEAK_PASSWORD', message: 'Password must be at least 10 characters.' });
   }
-
-  const result = await consumeToken(req.params.token, 'ACTIVATION');
-  if (!result.ok) return res.status(400).json({ ok: false, error: result.error });
-
   const passwordHash = await hashPassword(password);
-  const user = await prisma.user.update({
-    where: { id: result.userId },
-    data: { passwordHash, status: 'ACTIVE' }
-  });
-  await writeAudit({ actorId: user.id, action: 'ACCOUNT_ACTIVATED', req });
+
+  // Consuming the token and activating the account must succeed or fail
+  // together -- consumeToken's own update is single-use precisely so a
+  // link can't be replayed, but that guarantee turns into a trap if the
+  // token gets marked consumed and the *account* update then fails for an
+  // unrelated reason (a DB hiccup, etc.): the link is permanently burned
+  // and the account is stuck PENDING forever with no way to retry. Wrapping
+  // both in one transaction means a failure here rolls the token back to
+  // unconsumed too, so the same link just works on retry.
+  let user;
+  try {
+    user = await prisma.$transaction(async (tx) => {
+      const result = await consumeToken(req.params.token, 'ACTIVATION', tx);
+      if (!result.ok) {
+        const err = new Error(result.error);
+        err.tokenError = result.error;
+        throw err;
+      }
+      return tx.user.update({ where: { id: result.userId }, data: { passwordHash, status: 'ACTIVE' } });
+    });
+  } catch (err) {
+    if (err.tokenError) return res.status(400).json({ ok: false, error: err.tokenError });
+    throw err;
+  }
+
+  // Best-effort: an audit-log write is a record of what happened, not a
+  // precondition for it -- a hiccup here should never leave someone stuck
+  // unable to activate an account that in fact just activated fine.
+  writeAudit({ actorId: user.id, action: 'ACCOUNT_ACTIVATED', req }).catch((err) => console.error('writeAudit failed', err));
 
   res.json({ ok: true });
 }));
