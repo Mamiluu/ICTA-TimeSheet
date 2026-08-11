@@ -80,9 +80,12 @@ superadminRouter.post('/admins', ah(async (req, res) => {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       return res.status(409).json({ ok: false, error: 'EMAIL_IN_USE' });
     }
-    // Raised by the DB trigger (partial unique index on active-admin-per-county,
-    // or the admin-cap trigger) when this request lost a concurrency race against
-    // another create happening at the same instant.
+    // Defensive catch-all: a fresh admin always starts PENDING (see the
+    // create() call above), so neither the per-county cap trigger nor the
+    // global 24-admin cap trigger actually fires here in practice -- both
+    // only re-check on a transition *into* ACTIVE (see
+    // trg_enforce_active_admin_per_county and trg_enforce_active_admin_cap).
+    // Kept anyway in case a future change starts creating admins pre-active.
     if (err instanceof Prisma.PrismaClientUnknownRequestError || err instanceof Prisma.PrismaClientKnownRequestError) {
       return res.status(409).json({ ok: false, error: 'CONFLICT', message: String(err.message || err) });
     }
