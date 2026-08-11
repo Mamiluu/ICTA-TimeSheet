@@ -5,7 +5,7 @@ import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { requireRole } from '../middleware/auth.js';
 import { writeAudit } from '../lib/audit.js';
-import { eventSlugId } from '../lib/normalize.js';
+import { eventSlugId } from '../lib/normaliz gie.js';it
 import { ah } from '../lib/asyncHandler.js';
 
 export const adminRouter = Router();
