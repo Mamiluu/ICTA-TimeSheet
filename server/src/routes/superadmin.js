@@ -176,8 +176,11 @@ superadminRouter.delete('/admins/:id', ah(async (req, res) => {
   if (!admin || admin.role !== 'COUNTY_ADMIN') return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
   if (admin.status === 'ACTIVE') return res.status(409).json({ ok: false, error: 'MUST_DISABLE_FIRST' });
 
-  await writeAudit({ actorId: req.user.id, action: 'ADMIN_DELETE', targetType: 'User', targetId: admin.id, metadata: { email: admin.email, county: admin.county }, req });
-
+  // The audit write used to happen *before* this delete attempt -- so a
+  // delete that failed with HAS_ACTIVITY still left a permanent "ADMIN_DELETE"
+  // entry behind, falsely claiming a deletion that never happened. Logging
+  // it only after prisma.user.delete() actually succeeds keeps the audit
+  // trail honest: an entry exists if and only if the deletion did.
   try {
     await prisma.user.delete({ where: { id: admin.id } });
   } catch (err) {
@@ -186,6 +189,12 @@ superadminRouter.delete('/admins/:id', ah(async (req, res) => {
     }
     throw err;
   }
+
+  // Best-effort and after the fact -- necessarily attributed to the acting
+  // super admin rather than the now-gone row, and a hiccup here should
+  // never make an already-successful deletion look like it failed to the
+  // person who just performed it.
+  writeAudit({ actorId: req.user.id, action: 'ADMIN_DELETE', targetType: 'User', targetId: admin.id, metadata: { email: admin.email, county: admin.county }, req }).catch((err) => console.error('writeAudit failed', err));
 
   res.json({ ok: true });
 }));
