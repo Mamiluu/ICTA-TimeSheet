@@ -350,6 +350,16 @@
     </div>
   </div>
 
+  <div class="receipt-banner" id="receiptBanner">
+    <div class="rb-title"><span class="tick">&#10003;</span><span id="receiptTitle">You're checked in</span></div>
+    <div class="rb-sub" id="receiptSub"></div>
+  </div>
+
+  <div class="privacy-badge" id="privacyBadge">
+    <span class="icon">&#128274;</span>
+    <span><strong>Private entry.</strong> Only your own row is shown here — no other attendee's name, contact details, or signature is ever sent to this device. The event organizer is the only one who can view the complete roster.</span>
+  </div>
+
   <table class="roster" id="roster">
     <colgroup>
       <col style="width:4%">
@@ -453,9 +463,18 @@
   var submittedCount = document.getElementById('submittedCount');
   var addRowBtn = document.getElementById('addRowBtn');
   var resetBtn = document.getElementById('resetBtn');
+  var privacyBadge = document.getElementById('privacyBadge');
+  var receiptBanner = document.getElementById('receiptBanner');
+  var receiptTitle = document.getElementById('receiptTitle');
+  var receiptSub = document.getElementById('receiptSub');
   function applyAdminVisibility(){
     if(addRowBtn) addRowBtn.style.display = isAdmin ? '' : 'none';
     if(resetBtn) resetBtn.style.display = isAdmin ? '' : 'none';
+    // The sealed-roster promise in the badge is only true for a visitor --
+    // an admin session genuinely does receive everyone's row (that's the
+    // whole point of the dashboard), so showing the badge to them would be
+    // a lie rather than reassurance.
+    if(privacyBadge) privacyBadge.style.display = isAdmin ? 'none' : '';
   }
   applyAdminVisibility();
   var eventDetailsDisplay = document.getElementById('eventDetailsDisplay');
@@ -467,6 +486,14 @@
   // server-side cap (see MAX_ATTENDANCE_PER_EVENT) -- keeps the draft row
   // behaving sensibly even if opened offline from a cached copy.
   var capacity = 500;
+  // Authoritative attendee count for the whole event, from the server's
+  // aggregate (see submittedCount in GET /events/:slug) -- NOT derived from
+  // state.rows, because for a non-admin device state.rows now only ever
+  // holds that device's own row(s). Counting state.rows here would make the
+  // "X / 500 submitted" hint quietly reveal nothing after the sealed-roster
+  // change; the server-side count keeps it accurate without needing anyone
+  // else's identity.
+  var remoteSubmittedCount = 0;
 
   function load(){
     try{
