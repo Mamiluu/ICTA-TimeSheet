@@ -16,7 +16,14 @@ var API = (function(){
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined
     }).then(function(res){
-      return res.json().catch(function(){ return {}; }).then(function(data){
+      // A body that fails to parse as JSON almost always means the request
+      // never reached the app at all -- Render's own gateway page during a
+      // deploy/restart, a proxy timeout, etc. -- not a real API response.
+      // Surfacing that as error:'BAD_RESPONSE' lets callers tell "the
+      // server was briefly down, try again" apart from an actual {ok:false}
+      // answer, instead of both collapsing into the same empty {} and
+      // whatever generic fallback text the caller happens to show for it.
+      return res.json().catch(function(){ return { ok: false, error: 'BAD_RESPONSE' }; }).then(function(data){
         return { status: res.status, data: data };
       });
     });

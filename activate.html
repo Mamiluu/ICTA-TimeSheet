@@ -92,7 +92,13 @@
           : 'This activation link has already been used or is invalid. Ask the super admin to send you a new invite.');
         return;
       }
-      formError.textContent = r.data.message || 'Could not activate your account.';
+      // BAD_RESPONSE (see assets/api.js) means the request never actually
+      // reached the app -- e.g. it landed mid-deploy -- so the link and
+      // password are most likely both fine; retrying in a moment is the
+      // right move, not requesting a whole new invite.
+      formError.textContent = r.data.error === 'BAD_RESPONSE'
+        ? 'The server was temporarily unavailable. Please wait a moment and try again.'
+        : (r.data.message || 'Could not activate your account.');
       formError.style.display = '';
     }).catch(function(){
       activateBtn.disabled = false;
