@@ -925,6 +925,23 @@
       });
   }
 
+  // Turns a full server row into the same local shape state.rows already
+  // uses, reattaching whatever clientId/editing-state this device already
+  // had for that row so an in-progress edit is never clobbered by a poll.
+  function toLocalRow(rr, clientIdByRowId, editingById){
+    if(editingById[rr.id]) return editingById[rr.id];
+    return {
+      id: rr.id,
+      clientId: rr.clientId || clientIdByRowId[rr.id] || null,
+      submitted: true,
+      name: rr.name || '',
+      org: rr.org || '',
+      email: rr.email || '',
+      phone: rr.phone || '',
+      sign: rr.signature || ''
+    };
+  }
+
   function loadRemote(){
     fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId))
       .then(function(res){ return res.json(); })
@@ -938,18 +955,11 @@
         if(!Array.isArray(data.rows)) return;
         state.meta = data.event || state.meta;
         if(data.capacity) capacity = data.capacity;
+        if(typeof data.submittedCount === 'number') remoteSubmittedCount = data.submittedCount;
         isAdmin = !!data.canManage;
         applyAdminVisibility();
         applyEventMeta();
-        // The sheet is the source of truth for submitted rows: fully replace
-        // our cached copy with it each time, so edits/deletes made directly
-        // in the Sheet are reflected here too. Local drafts (not yet
-        // submitted) are untouched. clientId is never sent back by the
-        // server (see publicRow in public.js), so it has to be carried
-        // forward from whatever we already knew locally, or a device's own
-        // rows would lose their Edit button on the very next poll. A row
-        // mid-edit is left completely alone so a slow poll can't overwrite
-        // what the visitor is actively typing.
+
         var clientIdByRowId = {};
         var editingById = {};
         state.rows.forEach(function(r){
@@ -958,24 +968,61 @@
           if(r.editing) editingById[r.id] = r;
         });
         var drafts = state.rows.filter(function(r){ return !r.submitted; });
-        var remoteRows = data.rows.map(function(rr){
-          if(editingById[rr.id]) return editingById[rr.id];
-          return {
-            id: rr.id,
-            clientId: clientIdByRowId[rr.id] || null,
-            submitted: true,
-            name: rr.name || '',
-            org: rr.org || '',
-            email: rr.email || '',
-            phone: rr.phone || '',
-            sign: rr.signature || ''
-          };
-        });
-        state.rows = remoteRows.concat(drafts);
-        ensureDraftRow();
-        save();
-        render();
-        triggerAutoPrintOnce();
+
+        if(isAdmin){
+          // An admin's session genuinely manages this event, so the server
+          // hands back the full roster (see canManageEvent in public.js) --
+          // same reconcile-everything behavior as before the privacy
+          // change, kept exclusively for this gated, audited case.
+          var remoteRows = data.rows.map(function(rr){ return toLocalRow(rr, clientIdByRowId, editingById); });
+          state.rows = remoteRows.concat(drafts);
+          ensureDraftRow();
+          save();
+          render();
+          triggerAutoPrintOnce();
+          return;
+        }
+
+        // Ordinary visitor: data.rows is deliberately empty (see
+        // GET /events/:slug in public.js) -- the roster is sealed. All this
+        // device can ever learn about is the row(s) it itself submitted,
+        // recovered by presenting the clientId(s) only it knows.
+        var myClientIds = Object.keys(clientIdByRowId).map(function(rowId){ return clientIdByRowId[rowId]; });
+        state.rows.forEach(function(r){ if(r.submitted && r.clientId && myClientIds.indexOf(r.clientId) === -1) myClientIds.push(r.clientId); });
+
+        if(!myClientIds.length){
+          ensureDraftRow();
+          save();
+          render();
+          return;
+        }
+
+        fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/my-attendance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientIds: myClientIds })
+        })
+          .then(function(res){ return res.json(); })
+          .then(function(myData){
+            var byClientId = {};
+            if(myData && myData.ok && Array.isArray(myData.rows)){
+              myData.rows.forEach(function(rr){ byClientId[rr.clientId] = rr; });
+            }
+            // Only ever touch rows this device already knew were its own;
+            // a clientId missing from the response (network hiccup, or the
+            // row genuinely no longer exists) leaves the local copy as-is
+            // rather than risking data loss from a transient failure.
+            var mySubmitted = state.rows.filter(function(r){ return r.submitted && r.clientId; }).map(function(r){
+              var fresh = byClientId[r.clientId];
+              return fresh ? toLocalRow(fresh, {}, editingById) : r;
+            });
+            state.rows = mySubmitted.concat(drafts);
+            ensureDraftRow();
+            save();
+            render();
+            triggerAutoPrintOnce();
+          })
+          .catch(function(){ /* offline — keep showing last known state */ });
       })
       .catch(function(){ /* offline — keep showing last known state */ });
   }
