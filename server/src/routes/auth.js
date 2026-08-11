@@ -73,18 +73,19 @@ authRouter.post('/activate/:token', ah(async (req, res) => {
     });
   } catch (err) {
     if (err.tokenError) return res.status(400).json({ ok: false, error: err.tokenError });
-    // "One active admin per county" (see uniq_active_admin_per_county in
-    // prisma/migrations/20260720121702_admin_constraints) is a real,
-    // deliberate business rule -- not a bug -- but without this check it
-    // surfaced as an opaque INTERNAL_ERROR that gave the person activating
-    // (and whoever they asked for help) zero indication that a *different*
-    // admin already holds their county, rather than anything being wrong
-    // with their link or password.
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002' && err.meta?.target?.includes('county')) {
+    // The per-county active-admin cap (see trg_enforce_active_admin_per_county
+    // in prisma/migrations/20260811170000_per_county_admin_cap -- most
+    // counties allow 1 active admin, Nairobi allows up to 3) is a real,
+    // deliberate business rule -- not a bug -- but a raw trigger exception
+    // would otherwise surface as an opaque INTERNAL_ERROR that gives the
+    // person activating (and whoever they ask for help) zero indication
+    // that the county's slots are simply full, rather than anything being
+    // wrong with their link or password.
+    if (err instanceof Prisma.PrismaClientUnknownRequestError && String(err.message).includes('COUNTY_ADMIN_SLOTS_FULL')) {
       return res.status(409).json({
         ok: false,
-        error: 'COUNTY_ALREADY_ACTIVE',
-        message: 'Another admin is already active for this county. Ask your super admin to disable that admin first, then try activating again.'
+        error: 'COUNTY_ADMIN_SLOTS_FULL',
+        message: 'This county already has its maximum number of active admins. Ask your super admin to disable one first, then try activating again.'
       });
     }
     throw err;
