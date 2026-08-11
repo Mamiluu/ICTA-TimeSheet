@@ -391,6 +391,14 @@
       r.data.events.forEach(function(ev){
         var tr = document.createElement('tr');
         var url = attendeePageUrl() + '?event=' + encodeURIComponent(ev.slug);
+        // &kiosk=1 tells the server (see GET /events/:slug in public.js) to
+        // render this exact page as a plain attendee would see it, even if
+        // opened in a browser that's still logged in as this admin. Use
+        // this link -- not the plain one above -- whenever the device
+        // itself (not just the link) is about to be handed to someone
+        // else, e.g. a laptop passed around at the venue for walk-ins to
+        // sign themselves in on.
+        var kioskUrl = url + '&kiosk=1';
 
         var nameTd = document.createElement('td');
         nameTd.textContent = ev.name;
@@ -414,10 +422,22 @@
           if(navigator.clipboard) navigator.clipboard.writeText(url);
         });
 
+        // Distinct from Copy link on purpose: this is the one to hand out
+        // whenever the *device* -- not just the URL -- is what's being
+        // handed to someone else, e.g. a laptop left on a table for
+        // walk-ins. It renders identically to the plain attendee view even
+        // though the browser itself is logged in as this admin.
+        var kioskBtn = document.createElement('button');
+        kioskBtn.textContent = 'Kiosk link';
+        kioskBtn.title = 'Copies a link that hides the roster even on this admin\'s own device — safe to hand to a walk-in attendee.';
+        kioskBtn.addEventListener('click', function(){
+          if(navigator.clipboard) navigator.clipboard.writeText(kioskUrl);
+        });
+
         var renameBtn = document.createElement('button');
         renameBtn.textContent = 'Rename';
         renameBtn.addEventListener('click', function(){
-          enterEditMode(ev, actionsTd, nameTd, dateTd, locationTd, renameBtn, openBtn, copyBtn, exportBtn, printBtn, deleteBtn);
+          enterEditMode(ev, actionsTd, nameTd, dateTd, locationTd, renameBtn, openBtn, copyBtn, kioskBtn, exportBtn, printBtn, deleteBtn);
         });
 
         // Export/print are the only place personal data (name, phone,
@@ -442,6 +462,7 @@
 
         actionsTd.appendChild(openBtn);
         actionsTd.appendChild(copyBtn);
+        actionsTd.appendChild(kioskBtn);
         actionsTd.appendChild(renameBtn);
         actionsTd.appendChild(exportBtn);
         actionsTd.appendChild(printBtn);
