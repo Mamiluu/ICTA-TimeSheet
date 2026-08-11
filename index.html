@@ -966,7 +966,7 @@
   }
 
   function loadRemote(){
-    fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId))
+    fetch(API_BASE + '/api/events/' + eventQuery)
       .then(function(res){ return res.json(); })
       .then(function(data){
         if(!data || !data.ok){
