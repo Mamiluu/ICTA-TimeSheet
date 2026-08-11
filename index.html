@@ -484,6 +484,13 @@
     // whole point of the dashboard), so showing the badge to them would be
     // a lie rather than reassurance.
     if(privacyBadge) privacyBadge.style.display = isAdmin ? 'none' : '';
+    // The running "X / 500 submitted so far" total is an attendance
+    // headcount across everyone, not this visitor's own row -- letting a
+    // non-admin watch it climb is a side channel onto other people's
+    // activity even without names attached (e.g. confirming exactly when a
+    // specific person they're expecting shows up). Reserved for the admin
+    // dashboard's own view, same as the roster itself.
+    if(submittedCount) submittedCount.style.display = isAdmin ? '' : 'none';
   }
   applyAdminVisibility();
   var eventDetailsDisplay = document.getElementById('eventDetailsDisplay');
