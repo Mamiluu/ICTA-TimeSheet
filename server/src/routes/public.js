@@ -51,9 +51,20 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
   const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
   if (!event || event.deletedAt) return res.json({ ok: false, error: 'Event not found' });
 
-  const manage = canManageEvent(req.user, event);
+  // ?kiosk=1 is an explicit, one-way downgrade: even a genuine admin
+  // session sees this exact link exactly the way an anonymous attendee
+  // would. It exists for the physical-device case a pure link/session
+  // model can't cover -- an organizer's own laptop, still logged in,
+  // handed to a walk-in to type their own row. Without this, that shared
+  // device would render the full roster from the admin's own privileged
+  // session regardless of how sealed the link is for everyone else. The
+  // admin dashboard hands out this exact URL as a distinct "Kiosk link" --
+  // see admin.html -- so the choice to use it is deliberate, not a trap
+  // toggled by a stray query string on the normal link.
+  const kiosk = req.query.kiosk === '1' || req.query.kiosk === 'true';
+  const manage = kiosk ? false : canManageEvent(req.user, event);
 
-  // The roster itself is now sealed: a plain visitor holding the event
+  // The roster itself is sealed: a plain visitor holding the event
   // link/QR only ever learns the event details and how many people have
   // signed in so far -- never who else signed in. Only a session that
   // genuinely manages this event (its own county admin, or a super admin --
