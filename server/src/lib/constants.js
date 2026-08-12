@@ -26,5 +26,6 @@ export const MAX_ATTENDANCE_PER_EVENT = 500;
 export const ACTIVATION_TOKEN_TTL_MS = 48 * 60 * 60 * 1000; // 48h to activate
 export const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1h to reset password
 export const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12h sliding session
+export const SIGNATURE_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days for an attendee to use a signature-recovery link
 
 export const SESSION_COOKIE_NAME = 'icta_session';

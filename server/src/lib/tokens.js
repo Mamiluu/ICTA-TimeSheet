@@ -5,11 +5,14 @@ import crypto from 'node:crypto';
 import { prisma } from './prisma.js';
 import { ACTIVATION_TOKEN_TTL_MS, RESET_TOKEN_TTL_MS } from './constants.js';
 
-function randomToken() {
+// Exported for callers that need a hashed, single-use token but aren't
+// tied to a User row (e.g. the Attendance-scoped signature-recovery link
+// in public.js/admin.js) -- issueToken/consumeToken below stay User-only.
+export function randomToken() {
   return crypto.randomBytes(32).toString('base64url');
 }
 
-function hashToken(rawToken) {
+export function hashToken(rawToken) {
   return crypto.createHash('sha256').update(rawToken).digest('hex');
 }
 

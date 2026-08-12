@@ -109,6 +109,14 @@ model Attendance {
   signature       String
   createdAt       DateTime @default(now())
 
+  // Lets an admin send a one-time link to an attendee whose row is missing
+  // a signature (see /api/signature-requests/:token) so they can add it
+  // themselves after the fact, without needing the original submitting
+  // device. Hash-only, same pattern as AuthToken -- the raw token only ever
+  // exists in the link handed to the admin.
+  signatureRequestTokenHash String?   @unique
+  signatureRequestExpiresAt DateTime?
+
   @@unique([eventId, clientId])
   @@unique([eventId, phoneNormalized])
   @@unique([eventId, emailNormalized])
