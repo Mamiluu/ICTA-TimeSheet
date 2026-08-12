@@ -1095,6 +1095,13 @@
   var drawing = false;
   var activeRowIndex = null;
   var lastX, lastY;
+  // canvas.toDataURL() on a completely untouched canvas still returns a
+  // valid, non-empty PNG -- just a picture of nothing -- so row.sign being
+  // "present" was never proof anyone actually drew a signature. This tracks
+  // whether any stroke has actually been laid down since the modal opened
+  // (or since Clear), so Save can refuse a technically-non-empty but
+  // visually-blank signature instead of silently accepting it.
+  var hasInk = false;
 
   function resizeCanvas(){
     var rect = canvas.getBoundingClientRect();
