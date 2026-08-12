@@ -104,6 +104,37 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
   });
 }));
 
+// Lets whoever manages this event (see canManageEvent above) generate a
+// one-time link for a specific row that's missing a signature -- e.g. rows
+// 154/168, submitted before the server enforced a real signature -- so the
+// attendee can add it themselves from their own device. Gated the same way
+// the roster GET above is (inline canManageEvent check against the event's
+// county, rather than requireRole + the adminRouter's id-keyed routes)
+// because the caller only knows this event by slug, same as everything
+// else on this page.
+publicRouter.post('/events/:slug/attendance/:rowId/request-signature', attendanceLimiter, ah(async (req, res) => {
+  const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
+  if (!event || event.deletedAt) return res.json({ ok: false, error: 'Event not found' });
+  if (!canManageEvent(req.user, event)) return res.status(403).json({ ok: false, error: 'FORBIDDEN' });
+
+  const row = await prisma.attendance.findFirst({ where: { id: req.params.rowId, eventId: event.id } });
+  if (!row) return res.json({ ok: false, error: 'NOT_FOUND' });
+
+  const raw = randomToken();
+  const expiresAt = new Date(Date.now() + SIGNATURE_REQUEST_TTL_MS);
+  await prisma.attendance.update({
+    where: { id: row.id },
+    data: { signatureRequestTokenHash: hashToken(raw), signatureRequestExpiresAt: expiresAt }
+  });
+  await writeAudit({ actorId: req.user.id, action: 'SIGNATURE_REQUESTED', targetType: 'Attendance', targetId: row.id, metadata: { name: row.name, eventId: event.id }, req }).catch(() => {});
+
+  res.json({
+    ok: true,
+    link: `${process.env.PUBLIC_APP_URL}/sign.html?token=${encodeURIComponent(raw)}`,
+    expiresAt
+  });
+}));
+
 // Lets a visitor's own device recover exactly its own row(s) -- and nobody
 // else's -- after a reload, refresh, or revisit. clientIds are random
 // UUIDs generated client-side at submit time and never echoed back to any
