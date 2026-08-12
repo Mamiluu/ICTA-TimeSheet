@@ -210,6 +210,9 @@ publicRouter.patch('/events/:slug/attendance/:clientId', attendanceLimiter, ah(a
   const phone = String(req.body.phone || '');
   const phoneNormalized = normalizePhone(phone);
   if (!phoneNormalized) return res.json({ ok: false, error: 'INVALID_PHONE', message: 'Enter a valid Kenyan phone number.' });
+  if (isBlankSignature(req.body.signature)) {
+    return res.json({ ok: false, error: 'MISSING_SIGNATURE', message: 'A signature is required — please draw it before saving.' });
+  }
   const emailNormalized = normalizeEmail(req.body.email);
 
   try {
