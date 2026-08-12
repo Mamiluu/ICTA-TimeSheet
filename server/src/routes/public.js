@@ -7,8 +7,9 @@ import { prisma } from '../lib/prisma.js';
 import { normalizePhone, normalizeEmail } from '../lib/normalize.js';
 import { attendanceLimiter } from '../middleware/rateLimit.js';
 import { ah } from '../lib/asyncHandler.js';
-import { MAX_ATTENDANCE_PER_EVENT } from '../lib/constants.js';
+import { MAX_ATTENDANCE_PER_EVENT, SIGNATURE_REQUEST_TTL_MS } from '../lib/constants.js';
 import { randomToken, hashToken } from '../lib/tokens.js';
+import { writeAudit } from '../lib/audit.js';
 
 export const publicRouter = Router();
 
