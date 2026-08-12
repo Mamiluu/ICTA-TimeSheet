@@ -1162,10 +1162,15 @@
 
   document.getElementById('sigClearBtn').addEventListener('click', function(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
+    hasInk = false;
   });
   document.getElementById('sigCancelBtn').addEventListener('click', closeSignatureModal);
   document.getElementById('sigSaveBtn').addEventListener('click', function(){
     if(activeRowIndex === null) return;
+    if(!hasInk){
+      alert('Please draw your signature before saving — the box is currently empty.');
+      return;
+    }
     state.rows[activeRowIndex].sign = canvas.toDataURL('image/png');
     save();
     render();
