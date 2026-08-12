@@ -225,7 +225,13 @@ publicRouter.patch('/events/:slug/attendance/:clientId', attendanceLimiter, ah(a
         emailNormalized,
         phone,
         phoneNormalized,
-        signature: String(req.body.signature || '')
+        signature: String(req.body.signature || ''),
+        // Whatever route got a real signature onto this row -- the
+        // attendee's own device via Edit, or a signature-recovery link --
+        // any outstanding request for one is satisfied, so it stops
+        // showing as pending in the admin dashboard.
+        signatureRequestTokenHash: null,
+        signatureRequestExpiresAt: null
       }
     });
     return res.json({ ok: true, id: row.id });
@@ -235,4 +241,52 @@ publicRouter.patch('/events/:slug/attendance/:clientId', attendanceLimiter, ah(a
     }
     throw err;
   }
+}));
+
+// A one-time link an admin generates for a specific attendance row (see
+// POST /api/admin/events/:id/attendance/:rowId/request-signature) so
+// someone whose row is missing a signature -- see the account of rows 154
+// and 168 having gotten through with signature: '' before the check above
+// existed -- can add it themselves from their own device, without needing
+// the device they originally submitted from. The token is the only proof
+// of "this is my row" here, so this deliberately returns nothing about any
+// *other* attendee, same discipline as my-attendance above.
+publicRouter.get('/signature-requests/:token', attendanceLimiter, ah(async (req, res) => {
+  const tokenHash = hashToken(String(req.params.token || ''));
+  const row = await prisma.attendance.findUnique({
+    where: { signatureRequestTokenHash: tokenHash },
+    include: { event: true }
+  });
+  if (!row || !row.signatureRequestExpiresAt || row.signatureRequestExpiresAt < new Date()) {
+    return res.json({ ok: false, error: 'INVALID_TOKEN', message: 'This link has expired or was already used. Ask the event organizer to send a new one.' });
+  }
+  res.json({ ok: true, name: row.name, eventName: row.event.name, hasSignature: !isBlankSignature(row.signature) });
+}));
+
+publicRouter.post('/signature-requests/:token', attendanceLimiter, ah(async (req, res) => {
+  const tokenHash = hashToken(String(req.params.token || ''));
+  const row = await prisma.attendance.findUnique({ where: { signatureRequestTokenHash: tokenHash } });
+  if (!row || !row.signatureRequestExpiresAt || row.signatureRequestExpiresAt < new Date()) {
+    return res.json({ ok: false, error: 'INVALID_TOKEN', message: 'This link has expired or was already used. Ask the event organizer to send a new one.' });
+  }
+  if (isBlankSignature(req.body.signature)) {
+    return res.json({ ok: false, error: 'MISSING_SIGNATURE', message: 'Please draw your signature before saving.' });
+  }
+
+  // updateMany + a WHERE on the still-live hash is the same
+  // compare-and-set trick consumeToken uses: it's what makes the link
+  // single-use under concurrency (e.g. opened twice) rather than by
+  // convention only.
+  const result = await prisma.attendance.updateMany({
+    where: { id: row.id, signatureRequestTokenHash: tokenHash },
+    data: {
+      signature: String(req.body.signature),
+      signatureRequestTokenHash: null,
+      signatureRequestExpiresAt: null
+    }
+  });
+  if (result.count === 0) {
+    return res.json({ ok: false, error: 'INVALID_TOKEN', message: 'This link has already been used.' });
+  }
+  res.json({ ok: true });
 }));
