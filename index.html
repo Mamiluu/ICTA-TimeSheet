@@ -1148,6 +1148,7 @@
     ctx.lineTo(p.x, p.y);
     ctx.stroke();
     lastX = p.x; lastY = p.y;
+    hasInk = true;
     e.preventDefault();
   }
   function endDraw(){ drawing = false; }
