@@ -8,8 +8,21 @@ import { normalizePhone, normalizeEmail } from '../lib/normalize.js';
 import { attendanceLimiter } from '../middleware/rateLimit.js';
 import { ah } from '../lib/asyncHandler.js';
 import { MAX_ATTENDANCE_PER_EVENT } from '../lib/constants.js';
+import { randomToken, hashToken } from '../lib/tokens.js';
 
 export const publicRouter = Router();
+
+// The client already refuses to let a visitor save a blank canvas (see the
+// hasInk latch in index.html's signature modal), but that is a UX guard
+// running in a browser we don't control -- a stale cached copy of the page,
+// a direct API call, or any future client that skips it would otherwise
+// still get a row written with signature: ''. This is the actual
+// enforcement boundary: reject anything that isn't a real drawn signature,
+// regardless of what submitted it.
+function isBlankSignature(signature) {
+  const s = String(signature || '').trim();
+  return !s || s.length < 100 || !s.startsWith('data:image/');
+}
 
 function publicRow(r) {
   return {
@@ -19,7 +32,8 @@ function publicRow(r) {
     org: r.organization,
     email: r.email,
     phone: r.phone,
-    signature: r.signature
+    signature: r.signature,
+    hasPendingSignatureRequest: !!r.signatureRequestTokenHash
   };
 }
 
