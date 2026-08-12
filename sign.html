@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+  Proprietary and confidential. See LICENSE in the repository root.
+  Unauthorized copying, modification, or distribution is prohibited.
+-->
+<meta charset="UTF-8">
+<title>ICT Authority — Add Your Signature</title>
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  body{ justify-content:center; min-height:100vh; }
+  canvas#sigCanvas{
+    border:1.5px dashed #999; border-radius:4px; touch-action:none;
+    width:100%; height:160px; background:#fefefe; display:block; margin-bottom:12px;
+  }
+  .sig-actions{ display:flex; justify-content:flex-end; gap:8px; }
+  .sig-actions button.clear{ background:#eee; }
+  .sig-actions button.save{ background:var(--accent2); border-color:var(--accent2); color:#fff; }
+</style>
+
+<div class="sheet" id="loadingPanel">
+  <p class="sub">Loading your entry…</p>
+</div>
+
+<div class="sheet" id="formPanel" style="display:none;">
+  <h1 class="title">Add your signature</h1>
+  <p class="sub" id="whoFor"></p>
+  <canvas id="sigCanvas" width="300" height="160"></canvas>
+  <div class="sig-actions">
+    <button class="clear" id="sigClearBtn">Clear</button>
+    <button class="save primary" id="sigSaveBtn">Save Signature</button>
+  </div>
+  <p class="error" id="formError" style="display:none;"></p>
+</div>
+
+<div class="sheet" id="successPanel" style="display:none;">
+  <h1 class="title">Signature recorded</h1>
+  <p class="sub">Thanks — your entry on the attendance sheet is now complete.</p>
+</div>
+
+<div class="sheet" id="invalidPanel" style="display:none;">
+  <h1 class="title">This link no longer works</h1>
+  <p class="sub" id="invalidReason">This link has already been used or has expired. Ask the event organizer to send you a new one.</p>
+</div>
+
+<p class="footer-note">© 2026 Asya Hafidh. All rights reserved.</p>
+
+<script>
+(function(){
+  var API_BASE = '';
+  var params = new URLSearchParams(location.search);
+  var token = params.get('token');
+
+  var loadingPanel = document.getElementById('loadingPanel');
+  var formPanel = document.getElementById('formPanel');
+  var successPanel = document.getElementById('successPanel');
+  var invalidPanel = document.getElementById('invalidPanel');
+  var invalidReason = document.getElementById('invalidReason');
+  var whoFor = document.getElementById('whoFor');
+  var formError = document.getElementById('formError');
+
+  function showInvalid(message){
+    loadingPanel.style.display = 'none';
+    formPanel.style.display = 'none';
+    invalidPanel.style.display = '';
+    if(message) invalidReason.textContent = message;
+  }
+
+  if(!token){
+    showInvalid('No signature link token was provided.');
+    return;
+  }
+
+  fetch(API_BASE + '/api/signature-requests/' + encodeURIComponent(token))
+    .then(function(res){ return res.json(); })
+    .then(function(data){
+      if(!data || !data.ok){
+        showInvalid(data && data.message);
+        return;
+      }
+      loadingPanel.style.display = 'none';
+      formPanel.style.display = '';
+      whoFor.textContent = (data.name ? data.name + ' — ' : '') + (data.eventName || 'attendance sheet') + '. Draw your signature below, the same as you would on the paper sheet.';
+      initCanvas();
+    })
+    .catch(function(){
+      showInvalid('Network error — could not reach the server. Reload this page to try again.');
+    });
+
+  var canvas = document.getElementById('sigCanvas');
+  var ctx = canvas.getContext('2d');
+  var drawing = false, hasInk = false, lastX, lastY;
+
+  function initCanvas(){
+    var rect = canvas.getBoundingClientRect();
+    var ratio = window.devicePixelRatio || 1;
+    canvas.width = rect.width * ratio;
+    canvas.height = rect.height * ratio;
+    ctx.scale(ratio, ratio);
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#111';
+  }
+
+  function getPos(e){
+    var rect = canvas.getBoundingClientRect();
+    var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  }
+  function startDraw(e){ drawing = true; var p = getPos(e); lastX = p.x; lastY = p.y; e.preventDefault(); }
+  function moveDraw(e){
+    if(!drawing) return;
+    var p = getPos(e);
+    ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke();
+    lastX = p.x; lastY = p.y; hasInk = true;
+    e.preventDefault();
+  }
+  function endDraw(){ drawing = false; }
+
+  canvas.addEventListener('mousedown', startDraw);
+  canvas.addEventListener('mousemove', moveDraw);
+  window.addEventListener('mouseup', endDraw);
+  canvas.addEventListener('touchstart', startDraw, { passive:false });
+  canvas.addEventListener('touchmove', moveDraw, { passive:false });
+  canvas.addEventListener('touchend', endDraw);
+
+  document.getElementById('sigClearBtn').addEventListener('click', function(){
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    hasInk = false;
+  });
+
+  var saveBtn = document.getElementById('sigSaveBtn');
+  saveBtn.addEventListener('click', function(){
+    formError.style.display = 'none';
+    if(!hasInk){
+      formError.textContent = 'Please draw your signature before saving — the box is currently empty.';
+      formError.style.display = '';
+      return;
+    }
+    saveBtn.disabled = true;
+    fetch(API_BASE + '/api/signature-requests/' + encodeURIComponent(token), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signature: canvas.toDataURL('image/png') })
+    })
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        if(data && data.ok){
+          formPanel.style.display = 'none';
+          successPanel.style.display = '';
+          return;
+        }
+        saveBtn.disabled = false;
+        if(data && data.error === 'INVALID_TOKEN'){
+          showInvalid(data.message);
+          return;
+        }
+        formError.textContent = (data && data.message) || 'Could not save your signature — please try again.';
+        formError.style.display = '';
+      })
+      .catch(function(){
+        saveBtn.disabled = false;
+        formError.textContent = 'Network error — could not reach the server. Please try again.';
+        formError.style.display = '';
+      });
+  });
+})();
+</script>
