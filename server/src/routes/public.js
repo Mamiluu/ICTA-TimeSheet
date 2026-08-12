@@ -132,6 +132,9 @@ publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, 
   const phone = String(req.body.phone || '');
   const phoneNormalized = normalizePhone(phone);
   if (!phoneNormalized) return res.json({ ok: false, error: 'INVALID_PHONE', message: 'Enter a valid Kenyan phone number.' });
+  if (isBlankSignature(req.body.signature)) {
+    return res.json({ ok: false, error: 'MISSING_SIGNATURE', message: 'A signature is required — please draw it before submitting.' });
+  }
   const emailNormalized = normalizeEmail(req.body.email);
 
   // Idempotency guard first: if this exact submission (by client-generated
