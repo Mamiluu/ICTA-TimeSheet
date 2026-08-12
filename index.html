@@ -422,6 +422,12 @@
   // county admin (or a super admin) -- see canManageEvent in public.js.
   // Starts false and flips on (if at all) once loadRemote() confirms it.
   var isAdmin = false;
+  // One-time signature-recovery links (see requestSignature below) grant
+  // write access to a single attendee's row for 7 days, so they're kept
+  // in memory only, keyed by row id -- never in `state`/localStorage,
+  // which a shared kiosk device could otherwise leak to whoever uses it
+  // next.
+  var pendingSigLinks = {};
   // Export/print live exclusively in the authenticated admin dashboard now
   // (see admin.html + GET /api/admin/events/:id/attendance), so every
   // download of personal data -- name, phone, email, signature -- gets an
