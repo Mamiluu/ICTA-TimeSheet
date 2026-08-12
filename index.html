@@ -638,6 +638,49 @@
         signBtn.style.cursor = 'pointer';
         signBtn.addEventListener('click', function(){ openSignatureModal(idx); });
         signTd.appendChild(signBtn);
+      } else if(isAdmin && row.id){
+        // A submitted row with no signature -- either a legacy row from
+        // before the server required one, or a link that was requested but
+        // not used yet. Only an admin managing this event sees this; a
+        // plain visitor never gets a roster of anyone but themselves.
+        var sigWrap = document.createElement('div');
+        sigWrap.className = 'sig-wrap';
+        sigWrap.style.flexDirection = 'column';
+        sigWrap.style.alignItems = 'stretch';
+        var link = pendingSigLinks[row.id];
+        if(link){
+          var linkInput = document.createElement('input');
+          linkInput.type = 'text';
+          linkInput.readOnly = true;
+          linkInput.value = link;
+          linkInput.style.fontSize = '10px';
+          linkInput.style.width = '150px';
+          linkInput.addEventListener('click', function(){ linkInput.select(); });
+          sigWrap.appendChild(linkInput);
+          var copyBtn = document.createElement('button');
+          copyBtn.textContent = 'Copy link';
+          copyBtn.style.fontSize = '11px';
+          copyBtn.addEventListener('click', function(){
+            (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject())
+              .catch(function(){ linkInput.select(); document.execCommand('copy'); })
+              .then(function(){ copyBtn.textContent = 'Copied'; setTimeout(function(){ copyBtn.textContent = 'Copy link'; }, 1500); });
+          });
+          sigWrap.appendChild(copyBtn);
+          var hint = document.createElement('div');
+          hint.style.fontSize = '10px';
+          hint.style.color = '#888';
+          hint.textContent = 'Send to ' + (row.phone || row.email || 'attendee') + ' — valid 7 days';
+          sigWrap.appendChild(hint);
+        } else {
+          var reqBtn = document.createElement('button');
+          reqBtn.textContent = row.hasPendingSignatureRequest ? 'Resend sig. link' : 'Request signature';
+          reqBtn.style.fontSize = '11px';
+          reqBtn.style.padding = '4px 10px';
+          reqBtn.style.cursor = 'pointer';
+          reqBtn.addEventListener('click', function(){ requestSignature(row); });
+          sigWrap.appendChild(reqBtn);
+        }
+        signTd.appendChild(sigWrap);
       } else {
         signTd.textContent = '—';
       }
