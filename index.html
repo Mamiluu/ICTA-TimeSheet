@@ -1002,6 +1002,30 @@
       });
   }
 
+  // Admin-only recovery path for a row that got submitted without a real
+  // signature (see isBlankSignature in public.js -- that check didn't
+  // always exist, so older rows can be missing one). Generates a one-time
+  // link the admin sends to the attendee themselves, rather than letting
+  // an admin draw on someone else's behalf.
+  function requestSignature(row){
+    fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/attendance/' + encodeURIComponent(row.id) + '/request-signature', {
+      method: 'POST',
+      credentials: 'include'
+    })
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        if(data && data.ok){
+          pendingSigLinks[row.id] = data.link;
+          render();
+        } else {
+          alert((data && data.message) || 'Could not generate a signature link — please try again.');
+        }
+      })
+      .catch(function(){
+        alert('Network error — could not reach the server. Please try again.');
+      });
+  }
+
   // Turns a full server row into the same local shape state.rows already
   // uses, reattaching whatever clientId/editing-state this device already
   // had for that row so an in-progress edit is never clobbered by a poll.
