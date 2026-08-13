@@ -37,7 +37,11 @@ function requireFields(body) {
 
 adminRouter.get('/events', ah(async (req, res) => {
   const events = await prisma.event.findMany({
-    where: { county: req.user.county, deletedAt: null },
+    // Each admin's dashboard lists only events they themselves created --
+    // county is where the cap is enforced, not a shared workspace, so a
+    // county with multiple admins (see per-county cap migration) doesn't
+    // mean they share each other's events.
+    where: { county: req.user.county, ownerId: req.user.id, deletedAt: null },
     orderBy: { createdAt: 'desc' },
     include: { _count: { select: { attendance: true } } }
   });
