@@ -59,7 +59,11 @@ function ownRow(r) {
 function canManageEvent(user, event) {
   if (!user) return false;
   if (user.role === 'SUPER_ADMIN') return true;
-  return user.role === 'COUNTY_ADMIN' && user.county === event.county;
+  // County alone isn't enough now that a county can have multiple active
+  // admins (see the per-county cap migration, which lets Nairobi run up to
+  // 3) -- without also checking ownerId here, any of that county's admins
+  // could manage every other one's events, not just their own.
+  return user.role === 'COUNTY_ADMIN' && user.county === event.county && event.ownerId === user.id;
 }
 
 publicRouter.get('/events/:slug', ah(async (req, res) => {

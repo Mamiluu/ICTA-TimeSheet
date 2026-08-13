@@ -58,10 +58,14 @@ adminRouter.post('/events', ah(async (req, res) => {
   res.json({ ok: true, event: publicEvent(event, 0) });
 }));
 
-// Helper function to find an event by ID and ensure it belongs to the current user's county.
+// Helper function to find an event by ID and ensure it was created by the
+// current admin -- county alone isn't ownership: a county can have up to 3
+// active admins (see the per-county cap migration), and each one's events
+// should stay private to them, not shared across every admin their county
+// happens to have.
 async function findOwnEvent(req) {
   const event = await prisma.event.findUnique({ where: { id: req.params.id } });
-  if (!event || event.deletedAt || event.county !== req.user.county) return null;
+  if (!event || event.deletedAt || event.county !== req.user.county || event.ownerId !== req.user.id) return null;
   return event;
 }
 
