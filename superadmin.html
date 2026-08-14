@@ -276,7 +276,7 @@
         if(r.data.error === 'MUST_DISABLE_FIRST'){
           window.alert('Disable this admin before deleting it.');
         } else if(r.data.error === 'HAS_ACTIVITY'){
-          window.alert('Cannot delete: this admin has activity history (logins, events). Keep it disabled instead.');
+          window.alert('Cannot delete: this admin owns event(s) with attendance records. Keep it disabled instead.');
         } else {
           window.alert(r.data.message || 'Could not delete admin.');
         }
@@ -305,7 +305,9 @@
     var tbody = document.createElement('tbody');
     entries.forEach(function(e){
       var tr = document.createElement('tr');
-      var actor = e.actor ? (e.actor.email + ' (' + e.actor.role + (e.actor.county ? ', ' + e.actor.county : '') + ')') : e.actorId;
+      var actor = e.actor ? (e.actor.email + ' (' + e.actor.role + (e.actor.county ? ', ' + e.actor.county : '') + ')')
+        : e.actorEmail ? (e.actorEmail + ' (' + e.actorRole + (e.actorCounty ? ', ' + e.actorCounty : '') + ') [deleted]')
+        : (e.actorId || 'unknown');
       var detail = e.metadata ? JSON.stringify(e.metadata) : (e.targetType ? e.targetType + ' ' + e.targetId : '');
       tr.innerHTML =
         '<td>' + escapeHtml(new Date(e.createdAt).toLocaleString()) + '</td>' +

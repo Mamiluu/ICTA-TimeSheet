@@ -170,10 +170,12 @@ superadminRouter.post('/admins/:id/reactivate', ah(async (req, res) => {
 // email address can be reused. Restricted to PENDING/DISABLED admins:
 // an ACTIVE admin must be disabled first, which also revokes sessions
 // and gives a deliberate extra step before a destructive action.
-// AuthToken/Session rows cascade via the schema; AuditLog.actorId and
-// Event.ownerId do not, so if this admin ever logged in or owned an
-// event the DB will reject the delete with a foreign-key violation --
-// surfaced below as HAS_ACTIVITY rather than a raw 500.
+// AuthToken/Session rows cascade via the schema, and AuditLog.actorId now
+// goes to NULL (a snapshot of the actor is kept on the row, see writeAudit)
+// so login/audit history no longer blocks deletion. Event.ownerId still
+// RESTRICTs: events are only ever reachable by ownerId (see admin.js), so
+// deleting an admin who owns one would strand real attendance data with no
+// way to view it again -- surfaced below as HAS_ACTIVITY rather than a raw 500.
 superadminRouter.delete('/admins/:id', ah(async (req, res) => {
   const admin = await prisma.user.findUnique({ where: { id: req.params.id } });
   if (!admin || admin.role !== 'COUNTY_ADMIN') return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
