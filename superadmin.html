@@ -276,7 +276,7 @@
         if(r.data.error === 'MUST_DISABLE_FIRST'){
           window.alert('Disable this admin before deleting it.');
         } else if(r.data.error === 'HAS_ACTIVITY'){
-          window.alert('Cannot delete: this admin owns event(s) with attendance records. Keep it disabled instead.');
+          window.alert('Cannot delete this admin due to a data constraint. Keep it disabled instead.');
         } else {
           window.alert(r.data.message || 'Could not delete admin.');
         }
