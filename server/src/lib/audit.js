@@ -3,10 +3,16 @@
 
 import { prisma } from './prisma.js';
 
-export function writeAudit({ actorId, action, targetType, targetId, metadata, req }) {
+export async function writeAudit({ actorId, action, targetType, targetId, metadata, req }) {
+  const actor = actorId
+    ? await prisma.user.findUnique({ where: { id: actorId }, select: { email: true, role: true, county: true } })
+    : null;
   return prisma.auditLog.create({
     data: {
       actorId,
+      actorEmail: actor ? actor.email : null,
+      actorRole: actor ? actor.role : null,
+      actorCounty: actor ? actor.county : null,
       action,
       targetType: targetType || null,
       targetId: targetId || null,
