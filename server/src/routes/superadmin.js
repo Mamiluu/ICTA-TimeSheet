@@ -189,7 +189,15 @@ superadminRouter.delete('/admins/:id', ah(async (req, res) => {
   try {
     await prisma.user.delete({ where: { id: admin.id } });
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
+    // Postgres reports a RESTRICT violation (Event_ownerId_fkey, the only
+    // remaining RESTRICT on User) as SQLSTATE 23001, which Prisma does NOT
+    // map to a known P2xxx code the way it does 23503 (P2003) -- it comes
+    // through as PrismaClientUnknownRequestError instead, with the detail
+    // only in the message text. Checking for P2003 alone missed this.
+    const isOwnedEventRestrict =
+      (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') ||
+      (err instanceof Prisma.PrismaClientUnknownRequestError && /foreign key constraint/i.test(err.message));
+    if (isOwnedEventRestrict) {
       return res.status(409).json({ ok: false, error: 'HAS_ACTIVITY' });
     }
     throw err;

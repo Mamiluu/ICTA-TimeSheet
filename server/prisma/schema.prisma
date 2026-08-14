@@ -83,8 +83,17 @@ model Event {
   date      String
   location  String
   county    String
-  ownerId   String
-  owner     User      @relation("EventOwner", fields: [ownerId], references: [id])
+
+  // Nullable so the owning admin can be hard-deleted (superadminRouter DELETE
+  // /admins/:id) without being blocked forever. Deliberately not cascaded:
+  // a deleted owner's events go ownerless rather than gone -- the public
+  // attendance flow (public.js) looks events up by slug, never by owner, so
+  // signing continues to work. What's lost is admin-side visibility: the
+  // per-admin event list (admin.js) filters strictly by ownerId, so an
+  // ownerless event stops appearing there for anyone.
+  ownerId   String?
+  owner     User?     @relation("EventOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
