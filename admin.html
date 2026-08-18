@@ -67,6 +67,8 @@
   .dp-day.dp-today{ box-shadow:inset 0 0 0 1.5px var(--accent2); font-weight:700; }
   .dp-day.dp-selected{ background:var(--accent); color:#fff; font-weight:700; }
   .dp-day.dp-selected:hover{ background:var(--accent); filter:brightness(1.1); }
+  .dp-day:disabled{ color:#ddd; cursor:not-allowed; }
+  .dp-day:disabled:hover{ background:none; }
 
   .dp-quick{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; padding-top:10px; border-top:1px solid #eee; }
   .dp-quick button{ font-size:10.5px; padding:5px 9px; border-radius:999px; border:1px solid #ddd; background:#fafafa; color:#444; }
@@ -217,6 +219,7 @@
       var first = new Date(viewYear, viewMonth, 1);
       var gridStart = new Date(viewYear, viewMonth, 1 - first.getDay());
       var t = todayParts();
+      var todayTime = new Date(t.y, t.m, t.d).getTime();
       var daysHtml = '';
       for(var i = 0; i < 42; i++){
         var cellDate = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
@@ -225,7 +228,12 @@
         if(m !== viewMonth) cls += ' dp-outside';
         if(y === t.y && m === t.m && d === t.d) cls += ' dp-today';
         if(selected && y === selected.y && m === selected.m && d === selected.d) cls += ' dp-selected';
-        daysHtml += '<button type="button" class="' + cls + '" data-y="' + y + '" data-m="' + m + '" data-d="' + d + '">' + d + '</button>';
+        // Events must be created for today or a future date -- past dates
+        // are only still reachable here for an event that already has one
+        // (edited before this restriction existed), shown via dp-selected
+        // above rather than by re-enabling the day cell.
+        var isPast = cellDate.getTime() < todayTime;
+        daysHtml += '<button type="button" class="' + cls + '" data-y="' + y + '" data-m="' + m + '" data-d="' + d + '"' + (isPast ? ' disabled' : '') + '>' + d + '</button>';
       }
       panel.innerHTML =
         '<div class="dp-header">' +
