@@ -927,7 +927,7 @@
     if(!receiptBanner) return;
     receiptTitle.textContent = wasDuplicate ? 'Already on record' : 'You\'re checked in';
     var when = new Date().toLocaleString();
-    receiptSub.textContent = (row.name ? row.name + ' — ' : '') + (state.meta && state.meta.name ? state.meta.name : 'this event') + '. Recorded ' + when + '. Your ';
+    receiptSub.textContent = (row.name ? row.name + ' — ' : '') + (state.meta && state.meta.name ? state.meta.name : 'this event') + '. Recorded ' + when + '. Your details has already been captured and stored. ';
     receiptBanner.classList.add('show');
     clearTimeout(showReceipt._t);
     showReceipt._t = setTimeout(function(){ receiptBanner.classList.remove('show'); }, 12000);
