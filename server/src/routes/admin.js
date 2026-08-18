@@ -35,6 +35,13 @@ function requireFields(body) {
   return { name, date, location, missing };
 }
 
+// YYYY-MM-DD, same shape as the `date` field, so it sorts/compares
+// correctly as a plain string against it.
+function todayIsoDate() {
+  const now = new Date();
+  return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+}
+
 adminRouter.get('/events', ah(async (req, res) => {
   const events = await prisma.event.findMany({
     // Each admin's dashboard lists only events they themselves created --
@@ -52,6 +59,14 @@ adminRouter.post('/events', ah(async (req, res) => {
   const { name, date, location, missing } = requireFields(req.body);
   if (missing.length) {
     return res.status(400).json({ ok: false, error: 'MISSING_FIELDS', message: `Please fill in ${missing.join(', ')}.` });
+  }
+  // The date picker already blocks past days client-side; this is the
+  // server-side backstop so the restriction can't be skipped by calling
+  // the API directly. Only enforced on create -- editing an event that
+  // already has a past date (from before this check existed) must stay
+  // possible without forcing its date to change.
+  if (date < todayIsoDate()) {
+    return res.status(400).json({ ok: false, error: 'PAST_DATE', message: 'Event date cannot be in the past.' });
   }
 
   const event = await prisma.event.create({
