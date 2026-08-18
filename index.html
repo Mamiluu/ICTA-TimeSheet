@@ -569,7 +569,7 @@
     if(state.rows.length === 0){
       var tr = document.createElement('tr');
       tr.className = 'empty-row';
-      tr.innerHTML = '<td class="num">1</td><td colspan="6">No attendees yet — click "+ Add Attendee" to fill in a row.</td>';
+      tr.innerHTML = '<td class="num">1</td><td colspan="6">No attendees yet, click "+ Add Attendee" to fill in a row.</td>';
       rosterBody.appendChild(tr);
       updateSubmittedCount();
       return;
