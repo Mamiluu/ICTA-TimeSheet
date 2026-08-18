@@ -927,7 +927,7 @@
     if(!receiptBanner) return;
     receiptTitle.textContent = wasDuplicate ? 'Already on record' : 'You\'re checked in';
     var when = new Date().toLocaleString();
-    receiptSub.textContent = (row.name ? row.name + ' — ' : '') + (state.meta && state.meta.name ? state.meta.name : 'this event') + '. Recorded ' + when + '. Your entry is sealed — only the event organizer can view the full attendance roster.';
+    receiptSub.textContent = (row.name ? row.name + ' — ' : '') + (state.meta && state.meta.name ? state.meta.name : 'this event') + '. Recorded ' + when + '. Your ';
     receiptBanner.classList.add('show');
     clearTimeout(showReceipt._t);
     showReceipt._t = setTimeout(function(){ receiptBanner.classList.remove('show'); }, 12000);
