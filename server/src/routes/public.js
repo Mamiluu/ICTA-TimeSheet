@@ -7,7 +7,7 @@ import { prisma } from '../lib/prisma.js';
 import { normalizePhone, normalizeEmail } from '../lib/normalize.js';
 import { attendanceLimiter } from '../middleware/rateLimit.js';
 import { ah } from '../lib/asyncHandler.js';
-import { MAX_ATTENDANCE_PER_EVENT, SIGNATURE_REQUEST_TTL_MS } from '../lib/constants.js';
+import { MAX_ATTENDANCE_PER_EVENT, SIGNATURE_REQUEST_TTL_MS, EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
 import { randomToken, hashToken } from '../lib/tokens.js';
 import { writeAudit } from '../lib/audit.js';
 
@@ -56,6 +56,13 @@ function ownRow(r) {
 // on someone's behalf, clear local drafts). Export/print for the record
 // are deliberately NOT unlocked here; those go through the audited
 // /api/admin/events/:id/attendance path from the admin's own dashboard.
+// Measured from createdAt (when the admin generated the link), not the
+// event's own `date` field -- a same-day event and a next-month one both
+// get the same 48h public sign-in window from creation.
+function isLinkExpired(event) {
+  return Date.now() - event.createdAt.getTime() > EVENT_LINK_VISIBILITY_MS;
+}
+
 function canManageEvent(user, event) {
   if (!user) return false;
   if (user.role === 'SUPER_ADMIN') return true;
@@ -82,6 +89,26 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
   // toggled by a stray query string on the normal link.
   const kiosk = req.query.kiosk === '1' || req.query.kiosk === 'true';
   const manage = kiosk ? false : canManageEvent(req.user, event);
+
+  // The public sign-in link closes 48h after creation -- for anyone who
+  // isn't the owning admin (including a kiosk-forced view, since that's
+  // still meant for a walk-in attendee, not the organizer). The owning
+  // admin's own dashboard tools (Open/Export CSV/Print) all still work
+  // past this: Export/Print go through the separate, always-open
+  // /api/admin/events/:id/attendance route, and Open re-hits this same
+  // route with a real admin session, which `manage` above already lets
+  // through.
+  if (!manage && isLinkExpired(event)) {
+    return res.json({
+      ok: true,
+      event: { id: event.slug, name: event.name, date: event.date, location: event.location },
+      expired: true,
+      rows: [],
+      submittedCount: 0,
+      capacity: MAX_ATTENDANCE_PER_EVENT,
+      canManage: false
+    });
+  }
 
   // The roster itself is sealed: a plain visitor holding the event
   // link/QR only ever learns the event details and how many people have
@@ -163,6 +190,15 @@ publicRouter.post('/events/:slug/my-attendance', attendanceLimiter, ah(async (re
 publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, res) => {
   const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
   if (!event || event.deletedAt) return res.json({ ok: false, error: 'Unknown event' });
+  // Mirrors the GET route's cutoff: the client already hides the form once
+  // GET reports expired, this is the backstop against calling the API
+  // directly. Applied to every submitter, including the owning admin's own
+  // "add a row on someone's behalf" kiosk tool -- once the window closes,
+  // the roster is final and further changes belong on the admin dashboard,
+  // not the public link.
+  if (isLinkExpired(event)) {
+    return res.json({ ok: false, error: 'LINK_EXPIRED', message: 'Sign-in for this event has closed.' });
+  }
 
   const clientId = String(req.body.clientId || '');
   const phone = String(req.body.phone || '');
@@ -234,6 +270,9 @@ publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, 
 publicRouter.patch('/events/:slug/attendance/:clientId', attendanceLimiter, ah(async (req, res) => {
   const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
   if (!event || event.deletedAt) return res.json({ ok: false, error: 'Unknown event' });
+  if (isLinkExpired(event)) {
+    return res.json({ ok: false, error: 'LINK_EXPIRED', message: 'Sign-in for this event has closed.' });
+  }
 
   const clientId = String(req.params.clientId || '');
   const existing = await prisma.attendance.findUnique({
