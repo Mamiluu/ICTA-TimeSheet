@@ -46,6 +46,14 @@ function ownRow(r) {
   return { ...publicRow(r), clientId: r.clientId };
 }
 
+// Measured from createdAt (when the admin generated the link), not the
+// event's own `date` field -- a same-day event and a next-month one both
+// get the same public sign-in window (see EVENT_LINK_VISIBILITY_MS) from
+// creation.
+function isLinkExpired(event) {
+  return Date.now() - event.createdAt.getTime() > EVENT_LINK_VISIBILITY_MS;
+}
+
 // This route has no requireRole guard -- the sheet itself is meant to be
 // readable by anyone holding the event link/QR, the same way a physical
 // clipboard sitting at a venue is readable by anyone standing there.
@@ -56,13 +64,6 @@ function ownRow(r) {
 // on someone's behalf, clear local drafts). Export/print for the record
 // are deliberately NOT unlocked here; those go through the audited
 // /api/admin/events/:id/attendance path from the admin's own dashboard.
-// Measured from createdAt (when the admin generated the link), not the
-// event's own `date` field -- a same-day event and a next-month one both
-// get the same 48h public sign-in window from creation.
-function isLinkExpired(event) {
-  return Date.now() - event.createdAt.getTime() > EVENT_LINK_VISIBILITY_MS;
-}
-
 function canManageEvent(user, event) {
   if (!user) return false;
   if (user.role === 'SUPER_ADMIN') return true;
@@ -90,7 +91,7 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
   const kiosk = req.query.kiosk === '1' || req.query.kiosk === 'true';
   const manage = kiosk ? false : canManageEvent(req.user, event);
 
-  // The public sign-in link closes 48h after creation -- for anyone who
+  // The public sign-in link closes after EVENT_LINK_VISIBILITY_MS -- for anyone who
   // isn't the owning admin (including a kiosk-forced view, since that's
   // still meant for a walk-in attendee, not the organizer). The owning
   // admin's own dashboard tools (Open/Export CSV/Print) all still work
