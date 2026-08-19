@@ -28,10 +28,12 @@ export const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1h to reset password
 export const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12h sliding session
 export const SIGNATURE_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days for an attendee to use a signature-recovery link
 
-// How long the public sign-in link (index.html?event=...) stays open to
-// attendees after the event is created. Past this, the sheet is closed to
-// the public -- the owning admin still has full access via the dashboard's
-// own Open/Export CSV/Print, which go through the authenticated
+// How long the public sign-in link (index.html?event=...) stays open past
+// the event's own date (see linkClosesAt in public.js -- not from whenever
+// the admin happened to create it, which is often well before the event
+// itself). Past this, the sheet is closed to the public -- the owning
+// admin still has full access via the dashboard's own Open/Export
+// CSV/Print, which go through the authenticated
 // /api/admin/events/:id/attendance route, not this link.
 export const EVENT_LINK_VISIBILITY_MS = 9 * 24 * 60 * 60 * 1000;
 
