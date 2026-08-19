@@ -5,7 +5,7 @@ import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { requireRole } from '../middleware/auth.js';
 import { writeAudit } from '../lib/audit.js';
-import { eventSlugId } from '../lib/normalize.js';
+import { eventSlugId, parseEventDate } from '../lib/normalize.js';
 import { ah } from '../lib/asyncHandler.js';
 import { EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
 
@@ -22,9 +22,10 @@ function publicEvent(ev, count) {
     county: ev.county,
     createdAt: ev.createdAt,
     // So the dashboard can show "closes in Xd Yh" / "Closed" per event
-    // (see public.js's isLinkExpired, the actual enforcement) without
-    // duplicating the TTL client-side.
-    linkClosesAt: new Date(ev.createdAt.getTime() + EVENT_LINK_VISIBILITY_MS),
+    // (see public.js's linkClosesAt/isLinkExpired, the actual enforcement)
+    // without duplicating that logic client-side. Anchored to the event's
+    // own date, not createdAt -- see the matching comment in public.js.
+    linkClosesAt: new Date((parseEventDate(ev.date) || ev.createdAt).getTime() + EVENT_LINK_VISIBILITY_MS),
     count: count ?? undefined
   };
 }
