@@ -318,7 +318,7 @@
 
   @media print{
     body{ background:#fff; padding:0; }
-    .toolbar, .hint, footer.credit, table.roster .action-col, table.roster td.rowdel, table.roster td.sign-cell button{ display:none !important; }
+    .toolbar, .hint, footer.credit, .closing-soon-banner, table.roster .action-col, table.roster td.rowdel, table.roster td.sign-cell button{ display:none !important; }
     .sheet{ box-shadow:none; max-width:100%; padding:10px 18px; }
     table.roster{ table-layout:auto; }
     table.roster td textarea, .event-box input{ border-color:transparent; }
@@ -514,6 +514,29 @@
   var receiptBanner = document.getElementById('receiptBanner');
   var receiptTitle = document.getElementById('receiptTitle');
   var receiptSub = document.getElementById('receiptSub');
+  var closingSoonBanner = document.getElementById('closingSoonBanner');
+  var closingSoonText = document.getElementById('closingSoonText');
+  var CLOSING_SOON_THRESHOLD_MS = 24 * 60 * 60 * 1000;
+
+  // A courtesy heads-up in the last day of the sign-in window (see
+  // EVENT_LINK_VISIBILITY_MS server-side) so attendees who wait until near
+  // the end don't get caught out by the link simply going dark on them.
+  // Admin sessions don't need this -- their own access to the event never
+  // expires -- so it's skipped whenever isAdmin is true.
+  function applyClosingSoon(linkClosesAtIso){
+    if(!closingSoonBanner || isAdmin || !linkClosesAtIso) { if(closingSoonBanner) closingSoonBanner.classList.remove('show'); return; }
+    var msLeft = new Date(linkClosesAtIso).getTime() - Date.now();
+    if(msLeft <= 0 || msLeft > CLOSING_SOON_THRESHOLD_MS){
+      closingSoonBanner.classList.remove('show');
+      return;
+    }
+    var hours = Math.floor(msLeft / 3600000);
+    var mins = Math.floor((msLeft % 3600000) / 60000);
+    closingSoonText.textContent = hours > 0
+      ? 'This sign-in link closes in ' + hours + 'h ' + mins + 'm. Submit your details before then.'
+      : 'This sign-in link closes in ' + mins + 'm. Submit your details before then.';
+    closingSoonBanner.classList.add('show');
+  }
   function applyAdminVisibility(){
     if(addRowBtn) addRowBtn.style.display = isAdmin ? '' : 'none';
     if(resetBtn) resetBtn.style.display = isAdmin ? '' : 'none';
@@ -1100,6 +1123,7 @@
         isAdmin = !!data.canManage;
         applyAdminVisibility();
         applyEventMeta();
+        applyClosingSoon(data.linkClosesAt);
 
         var clientIdByRowId = {};
         var editingById = {};
