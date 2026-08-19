@@ -46,12 +46,20 @@ function ownRow(r) {
   return { ...publicRow(r), clientId: r.clientId };
 }
 
-// Measured from createdAt (when the admin generated the link), not the
-// event's own `date` field -- a same-day event and a next-month one both
-// get the same public sign-in window (see EVENT_LINK_VISIBILITY_MS) from
-// creation.
+// Anchored to the event's own `date` field, not createdAt -- an admin
+// routinely creates an event days or weeks ahead of when it actually
+// happens, and anchoring to creation time would let the window lapse
+// before the event even took place. The link is still open for sign-ins
+// from the moment the event is created (no lower bound), it just keeps
+// counting the close-by point from the event date itself, not from
+// whenever the admin happened to set it up.
+function linkClosesAt(event) {
+  const eventDate = parseEventDate(event.date) || event.createdAt;
+  return new Date(eventDate.getTime() + EVENT_LINK_VISIBILITY_MS);
+}
+
 function isLinkExpired(event) {
-  return Date.now() - event.createdAt.getTime() > EVENT_LINK_VISIBILITY_MS;
+  return Date.now() > linkClosesAt(event).getTime();
 }
 
 // This route has no requireRole guard -- the sheet itself is meant to be
@@ -135,10 +143,10 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
     capacity: MAX_ATTENDANCE_PER_EVENT,
     canManage: manage,
     // Lets the attendee page give a "closing soon" heads-up in the last
-    // stretch of the window -- not sensitive (it's just this event's own
-    // creation time plus the fixed public window), and never sent once
-    // already expired (that branch returns above instead).
-    linkClosesAt: new Date(event.createdAt.getTime() + EVENT_LINK_VISIBILITY_MS)
+    // stretch of the window -- not sensitive (it's the event's own date
+    // plus the fixed public window, see linkClosesAt above), and never
+    // sent once already expired (that branch returns above instead).
+    linkClosesAt: linkClosesAt(event)
   });
 }));
 
