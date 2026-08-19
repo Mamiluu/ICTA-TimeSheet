@@ -35,6 +35,6 @@ export const SIGNATURE_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days for a
 // admin still has full access via the dashboard's own Open/Export
 // CSV/Print, which go through the authenticated
 // /api/admin/events/:id/attendance route, not this link.
-export const EVENT_LINK_VISIBILITY_MS = 9 * 24 * 60 * 60 * 1000;
+export const EVENT_LINK_VISIBILITY_MS = 5 * 24 * 60 * 60 * 1000;
 
 export const SESSION_COOKIE_NAME = 'icta_session';
