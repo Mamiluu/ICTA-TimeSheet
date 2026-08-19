@@ -133,7 +133,12 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
     rows: attendance.map(publicRow),
     submittedCount,
     capacity: MAX_ATTENDANCE_PER_EVENT,
-    canManage: manage
+    canManage: manage,
+    // Lets the attendee page give a "closing soon" heads-up in the last
+    // stretch of the window -- not sensitive (it's just this event's own
+    // creation time plus the fixed public window), and never sent once
+    // already expired (that branch returns above instead).
+    linkClosesAt: new Date(event.createdAt.getTime() + EVENT_LINK_VISIBILITY_MS)
   });
 }));
 

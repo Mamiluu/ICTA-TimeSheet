@@ -7,6 +7,7 @@ import { requireRole } from '../middleware/auth.js';
 import { writeAudit } from '../lib/audit.js';
 import { eventSlugId } from '../lib/normalize.js';
 import { ah } from '../lib/asyncHandler.js';
+import { EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
 
 export const adminRouter = Router();
 adminRouter.use(requireRole('COUNTY_ADMIN'));
@@ -20,6 +21,10 @@ function publicEvent(ev, count) {
     location: ev.location,
     county: ev.county,
     createdAt: ev.createdAt,
+    // So the dashboard can show "closes in Xd Yh" / "Closed" per event
+    // (see public.js's isLinkExpired, the actual enforcement) without
+    // duplicating the TTL client-side.
+    linkClosesAt: new Date(ev.createdAt.getTime() + EVENT_LINK_VISIBILITY_MS),
     count: count ?? undefined
   };
 }

@@ -266,6 +266,29 @@
   .receipt-banner .rb-title .tick{ display:inline-block; margin-right:6px; }
   .receipt-banner .rb-sub{ opacity:.92; }
 
+  .closing-soon-banner{
+    max-width:900px;
+    width:100%;
+    display:none;
+    align-items:flex-start;
+    gap:9px;
+    background:#fdf3e2;
+    border:1px solid #f0d69a;
+    color:#7a4e00;
+    border-radius:6px;
+    padding:10px 14px;
+    font-size:12.5px;
+    line-height:1.45;
+    margin-bottom:14px;
+  }
+  .closing-soon-banner.show{ display:flex; }
+  .closing-soon-banner .icon{ font-size:15px; line-height:1.45; flex:none; }
+  .closing-soon-banner strong{ font-weight:700; }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) .closing-soon-banner{ background:#3a2c0a; border-color:#5c481e; color:#f0cf7a; }
+  }
+  :root[data-theme="dark"] .closing-soon-banner{ background:#3a2c0a; border-color:#5c481e; color:#f0cf7a; }
+
   /* --- Signature modal --- */
   .modal-backdrop{
     position:fixed; inset:0; background:rgba(0,0,0,.5);
@@ -332,6 +355,11 @@
   </div>
 
   <h1 class="title">ATTENDANCE SHEET</h1>
+
+  <div class="closing-soon-banner" id="closingSoonBanner">
+    <span class="icon">⏳</span>
+    <span><strong>Closing soon —</strong> <span id="closingSoonText"></span></span>
+  </div>
 
   <div class="event-box">
     <div class="field">

@@ -89,6 +89,11 @@
 
   td.count{ text-align:center; font-weight:600; }
 
+  td.link-status{ white-space:nowrap; font-size:12.5px; }
+  td.link-status .open{ color:#1a7f37; font-weight:600; }
+  td.link-status .closing-soon{ color:#9a6700; font-weight:600; }
+  td.link-status .closed{ color:#888; }
+
   /* The events table's action cell is nowrap (theme.css) and now carries
      seven buttons (Open/Copy/Kiosk/Rename/Export/Print/Delete) -- wide
      enough to overflow on narrower screens. Scope the fix to this wrapper
@@ -382,6 +387,24 @@
   // --- Events list ---
   var eventsWrap = document.getElementById('eventsWrap');
 
+  // Mirrors the server's own cutoff (EVENT_LINK_VISIBILITY_MS, applied in
+  // public.js's isLinkExpired) purely for display -- this is just telling
+  // the admin what the server will already do, never the thing deciding
+  // whether the link actually still works.
+  function formatLinkStatus(linkClosesAt){
+    var msLeft = new Date(linkClosesAt).getTime() - Date.now();
+    if(msLeft <= 0) return { text: 'Closed', cls: 'closed' };
+    var days = Math.floor(msLeft / 86400000);
+    var hours = Math.floor((msLeft % 86400000) / 3600000);
+    var text;
+    if(days > 0) text = 'Open · closes in ' + days + 'd ' + hours + 'h';
+    else {
+      var mins = Math.floor((msLeft % 3600000) / 60000);
+      text = hours > 0 ? 'Open · closes in ' + hours + 'h ' + mins + 'm' : 'Open · closes in ' + mins + 'm';
+    }
+    return { text: text, cls: days > 0 ? 'open' : 'closing-soon' };
+  }
+
   function loadEvents(){
     eventsWrap.innerHTML = '<p class="empty">Loading…</p>';
     API.get('/api/admin/events').then(function(r){
@@ -394,7 +417,7 @@
         return;
       }
       var table = document.createElement('table');
-      table.innerHTML = '<thead><tr><th>Name</th><th>Date</th><th>Location</th><th>Submitted</th><th></th></tr></thead>';
+      table.innerHTML = '<thead><tr><th>Name</th><th>Date</th><th>Location</th><th>Submitted</th><th>Sign-in link</th><th></th></tr></thead>';
       var tbody = document.createElement('tbody');
       r.data.events.forEach(function(ev){
         var tr = document.createElement('tr');
@@ -417,6 +440,13 @@
         var countTd = document.createElement('td');
         countTd.className = 'count';
         countTd.textContent = ev.count;
+        var linkTd = document.createElement('td');
+        linkTd.className = 'link-status';
+        var linkStatus = formatLinkStatus(ev.linkClosesAt);
+        var linkStatusSpan = document.createElement('span');
+        linkStatusSpan.className = linkStatus.cls;
+        linkStatusSpan.textContent = linkStatus.text;
+        linkTd.appendChild(linkStatusSpan);
         var actionsTd = document.createElement('td');
         actionsTd.className = 'actions';
 
@@ -480,6 +510,7 @@
         tr.appendChild(dateTd);
         tr.appendChild(locationTd);
         tr.appendChild(countTd);
+        tr.appendChild(linkTd);
         tr.appendChild(actionsTd);
         tbody.appendChild(tr);
       });
