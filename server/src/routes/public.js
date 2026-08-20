@@ -332,6 +332,59 @@ publicRouter.patch('/events/:slug/attendance/:clientId', attendanceLimiter, ah(a
   }
 }));
 
+// Lets whoever manages this event (see canManageEvent above) fix a mistake
+// in an attendee's own entry -- a misspelled organization, a typo in their
+// name -- without needing that attendee's device/clientId the way the
+// self-service PATCH above does. Deliberately can't touch the signature:
+// that stays the attendee's own act, recoverable only via the
+// request-signature link above, never something an admin draws on someone
+// else's behalf.
+publicRouter.patch('/events/:slug/attendance/:rowId/admin-edit', ah(async (req, res) => {
+  const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
+  if (!event || event.deletedAt) return res.json({ ok: false, error: 'Event not found' });
+  if (!canManageEvent(req.user, event)) return res.status(403).json({ ok: false, error: 'FORBIDDEN' });
+
+  const row = await prisma.attendance.findFirst({ where: { id: req.params.rowId, eventId: event.id } });
+  if (!row) return res.json({ ok: false, error: 'NOT_FOUND' });
+
+  const phone = String(req.body.phone || '');
+  const phoneNormalized = normalizePhone(phone);
+  if (!phoneNormalized) return res.json({ ok: false, error: 'INVALID_PHONE', message: 'Enter a valid Kenyan phone number.' });
+  const emailNormalized = normalizeEmail(req.body.email);
+
+  try {
+    const updated = await prisma.attendance.update({
+      where: { id: row.id },
+      data: {
+        name: String(req.body.name || ''),
+        organization: req.body.org ? String(req.body.org) : null,
+        email: req.body.email ? String(req.body.email) : null,
+        emailNormalized,
+        phone,
+        phoneNormalized
+      }
+    });
+    await writeAudit({
+      actorId: req.user.id,
+      action: 'ATTENDANCE_EDIT',
+      targetType: 'Attendance',
+      targetId: row.id,
+      metadata: {
+        eventId: event.id,
+        before: { name: row.name, organization: row.organization, email: row.email, phone: row.phone },
+        after: { name: updated.name, organization: updated.organization, email: updated.email, phone: updated.phone }
+      },
+      req
+    }).catch(() => {});
+    return res.json({ ok: true, id: updated.id });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return res.json({ ok: false, error: 'ALREADY_SIGNED', message: 'That phone number or email is already used by another attendee for this event.' });
+    }
+    throw err;
+  }
+}));
+
 // A one-time link an admin generates for a specific attendance row (see
 // POST /api/admin/events/:id/attendance/:rowId/request-signature) so
 // someone whose row is missing a signature -- see the account of rows 154
