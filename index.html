@@ -785,11 +785,13 @@
         actionTd.appendChild(tag);
 
         // A visitor edits their own row (clientId is only ever known on the
-        // device that submitted it); an admin managing this event can also
-        // fix a mistake in anyone else's row (see the admin-edit endpoint
-        // in public.js) -- name/org/email/phone only, never the signature
-        // (canDrawSignature above keeps that out of reach here too).
-        if(row.clientId || (isAdmin && row.id)){
+        // device that submitted it); a super admin can also fix a mistake
+        // in anyone else's row (see canEditAttendance / the admin-edit
+        // endpoint in public.js) -- name/org/email/phone only, never the
+        // signature (canDrawSignature above keeps that out of reach here
+        // too). A county admin viewing their own event's roster is
+        // isAdmin but not canEditAttendance, so they don't get this.
+        if(row.clientId || (canEditAttendance && row.id)){
           var editRowBtn = document.createElement('button');
           editRowBtn.className = 'edit-btn';
           editRowBtn.textContent = 'Edit';
@@ -1043,12 +1045,12 @@
     save();
     render();
 
-    // An admin fixing someone else's row (no clientId of their own on this
-    // device) goes through admin-edit instead -- same fields, but it never
-    // touches the signature column server-side (see public.js), matching
-    // canDrawSignature already keeping the Redo/Sign controls out of reach
-    // for that case.
-    var isAdminEdit = !row.clientId && isAdmin && row.id;
+    // A super admin fixing someone else's row (no clientId of their own on
+    // this device) goes through admin-edit instead -- same fields, but it
+    // never touches the signature column server-side (see public.js),
+    // matching canDrawSignature already keeping the Redo/Sign controls out
+    // of reach for that case.
+    var isAdminEdit = !row.clientId && canEditAttendance && row.id;
     var payload = isAdminEdit
       ? { name: row.name || '', org: row.org || '', email: row.email || '', phone: row.phone || '' }
       : { name: row.name || '', org: row.org || '', email: row.email || '', phone: row.phone || '', signature: row.sign || '' };
