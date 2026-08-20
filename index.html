@@ -675,20 +675,26 @@
 
       var signTd = document.createElement('td');
       signTd.className = 'sign-cell';
+      // An admin editing someone else's already-submitted row (row.clientId
+      // unset -- see below) never gets to draw or redo that person's
+      // signature directly; that stays the attendee's own act via the
+      // request-signature link in the branch further down, same as the
+      // comment on that branch already promises.
+      var canDrawSignature = !!row.clientId || !isAdmin;
       if(row.sign){
         var wrap = document.createElement('div');
         wrap.className = 'sig-wrap';
         var img = document.createElement('img');
         img.src = row.sign;
         wrap.appendChild(img);
-        if(!locked){
+        if(!locked && canDrawSignature){
           var editBtn = document.createElement('button');
           editBtn.textContent = 'Redo';
           editBtn.addEventListener('click', function(){ openSignatureModal(idx); });
           wrap.appendChild(editBtn);
         }
         signTd.appendChild(wrap);
-      } else if(!locked){
+      } else if(!locked && canDrawSignature){
         var signBtn = document.createElement('button');
         signBtn.textContent = 'Sign';
         signBtn.style.fontSize = '11px';
