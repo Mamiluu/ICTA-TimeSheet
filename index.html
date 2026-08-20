@@ -779,11 +779,16 @@
         tag.title = 'Submitted to the shared sheet';
         actionTd.appendChild(tag);
 
-        if(row.clientId){
+        // A visitor edits their own row (clientId is only ever known on the
+        // device that submitted it); an admin managing this event can also
+        // fix a mistake in anyone else's row (see the admin-edit endpoint
+        // in public.js) -- name/org/email/phone only, never the signature
+        // (canDrawSignature above keeps that out of reach here too).
+        if(row.clientId || (isAdmin && row.id)){
           var editRowBtn = document.createElement('button');
           editRowBtn.className = 'edit-btn';
           editRowBtn.textContent = 'Edit';
-          editRowBtn.title = 'Fix a mistake in your entry';
+          editRowBtn.title = row.clientId ? 'Fix a mistake in your entry' : 'Fix a mistake in this attendee\'s entry';
           editRowBtn.addEventListener('click', function(){ beginEdit(row); });
           actionTd.appendChild(editRowBtn);
         }
@@ -997,9 +1002,10 @@
     showReceipt._t = setTimeout(function(){ receiptBanner.classList.remove('show'); }, 12000);
   }
 
-  // Editing is only offered on a row this device itself submitted (it's
-  // the only place row.clientId is ever known -- see loadRemote), so
-  // there's no ambiguity about whose entry is being changed.
+  // Offered either on a row this device itself submitted (row.clientId is
+  // only ever known there -- see loadRemote) or, for an admin managing this
+  // event, on anyone else's row too (see the Edit button condition above).
+  // saveRowEdit below picks the right endpoint based on which case this is.
   function beginEdit(row){
     if(row.editing || row.submitting) return;
     row.editing = true;
