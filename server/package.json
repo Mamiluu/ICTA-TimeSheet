@@ -27,7 +27,6 @@
     "helmet": "^7.1.0"
   },
   "devDependencies": {
-    "prisma": "^5.20.0",
-    "xlsx": "^0.18.5"
+    "prisma": "^5.20.0"
   }
 }
