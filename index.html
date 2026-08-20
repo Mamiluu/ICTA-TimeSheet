@@ -1038,14 +1038,19 @@
     save();
     render();
 
-    var payload = {
-      name: row.name || '',
-      org: row.org || '',
-      email: row.email || '',
-      phone: row.phone || '',
-      signature: row.sign || ''
-    };
-    fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/attendance/' + encodeURIComponent(row.clientId), {
+    // An admin fixing someone else's row (no clientId of their own on this
+    // device) goes through admin-edit instead -- same fields, but it never
+    // touches the signature column server-side (see public.js), matching
+    // canDrawSignature already keeping the Redo/Sign controls out of reach
+    // for that case.
+    var isAdminEdit = !row.clientId && isAdmin && row.id;
+    var payload = isAdminEdit
+      ? { name: row.name || '', org: row.org || '', email: row.email || '', phone: row.phone || '' }
+      : { name: row.name || '', org: row.org || '', email: row.email || '', phone: row.phone || '', signature: row.sign || '' };
+    var url = isAdminEdit
+      ? API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/attendance/' + encodeURIComponent(row.id) + '/admin-edit'
+      : API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/attendance/' + encodeURIComponent(row.clientId);
+    fetch(url, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
