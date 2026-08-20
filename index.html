@@ -450,6 +450,11 @@
   // county admin (or a super admin) -- see canManageEvent in public.js.
   // Starts false and flips on (if at all) once loadRemote() confirms it.
   var isAdmin = false;
+  // Narrower than isAdmin: a county admin sees the full roster and kiosk
+  // tools for their own event (isAdmin), but only a super admin -- see
+  // canEditAttendance in public.js's GET /events/:slug -- may correct an
+  // attendee's own submitted details (name/org/email/phone).
+  var canEditAttendance = false;
   // One-time signature-recovery links (see requestSignature below) grant
   // write access to a single attendee's row for 7 days, so they're kept
   // in memory only, keyed by row id -- never in `state`/localStorage,
@@ -1138,6 +1143,7 @@
         if(data.capacity) capacity = data.capacity;
         if(typeof data.submittedCount === 'number') remoteSubmittedCount = data.submittedCount;
         isAdmin = !!data.canManage;
+        canEditAttendance = !!data.canEditAttendance;
         applyAdminVisibility();
         applyEventMeta();
         applyClosingSoon(data.linkClosesAt);

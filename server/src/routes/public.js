@@ -337,17 +337,21 @@ publicRouter.patch('/events/:slug/attendance/:clientId', attendanceLimiter, ah(a
   }
 }));
 
-// Lets whoever manages this event (see canManageEvent above) fix a mistake
-// in an attendee's own entry -- a misspelled organization, a typo in their
-// name -- without needing that attendee's device/clientId the way the
-// self-service PATCH above does. Deliberately can't touch the signature:
-// that stays the attendee's own act, recoverable only via the
+// Fixes a mistake in an attendee's own entry -- a misspelled organization,
+// a typo in their name -- without needing that attendee's device/clientId
+// the way the self-service PATCH above does. Deliberately restricted to a
+// super admin, not just anyone who can manage this event (contrast
+// canManageEvent above, which also lets the owning county admin through
+// for viewing/kiosk purposes) -- a county admin edits their own event's
+// name/date/location via /api/admin/events, but not an attendee's
+// submitted personal details. Also deliberately can't touch the
+// signature: that stays the attendee's own act, recoverable only via the
 // request-signature link above, never something an admin draws on someone
 // else's behalf.
 publicRouter.patch('/events/:slug/attendance/:rowId/admin-edit', ah(async (req, res) => {
   const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
   if (!event || event.deletedAt) return res.json({ ok: false, error: 'Event not found' });
-  if (!canManageEvent(req.user, event)) return res.status(403).json({ ok: false, error: 'FORBIDDEN' });
+  if (!req.user || req.user.role !== 'SUPER_ADMIN') return res.status(403).json({ ok: false, error: 'FORBIDDEN' });
 
   const row = await prisma.attendance.findFirst({ where: { id: req.params.rowId, eventId: event.id } });
   if (!row) return res.json({ ok: false, error: 'NOT_FOUND' });
