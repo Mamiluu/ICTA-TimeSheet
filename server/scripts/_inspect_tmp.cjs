@@ -1,11 +1,11 @@
-const XLSX = require('xlsx');
-const path = require('path');
-const file = path.join('C:', 'Users', 'Asya Msanifu', 'Desktop', 'ICT Authority Workshop Talk.xlsx');
-const wb = XLSX.readFile(file);
-console.log('Sheets:', wb.SheetNames);
-for (const name of wb.SheetNames) {
-  const ws = wb.Sheets[name];
-  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-  console.log('--- Sheet:', name, 'rows:', rows.length);
-  console.log(JSON.stringify(rows.slice(0, 6), null, 2));
-}
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+(async () => {
+  const user = await prisma.user.findUnique({ where: { email: 'belinda.nasimiyu@icta.go.ke' } });
+  console.log('User:', user);
+  if (user) {
+    const events = await prisma.event.findMany({ where: { ownerId: user.id } });
+    console.log('Existing events for this admin:', events.map(e => ({ id: e.id, slug: e.slug, name: e.name, date: e.date })));
+  }
+  await prisma.$disconnect();
+})().catch(e => { console.error(e); process.exit(1); });
