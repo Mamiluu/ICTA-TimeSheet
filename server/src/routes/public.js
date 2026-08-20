@@ -142,6 +142,11 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
     submittedCount,
     capacity: MAX_ATTENDANCE_PER_EVENT,
     canManage: manage,
+    // Deliberately narrower than canManage: a county admin can still view
+    // the full roster and use the kiosk convenience tools for their own
+    // event, but correcting an attendee's own submitted details (see the
+    // admin-edit endpoint below) is reserved for a super admin only.
+    canEditAttendance: manage && req.user.role === 'SUPER_ADMIN',
     // Lets the attendee page give a "closing soon" heads-up in the last
     // stretch of the window -- not sensitive (it's the event's own date
     // plus the fixed public window, see linkClosesAt above), and never
