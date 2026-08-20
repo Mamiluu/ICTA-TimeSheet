@@ -116,6 +116,12 @@ model Attendance {
   phone           String
   phoneNormalized String
   signature       String
+  // True for rows backfilled from a legacy source (e.g. a paper/Excel sign-in
+  // sheet) where no real drawn signature was ever captured -- `signature` for
+  // these is a generated initials image, not an authentic attendee mark, and
+  // callers that care about that distinction (admin UI, exports) key off this
+  // rather than trying to infer it from the image content.
+  isImportedSignature Boolean @default(false)
   createdAt       DateTime @default(now())
 
   // Lets an admin send a one-time link to an attendee whose row is missing
