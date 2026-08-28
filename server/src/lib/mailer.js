@@ -81,3 +81,111 @@ export async function sendPasswordResetEmail(toEmail, resetUrl) {
   `);
   await sendViaBrevo({ to: toEmail, subject: 'Reset your ICT Authority admin password', html });
 }
+
+// Attendee-facing, so unlike the two admin emails above this carries no
+// link or CTA at all -- there is nothing to click, only a record to keep.
+// Anything interpolated below came from a public, unauthenticated form
+// (name/org/event fields), so it's escaped before it ever touches the
+// template -- otherwise a name like `<img src=x onerror=...>` would render
+// live in the recipient's own inbox.
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+// Event.date is the plain "YYYY-MM-DD" string the admin picked (see
+// normalize.js's parseEventDate) -- parsed the same y/m/d way so this can't
+// drift a day off from what the sheet itself shows.
+function formatEventDate(dateStr) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || ''));
+  if (!m) return String(dateStr || '');
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// Pinned to Africa/Nairobi rather than the server's own timezone -- Render
+// runs this process in UTC, and an attendee reading "recorded at" for an
+// event that happened in Kenya should see Kenyan time, not the host's.
+function formatRecordedAt(date) {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+    timeZone: 'Africa/Nairobi'
+  }).format(date) + ' EAT';
+}
+
+// The confirmation is modelled as a torn ticket stub rather than another
+// "card with a button" -- there's no action left for the attendee to take,
+// so the design's job is to read as a kept receipt, not a prompt. The
+// perforation is built from a full-bleed 3-cell table (circle / dashed line
+// / circle) whose circles match the page background -- that reads as a
+// notch cut into the card edge without relying on negative margins or
+// absolute positioning, which don't survive Outlook's rendering engine.
+export async function sendAttendanceConfirmationEmail(toEmail, details) {
+  const {
+    name, eventName, eventDate, eventLocation, county, recordId, recordedAt
+  } = details;
+
+  const refCode = `ICTA-${String(recordId || '').replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+  devLogLink(`attendance confirmation for ${toEmail}`, `${refCode} — ${eventName}`);
+  const pageBg = '#e9e9e9';
+  const divider = '#d8d8d8';
+
+  const metaRow = (label, value) => `
+    <tr>
+      <td style="padding:7px 0;font:700 10px/1.4 'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;letter-spacing:.08em;color:#9a9a9a;text-transform:uppercase;white-space:nowrap;vertical-align:top;width:92px;">${label}</td>
+      <td style="padding:7px 0;font:600 13.5px/1.4 'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;color:#1a1a1a;">${escapeHtml(value)}</td>
+    </tr>`;
+
+  const perforation = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:22px 0;">
+      <tr>
+        <td width="16" style="padding:0;line-height:0;"><div style="width:16px;height:16px;border-radius:50%;background:${pageBg};"></div></td>
+        <td style="padding:0;border-top:2px dashed ${divider};font-size:0;line-height:0;">&nbsp;</td>
+        <td width="16" style="padding:0;line-height:0;"><div style="width:16px;height:16px;border-radius:50%;background:${pageBg};"></div></td>
+      </tr>
+    </table>`;
+
+  const html = `<!doctype html>
+<html><body style="margin:0;padding:24px;background:${pageBg};font-family:'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;">
+  <div style="max-width:440px;margin:0 auto;">
+    <div style="max-width:440px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.15);">
+      <div style="height:6px;background:${BRAND.accent};"></div>
+      <div style="padding:26px 30px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="font:700 10px/1 'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;letter-spacing:.1em;color:#9a9a9a;text-transform:uppercase;">ICT Authority · Attendance</td>
+            <td style="text-align:right;font:700 10px/1 'Courier New',monospace;letter-spacing:.05em;color:#9a9a9a;">REF ${refCode}</td>
+          </tr>
+        </table>
+        <p style="margin:20px 0 4px;font:700 11px/1 'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;letter-spacing:.1em;color:${BRAND.accent};text-transform:uppercase;">&#10003; Attendance recorded</p>
+        <h1 style="margin:6px 0 10px;font-size:21px;color:#1a1a1a;">Hi ${escapeHtml(name) || 'there'},</h1>
+        <p style="margin:0;font-size:13.5px;line-height:1.55;color:#555;">Your sign-in has been received and stored on the official attendance sheet for the event below.</p>
+      </div>
+
+      <div style="padding:0 30px;">
+        ${perforation}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+          ${metaRow('Event', eventName)}
+          ${metaRow('Date', formatEventDate(eventDate))}
+          ${metaRow('Location', eventLocation)}
+          ${metaRow('County', county)}
+        </table>
+        ${perforation}
+      </div>
+
+      <div style="padding:0 30px 26px;text-align:center;">
+        <div style="height:26px;border-radius:2px;background-image:repeating-linear-gradient(90deg,#1a1a1a,#1a1a1a 2px,transparent 2px,transparent 5px);opacity:.82;"></div>
+        <p style="margin:10px 0 0;font:700 12.5px/1 'Courier New',monospace;letter-spacing:.2em;color:#1a1a1a;">${refCode}</p>
+        <p style="margin:6px 0 0;font-size:10.5px;color:#aaa;">Recorded ${formatRecordedAt(recordedAt)}</p>
+      </div>
+    </div>
+
+    <p style="margin:18px 8px 0;font-size:11px;line-height:1.6;color:#888;">Didn't check in for this event? No action is needed — you can ignore this email. Spotted a typo in your entry? Return to the device and browser you signed in on and tap Edit next to your row; this record can't be edited from email.</p>
+    <p style="margin:14px 8px 0;font-size:11px;color:#999;">© 2026 Asya Hafidh. All rights reserved.</p>
+  </div>
+</body></html>`;
+
+  await sendViaBrevo({ to: toEmail, subject: `You're on record — ${eventName}`, html });
+}

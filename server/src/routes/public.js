@@ -4,12 +4,31 @@
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
-import { normalizePhone, normalizeEmail, parseEventDate } from '../lib/normalize.js';
+import { normalizePhone, normalizeEmail, isValidEmailShape, parseEventDate } from '../lib/normalize.js';
 import { attendanceLimiter } from '../middleware/rateLimit.js';
 import { ah } from '../lib/asyncHandler.js';
 import { MAX_ATTENDANCE_PER_EVENT, SIGNATURE_REQUEST_TTL_MS, EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
 import { randomToken, hashToken } from '../lib/tokens.js';
 import { writeAudit } from '../lib/audit.js';
+import { sendAttendanceConfirmationEmail } from '../lib/mailer.js';
+
+// Fire-and-forget, same discipline as writeAudit's own .catch(() => {})
+// below: a Brevo outage or a malformed address must never fail the
+// attendee's actual sign-in, which already succeeded by the time this
+// runs. Every county's events flow through this one route, so this is the
+// only place this needs wiring up, not per-admin config.
+function sendConfirmationIfEmailed(row, event) {
+  if (!row.email || !isValidEmailShape(row.email)) return;
+  sendAttendanceConfirmationEmail(row.email, {
+    name: row.name,
+    eventName: event.name,
+    eventDate: event.date,
+    eventLocation: event.location,
+    county: event.county,
+    recordId: row.id,
+    recordedAt: row.createdAt
+  }).catch((err) => console.error('attendance confirmation email failed', err));
+}
 
 export const publicRouter = Router();
 
@@ -262,6 +281,7 @@ publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, 
         signature: String(req.body.signature || '')
       }
     });
+    sendConfirmationIfEmailed(row, event);
     return res.json({ ok: true, id: row.id });
   } catch (err) {
     // One phone/email = one attendee per event, enforced by the DB unique
