@@ -9,7 +9,7 @@ import { attendanceLimiter } from '../middleware/rateLimit.js';
 import { ah } from '../lib/asyncHandler.js';
 import { MAX_ATTENDANCE_PER_EVENT, SIGNATURE_REQUEST_TTL_MS, EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
 import { randomToken, hashToken } from '../lib/tokens.js';
-import { writeAudit } from '../lib/audit.js';
+import { writeAudit, verifyChain } from '../lib/audit.js';
 import { sendAttendanceConfirmationEmail } from '../lib/mailer.js';
 
 // Fire-and-forget, same discipline as writeAudit's own .catch(() => {})
@@ -53,7 +53,10 @@ function publicRow(r) {
     email: r.email,
     phone: r.phone,
     signature: r.signature,
-    hasPendingSignatureRequest: !!r.signatureRequestTokenHash
+    hasPendingSignatureRequest: !!r.signatureRequestTokenHash,
+    status: r.status,
+    statusReason: r.statusReason,
+    statusAt: r.statusAt
   };
 }
 
