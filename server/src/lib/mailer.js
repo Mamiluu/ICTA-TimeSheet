@@ -178,8 +178,9 @@ export async function sendAttendanceConfirmationEmail(toEmail, details) {
         ${perforation}
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           ${metaRow('Event', eventName)}
-          ${metaRow('Date', formatEventDate(eventDate))}
-          ${metaRow('Location', eventLocation)}
+          ${metaRow('When', formatEventWhen(startAt, endAt, timezone))}
+          ${metaRowHtml('Where', whereHtml)}
+          ${eventDescription ? metaRow('About', eventDescription) : ''}
           ${metaRow('County', county)}
         </table>
         ${perforation}
