@@ -32,6 +32,11 @@ enum AttendanceStatus {
   RETIRED
 }
 
+enum EventLocationType {
+  PHYSICAL
+  VIRTUAL
+}
+
 model User {
   id           String     @id @default(uuid())
   email        String     @unique
@@ -83,12 +88,29 @@ model Session {
 }
 
 model Event {
-  id        String    @id @default(uuid())
-  slug      String    @unique
-  name      String
-  date      String
-  location  String
-  county    String
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  name        String
+  description String?
+  county      String
+
+  // Plain DateTime, same as every other instant column in this schema
+  // (createdAt, expiresAt, ...) -- always handled as a JS Date through
+  // Prisma, never touched with raw SQL date arithmetic, so there's no need
+  // for @db.Timestamptz here. `timezone` is what lets a viewer-independent
+  // "this event's own local time" be reconstructed for display (see
+  // lib/timezone.js) -- startAt/endAt themselves are just UTC instants.
+  startAt  DateTime
+  endAt    DateTime
+  timezone String
+
+  locationType EventLocationType @default(PHYSICAL)
+  // Exactly one of these is populated, based on locationType -- enforced
+  // by request validation (requireEventFields in admin.js), not a DB
+  // constraint, matching how this schema already validates shape at the
+  // route layer rather than with CHECK constraints elsewhere.
+  address     String?
+  meetingLink String?
 
   // Nullable so the owning admin can be hard-deleted (superadminRouter DELETE
   // /admins/:id) without being blocked forever. Deliberately not cascaded:
