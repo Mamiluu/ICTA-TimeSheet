@@ -4,7 +4,7 @@
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
-import { normalizePhone, normalizeEmail, isValidEmailShape, parseEventDate } from '../lib/normalize.js';
+import { normalizePhone, normalizeEmail, isValidEmailShape } from '../lib/normalize.js';
 import { attendanceLimiter } from '../middleware/rateLimit.js';
 import { ah } from '../lib/asyncHandler.js';
 import { MAX_ATTENDANCE_PER_EVENT, SIGNATURE_REQUEST_TTL_MS, EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
@@ -22,8 +22,13 @@ function sendConfirmationIfEmailed(row, event) {
   sendAttendanceConfirmationEmail(row.email, {
     name: row.name,
     eventName: event.name,
-    eventDate: event.date,
-    eventLocation: event.location,
+    eventDescription: event.description,
+    startAt: event.startAt,
+    endAt: event.endAt,
+    timezone: event.timezone,
+    locationType: event.locationType,
+    address: event.address,
+    meetingLink: event.meetingLink,
     county: event.county,
     recordId: row.id,
     recordedAt: row.createdAt
@@ -68,20 +73,36 @@ function ownRow(r) {
   return { ...publicRow(r), clientId: r.clientId };
 }
 
-// Anchored to the event's own `date` field, not createdAt -- an admin
-// routinely creates an event days or weeks ahead of when it actually
-// happens, and anchoring to creation time would let the window lapse
-// before the event even took place. The link is still open for sign-ins
-// from the moment the event is created (no lower bound), it just keeps
-// counting the close-by point from the event date itself, not from
-// whenever the admin happened to set it up.
+// Anchored to the event's own `endAt`, not createdAt -- an admin routinely
+// creates an event days or weeks ahead of when it actually happens, and
+// anchoring to creation time would let the window lapse before the event
+// even took place. The link is still open for sign-ins from the moment
+// the event is created (no lower bound), it just keeps counting the
+// close-by point from the event's actual end time, not from whenever the
+// admin happened to set it up.
 function linkClosesAt(event) {
-  const eventDate = parseEventDate(event.date) || event.createdAt;
-  return new Date(eventDate.getTime() + EVENT_LINK_VISIBILITY_MS);
+  return new Date(event.endAt.getTime() + EVENT_LINK_VISIBILITY_MS);
 }
 
 function isLinkExpired(event) {
   return Date.now() > linkClosesAt(event).getTime();
+}
+
+// Shared by both the expired and the normal branch of GET /events/:slug
+// below, so the two never drift into showing a different field set for
+// the same event depending on whether its link happens to still be open.
+function publicEventMeta(event) {
+  return {
+    id: event.slug,
+    name: event.name,
+    description: event.description,
+    startAt: event.startAt,
+    endAt: event.endAt,
+    timezone: event.timezone,
+    locationType: event.locationType,
+    address: event.address,
+    meetingLink: event.meetingLink
+  };
 }
 
 // This route has no requireRole guard -- the sheet itself is meant to be
@@ -132,7 +153,7 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
   if (!manage && isLinkExpired(event)) {
     return res.json({
       ok: true,
-      event: { id: event.slug, name: event.name, date: event.date, location: event.location },
+      event: publicEventMeta(event),
       expired: true,
       rows: [],
       submittedCount: 0,
@@ -162,7 +183,7 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
 
   res.json({
     ok: true,
-    event: { id: event.slug, name: event.name, date: event.date, location: event.location },
+    event: publicEventMeta(event),
     rows: attendance.map(publicRow),
     submittedCount,
     capacity: MAX_ATTENDANCE_PER_EVENT,

@@ -5,7 +5,8 @@ import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { requireRole } from '../middleware/auth.js';
 import { writeAudit } from '../lib/audit.js';
-import { eventSlugId, parseEventDate } from '../lib/normalize.js';
+import { eventSlugId, isValidMeetingLink } from '../lib/normalize.js';
+import { isValidTimeZone } from '../lib/timezone.js';
 import { ah } from '../lib/asyncHandler.js';
 import { EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
 
@@ -17,35 +18,65 @@ function publicEvent(ev, count) {
     id: ev.id,
     slug: ev.slug,
     name: ev.name,
-    date: ev.date,
-    location: ev.location,
+    description: ev.description,
+    startAt: ev.startAt,
+    endAt: ev.endAt,
+    timezone: ev.timezone,
+    locationType: ev.locationType,
+    address: ev.address,
+    meetingLink: ev.meetingLink,
     county: ev.county,
     createdAt: ev.createdAt,
     // So the dashboard can show "closes in Xd Yh" / "Closed" per event
     // (see public.js's linkClosesAt/isLinkExpired, the actual enforcement)
     // without duplicating that logic client-side. Anchored to the event's
-    // own date, not createdAt -- see the matching comment in public.js.
-    linkClosesAt: new Date((parseEventDate(ev.date) || ev.createdAt).getTime() + EVENT_LINK_VISIBILITY_MS),
+    // own endAt now, not a parsed date string -- see the matching comment
+    // in public.js.
+    linkClosesAt: new Date(ev.endAt.getTime() + EVENT_LINK_VISIBILITY_MS),
     count: count ?? undefined
   };
 }
 
-function requireFields(body) {
+// startAt/endAt arrive as ISO instant strings (the browser already
+// resolved the admin's chosen local wall-clock time + timezone to a UTC
+// instant before submitting -- see admin.html) -- this only checks they
+// parse and that start comes before end, it doesn't do any zone math
+// itself.
+function requireEventFields(body) {
   const name = String(body.name || '').trim();
-  const date = String(body.date || '').trim();
-  const location = String(body.location || '').trim();
+  const description = body.description ? String(body.description).trim().slice(0, 2000) : null;
+  const timezone = String(body.timezone || '').trim();
+  const startAt = new Date(body.startAt);
+  const endAt = new Date(body.endAt);
+  const locationType = body.locationType === 'VIRTUAL' ? 'VIRTUAL' : 'PHYSICAL';
+  const address = locationType === 'PHYSICAL' ? String(body.address || '').trim() : null;
+  const meetingLink = locationType === 'VIRTUAL' ? String(body.meetingLink || '').trim() : null;
+
   const missing = [];
   if (!name) missing.push('event name');
-  if (!date) missing.push('date');
-  if (!location) missing.push('location');
-  return { name, date, location, missing };
+  if (isNaN(startAt.getTime())) missing.push('start date/time');
+  if (isNaN(endAt.getTime())) missing.push('end date/time');
+  if (!timezone) missing.push('time zone');
+  if (locationType === 'PHYSICAL' && !address) missing.push('address');
+  if (locationType === 'VIRTUAL' && !meetingLink) missing.push('meeting link');
+
+  return { name, description, startAt, endAt, timezone, locationType, address, meetingLink, missing };
 }
 
-// YYYY-MM-DD, same shape as the `date` field, so it sorts/compares
-// correctly as a plain string against it.
-function todayIsoDate() {
-  const now = new Date();
-  return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+function validateEventFields(f) {
+  if (f.missing.length) {
+    return { ok: false, error: 'MISSING_FIELDS', message: `Please fill in ${f.missing.join(', ')}.` };
+  }
+  if (f.startAt.getTime() >= f.endAt.getTime()) {
+    return { ok: false, error: 'INVALID_RANGE', message: 'The event must end after it starts.' };
+  }
+  if (!isValidTimeZone(f.timezone)) {
+    return { ok: false, error: 'INVALID_TIMEZONE', message: 'That time zone isn\'t recognized.' };
+  }
+  if (f.locationType === 'VIRTUAL' && !isValidMeetingLink(f.meetingLink)) {
+    return { ok: false, error: 'INVALID_MEETING_LINK', message: 'Enter a valid meeting link (starting with http:// or https://).' };
+  }
+  return null;
 }
 
 adminRouter.get('/events', ah(async (req, res) => {
@@ -62,23 +93,32 @@ adminRouter.get('/events', ah(async (req, res) => {
 }));
 
 adminRouter.post('/events', ah(async (req, res) => {
-  const { name, date, location, missing } = requireFields(req.body);
-  if (missing.length) {
-    return res.status(400).json({ ok: false, error: 'MISSING_FIELDS', message: `Please fill in ${missing.join(', ')}.` });
-  }
+  const f = requireEventFields(req.body);
+  const err = validateEventFields(f);
+  if (err) return res.status(400).json(err);
   // The date picker already blocks past days client-side; this is the
   // server-side backstop so the restriction can't be skipped by calling
   // the API directly. Only enforced on create -- editing an event that
-  // already has a past date (from before this check existed) must stay
-  // possible without forcing its date to change.
-  if (date < todayIsoDate()) {
-    return res.status(400).json({ ok: false, error: 'PAST_DATE', message: 'Event date cannot be in the past.' });
+  // already has a past start time (from before this check existed, or
+  // simply because it's already underway) must stay possible without
+  // forcing its time to change.
+  if (f.startAt.getTime() < Date.now()) {
+    return res.status(400).json({ ok: false, error: 'PAST_DATE', message: 'Event start can\'t be in the past.' });
   }
 
   const event = await prisma.event.create({
-    data: { slug: eventSlugId(name), name, date, location, county: req.user.county, ownerId: req.user.id }
+    data: {
+      slug: eventSlugId(f.name), name: f.name, description: f.description,
+      startAt: f.startAt, endAt: f.endAt, timezone: f.timezone,
+      locationType: f.locationType, address: f.address, meetingLink: f.meetingLink,
+      county: req.user.county, ownerId: req.user.id
+    }
   });
-  await writeAudit({ actorId: req.user.id, action: 'EVENT_CREATE', targetType: 'Event', targetId: event.id, metadata: { name, date, location }, req });
+  await writeAudit({
+    actorId: req.user.id, action: 'EVENT_CREATE', targetType: 'Event', targetId: event.id,
+    metadata: { name: f.name, startAt: f.startAt, endAt: f.endAt, timezone: f.timezone, locationType: f.locationType, address: f.address, meetingLink: f.meetingLink },
+    req
+  });
 
   res.json({ ok: true, event: publicEvent(event, 0) });
 }));
@@ -98,19 +138,25 @@ adminRouter.put('/events/:id', ah(async (req, res) => {
   const event = await findOwnEvent(req);
   if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
 
-  const { name, date, location, missing } = requireFields(req.body);
-  if (missing.length) {
-    return res.status(400).json({ ok: false, error: 'MISSING_FIELDS', message: `Please fill in ${missing.join(', ')}.` });
-  }
+  const f = requireEventFields(req.body);
+  const err = validateEventFields(f);
+  if (err) return res.status(400).json(err);
 
-  const before = { name: event.name, date: event.date, location: event.location };
-  const updated = await prisma.event.update({ where: { id: event.id }, data: { name, date, location } });
+  const before = {
+    name: event.name, description: event.description, startAt: event.startAt, endAt: event.endAt,
+    timezone: event.timezone, locationType: event.locationType, address: event.address, meetingLink: event.meetingLink
+  };
+  const after = {
+    name: f.name, description: f.description, startAt: f.startAt, endAt: f.endAt,
+    timezone: f.timezone, locationType: f.locationType, address: f.address, meetingLink: f.meetingLink
+  };
+  const updated = await prisma.event.update({ where: { id: event.id }, data: after });
   await writeAudit({
     actorId: req.user.id,
     action: 'EVENT_UPDATE',
     targetType: 'Event',
     targetId: event.id,
-    metadata: { before, after: { name, date, location } },
+    metadata: { before, after },
     req
   });
 
