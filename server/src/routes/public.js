@@ -150,8 +150,11 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
   // them. Each visitor's own row is recovered separately via
   // POST /events/:slug/my-attendance, keyed by the clientId only their own
   // browser knows.
+  // A retired row (duplicate, fraudulent entry, etc.) no longer occupies a
+  // seat -- it stays in the roster for the owning admin (manage=true, see
+  // below) but doesn't count toward the capacity a plain visitor sees.
   const [submittedCount, attendance] = await Promise.all([
-    prisma.attendance.count({ where: { eventId: event.id } }),
+    prisma.attendance.count({ where: { eventId: event.id, status: { not: 'RETIRED' } } }),
     manage
       ? prisma.attendance.findMany({ where: { eventId: event.id }, orderBy: { createdAt: 'asc' } })
       : Promise.resolve([])
@@ -264,8 +267,9 @@ publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, 
   // A soft pilot-scale ceiling, not a security invariant like the county
   // admin cap -- a count-then-insert check is good enough here. Worst case
   // under a flood of simultaneous submissions right at the boundary is a
-  // handful of rows past 500, not a broken guarantee.
-  const attendeeCount = await prisma.attendance.count({ where: { eventId: event.id } });
+  // handful of rows past 500, not a broken guarantee. Retired rows are
+  // excluded so retiring a duplicate/fraudulent entry frees its seat.
+  const attendeeCount = await prisma.attendance.count({ where: { eventId: event.id, status: { not: 'RETIRED' } } });
   if (attendeeCount >= MAX_ATTENDANCE_PER_EVENT) {
     return res.json({ ok: false, error: 'EVENT_FULL', message: 'This event has reached its maximum of ' + MAX_ATTENDANCE_PER_EVENT + ' attendees.' });
   }
