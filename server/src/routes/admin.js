@@ -136,7 +136,10 @@ function attendanceRow(r) {
     org: r.organization,
     email: r.email,
     phone: r.phone,
-    signature: r.signature
+    signature: r.signature,
+    status: r.status,
+    statusReason: r.statusReason,
+    statusAt: r.statusAt
   };
 }
 

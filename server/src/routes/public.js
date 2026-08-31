@@ -421,6 +421,149 @@ publicRouter.patch('/events/:slug/attendance/:rowId/admin-edit', ah(async (req, 
   }
 }));
 
+// Flags a row for removal without deleting it -- the first half of a
+// two-step maker-checker: whoever manages this event (owning county admin
+// or a super admin, see canManageEvent) can raise the flag with a reason,
+// but only a super admin can actually retire it (see /retire below). This
+// means a single county admin can never make attendance data disappear on
+// their own, and every flag is itself an audited, reasoned act rather than
+// a silent toggle.
+publicRouter.post('/events/:slug/attendance/:rowId/flag', ah(async (req, res) => {
+  const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
+  if (!event || event.deletedAt) return res.json({ ok: false, error: 'Event not found' });
+  if (!canManageEvent(req.user, event)) return res.status(403).json({ ok: false, error: 'FORBIDDEN' });
+
+  const reason = String(req.body.reason || '').trim();
+  if (reason.length < 3) {
+    return res.json({ ok: false, error: 'REASON_REQUIRED', message: 'Please explain why this entry should be removed.' });
+  }
+
+  const row = await prisma.attendance.findFirst({ where: { id: req.params.rowId, eventId: event.id } });
+  if (!row) return res.json({ ok: false, error: 'NOT_FOUND' });
+  if (row.status !== 'ACTIVE') {
+    return res.json({ ok: false, error: 'INVALID_STATE', message: 'This entry is not currently active.' });
+  }
+
+  const statusAt = new Date();
+  const updated = await prisma.attendance.update({
+    where: { id: row.id },
+    data: { status: 'FLAGGED_FOR_REMOVAL', statusReason: reason, statusAt }
+  });
+  await writeAudit({
+    actorId: req.user.id,
+    action: 'ATTENDANCE_FLAGGED',
+    targetType: 'Attendance',
+    targetId: row.id,
+    metadata: { eventId: event.id, name: row.name, reason, previousStatus: 'ACTIVE' },
+    req
+  }).catch(() => {});
+
+  res.json({ ok: true, status: updated.status, statusReason: updated.statusReason, statusAt: updated.statusAt });
+}));
+
+// Confirms a flagged row's removal -- the "checker" half of the flag/retire
+// pair above. Deliberately requires the row to already be
+// FLAGGED_FOR_REMOVAL: even a super admin can't retire a still-ACTIVE row
+// in one step, so every retirement has a distinct flag-then-confirm trail
+// in AuditLog, not a single actor's unilateral action. Soft-retired, never
+// deleted -- see /reopen below to undo this.
+publicRouter.post('/events/:slug/attendance/:rowId/retire', ah(async (req, res) => {
+  const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
+  if (!event || event.deletedAt) return res.json({ ok: false, error: 'Event not found' });
+  if (!req.user || req.user.role !== 'SUPER_ADMIN') return res.status(403).json({ ok: false, error: 'FORBIDDEN' });
+
+  const row = await prisma.attendance.findFirst({ where: { id: req.params.rowId, eventId: event.id } });
+  if (!row) return res.json({ ok: false, error: 'NOT_FOUND' });
+  if (row.status !== 'FLAGGED_FOR_REMOVAL') {
+    return res.json({ ok: false, error: 'INVALID_STATE', message: 'This entry must be flagged for removal before it can be retired.' });
+  }
+
+  const reason = req.body.reason ? String(req.body.reason).trim() : row.statusReason;
+  const statusAt = new Date();
+  const updated = await prisma.attendance.update({
+    where: { id: row.id },
+    data: { status: 'RETIRED', statusReason: reason, statusAt }
+  });
+  await writeAudit({
+    actorId: req.user.id,
+    action: 'ATTENDANCE_RETIRED',
+    targetType: 'Attendance',
+    targetId: row.id,
+    metadata: { eventId: event.id, name: row.name, reason, previousStatus: 'FLAGGED_FOR_REMOVAL' },
+    req
+  }).catch(() => {});
+
+  res.json({ ok: true, status: updated.status, statusReason: updated.statusReason, statusAt: updated.statusAt });
+}));
+
+// Reverses either a pending flag (dismiss it, no removal happened) or an
+// already-retired row (undo the retirement) back to ACTIVE. Super-admin
+// only, same as retire above -- reopening is just as consequential as
+// retiring, so it gets the same restriction rather than being left open to
+// whoever raised the original flag.
+publicRouter.post('/events/:slug/attendance/:rowId/reopen', ah(async (req, res) => {
+  const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
+  if (!event || event.deletedAt) return res.json({ ok: false, error: 'Event not found' });
+  if (!req.user || req.user.role !== 'SUPER_ADMIN') return res.status(403).json({ ok: false, error: 'FORBIDDEN' });
+
+  const row = await prisma.attendance.findFirst({ where: { id: req.params.rowId, eventId: event.id } });
+  if (!row) return res.json({ ok: false, error: 'NOT_FOUND' });
+  if (row.status === 'ACTIVE') {
+    return res.json({ ok: false, error: 'INVALID_STATE', message: 'This entry is already active.' });
+  }
+
+  const previousStatus = row.status;
+  const reason = req.body.reason ? String(req.body.reason).trim() : null;
+  const updated = await prisma.attendance.update({
+    where: { id: row.id },
+    data: { status: 'ACTIVE', statusReason: reason, statusAt: new Date() }
+  });
+  await writeAudit({
+    actorId: req.user.id,
+    action: 'ATTENDANCE_REOPENED',
+    targetType: 'Attendance',
+    targetId: row.id,
+    metadata: { eventId: event.id, name: row.name, reason, previousStatus },
+    req
+  }).catch(() => {});
+
+  res.json({ ok: true, status: updated.status, statusReason: updated.statusReason, statusAt: updated.statusAt });
+}));
+
+// The record-level timeline behind the flag/retire/reopen buttons -- every
+// lifecycle transition for this one row, oldest first, each carrying a
+// verified flag computed by walking the tamper-evident hash chain (see
+// verifyChain in lib/audit.js) so the UI can show "chain intact" without
+// shipping any crypto to the browser. Gated the same as the roster view
+// itself (canManageEvent): seeing who touched a row is part of managing
+// the event, not a separate privilege.
+publicRouter.get('/events/:slug/attendance/:rowId/history', ah(async (req, res) => {
+  const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
+  if (!event || event.deletedAt) return res.json({ ok: false, error: 'Event not found' });
+  if (!canManageEvent(req.user, event)) return res.status(403).json({ ok: false, error: 'FORBIDDEN' });
+
+  const row = await prisma.attendance.findFirst({ where: { id: req.params.rowId, eventId: event.id } });
+  if (!row) return res.json({ ok: false, error: 'NOT_FOUND' });
+
+  const entries = await prisma.auditLog.findMany({
+    where: { targetType: 'Attendance', targetId: row.id },
+    orderBy: { createdAt: 'asc' }
+  });
+  const verified = verifyChain(entries);
+
+  res.json({
+    ok: true,
+    entries: entries.map((e, i) => ({
+      action: e.action,
+      actorEmail: e.actorEmail,
+      actorRole: e.actorRole,
+      reason: e.metadata && typeof e.metadata === 'object' ? e.metadata.reason : null,
+      createdAt: e.createdAt,
+      verified: verified[i]
+    }))
+  });
+}));
+
 // A one-time link an admin generates for a specific attendance row (see
 // POST /api/admin/events/:id/attendance/:rowId/request-signature) so
 // someone whose row is missing a signature -- see the account of rows 154
