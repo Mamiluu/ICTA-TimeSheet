@@ -179,27 +179,59 @@
   table.roster td.rowdel button.submit-btn{ color:#0a7a3a; font-weight:bold; }
   table.roster td.rowdel button:disabled{ color:#aaa; cursor:default; }
   table.roster td.rowdel button:not(.submit-btn){ color:#c22; }
-  table.roster td.rowdel button.edit-btn{ color:#0a5fc2; font-size:11px; margin-left:4px; }
-  table.roster td.rowdel .submitted-tag{ color:#0a7a3a; font-weight:bold; font-size:14px; }
-  table.roster td.rowdel button.flag-btn{ color:#7a4e00; font-size:11px; }
-  table.roster td.rowdel button.retire-btn{ color:#c22; font-size:11px; }
-  table.roster td.rowdel button.reopen-btn{ color:#0a7a3a; font-size:11px; }
-  table.roster td.rowdel button.history-btn{ color:#666; font-size:11px; }
   table.roster tr.retired-row{ background:#f4f4f4; opacity:.75; }
   table.roster tr.retired-row textarea{ text-decoration:line-through; color:#888; }
 
-  .status-pill{
-    display:inline-block;
-    font-size:10.5px;
+  /* status-chip and action-group below replace the row's old plain
+     checkmark/pill/text-link buttons with one small design system --
+     every submitted row gets exactly one chip (its current state) and at
+     most one icon toolbar (the actions that apply to that state), rather
+     than a different-looking control per action. */
+  .status-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-size:10px;
     font-weight:700;
-    letter-spacing:.2px;
-    padding:2px 7px;
-    border-radius:10px;
-    margin-bottom:4px;
+    letter-spacing:.15px;
+    padding:3px 8px 3px 7px;
+    border-radius:999px;
+    margin-bottom:5px;
     cursor:default;
+    white-space:nowrap;
   }
-  .status-pill.flagged{ background:#fdf3e2; color:#7a4e00; border:1px solid #f0d69a; }
-  .status-pill.retired{ background:#f3e2e2; color:#7a1717; border:1px solid #e3b3b3; }
+  .status-chip .dot{ width:5px; height:5px; border-radius:50%; background:currentColor; flex:none; }
+  .status-chip.active{ background:#eef7f1; color:#0a7a3a; }
+  .status-chip.flagged{ background:#fdf3e2; color:#7a4e00; }
+  .status-chip.retired{ background:#f3e2e2; color:#7a1717; }
+
+  .action-group{
+    display:inline-flex;
+    border:1px solid #e2e2e2;
+    border-radius:7px;
+    overflow:hidden;
+    background:#fff;
+    vertical-align:middle;
+  }
+  .action-group .ag-btn{
+    all:unset;
+    box-sizing:border-box;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:23px;
+    height:23px;
+    color:#777;
+    cursor:pointer;
+    border-right:1px solid #eee;
+  }
+  .action-group .ag-btn:last-child{ border-right:none; }
+  .action-group .ag-btn svg{ width:12px; height:12px; display:block; }
+  .action-group .ag-btn:hover{ background:#f4f4f4; color:#333; }
+  .action-group .ag-btn:disabled{ color:#ccc; cursor:default; background:none; }
+  .action-group .ag-btn.danger:hover{ background:#fdecec; color:var(--accent); }
+  .action-group .ag-btn.positive:hover{ background:#eaf7ee; color:var(--accent2); }
+  .action-group .ag-btn.active-icon{ background:#eef2fb; color:#2a5fd6; }
 
   .flag-reason-box{ display:flex; flex-direction:column; gap:5px; align-items:stretch; }
   .flag-reason-box textarea{
@@ -207,6 +239,11 @@
     padding:4px 6px; resize:vertical; min-height:40px;
   }
   .flag-reason-box .flag-reason-actions{ display:flex; gap:6px; justify-content:center; }
+  .flag-reason-box .flag-reason-actions button.flag-btn{
+    background:var(--accent); border-color:var(--accent); color:#fff;
+    font-size:11px; padding:3px 10px; border-radius:5px; border:1px solid var(--accent);
+  }
+  .flag-reason-box .flag-reason-actions button.flag-btn:disabled{ opacity:.6; }
 
   tr.history-row td{ background:#fafafa; font-size:11.5px; padding:8px 10px; }
   tr.history-row .history-entry{ padding:3px 0; border-top:1px dotted #ddd; }
@@ -665,6 +702,40 @@
     if(!hasDraft) state.rows.push(newRow());
   }
 
+  // Small hand-drawn line icons for the row-action toolbar (see
+  // buildActionGroup below) -- static, hardcoded markup only, never built
+  // from row/user data, so setting it via innerHTML here carries none of
+  // the risk that would come from doing that with anything a visitor or
+  // admin typed in.
+  var ICONS = {
+    edit: '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.7 2.3l2 2L4.2 11.8l-2.7.5.5-2.7z"/></svg>',
+    flag: '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 1.3v11.4"/><path d="M3 2.1h7.4l-2.1 2.5 2.1 2.5H3"/></svg>',
+    check: '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.3 7.3l3 3 6.4-7"/></svg>',
+    undo: '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.1 7.2a4.9 4.9 0 1 1 1.5 3.6"/><path d="M3 3.3v3.9h3.9"/></svg>',
+    clock: '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7.3" r="5.1"/><path d="M7 4.4v3l1.9 1.2"/></svg>'
+  };
+
+  function iconBtn(tone, iconKey, label){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = tone ? 'ag-btn ' + tone : 'ag-btn';
+    b.title = label;
+    b.setAttribute('aria-label', label);
+    b.innerHTML = ICONS[iconKey];
+    return b;
+  }
+
+  // A compact segmented icon toolbar shared by every submitted-row state
+  // (Active/Flagged/Retired) so the action column reads as one consistent
+  // control instead of a different-looking button style per status --
+  // callers just push whatever buttons apply to the current row/role onto
+  // the returned group and append it once.
+  function buildActionGroup(){
+    var group = document.createElement('div');
+    group.className = 'action-group';
+    return group;
+  }
+
   function render(){
     rosterBody.innerHTML = '';
     if(state.rows.length === 0){
@@ -860,20 +931,27 @@
         reasonBox.appendChild(reasonActions);
         actionTd.appendChild(reasonBox);
       } else if(row.submitted){
-        if(row.status === 'FLAGGED_FOR_REMOVAL' || row.status === 'RETIRED'){
-          var statusPill = document.createElement('span');
-          statusPill.className = 'status-pill ' + (row.status === 'RETIRED' ? 'retired' : 'flagged');
-          statusPill.textContent = row.status === 'RETIRED' ? 'Retired' : 'Flagged for removal';
-          if(row.statusReason) statusPill.title = 'Reason: ' + row.statusReason;
-          actionTd.appendChild(statusPill);
-          actionTd.appendChild(document.createElement('br'));
-        } else {
-          var tag = document.createElement('span');
-          tag.className = 'submitted-tag';
-          tag.textContent = '✓';
-          tag.title = 'Submitted to the shared sheet';
-          actionTd.appendChild(tag);
-        }
+        // One consistent status chip for every state (a plain checkmark
+        // for Active used to look like a different design language than
+        // the Flagged/Retired pills below it -- this dot+label form is the
+        // same component in all three cases, just recolored).
+        var chipClass = row.status === 'RETIRED' ? 'retired' : row.status === 'FLAGGED_FOR_REMOVAL' ? 'flagged' : 'active';
+        var chipLabel = row.status === 'RETIRED' ? 'Retired' : row.status === 'FLAGGED_FOR_REMOVAL' ? 'Flagged' : 'Active';
+        var chip = document.createElement('span');
+        chip.className = 'status-chip ' + chipClass;
+        var dot = document.createElement('span');
+        dot.className = 'dot';
+        chip.appendChild(dot);
+        chip.appendChild(document.createTextNode(chipLabel));
+        if(row.statusReason) chip.title = 'Reason: ' + row.statusReason;
+        actionTd.appendChild(chip);
+
+        // Every action for this row lives in one segmented icon toolbar,
+        // not a scattered mix of text links -- what's inside it changes
+        // with role and status, but the control itself always looks and
+        // behaves the same way.
+        var group = buildActionGroup();
+        var groupHasButtons = false;
 
         // A visitor edits their own row (clientId is only ever known on the
         // device that submitted it); a super admin can also fix a mistake
@@ -883,12 +961,10 @@
         // too). A county admin viewing their own event's roster is
         // isAdmin but not canEditAttendance, so they don't get this.
         if(row.status === 'ACTIVE' && (row.clientId || (canEditAttendance && row.id))){
-          var editRowBtn = document.createElement('button');
-          editRowBtn.className = 'edit-btn';
-          editRowBtn.textContent = 'Edit';
-          editRowBtn.title = row.clientId ? 'Fix a mistake in your entry' : 'Fix a mistake in this attendee\'s entry';
+          var editRowBtn = iconBtn('', 'edit', row.clientId ? 'Fix a mistake in your entry' : 'Fix a mistake in this attendee\'s entry');
           editRowBtn.addEventListener('click', function(){ beginEdit(row); });
-          actionTd.appendChild(editRowBtn);
+          group.appendChild(editRowBtn);
+          groupHasButtons = true;
         }
 
         // Flagging is available to whoever manages this event (county
@@ -898,44 +974,37 @@
         // capability. Only *resolving* the flag (Confirm removal/Dismiss/
         // Reopen below) is reserved for a super admin.
         if(row.status === 'ACTIVE' && isAdmin && row.id){
-          var flagBtn = document.createElement('button');
-          flagBtn.className = 'flag-btn';
-          flagBtn.textContent = 'Flag';
-          flagBtn.title = 'Flag this entry for removal';
+          var flagBtn = iconBtn('danger', 'flag', 'Flag this entry for removal');
           flagBtn.addEventListener('click', function(){ beginFlag(row); });
-          actionTd.appendChild(flagBtn);
+          group.appendChild(flagBtn);
+          groupHasButtons = true;
         } else if(row.status === 'FLAGGED_FOR_REMOVAL' && canEditAttendance && row.id){
-          var retireBtn = document.createElement('button');
-          retireBtn.className = 'retire-btn';
-          retireBtn.textContent = row.submitting ? '…' : 'Confirm removal';
+          var retireBtn = iconBtn('danger', 'check', row.submitting ? 'Confirming…' : 'Confirm removal');
           retireBtn.disabled = row.submitting;
           retireBtn.addEventListener('click', function(){ retireRow(row); });
-          actionTd.appendChild(retireBtn);
+          group.appendChild(retireBtn);
 
-          var dismissBtn = document.createElement('button');
-          dismissBtn.className = 'reopen-btn';
-          dismissBtn.textContent = 'Dismiss';
-          dismissBtn.title = 'Clear the flag, keep the entry active';
+          var dismissBtn = iconBtn('positive', 'undo', 'Dismiss — clear the flag, keep the entry active');
           dismissBtn.disabled = row.submitting;
           dismissBtn.addEventListener('click', function(){ reopenRow(row); });
-          actionTd.appendChild(dismissBtn);
+          group.appendChild(dismissBtn);
+          groupHasButtons = true;
         } else if(row.status === 'RETIRED' && canEditAttendance && row.id){
-          var reopenBtn = document.createElement('button');
-          reopenBtn.className = 'reopen-btn';
-          reopenBtn.textContent = row.submitting ? '…' : 'Reopen';
-          reopenBtn.title = 'Restore this entry to active';
+          var reopenBtn = iconBtn('positive', 'undo', row.submitting ? 'Reopening…' : 'Reopen this entry');
           reopenBtn.disabled = row.submitting;
           reopenBtn.addEventListener('click', function(){ reopenRow(row); });
-          actionTd.appendChild(reopenBtn);
+          group.appendChild(reopenBtn);
+          groupHasButtons = true;
         }
 
         if(row.status !== 'ACTIVE' && isAdmin && row.id){
-          var historyBtn = document.createElement('button');
-          historyBtn.className = 'history-btn';
-          historyBtn.textContent = row.historyOpen ? 'Hide history' : 'History';
+          var historyBtn = iconBtn(row.historyOpen ? 'active-icon' : '', 'clock', row.historyOpen ? 'Hide history' : 'View history');
           historyBtn.addEventListener('click', function(){ toggleHistory(row); });
-          actionTd.appendChild(historyBtn);
+          group.appendChild(historyBtn);
+          groupHasButtons = true;
         }
+
+        if(groupHasButtons) actionTd.appendChild(group);
       } else {
         var submitBtn = document.createElement('button');
         submitBtn.className = 'submit-btn';
