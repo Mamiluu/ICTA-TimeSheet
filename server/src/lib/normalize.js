@@ -27,6 +27,21 @@ export function isValidEmailShape(email) {
   return typeof email === 'string' && email.length <= 254 && EMAIL_SHAPE.test(email);
 }
 
+// Same "reject the obviously wrong, don't fully validate" discipline as
+// isValidEmailShape above -- a virtual event's meetingLink just needs to
+// be an http(s) URL a browser can actually open, not a fully-general URI
+// validator. Using the platform's own URL parser rather than a regex
+// means this accepts everything a browser would.
+export function isValidMeetingLink(url) {
+  if (typeof url !== 'string' || !url || url.length > 2000) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 export function slugify(s) {
   const base = String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 40);
   return base || 'event';
