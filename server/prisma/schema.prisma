@@ -26,6 +26,12 @@ enum TokenType {
   PASSWORD_RESET
 }
 
+enum AttendanceStatus {
+  ACTIVE
+  FLAGGED_FOR_REMOVAL
+  RETIRED
+}
+
 model User {
   id           String     @id @default(uuid())
   email        String     @unique
@@ -124,6 +130,16 @@ model Attendance {
   isImportedSignature Boolean @default(false)
   createdAt       DateTime @default(now())
 
+  // Soft-retirement lifecycle: a row is never hard-deleted, only moved
+  // ACTIVE -> FLAGGED_FOR_REMOVAL -> RETIRED (or back), see the
+  // /flag, /retire, /reopen routes in public.js. Who made each transition
+  // and why lives in AuditLog (actor snapshot + [targetType, targetId]
+  // index already exist there) rather than being duplicated here -- this
+  // row only tracks its own current state, not its history.
+  status       AttendanceStatus @default(ACTIVE)
+  statusReason String?
+  statusAt     DateTime?
+
   // Lets an admin send a one-time link to an attendee whose row is missing
   // a signature (see /api/signature-requests/:token) so they can add it
   // themselves after the fact, without needing the original submitting
@@ -158,6 +174,17 @@ model AuditLog {
   ip         String?
   userAgent  String?
   createdAt  DateTime @default(now())
+
+  // Tamper-evident chain: hash covers this entry's own fields plus
+  // prevHash, which is the hash of whatever entry was most recently
+  // written when this one was created (see writeAudit in lib/audit.js).
+  // Altering or deleting an old entry breaks every hash after it, so the
+  // break is detectable by recomputation rather than trusted by default.
+  // Entries written before this column existed are left null -- the chain
+  // starts clean from the first entry written after this migration,
+  // not backfilled.
+  prevHash String?
+  hash     String?
 
   @@index([actorId, createdAt])
   @@index([targetType, targetId])
