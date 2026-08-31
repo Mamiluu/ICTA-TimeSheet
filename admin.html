@@ -376,12 +376,26 @@
     return { close: close };
   }
 
-  // --- Create event ---
+  // --- Create/edit event (one form drives both -- see beginEditEvent
+  // below; editingEventId is null in create mode) ---
+  var formTitle = document.getElementById('formTitle');
   var newName = document.getElementById('newName');
-  var newDate = document.getElementById('newDate');
-  var newDateDisplay = document.getElementById('newDateDisplay');
-  var newLocation = document.getElementById('newLocation');
+  var newDescription = document.getElementById('newDescription');
+  var newStartDate = document.getElementById('newStartDate');
+  var newStartDateDisplay = document.getElementById('newStartDateDisplay');
+  var newStartTime = document.getElementById('newStartTime');
+  var newEndDate = document.getElementById('newEndDate');
+  var newEndDateDisplay = document.getElementById('newEndDateDisplay');
+  var newEndTime = document.getElementById('newEndTime');
+  var newTimezone = document.getElementById('newTimezone');
+  var newLocTypeToggle = document.getElementById('newLocTypeToggle');
+  var newAddressField = document.getElementById('newAddressField');
+  var newAddress = document.getElementById('newAddress');
+  var newMapsPreview = document.getElementById('newMapsPreview');
+  var newMeetingLinkField = document.getElementById('newMeetingLinkField');
+  var newMeetingLink = document.getElementById('newMeetingLink');
   var createBtn = document.getElementById('createBtn');
+  var cancelEditBtn = document.getElementById('cancelEditBtn');
   var createError = document.getElementById('createError');
   var createResult = document.getElementById('createResult');
   var resultLink = document.getElementById('resultLink');
@@ -395,48 +409,213 @@
     lastCreatedEventSlug = null;
   }
 
-  createDatePicker(newDateDisplay, newDate);
+  createDatePicker(newStartDateDisplay, newStartDate);
+  createDatePicker(newEndDateDisplay, newEndDate);
+
+  // A plain one-day event should still take one click: picking a start
+  // date auto-fills the end date to match (times already default to
+  // 09:00/17:00 via the inputs' own HTML value) -- an admin running a
+  // multi-day event just changes the end date afterward.
+  newStartDate.addEventListener('input', function(){
+    if(!newEndDate.value.trim()){
+      newEndDate.value = newStartDate.value;
+      newEndDateDisplay.value = newStartDateDisplay.value;
+    }
+    refreshCreateBtnState();
+  });
+  newEndDate.addEventListener('input', refreshCreateBtnState);
+
+  // Full real IANA zone list via the native Intl API where available (all
+  // evergreen browsers since ~2023) -- zero dependencies, and correct for
+  // any future virtual/cross-border event, not just the common ones. Old
+  // Safari lacks supportedValuesOf, so it falls back to a short list
+  // covering this app's actual usage.
+  var TIMEZONE_FALLBACK = ['Africa/Nairobi', 'UTC', 'Africa/Lagos', 'Africa/Johannesburg', 'Europe/London', 'Asia/Dubai'];
+  var timezoneList = (typeof Intl.supportedValuesOf === 'function') ? Intl.supportedValuesOf('timeZone') : TIMEZONE_FALLBACK;
+  if(timezoneList.indexOf('Africa/Nairobi') === -1) timezoneList = ['Africa/Nairobi'].concat(timezoneList);
+  timezoneList.forEach(function(tz){
+    var opt = document.createElement('option');
+    opt.value = tz; opt.textContent = tz.replace(/_/g, ' ');
+    newTimezone.appendChild(opt);
+  });
+  newTimezone.value = 'Africa/Nairobi';
+
+  // --- Physical/Virtual toggle ---
+  var newLocType = 'PHYSICAL';
+  function applyLocType(){
+    Array.prototype.forEach.call(newLocTypeToggle.querySelectorAll('button'), function(btn){
+      btn.classList.toggle('active', btn.getAttribute('data-loctype') === newLocType);
+    });
+    newAddressField.style.display = newLocType === 'PHYSICAL' ? '' : 'none';
+    newMeetingLinkField.style.display = newLocType === 'VIRTUAL' ? '' : 'none';
+    refreshCreateBtnState();
+  }
+  Array.prototype.forEach.call(newLocTypeToggle.querySelectorAll('button'), function(btn){
+    btn.addEventListener('click', function(){ newLocType = btn.getAttribute('data-loctype'); applyLocType(); });
+  });
+
+  // Derived, not stored -- a Google Maps search link built straight from
+  // whatever address is currently typed, so it can never go stale the way
+  // a separately-saved map URL would if the address is edited later. No
+  // API key or geocoding call, just a deep link the browser/Maps app
+  // resolves on click.
+  newAddress.addEventListener('input', function(){
+    var q = newAddress.value.trim();
+    if(q){
+      newMapsPreview.querySelector('a').href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+      newMapsPreview.style.display = '';
+    } else {
+      newMapsPreview.style.display = 'none';
+    }
+    refreshCreateBtnState();
+  });
+  newMeetingLink.addEventListener('input', refreshCreateBtnState);
+
+  // Converts a wall-clock date/time as read in `timeZone` to the UTC
+  // instant it actually refers to, with no timezone library -- Intl
+  // already knows every zone's offset (including DST) at any given date,
+  // so this just asks "what does this UTC guess look like in that zone?"
+  // and corrects the guess by the difference. Two passes are enough to
+  // converge for every real zone; the only case that can't converge
+  // cleanly is the one ambiguous hour during a DST fall-back, which this
+  // resolves to one of the two valid instants rather than erroring.
+  function zonedTimeToUtcIso(y, m, d, hh, mm, timeZone){
+    var guess = new Date(Date.UTC(y, m, d, hh, mm, 0));
+    for(var i = 0; i < 2; i++){
+      var parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: timeZone, hour12: false,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      }).formatToParts(guess);
+      var map = {};
+      parts.forEach(function(p){ if(p.type !== 'literal') map[p.type] = p.value; });
+      var asUtc = Date.UTC(+map.year, +map.month - 1, +map.day, map.hour === '24' ? 0 : +map.hour, +map.minute, +map.second);
+      var diff = Date.UTC(y, m, d, hh, mm, 0) - asUtc;
+      guess = new Date(guess.getTime() + diff);
+    }
+    return guess.toISOString();
+  }
+
+  // The inverse -- used by beginEditEvent below to show an existing
+  // event's UTC-stored startAt/endAt back as the wall-clock date/time an
+  // admin would recognize in that event's own timezone.
+  function utcToZonedParts(isoString, timeZone){
+    var date = new Date(isoString);
+    var parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timeZone, hour12: false,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit'
+    }).formatToParts(date);
+    var map = {};
+    parts.forEach(function(p){ if(p.type !== 'literal') map[p.type] = p.value; });
+    return { y: +map.year, m: +map.month - 1, d: +map.day, hh: map.hour === '24' ? 0 : +map.hour, mm: +map.minute };
+  }
 
   function newEventFieldsComplete(){
-    return !!(newName.value.trim() && newDate.value.trim() && newLocation.value.trim());
+    var base = !!(newName.value.trim() && newStartDate.value.trim() && newStartTime.value && newEndDate.value.trim() && newEndTime.value && newTimezone.value);
+    if(!base) return false;
+    return newLocType === 'PHYSICAL' ? !!newAddress.value.trim() : !!newMeetingLink.value.trim();
   }
   function refreshCreateBtnState(){
     createBtn.disabled = !newEventFieldsComplete();
   }
   newName.addEventListener('input', refreshCreateBtnState);
-  newDate.addEventListener('input', refreshCreateBtnState);
-  newLocation.addEventListener('input', refreshCreateBtnState);
+  newStartTime.addEventListener('input', refreshCreateBtnState);
+  newEndTime.addEventListener('input', refreshCreateBtnState);
+  newTimezone.addEventListener('change', refreshCreateBtnState);
+
+  var editingEventId = null;
+
+  function resetForm(){
+    editingEventId = null;
+    formTitle.textContent = 'Create a new event';
+    createBtn.textContent = 'Create event';
+    cancelEditBtn.style.display = 'none';
+    newName.value = ''; newDescription.value = '';
+    newStartDate.value = ''; newStartDateDisplay.value = ''; newStartTime.value = '09:00';
+    newEndDate.value = ''; newEndDateDisplay.value = ''; newEndTime.value = '17:00';
+    newTimezone.value = 'Africa/Nairobi';
+    newLocType = 'PHYSICAL'; applyLocType();
+    newAddress.value = ''; newMeetingLink.value = '';
+    newMapsPreview.style.display = 'none';
+    createError.style.display = 'none';
+    refreshCreateBtnState();
+  }
+
+  // Populates the one shared form with an existing event's details and
+  // switches it into edit mode -- reusing the create form rather than
+  // maintaining a second, cramped copy of the same ~8 fields inline in
+  // the table row, which is what this used to do back when it was just
+  // name/date/location.
+  function beginEditEvent(ev){
+    editingEventId = ev.id;
+    formTitle.textContent = 'Edit event';
+    createBtn.textContent = 'Save changes';
+    cancelEditBtn.style.display = '';
+    newName.value = ev.name;
+    newDescription.value = ev.description || '';
+    var startParts = utcToZonedParts(ev.startAt, ev.timezone);
+    var endParts = utcToZonedParts(ev.endAt, ev.timezone);
+    newStartDate.value = isoFromParts(startParts.y, startParts.m, startParts.d);
+    newStartDateDisplay.value = formatDisplayParts(startParts.y, startParts.m, startParts.d);
+    newStartTime.value = pad2(startParts.hh) + ':' + pad2(startParts.mm);
+    newEndDate.value = isoFromParts(endParts.y, endParts.m, endParts.d);
+    newEndDateDisplay.value = formatDisplayParts(endParts.y, endParts.m, endParts.d);
+    newEndTime.value = pad2(endParts.hh) + ':' + pad2(endParts.mm);
+    newTimezone.value = ev.timezone;
+    newLocType = ev.locationType; applyLocType();
+    newAddress.value = ev.address || '';
+    newMeetingLink.value = ev.meetingLink || '';
+    if(ev.locationType === 'PHYSICAL' && ev.address){
+      newMapsPreview.querySelector('a').href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(ev.address);
+      newMapsPreview.style.display = '';
+    }
+    createError.style.display = 'none';
+    refreshCreateBtnState();
+    formTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  cancelEditBtn.addEventListener('click', resetForm);
 
   createBtn.addEventListener('click', function(){
-    var name = newName.value.trim();
-    var date = newDate.value.trim();
-    var location = newLocation.value.trim();
     createError.style.display = 'none';
-    if(!name || !date || !location){
-      var missing = [];
-      if(!name) missing.push('event name');
-      if(!date) missing.push('date');
-      if(!location) missing.push('location');
-      createError.textContent = 'Please fill in ' + missing.join(', ') + ' before creating the event.';
+    if(!newEventFieldsComplete()){
+      createError.textContent = 'Please fill in every required field before ' + (editingEventId ? 'saving.' : 'creating the event.');
       createError.style.display = '';
       return;
     }
 
+    var sp = parseIso(newStartDate.value), ep = parseIso(newEndDate.value);
+    var st = newStartTime.value.split(':'), et = newEndTime.value.split(':');
+    var tz = newTimezone.value;
+    var payload = {
+      name: newName.value.trim(),
+      description: newDescription.value.trim(),
+      startAt: zonedTimeToUtcIso(sp.y, sp.m, sp.d, +st[0], +st[1], tz),
+      endAt: zonedTimeToUtcIso(ep.y, ep.m, ep.d, +et[0], +et[1], tz),
+      timezone: tz,
+      locationType: newLocType,
+      address: newLocType === 'PHYSICAL' ? newAddress.value.trim() : '',
+      meetingLink: newLocType === 'VIRTUAL' ? newMeetingLink.value.trim() : ''
+    };
+
     createBtn.disabled = true;
-    API.post('/api/admin/events', { name: name, date: date, location: location }).then(function(r){
+    var req = editingEventId ? API.put('/api/admin/events/' + editingEventId, payload) : API.post('/api/admin/events', payload);
+    req.then(function(r){
       if(!r.data.ok){
         refreshCreateBtnState();
-        createError.textContent = r.data.message || 'Could not create event.';
+        createError.textContent = r.data.message || 'Could not save the event.';
         createError.style.display = '';
         return;
       }
-      var url = attendeePageUrl() + '?event=' + encodeURIComponent(r.data.event.slug);
-      lastCreatedEventSlug = r.data.event.slug;
-      resultLink.value = url;
-      resultQr.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(url);
-      createResult.classList.add('open');
-      newName.value = ''; newDate.value = ''; newDateDisplay.value = ''; newLocation.value = '';
-      refreshCreateBtnState();
+      if(!editingEventId){
+        var url = attendeePageUrl() + '?event=' + encodeURIComponent(r.data.event.slug);
+        lastCreatedEventSlug = r.data.event.slug;
+        resultLink.value = url;
+        resultQr.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(url);
+        createResult.classList.add('open');
+      }
+      resetForm();
       loadEvents();
     }).catch(function(){
       refreshCreateBtnState();
@@ -444,6 +623,8 @@
       createError.style.display = '';
     });
   });
+
+  applyLocType();
 
   document.getElementById('copyLinkBtn').addEventListener('click', function(){
     resultLink.select();
@@ -487,7 +668,7 @@
         return;
       }
       var table = document.createElement('table');
-      table.innerHTML = '<thead><tr><th>Name</th><th>Date</th><th>Location</th><th>Submitted</th><th>Sign-in link</th><th></th></tr></thead>';
+      table.innerHTML = '<thead><tr><th>Name</th><th>When</th><th>Where</th><th>Submitted</th><th>Sign-in link</th><th></th></tr></thead>';
       var tbody = document.createElement('tbody');
       r.data.events.forEach(function(ev){
         var tr = document.createElement('tr');
@@ -503,10 +684,22 @@
 
         var nameTd = document.createElement('td');
         nameTd.textContent = ev.name;
-        var dateTd = document.createElement('td');
-        dateTd.textContent = ev.date;
-        var locationTd = document.createElement('td');
-        locationTd.textContent = ev.location;
+        var whenTd = document.createElement('td');
+        whenTd.textContent = clientFormatEventWhen(ev.startAt, ev.endAt, ev.timezone);
+        var whereTd = document.createElement('td');
+        if(ev.locationType === 'VIRTUAL'){
+          var virtualBadge = document.createElement('span');
+          virtualBadge.className = 'badge virtual';
+          virtualBadge.textContent = 'Virtual';
+          whereTd.appendChild(virtualBadge);
+          whereTd.appendChild(document.createTextNode(' '));
+          var joinLink = document.createElement('a');
+          joinLink.href = ev.meetingLink; joinLink.target = '_blank'; joinLink.rel = 'noopener';
+          joinLink.textContent = 'Join link';
+          whereTd.appendChild(joinLink);
+        } else {
+          whereTd.appendChild(document.createTextNode(ev.address || ''));
+        }
         var countTd = document.createElement('td');
         countTd.className = 'count';
         countTd.textContent = ev.count;
@@ -542,11 +735,15 @@
           if(navigator.clipboard) navigator.clipboard.writeText(kioskUrl);
         });
 
-        var renameBtn = document.createElement('button');
-        renameBtn.textContent = 'Rename';
-        renameBtn.addEventListener('click', function(){
-          enterEditMode(ev, actionsTd, nameTd, dateTd, locationTd, renameBtn, openBtn, copyBtn, kioskBtn, exportBtn, printBtn, deleteBtn);
-        });
+        // Edits now happen in the same form used to create an event (see
+        // beginEditEvent) rather than rewriting this row's cells in place
+        // -- once the field set grew to ~8 fields (description, start/end
+        // date+time, timezone, physical/virtual + address or meeting
+        // link), a cramped inline table-row editor stopped being the
+        // right shape for it.
+        var editBtn = document.createElement('button');
+        editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', function(){ beginEditEvent(ev); });
 
         // Export/print are the only place personal data (name, phone,
         // email, a drawn signature) leaves the shared sheet as a file or
@@ -571,14 +768,14 @@
         actionsTd.appendChild(openBtn);
         actionsTd.appendChild(copyBtn);
         actionsTd.appendChild(kioskBtn);
-        actionsTd.appendChild(renameBtn);
+        actionsTd.appendChild(editBtn);
         actionsTd.appendChild(exportBtn);
         actionsTd.appendChild(printBtn);
         actionsTd.appendChild(deleteBtn);
 
         tr.appendChild(nameTd);
-        tr.appendChild(dateTd);
-        tr.appendChild(locationTd);
+        tr.appendChild(whenTd);
+        tr.appendChild(whereTd);
         tr.appendChild(countTd);
         tr.appendChild(linkTd);
         tr.appendChild(actionsTd);
@@ -670,95 +867,6 @@
     });
   }
 
-  function enterEditMode(ev, actionsTd, nameTd, dateTd, locationTd, renameBtn, openBtn, copyBtn, kioskBtn, exportBtn, printBtn, deleteBtn){
-    var origName = ev.name, origDate = ev.date, origLocation = ev.location;
-
-    var nameInput = document.createElement('input');
-    nameInput.type = 'text'; nameInput.value = origName; nameInput.style.margin = '0';
-
-    var dateWrap = document.createElement('div');
-    dateWrap.className = 'datefield';
-    var dateDisplay = document.createElement('input');
-    dateDisplay.type = 'text'; dateDisplay.className = 'datefield-input'; dateDisplay.placeholder = 'Select a date';
-    dateDisplay.readOnly = true; dateDisplay.autocomplete = 'off';
-    dateDisplay.value = formatDisplayIso(origDate);
-    var dateInput = document.createElement('input');
-    dateInput.type = 'hidden'; dateInput.value = origDate;
-    dateWrap.appendChild(dateDisplay); dateWrap.appendChild(dateInput);
-    createDatePicker(dateDisplay, dateInput);
-
-    var locationInput = document.createElement('input');
-    locationInput.type = 'text'; locationInput.value = origLocation; locationInput.style.margin = '0';
-
-    nameTd.textContent = ''; nameTd.appendChild(nameInput);
-    dateTd.textContent = ''; dateTd.appendChild(dateWrap);
-    locationTd.textContent = ''; locationTd.appendChild(locationInput);
-
-    openBtn.style.display = 'none';
-    copyBtn.style.display = 'none';
-    kioskBtn.style.display = 'none';
-    renameBtn.style.display = 'none';
-    exportBtn.style.display = 'none';
-    printBtn.style.display = 'none';
-    deleteBtn.style.display = 'none';
-
-    var saveBtn = document.createElement('button');
-    saveBtn.textContent = 'Save';
-    var cancelBtn = document.createElement('button');
-    cancelBtn.textContent = 'Cancel';
-    var rowError = document.createElement('p');
-    rowError.className = 'error';
-    rowError.style.display = 'none';
-    rowError.style.margin = '4px 0 0';
-
-    actionsTd.appendChild(saveBtn);
-    actionsTd.appendChild(cancelBtn);
-    actionsTd.appendChild(rowError);
-
-    function exitEditMode(){
-      saveBtn.remove(); cancelBtn.remove(); rowError.remove();
-      openBtn.style.display = ''; copyBtn.style.display = ''; kioskBtn.style.display = ''; renameBtn.style.display = '';
-      exportBtn.style.display = ''; printBtn.style.display = ''; deleteBtn.style.display = '';
-    }
-
-    cancelBtn.addEventListener('click', function(){
-      nameTd.textContent = origName;
-      dateTd.textContent = origDate;
-      locationTd.textContent = origLocation;
-      exitEditMode();
-    });
-
-    saveBtn.addEventListener('click', function(){
-      var name = nameInput.value.trim();
-      var date = dateInput.value.trim();
-      var location = locationInput.value.trim();
-      rowError.style.display = 'none';
-      if(!name || !date || !location){
-        var missing = [];
-        if(!name) missing.push('name');
-        if(!date) missing.push('date');
-        if(!location) missing.push('location');
-        rowError.textContent = 'Please fill in ' + missing.join(', ') + '.';
-        rowError.style.display = '';
-        return;
-      }
-
-      saveBtn.disabled = true;
-      API.put('/api/admin/events/' + ev.id, { name: name, date: date, location: location }).then(function(r){
-        if(!r.data.ok){
-          saveBtn.disabled = false;
-          rowError.textContent = r.data.message || 'Could not update event.';
-          rowError.style.display = '';
-          return;
-        }
-        loadEvents();
-      }).catch(function(){
-        saveBtn.disabled = false;
-        rowError.textContent = 'Network error — could not reach the backend.';
-        rowError.style.display = '';
-      });
-    });
-  }
 
   // --- My activity (own audit trail) ---
   var auditWrap = document.getElementById('auditWrap');
