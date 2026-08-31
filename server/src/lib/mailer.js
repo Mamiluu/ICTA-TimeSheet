@@ -1,6 +1,8 @@
 // Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
 // Proprietary and confidential. See LICENSE in the repository root.
 
+import { formatEventWhen } from './timezone.js';
+
 // Sent over Brevo's HTTPS API rather than SMTP. Render's free web services
 // block all outbound traffic on the SMTP ports (25/465/587) as an
 // anti-abuse measure -- see
@@ -114,7 +116,8 @@ function formatRecordedAt(date) {
 // absolute positioning, which don't survive Outlook's rendering engine.
 export async function sendAttendanceConfirmationEmail(toEmail, details) {
   const {
-    name, eventName, eventDate, eventLocation, county, recordId, recordedAt
+    name, eventName, eventDescription, startAt, endAt, timezone,
+    locationType, address, meetingLink, county, recordId, recordedAt
   } = details;
 
   const refCode = `ICTA-${String(recordId || '').replace(/-/g, '').slice(0, 8).toUpperCase()}`;
@@ -127,6 +130,23 @@ export async function sendAttendanceConfirmationEmail(toEmail, details) {
       <td style="padding:7px 0;font:700 10px/1.4 'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;letter-spacing:.08em;color:#9a9a9a;text-transform:uppercase;white-space:nowrap;vertical-align:top;width:92px;">${label}</td>
       <td style="padding:7px 0;font:600 13.5px/1.4 'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;color:#1a1a1a;">${escapeHtml(value)}</td>
     </tr>`;
+
+  // The one row that needs an actual link rather than plain escaped text
+  // (a virtual event's meeting link) -- kept separate from metaRow above
+  // so every other row stays on the "always escapeHtml the value" path by
+  // default, and only this one deliberately opts into raw HTML, built
+  // entirely from an already-escaped, already-validated (isValidMeetingLink
+  // in normalize.js restricts this to http(s) URLs before it's ever
+  // stored) href.
+  const metaRowHtml = (label, html) => `
+    <tr>
+      <td style="padding:7px 0;font:700 10px/1.4 'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;letter-spacing:.08em;color:#9a9a9a;text-transform:uppercase;white-space:nowrap;vertical-align:top;width:92px;">${label}</td>
+      <td style="padding:7px 0;font:600 13.5px/1.4 'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;color:#1a1a1a;">${html}</td>
+    </tr>`;
+
+  const whereHtml = locationType === 'VIRTUAL'
+    ? `<a href="${escapeHtml(meetingLink)}" style="color:${BRAND.accent};">${escapeHtml(meetingLink)}</a>`
+    : escapeHtml(address || '');
 
   const perforation = `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:22px 0;">
