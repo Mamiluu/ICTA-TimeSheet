@@ -675,9 +675,18 @@
       updateSubmittedCount();
       return;
     }
+    var hideRetired = !(showRetiredToggle && showRetiredToggle.checked);
     state.rows.forEach(function(row, idx){
+      // Retired rows stay in the data (soft-retired, see /retire in
+      // public.js) but are hidden from the default admin view so the
+      // working sheet stays clean day to day -- the "Show retired
+      // records" toggle brings them back without ever having actually
+      // removed anything.
+      if(row.status === 'RETIRED' && isAdmin && hideRetired) return;
+
       var tr = document.createElement('tr');
-      if(row.submitted) tr.className = 'submitted-row';
+      if(row.status === 'RETIRED') tr.className = 'submitted-row retired-row';
+      else if(row.submitted) tr.className = 'submitted-row';
       else if(!row.name && !row.org && !row.email && !row.phone && !row.sign) tr.className = 'draft-row';
 
       var num = document.createElement('td');
@@ -815,12 +824,56 @@
         cancelEditBtn.disabled = row.submitting;
         cancelEditBtn.addEventListener('click', function(){ cancelEdit(row); });
         actionTd.appendChild(cancelEditBtn);
+      } else if(row.flagging){
+        // Same "one admin raises it, a super admin resolves it" split
+        // enforced server-side (see /flag and /retire in public.js) --
+        // this box only ever calls /flag; a plain reason here can never by
+        // itself remove anything.
+        var reasonBox = document.createElement('div');
+        reasonBox.className = 'flag-reason-box';
+
+        var reasonInput = document.createElement('textarea');
+        reasonInput.rows = 2;
+        reasonInput.placeholder = 'Why should this entry be removed? (duplicate, fraudulent signature, wrong event...)';
+        reasonInput.value = row._flagReason || '';
+        reasonInput.disabled = row.submitting;
+        reasonInput.addEventListener('input', function(){ row._flagReason = reasonInput.value; });
+        reasonBox.appendChild(reasonInput);
+
+        var reasonActions = document.createElement('div');
+        reasonActions.className = 'flag-reason-actions';
+
+        var confirmFlagBtn = document.createElement('button');
+        confirmFlagBtn.className = 'flag-btn';
+        confirmFlagBtn.textContent = row.submitting ? '…' : 'Flag';
+        confirmFlagBtn.disabled = row.submitting;
+        confirmFlagBtn.addEventListener('click', function(){ saveFlag(row); });
+        reasonActions.appendChild(confirmFlagBtn);
+
+        var cancelFlagBtn = document.createElement('button');
+        cancelFlagBtn.textContent = '✕';
+        cancelFlagBtn.title = 'Cancel';
+        cancelFlagBtn.disabled = row.submitting;
+        cancelFlagBtn.addEventListener('click', function(){ cancelFlag(row); });
+        reasonActions.appendChild(cancelFlagBtn);
+
+        reasonBox.appendChild(reasonActions);
+        actionTd.appendChild(reasonBox);
       } else if(row.submitted){
-        var tag = document.createElement('span');
-        tag.className = 'submitted-tag';
-        tag.textContent = '✓';
-        tag.title = 'Submitted to the shared sheet';
-        actionTd.appendChild(tag);
+        if(row.status === 'FLAGGED_FOR_REMOVAL' || row.status === 'RETIRED'){
+          var statusPill = document.createElement('span');
+          statusPill.className = 'status-pill ' + (row.status === 'RETIRED' ? 'retired' : 'flagged');
+          statusPill.textContent = row.status === 'RETIRED' ? 'Retired' : 'Flagged for removal';
+          if(row.statusReason) statusPill.title = 'Reason: ' + row.statusReason;
+          actionTd.appendChild(statusPill);
+          actionTd.appendChild(document.createElement('br'));
+        } else {
+          var tag = document.createElement('span');
+          tag.className = 'submitted-tag';
+          tag.textContent = '✓';
+          tag.title = 'Submitted to the shared sheet';
+          actionTd.appendChild(tag);
+        }
 
         // A visitor edits their own row (clientId is only ever known on the
         // device that submitted it); a super admin can also fix a mistake
@@ -829,13 +882,59 @@
         // signature (canDrawSignature above keeps that out of reach here
         // too). A county admin viewing their own event's roster is
         // isAdmin but not canEditAttendance, so they don't get this.
-        if(row.clientId || (canEditAttendance && row.id)){
+        if(row.status === 'ACTIVE' && (row.clientId || (canEditAttendance && row.id))){
           var editRowBtn = document.createElement('button');
           editRowBtn.className = 'edit-btn';
           editRowBtn.textContent = 'Edit';
           editRowBtn.title = row.clientId ? 'Fix a mistake in your entry' : 'Fix a mistake in this attendee\'s entry';
           editRowBtn.addEventListener('click', function(){ beginEdit(row); });
           actionTd.appendChild(editRowBtn);
+        }
+
+        // Flagging is available to whoever manages this event (county
+        // admin or super admin, see canManageEvent in public.js) -- unlike
+        // Edit above, it's not limited to a super admin, since raising a
+        // concern about a record is meant to be an ordinary event-admin
+        // capability. Only *resolving* the flag (Confirm removal/Dismiss/
+        // Reopen below) is reserved for a super admin.
+        if(row.status === 'ACTIVE' && isAdmin && row.id){
+          var flagBtn = document.createElement('button');
+          flagBtn.className = 'flag-btn';
+          flagBtn.textContent = 'Flag';
+          flagBtn.title = 'Flag this entry for removal';
+          flagBtn.addEventListener('click', function(){ beginFlag(row); });
+          actionTd.appendChild(flagBtn);
+        } else if(row.status === 'FLAGGED_FOR_REMOVAL' && canEditAttendance && row.id){
+          var retireBtn = document.createElement('button');
+          retireBtn.className = 'retire-btn';
+          retireBtn.textContent = row.submitting ? '…' : 'Confirm removal';
+          retireBtn.disabled = row.submitting;
+          retireBtn.addEventListener('click', function(){ retireRow(row); });
+          actionTd.appendChild(retireBtn);
+
+          var dismissBtn = document.createElement('button');
+          dismissBtn.className = 'reopen-btn';
+          dismissBtn.textContent = 'Dismiss';
+          dismissBtn.title = 'Clear the flag, keep the entry active';
+          dismissBtn.disabled = row.submitting;
+          dismissBtn.addEventListener('click', function(){ reopenRow(row); });
+          actionTd.appendChild(dismissBtn);
+        } else if(row.status === 'RETIRED' && canEditAttendance && row.id){
+          var reopenBtn = document.createElement('button');
+          reopenBtn.className = 'reopen-btn';
+          reopenBtn.textContent = row.submitting ? '…' : 'Reopen';
+          reopenBtn.title = 'Restore this entry to active';
+          reopenBtn.disabled = row.submitting;
+          reopenBtn.addEventListener('click', function(){ reopenRow(row); });
+          actionTd.appendChild(reopenBtn);
+        }
+
+        if(row.status !== 'ACTIVE' && isAdmin && row.id){
+          var historyBtn = document.createElement('button');
+          historyBtn.className = 'history-btn';
+          historyBtn.textContent = row.historyOpen ? 'Hide history' : 'History';
+          historyBtn.addEventListener('click', function(){ toggleHistory(row); });
+          actionTd.appendChild(historyBtn);
         }
       } else {
         var submitBtn = document.createElement('button');
@@ -868,6 +967,8 @@
 
       rosterBody.appendChild(tr);
       tr.querySelectorAll('textarea').forEach(autoGrow);
+
+      if(row.historyOpen) rosterBody.appendChild(buildHistoryRow(row));
     });
     updateSubmittedCount();
   }
