@@ -181,6 +181,38 @@
   table.roster td.rowdel button:not(.submit-btn){ color:#c22; }
   table.roster td.rowdel button.edit-btn{ color:#0a5fc2; font-size:11px; margin-left:4px; }
   table.roster td.rowdel .submitted-tag{ color:#0a7a3a; font-weight:bold; font-size:14px; }
+  table.roster td.rowdel button.flag-btn{ color:#7a4e00; font-size:11px; }
+  table.roster td.rowdel button.retire-btn{ color:#c22; font-size:11px; }
+  table.roster td.rowdel button.reopen-btn{ color:#0a7a3a; font-size:11px; }
+  table.roster td.rowdel button.history-btn{ color:#666; font-size:11px; }
+  table.roster tr.retired-row{ background:#f4f4f4; opacity:.75; }
+  table.roster tr.retired-row textarea{ text-decoration:line-through; color:#888; }
+
+  .status-pill{
+    display:inline-block;
+    font-size:10.5px;
+    font-weight:700;
+    letter-spacing:.2px;
+    padding:2px 7px;
+    border-radius:10px;
+    margin-bottom:4px;
+    cursor:default;
+  }
+  .status-pill.flagged{ background:#fdf3e2; color:#7a4e00; border:1px solid #f0d69a; }
+  .status-pill.retired{ background:#f3e2e2; color:#7a1717; border:1px solid #e3b3b3; }
+
+  .flag-reason-box{ display:flex; flex-direction:column; gap:5px; align-items:stretch; }
+  .flag-reason-box textarea{
+    font-family:inherit; font-size:11.5px; border:1px solid #ccc; border-radius:4px;
+    padding:4px 6px; resize:vertical; min-height:40px;
+  }
+  .flag-reason-box .flag-reason-actions{ display:flex; gap:6px; justify-content:center; }
+
+  tr.history-row td{ background:#fafafa; font-size:11.5px; padding:8px 10px; }
+  tr.history-row .history-entry{ padding:3px 0; border-top:1px dotted #ddd; }
+  tr.history-row .history-entry:first-child{ border-top:none; }
+  tr.history-row .history-verified{ color:#0a7a3a; }
+  tr.history-row .history-unverified{ color:#c22; font-weight:700; }
 
   .toolbar{
     max-width:900px;
@@ -414,6 +446,9 @@
   <button class="primary" id="addRowBtn">+ Add another row (admin)</button>
   <button class="secondary" id="refreshBtn">Refresh</button>
   <button id="resetBtn">Reset Sheet</button>
+  <label id="showRetiredWrap" style="display:none; align-items:center; gap:6px; font-size:12.5px; color:var(--muted);">
+    <input type="checkbox" id="showRetiredToggle"> Show retired records
+  </label>
 </div>
 <div class="hint">A blank row is ready below, fill it in and tap ✓ to submit, same as signing the paper sheet. Tap the SIGN cell to draw a signature. Made a mistake after submitting? Tap Edit on your row to fix it. <span id="submittedCount"></span></div>
 
@@ -515,6 +550,8 @@
   var submittedCount = document.getElementById('submittedCount');
   var addRowBtn = document.getElementById('addRowBtn');
   var resetBtn = document.getElementById('resetBtn');
+  var showRetiredWrap = document.getElementById('showRetiredWrap');
+  var showRetiredToggle = document.getElementById('showRetiredToggle');
   var privacyBadge = document.getElementById('privacyBadge');
   var receiptBanner = document.getElementById('receiptBanner');
   var receiptTitle = document.getElementById('receiptTitle');
