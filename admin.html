@@ -269,9 +269,27 @@
     var dow = new Date(y, m, d).getDay();
     return DOW_FULL_SHORT[dow] + ', ' + d + ' ' + MONTH_NAMES[m].slice(0, 3) + ' ' + y;
   }
-  function formatDisplayIso(iso){
-    var p = parseIso(iso);
-    return p ? formatDisplayParts(p.y, p.m, p.d) : '';
+  // Client-side twin of formatEventWhen (server/src/lib/timezone.js) --
+  // renders an event's UTC-stored startAt/endAt in *its own* timezone
+  // regardless of the admin's own device/browser locale, same reasoning
+  // as the server copy. Duplicated rather than shared because this is a
+  // plain static page with no build step/shared module loading between
+  // server and client code.
+  function clientFormatEventWhen(startAtIso, endAtIso, timezone){
+    var startAt = new Date(startAtIso), endAt = new Date(endAtIso);
+    var dateOpts = { weekday: 'short', day: 'numeric', month: 'short' };
+    var timeOpts = { hour: 'numeric', minute: '2-digit' };
+    var startDay = new Intl.DateTimeFormat('en-GB', Object.assign({ timeZone: timezone }, dateOpts)).format(startAt);
+    var endDay = new Intl.DateTimeFormat('en-GB', Object.assign({ timeZone: timezone }, dateOpts)).format(endAt);
+    var startTime = new Intl.DateTimeFormat('en-GB', Object.assign({ timeZone: timezone }, timeOpts)).format(startAt);
+    var endTime = new Intl.DateTimeFormat('en-GB', Object.assign({ timeZone: timezone }, timeOpts)).format(endAt);
+    var tzParts = new Intl.DateTimeFormat('en-GB', { timeZone: timezone, timeZoneName: 'short' }).formatToParts(startAt);
+    var tzPart = tzParts.filter(function(p){ return p.type === 'timeZoneName'; })[0];
+    var tz = tzPart ? tzPart.value : timezone;
+    var year = new Intl.DateTimeFormat('en-GB', { timeZone: timezone, year: 'numeric' }).format(startAt);
+
+    if(startDay === endDay) return startDay + ' ' + year + ' · ' + startTime + ' – ' + endTime + ' ' + tz;
+    return startDay + ', ' + startTime + ' – ' + endDay + ', ' + endTime + ' ' + tz;
   }
 
   function createDatePicker(displayInput, hiddenInput){
