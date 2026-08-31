@@ -1247,6 +1247,202 @@
       });
   }
 
+  function beginFlag(row){
+    row.flagging = true;
+    row._flagReason = '';
+    render();
+    var box = rosterBody.querySelector('.flag-reason-box textarea');
+    if(box) box.focus();
+  }
+
+  function cancelFlag(row){
+    row.flagging = false;
+    delete row._flagReason;
+    render();
+  }
+
+  // Posts the reason to /flag -- the first half of the two-step
+  // maker-checker lifecycle enforced server-side (see the comment on
+  // publicRouter.post('/attendance/:rowId/flag') in public.js). This call
+  // alone never removes the row; only a super admin confirming via
+  // retireRow below does.
+  function saveFlag(row){
+    if(row.submitting) return;
+    var reason = (row._flagReason || '').trim();
+    if(reason.length < 3){
+      alert('Please explain why this entry should be removed.');
+      return;
+    }
+    row.submitting = true;
+    render();
+    fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/attendance/' + encodeURIComponent(row.id) + '/flag', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: reason })
+    })
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        row.submitting = false;
+        if(data && data.ok){
+          row.status = data.status;
+          row.statusReason = data.statusReason;
+          row.flagging = false;
+          delete row._flagReason;
+          render();
+        } else {
+          render();
+          alert((data && data.message) || 'Could not flag this entry — please try again.');
+        }
+      })
+      .catch(function(){
+        row.submitting = false;
+        render();
+        alert('Network error — could not reach the shared sheet. Please check your connection and try again.');
+      });
+  }
+
+  // Confirms a flagged row's removal. Requires the row to already be
+  // FLAGGED_FOR_REMOVAL server-side -- see /retire in public.js -- so even
+  // a super admin can't skip straight from Active to Retired in one click.
+  function retireRow(row){
+    if(row.submitting) return;
+    if(!confirm('Confirm removal of "' + (row.name || 'this entry') + '"? It will be retired, not deleted, and can be reopened later from its history.')) return;
+    row.submitting = true;
+    render();
+    fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/attendance/' + encodeURIComponent(row.id) + '/retire', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    })
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        row.submitting = false;
+        if(data && data.ok){
+          row.status = data.status;
+          row.statusReason = data.statusReason;
+          render();
+        } else {
+          render();
+          alert((data && data.message) || 'Could not retire this entry — please try again.');
+        }
+      })
+      .catch(function(){
+        row.submitting = false;
+        render();
+        alert('Network error — could not reach the shared sheet. Please check your connection and try again.');
+      });
+  }
+
+  // Reverses either a pending flag (back to Active, nothing was removed)
+  // or an already-retired row (undoes the retirement) -- see /reopen in
+  // public.js, super-admin only either way.
+  function reopenRow(row){
+    if(row.submitting) return;
+    row.submitting = true;
+    render();
+    fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/attendance/' + encodeURIComponent(row.id) + '/reopen', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    })
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        row.submitting = false;
+        if(data && data.ok){
+          row.status = data.status;
+          row.statusReason = data.statusReason;
+          render();
+        } else {
+          render();
+          alert((data && data.message) || 'Could not reopen this entry — please try again.');
+        }
+      })
+      .catch(function(){
+        row.submitting = false;
+        render();
+        alert('Network error — could not reach the shared sheet. Please check your connection and try again.');
+      });
+  }
+
+  function toggleHistory(row){
+    row.historyOpen = !row.historyOpen;
+    if(row.historyOpen && !row.historyEntries && !row.historyLoading){
+      row.historyLoading = true;
+      render();
+      fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/attendance/' + encodeURIComponent(row.id) + '/history', {
+        credentials: 'include'
+      })
+        .then(function(res){ return res.json(); })
+        .then(function(data){
+          row.historyLoading = false;
+          row.historyEntries = (data && data.ok) ? data.entries : [];
+          render();
+        })
+        .catch(function(){
+          row.historyLoading = false;
+          row.historyEntries = [];
+          render();
+        });
+      return;
+    }
+    render();
+  }
+
+  function historyActionLabel(action){
+    if(action === 'ATTENDANCE_FLAGGED') return 'Flagged for removal';
+    if(action === 'ATTENDANCE_RETIRED') return 'Retired';
+    if(action === 'ATTENDANCE_REOPENED') return 'Reopened';
+    if(action === 'ATTENDANCE_EDIT') return 'Edited';
+    return action;
+  }
+
+  // Renders the expandable timeline behind the History button -- every
+  // AuditLog entry for this one row, each carrying a `verified` flag the
+  // server computed by walking the tamper-evident hash chain (see
+  // verifyChain in lib/audit.js and the /history route in public.js), so
+  // this only ever displays that verdict rather than recomputing it.
+  function buildHistoryRow(row){
+    var tr = document.createElement('tr');
+    tr.className = 'history-row';
+    var td = document.createElement('td');
+    td.colSpan = 7;
+
+    if(row.historyLoading){
+      td.textContent = 'Loading history…';
+    } else if(row.historyEntries && row.historyEntries.length){
+      row.historyEntries.forEach(function(e){
+        var line = document.createElement('div');
+        line.className = 'history-entry';
+
+        var head = document.createElement('div');
+        var strong = document.createElement('strong');
+        strong.textContent = historyActionLabel(e.action);
+        head.appendChild(strong);
+        head.appendChild(document.createTextNode(
+          ' by ' + (e.actorEmail || 'unknown') + ' — ' + new Date(e.createdAt).toLocaleString() + ' '
+        ));
+        var verifiedSpan = document.createElement('span');
+        verifiedSpan.className = e.verified ? 'history-verified' : 'history-unverified';
+        verifiedSpan.textContent = e.verified ? '✓ verified' : '⚠ chain mismatch';
+        head.appendChild(verifiedSpan);
+        line.appendChild(head);
+
+        if(e.reason){
+          var reasonEl = document.createElement('div');
+          reasonEl.style.fontStyle = 'italic';
+          reasonEl.textContent = e.reason;
+          line.appendChild(reasonEl);
+        }
+        td.appendChild(line);
+      });
+    } else {
+      td.textContent = 'No history recorded.';
+    }
+
+    tr.appendChild(td);
+    return tr;
+  }
+
   // Turns a full server row into the same local shape state.rows already
   // uses, reattaching whatever clientId/editing-state this device already
   // had for that row so an in-progress edit is never clobbered by a poll.
