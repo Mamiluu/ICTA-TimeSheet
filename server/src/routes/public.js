@@ -483,15 +483,20 @@ publicRouter.post('/events/:slug/attendance/:rowId/flag', ah(async (req, res) =>
 }));
 
 // Confirms a flagged row's removal -- the "checker" half of the flag/retire
-// pair above. Deliberately requires the row to already be
-// FLAGGED_FOR_REMOVAL: even a super admin can't retire a still-ACTIVE row
-// in one step, so every retirement has a distinct flag-then-confirm trail
-// in AuditLog, not a single actor's unilateral action. Soft-retired, never
+// pair above. Gated the same way flagging is (canManageEvent: a super
+// admin, or the event's own owning county admin) rather than super-admin
+// only -- an admin fully in charge of their own event (e.g. cleaning up a
+// row they typed in themselves while testing the sign-in page before
+// sharing the real link) shouldn't have to wait on a super admin just to
+// finish removing it. Still always a distinct flag-then-confirm pair, so
+// every retirement carries a documented reason and a two-step trail in
+// AuditLog -- what's dropped is the requirement that a *different* person
+// perform each step, not the two steps themselves. Soft-retired, never
 // deleted -- see /reopen below to undo this.
 publicRouter.post('/events/:slug/attendance/:rowId/retire', ah(async (req, res) => {
   const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
   if (!event || event.deletedAt) return res.json({ ok: false, error: 'Event not found' });
-  if (!req.user || req.user.role !== 'SUPER_ADMIN') return res.status(403).json({ ok: false, error: 'FORBIDDEN' });
+  if (!canManageEvent(req.user, event)) return res.status(403).json({ ok: false, error: 'FORBIDDEN' });
 
   const row = await prisma.attendance.findFirst({ where: { id: req.params.rowId, eventId: event.id } });
   if (!row) return res.json({ ok: false, error: 'NOT_FOUND' });
@@ -518,14 +523,14 @@ publicRouter.post('/events/:slug/attendance/:rowId/retire', ah(async (req, res) 
 }));
 
 // Reverses either a pending flag (dismiss it, no removal happened) or an
-// already-retired row (undo the retirement) back to ACTIVE. Super-admin
-// only, same as retire above -- reopening is just as consequential as
-// retiring, so it gets the same restriction rather than being left open to
-// whoever raised the original flag.
+// already-retired row (undo the retirement) back to ACTIVE. Gated the same
+// way as retire above (canManageEvent) -- reopening is exactly as
+// consequential as retiring, so it gets the same authority, not a
+// narrower one.
 publicRouter.post('/events/:slug/attendance/:rowId/reopen', ah(async (req, res) => {
   const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
   if (!event || event.deletedAt) return res.json({ ok: false, error: 'Event not found' });
-  if (!req.user || req.user.role !== 'SUPER_ADMIN') return res.status(403).json({ ok: false, error: 'FORBIDDEN' });
+  if (!canManageEvent(req.user, event)) return res.status(403).json({ ok: false, error: 'FORBIDDEN' });
 
   const row = await prisma.attendance.findFirst({ where: { id: req.params.rowId, eventId: event.id } });
   if (!row) return res.json({ ok: false, error: 'NOT_FOUND' });

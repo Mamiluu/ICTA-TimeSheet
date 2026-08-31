@@ -1055,14 +1055,18 @@
         // admin or super admin, see canManageEvent in public.js) -- unlike
         // Edit above, it's not limited to a super admin, since raising a
         // concern about a record is meant to be an ordinary event-admin
-        // capability. Only *resolving* the flag (Confirm removal/Dismiss/
-        // Reopen below) is reserved for a super admin.
+        // capability. Resolving the flag (Confirm removal/Dismiss/Reopen
+        // below) belongs to whoever manages this event -- its own owning
+        // county admin, or a super admin -- same as flagging itself; it's
+        // no longer restricted to a super admin acting as a separate
+        // second approver (see the matching comment on the /retire and
+        // /reopen routes in public.js for why).
         if(row.status === 'ACTIVE' && isAdmin && row.id){
           var flagBtn = iconBtn('danger', 'flag', 'Flag this entry for removal');
           flagBtn.addEventListener('click', function(){ beginFlag(row); });
           group.appendChild(flagBtn);
           groupHasButtons = true;
-        } else if(row.status === 'FLAGGED_FOR_REMOVAL' && canEditAttendance && row.id){
+        } else if(row.status === 'FLAGGED_FOR_REMOVAL' && isAdmin && row.id){
           var retireBtn = iconBtn('danger', 'check', row.submitting ? 'Confirming…' : 'Confirm removal');
           retireBtn.disabled = row.submitting;
           retireBtn.addEventListener('click', function(){ retireRow(row); });
@@ -1073,7 +1077,7 @@
           dismissBtn.addEventListener('click', function(){ reopenRow(row); });
           group.appendChild(dismissBtn);
           groupHasButtons = true;
-        } else if(row.status === 'RETIRED' && canEditAttendance && row.id){
+        } else if(row.status === 'RETIRED' && isAdmin && row.id){
           var reopenBtn = iconBtn('positive', 'undo', row.submitting ? 'Reopening…' : 'Reopen this entry');
           reopenBtn.disabled = row.submitting;
           reopenBtn.addEventListener('click', function(){ reopenRow(row); });
