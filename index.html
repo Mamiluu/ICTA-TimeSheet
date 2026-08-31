@@ -643,8 +643,10 @@
   }
   applyAdminVisibility();
   var eventDetailsDisplay = document.getElementById('eventDetailsDisplay');
-  var eventDateDisplay = document.getElementById('eventDateDisplay');
-  var eventLocationDisplay = document.getElementById('eventLocationDisplay');
+  var eventDescriptionDisplay = document.getElementById('eventDescriptionDisplay');
+  var eventWhenDisplay = document.getElementById('eventWhenDisplay');
+  var eventWhereDisplay = document.getElementById('eventWhereDisplay');
+  var eventWhereLink = document.getElementById('eventWhereLink');
 
   var state = load() || { meta: null, rows: [] };
   // Fallback until the first successful loadRemote() confirms the real
@@ -670,23 +672,97 @@
     try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
   }
 
-  // Event name/date/location are set once by the organizer in the admin
-  // dashboard, not typed by whoever happens to be at this device — so here
-  // they're just displayed from whatever the backend (or, offline, the
-  // last cached copy) says about this eventId.
+  // Client-side twin of formatEventWhen (server/src/lib/timezone.js) --
+  // renders an event's UTC-stored startAt/endAt in *its own* timezone
+  // regardless of the visitor's own device/browser locale, so "2pm" reads
+  // as 2pm Nairobi time for everyone, not 2pm-wherever-they-happen-to-be.
+  // Duplicated rather than shared with the server (or with admin.html's
+  // identical copy) because this is a plain static page with no shared
+  // module loading between them.
+  function clientFormatEventWhen(startAtIso, endAtIso, timezone){
+    var startAt = new Date(startAtIso), endAt = new Date(endAtIso);
+    var dateOpts = { weekday: 'short', day: 'numeric', month: 'short' };
+    var timeOpts = { hour: 'numeric', minute: '2-digit' };
+    var startDay = new Intl.DateTimeFormat('en-GB', Object.assign({ timeZone: timezone }, dateOpts)).format(startAt);
+    var endDay = new Intl.DateTimeFormat('en-GB', Object.assign({ timeZone: timezone }, dateOpts)).format(endAt);
+    var startTime = new Intl.DateTimeFormat('en-GB', Object.assign({ timeZone: timezone }, timeOpts)).format(startAt);
+    var endTime = new Intl.DateTimeFormat('en-GB', Object.assign({ timeZone: timezone }, timeOpts)).format(endAt);
+    var tzParts = new Intl.DateTimeFormat('en-GB', { timeZone: timezone, timeZoneName: 'short' }).formatToParts(startAt);
+    var tzPart = tzParts.filter(function(p){ return p.type === 'timeZoneName'; })[0];
+    var tz = tzPart ? tzPart.value : timezone;
+    var year = new Intl.DateTimeFormat('en-GB', { timeZone: timezone, year: 'numeric' }).format(startAt);
+
+    if(startDay === endDay) return startDay + ' ' + year + ' · ' + startTime + ' – ' + endTime + ' ' + tz;
+    return startDay + ', ' + startTime + ' – ' + endDay + ', ' + endTime + ' ' + tz;
+  }
+
+  // Purely cosmetic: a small "Zoom"/"Google Meet"/etc. hint next to a
+  // virtual event's join link, guessed from the link's own hostname.
+  // Never stored, never affects behavior if the guess is wrong or the
+  // platform isn't recognized -- just a nicer label than the bare URL.
+  function detectMeetingPlatform(url){
+    try{
+      var host = new URL(url).hostname.replace(/^www\./, '');
+      if(/(^|\.)zoom\.us$/.test(host)) return 'Zoom';
+      if(/(^|\.)meet\.google\.com$/.test(host)) return 'Google Meet';
+      if(/(^|\.)teams\.(microsoft|live)\.com$/.test(host)) return 'Microsoft Teams';
+      if(/(^|\.)webex\.com$/.test(host)) return 'Webex';
+    }catch(e){}
+    return null;
+  }
+
+  // Event details are set once by the organizer in the admin dashboard,
+  // not typed by whoever happens to be at this device — so here they're
+  // just displayed from whatever the backend (or, offline, the last
+  // cached copy) says about this eventId.
   function applyEventMeta(){
     var meta = state.meta;
     if(!meta){
       eventDetailsDisplay.textContent = 'Loading…';
       eventDetailsDisplay.className = 'field-value muted';
-      eventDateDisplay.textContent = '—';
-      eventLocationDisplay.textContent = '—';
+      eventDescriptionDisplay.style.display = 'none';
+      eventWhenDisplay.textContent = '—';
+      eventWhereDisplay.textContent = '—';
+      eventWhereLink.style.display = 'none';
       return;
     }
     eventDetailsDisplay.textContent = meta.name || '(untitled event)';
     eventDetailsDisplay.className = 'field-value';
-    eventDateDisplay.textContent = meta.date || '—';
-    eventLocationDisplay.textContent = meta.location || '—';
+
+    if(meta.description){
+      eventDescriptionDisplay.textContent = meta.description;
+      eventDescriptionDisplay.style.display = '';
+    } else {
+      eventDescriptionDisplay.style.display = 'none';
+    }
+
+    eventWhenDisplay.textContent = (meta.startAt && meta.endAt && meta.timezone)
+      ? clientFormatEventWhen(meta.startAt, meta.endAt, meta.timezone)
+      : '—';
+
+    if(meta.locationType === 'VIRTUAL'){
+      var platform = meta.meetingLink ? detectMeetingPlatform(meta.meetingLink) : null;
+      eventWhereDisplay.textContent = platform ? ('Virtual · ' + platform) : 'Virtual event';
+      if(meta.meetingLink){
+        eventWhereLink.href = meta.meetingLink;
+        eventWhereLink.textContent = 'Join meeting ↗';
+        eventWhereLink.style.display = '';
+      } else {
+        eventWhereLink.style.display = 'none';
+      }
+    } else {
+      eventWhereDisplay.textContent = meta.address || '—';
+      if(meta.address){
+        // Derived, not stored -- see the matching comment in admin.html;
+        // this always reflects whatever address the event currently has,
+        // never a separately-saved link that could go stale.
+        eventWhereLink.href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(meta.address);
+        eventWhereLink.textContent = 'Get directions ↗';
+        eventWhereLink.style.display = '';
+      } else {
+        eventWhereLink.style.display = 'none';
+      }
+    }
   }
   applyEventMeta();
 
