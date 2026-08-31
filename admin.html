@@ -95,11 +95,48 @@
   td.link-status .closed{ color:#888; }
 
   /* The events table's action cell is nowrap (theme.css) and now carries
-     seven buttons (Open/Copy/Kiosk/Rename/Export/Print/Delete) -- wide
+     seven buttons (Open/Copy/Kiosk/Edit/Export/Print/Delete) -- wide
      enough to overflow on narrower screens. Scope the fix to this wrapper
      rather than loosening nowrap globally in theme.css, which other pages
      (e.g. superadmin.html's shorter action lists) don't need. */
   #eventsWrap{ overflow-x:auto; }
+
+  textarea{
+    width:100%; font-family:inherit; font-size:13px; padding:8px 9px;
+    border:1px solid #ccc; border-radius:4px; margin-bottom:12px;
+    background:#fff; color:#1a1a1a; resize:vertical; min-height:56px;
+  }
+
+  /* Time input styled to sit flush against the date field beside it --
+     the calendar itself stays the app's own branded widget (see
+     createDatePicker), but the time-of-day is just the browser's native
+     picker, which is already accessible and needs no custom build. */
+  .datetime-row{ display:flex; gap:8px; }
+  .datetime-row .datefield{ flex:2; }
+  input[type=time]{
+    flex:1; font-family:inherit; font-size:13px; padding:8px 9px;
+    border:1px solid #ccc; border-radius:4px; margin-bottom:12px;
+    background:#fff; color:#1a1a1a;
+  }
+
+  /* Physical/Virtual segmented toggle -- two mutually-exclusive buttons
+     rather than a checkbox/select, since only one location type ever
+     applies and the choice determines which field appears below it. */
+  .loctype-toggle{ display:flex; gap:0; border:1px solid #ccc; border-radius:6px; overflow:hidden; margin-bottom:12px; width:fit-content; }
+  .loctype-toggle button{
+    border:none; border-radius:0; background:#fff; color:#444; font-size:12.5px;
+    padding:8px 16px; cursor:pointer;
+  }
+  .loctype-toggle button + button{ border-left:1px solid #ccc; }
+  .loctype-toggle button.active{ background:var(--accent); color:#fff; font-weight:600; }
+
+  .maps-preview{ font-size:11.5px; margin:-6px 0 12px; }
+  .maps-preview a{ color:var(--accent2); }
+
+  .badge.virtual{ background:#eef2fb; color:#2a5fd6; }
+  .badge.physical{ background:#f4f4f4; color:#555; }
+
+  #cancelEditBtn{ display:none; }
 </style>
 
 <div class="topbar">
@@ -112,23 +149,56 @@
 
 <div id="adminContent" style="width:100%; max-width:900px;">
   <div class="sheet wide">
-    <h2 class="section">Create a new event</h2>
+    <h2 class="section" id="formTitle">Create a new event</h2>
     <label for="newName">Event name</label>
     <input type="text" id="newName" placeholder="e.g. Huduma Whitebox Sensitization — Mombasa">
+
+    <label for="newDescription">Description <span style="font-weight:normal;color:#888;">(optional)</span></label>
+    <textarea id="newDescription" placeholder="What's this event about? Attendees will see this on the sign-in page."></textarea>
+
     <div class="row">
       <div>
-        <label for="newDateDisplay">Date</label>
-        <div class="datefield" id="newDateField">
-          <input type="text" id="newDateDisplay" class="datefield-input" placeholder="Select a date" readonly autocomplete="off">
-          <input type="hidden" id="newDate">
+        <label for="newStartDateDisplay">Starts</label>
+        <div class="datetime-row">
+          <div class="datefield" id="newStartDateField">
+            <input type="text" id="newStartDateDisplay" class="datefield-input" placeholder="Select a date" readonly autocomplete="off">
+            <input type="hidden" id="newStartDate">
+          </div>
+          <input type="time" id="newStartTime" value="09:00">
         </div>
       </div>
       <div>
-        <label for="newLocation">Location</label>
-        <input type="text" id="newLocation" placeholder="e.g. Kisauni Road, Mombasa">
+        <label for="newEndDateDisplay">Ends</label>
+        <div class="datetime-row">
+          <div class="datefield" id="newEndDateField">
+            <input type="text" id="newEndDateDisplay" class="datefield-input" placeholder="Select a date" readonly autocomplete="off">
+            <input type="hidden" id="newEndDate">
+          </div>
+          <input type="time" id="newEndTime" value="17:00">
+        </div>
       </div>
     </div>
+
+    <label for="newTimezone">Time zone</label>
+    <select id="newTimezone"></select>
+
+    <label>Location</label>
+    <div class="loctype-toggle" id="newLocTypeToggle">
+      <button type="button" data-loctype="PHYSICAL" class="active">Physical</button>
+      <button type="button" data-loctype="VIRTUAL">Virtual</button>
+    </div>
+    <div id="newAddressField">
+      <label for="newAddress">Address</label>
+      <input type="text" id="newAddress" placeholder="e.g. Kisauni Road, Mombasa">
+      <div class="maps-preview" id="newMapsPreview" style="display:none;"><a href="#" target="_blank" rel="noopener">View on map ↗</a></div>
+    </div>
+    <div id="newMeetingLinkField" style="display:none;">
+      <label for="newMeetingLink">Meeting link</label>
+      <input type="text" id="newMeetingLink" placeholder="https://meet.google.com/abc-defg-hij">
+    </div>
+
     <button class="primary" id="createBtn" disabled>Create event</button>
+    <button id="cancelEditBtn">Cancel edit</button>
     <p class="error" id="createError" style="display:none;"></p>
 
     <div class="result" id="createResult">
