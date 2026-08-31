@@ -582,6 +582,7 @@
   function applyAdminVisibility(){
     if(addRowBtn) addRowBtn.style.display = isAdmin ? '' : 'none';
     if(resetBtn) resetBtn.style.display = isAdmin ? '' : 'none';
+    if(showRetiredWrap) showRetiredWrap.style.display = isAdmin ? 'inline-flex' : 'none';
     // The sealed-roster promise in the badge is only true for a visitor --
     // an admin session genuinely does receive everyone's row (that's the
     // whole point of the dashboard), so showing the badge to them would be
@@ -1149,7 +1150,18 @@
   // uses, reattaching whatever clientId/editing-state this device already
   // had for that row so an in-progress edit is never clobbered by a poll.
   function toLocalRow(rr, clientIdByRowId, editingById){
-    if(editingById[rr.id]) return editingById[rr.id];
+    if(editingById[rr.id]){
+      // Preserves the object identity for a row with in-progress local UI
+      // state (editing, an open flag-reason box, an expanded history
+      // panel — see the loop that builds editingById below), but still
+      // refreshes its lifecycle status from the server so a poll doesn't
+      // show a stale "Active" pill after another admin retired the row
+      // out from under this session.
+      var kept = editingById[rr.id];
+      kept.status = rr.status || 'ACTIVE';
+      kept.statusReason = rr.statusReason || '';
+      return kept;
+    }
     return {
       id: rr.id,
       clientId: rr.clientId || clientIdByRowId[rr.id] || null,
@@ -1159,7 +1171,9 @@
       email: rr.email || '',
       phone: rr.phone || '',
       sign: rr.signature || '',
-      hasPendingSignatureRequest: !!rr.hasPendingSignatureRequest
+      hasPendingSignatureRequest: !!rr.hasPendingSignatureRequest,
+      status: rr.status || 'ACTIVE',
+      statusReason: rr.statusReason || ''
     };
   }
 
@@ -1192,7 +1206,11 @@
         state.rows.forEach(function(r){
           if(!r.submitted || !r.id) return;
           if(r.clientId) clientIdByRowId[r.id] = r.clientId;
-          if(r.editing) editingById[r.id] = r;
+          // Keeps the same row object across a poll whenever it has
+          // in-progress local UI state, so a routine refresh never
+          // collapses an open edit form, an open flag-reason box, or an
+          // expanded history panel out from under whoever is using it.
+          if(r.editing || r.flagging || r.historyOpen) editingById[r.id] = r;
         });
         var drafts = state.rows.filter(function(r){ return !r.submitted; });
 
@@ -1265,6 +1283,10 @@
     if(!autoPrintRequested || autoPrintDone) return;
     autoPrintDone = true;
     setTimeout(function(){ window.print(); }, 150);
+  }
+
+  if(showRetiredToggle){
+    showRetiredToggle.addEventListener('change', function(){ render(); });
   }
 
   document.getElementById('addRowBtn').addEventListener('click', function(){
