@@ -99,6 +99,12 @@
     color:#111;
   }
   .event-box .field-value.muted{ color:#999; font-style:italic; }
+  .event-box .field-desc{ font-size:12.5px; color:#444; margin-top:5px; line-height:1.4; }
+  .event-box .where-link{
+    display:inline-block; margin-top:5px; font-size:11.5px; font-weight:600;
+    color:var(--accent2); text-decoration:none;
+  }
+  .event-box .where-link:hover{ text-decoration:underline; }
 
   .notice{
     max-width:900px;
@@ -434,15 +440,17 @@
     <div class="field">
       <label>EVENT DETAILS:</label>
       <div class="field-value" id="eventDetailsDisplay">Loading…</div>
+      <div class="field-desc" id="eventDescriptionDisplay" style="display:none;"></div>
     </div>
     <div class="row">
       <div class="field">
-        <label>DATE:</label>
-        <div class="field-value" id="eventDateDisplay">—</div>
+        <label>WHEN:</label>
+        <div class="field-value" id="eventWhenDisplay">—</div>
       </div>
       <div class="field">
-        <label>LOCATION:</label>
-        <div class="field-value" id="eventLocationDisplay">—</div>
+        <label>WHERE:</label>
+        <div class="field-value" id="eventWhereDisplay">—</div>
+        <a class="where-link" id="eventWhereLink" href="#" target="_blank" rel="noopener" style="display:none;"></a>
       </div>
     </div>
   </div>
