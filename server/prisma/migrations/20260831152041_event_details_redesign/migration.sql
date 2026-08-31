@@ -21,9 +21,16 @@ ALTER TABLE "Event"
 -- carried over as the new physical `address`. Nothing here is inferred;
 -- these are just the closest honest defaults for data that predates the
 -- concept of start/end time.
+-- Chained AT TIME ZONE both ways (naive -> timestamptz -> naive-as-UTC)
+-- rather than letting an implicit timestamptz-to-timestamp cast happen on
+-- assignment -- that implicit cast would go through whatever the DB
+-- session's own TimeZone setting happens to be at migration time, which
+-- isn't guaranteed to be UTC on every host this runs on. Chaining through
+-- 'UTC' explicitly makes the stored value deterministic regardless of the
+-- session's timezone setting.
 UPDATE "Event" SET
-  "startAt" = (("date"::date + TIME '09:00') AT TIME ZONE 'Africa/Nairobi'),
-  "endAt"   = (("date"::date + TIME '17:00') AT TIME ZONE 'Africa/Nairobi'),
+  "startAt" = ((("date"::date + TIME '09:00') AT TIME ZONE 'Africa/Nairobi') AT TIME ZONE 'UTC'),
+  "endAt"   = ((("date"::date + TIME '17:00') AT TIME ZONE 'Africa/Nairobi') AT TIME ZONE 'UTC'),
   "timezone" = 'Africa/Nairobi',
   "address" = "location";
 
