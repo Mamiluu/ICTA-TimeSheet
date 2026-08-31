@@ -36,14 +36,3 @@ export function eventSlugId(name) {
   const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14); // yyyyMMddHHmmss (14 digits, no trailing '.' from milliseconds)
   return `${slugify(name)}-${stamp}`;
 }
-
-// Event.date is stored as a plain "YYYY-MM-DD" string (see admin.html's
-// date picker). Parsed via new Date(y, m-1, d) rather than new Date(str) --
-// the latter treats a bare "YYYY-MM-DD" as UTC midnight, which lands on the
-// previous calendar day everywhere east of UTC (including Kenya), silently
-// shifting the sign-in window's anchor by a day.
-export function parseEventDate(dateStr) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || ''));
-  if (!m) return null;
-  return new Date(+m[1], +m[2] - 1, +m[3]);
-}
