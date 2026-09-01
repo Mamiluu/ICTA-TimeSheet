@@ -24,6 +24,8 @@ function publicEvent(ev, count) {
     timezone: ev.timezone,
     locationType: ev.locationType,
     address: ev.address,
+    latitude: ev.latitude,
+    longitude: ev.longitude,
     meetingLink: ev.meetingLink,
     county: ev.county,
     createdAt: ev.createdAt,
@@ -51,6 +53,14 @@ function requireEventFields(body) {
   const locationType = body.locationType === 'VIRTUAL' ? 'VIRTUAL' : 'PHYSICAL';
   const address = locationType === 'PHYSICAL' ? String(body.address || '').trim() : null;
   const meetingLink = locationType === 'VIRTUAL' ? String(body.meetingLink || '').trim() : null;
+  // Only trusted when the admin actually picked a geocoded suggestion
+  // (see admin.html's address autocomplete) -- anything else (missing,
+  // non-numeric, or a virtual event where neither applies) is left null
+  // rather than guessed at. A pin without a matching address would be
+  // actively misleading on the attendee-facing map, so this only ever
+  // carries a coordinate pair that came from a real lookup.
+  const latitude = locationType === 'PHYSICAL' && Number.isFinite(Number(body.latitude)) ? Number(body.latitude) : null;
+  const longitude = locationType === 'PHYSICAL' && Number.isFinite(Number(body.longitude)) ? Number(body.longitude) : null;
 
   const missing = [];
   if (!name) missing.push('event name');
@@ -60,7 +70,7 @@ function requireEventFields(body) {
   if (locationType === 'PHYSICAL' && !address) missing.push('address');
   if (locationType === 'VIRTUAL' && !meetingLink) missing.push('meeting link');
 
-  return { name, description, startAt, endAt, timezone, locationType, address, meetingLink, missing };
+  return { name, description, startAt, endAt, timezone, locationType, address, latitude, longitude, meetingLink, missing };
 }
 
 function validateEventFields(f) {
@@ -110,7 +120,7 @@ adminRouter.post('/events', ah(async (req, res) => {
     data: {
       slug: eventSlugId(f.name), name: f.name, description: f.description,
       startAt: f.startAt, endAt: f.endAt, timezone: f.timezone,
-      locationType: f.locationType, address: f.address, meetingLink: f.meetingLink,
+      locationType: f.locationType, address: f.address, latitude: f.latitude, longitude: f.longitude, meetingLink: f.meetingLink,
       county: req.user.county, ownerId: req.user.id
     }
   });
