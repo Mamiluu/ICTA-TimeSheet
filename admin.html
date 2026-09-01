@@ -821,9 +821,10 @@
         window.alert(r.data.message || 'Could not export attendance.');
         return;
       }
-      var lines = [['#', 'Name', 'Organization', 'Email', 'Phone', 'Submitted At'].join(',')];
+      var lines = [['#', 'Name', 'Organization', 'Email', 'Phone', 'Photo/Video Consent', 'Submitted At'].join(',')];
       r.data.rows.forEach(function(row, idx){
-        var vals = [idx + 1, row.name, row.org, row.email, row.phone, row.timestamp ? new Date(row.timestamp).toLocaleString() : ''].map(function(v){
+        var consentText = row.photoVideoConsent === true ? 'Consented' : row.photoVideoConsent === false ? 'Declined' : 'Not recorded';
+        var vals = [idx + 1, row.name, row.org, row.email, row.phone, consentText, row.timestamp ? new Date(row.timestamp).toLocaleString() : ''].map(function(v){
           var s = String(v == null ? '' : v);
           if(/[",\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
           return s;

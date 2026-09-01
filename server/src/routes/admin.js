@@ -185,7 +185,8 @@ function attendanceRow(r) {
     signature: r.signature,
     status: r.status,
     statusReason: r.statusReason,
-    statusAt: r.statusAt
+    statusAt: r.statusAt,
+    photoVideoConsent: r.photoVideoConsent
   };
 }
 
