@@ -176,6 +176,20 @@
     border-radius:3px;
     flex:none;
   }
+  table.roster td.consent-cell{ text-align:center; vertical-align:middle; padding-top:2px; padding-bottom:2px; }
+  .consent-toggle{ display:flex; flex-direction:column; gap:3px; align-items:flex-start; font-size:11px; }
+  .consent-toggle label{ display:flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap; }
+  .consent-toggle input{ margin:0; }
+  .consent-chip{
+    display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:700;
+    letter-spacing:.15px; padding:3px 8px 3px 7px; border-radius:999px; white-space:nowrap;
+  }
+  .consent-chip .dot{ width:5px; height:5px; border-radius:50%; background:currentColor; flex:none; }
+  .consent-chip.yes{ background:#eef7f1; color:#0a7a3a; }
+  .consent-chip.no{ background:#f3e2e2; color:#7a1717; }
+  .consent-chip.unset{ background:#f2f2f2; color:#888; font-style:italic; font-weight:600; }
+  .consent-print-value{ display:none; font-size:12px; text-align:center; }
+
   table.roster tr.empty-row td{ color:#999; font-style:italic; }
   table.roster tr.submitted-row{ background:#f4faf6; }
   table.roster td.rowdel{ text-align:center; vertical-align:middle; white-space:nowrap; }
@@ -445,6 +459,8 @@
     table.roster tr.draft-row, table.roster tr.empty-row{ display:none !important; }
     table.roster td textarea{ display:none !important; }
     table.roster td .print-value{ display:block !important; }
+    .consent-toggle, .consent-chip{ display:none !important; }
+    .consent-print-value{ display:block !important; }
   }
 
   @media (max-width:640px){
@@ -525,11 +541,12 @@
   <table class="roster" id="roster">
     <colgroup>
       <col style="width:4%">
-      <col style="width:22%">
-      <col style="width:12%">
-      <col style="width:22%">
-      <col style="width:20%">
+      <col style="width:19%">
       <col style="width:10%">
+      <col style="width:18%">
+      <col style="width:15%">
+      <col style="width:12%">
+      <col style="width:12%">
       <col style="width:10%" class="action-col">
     </colgroup>
     <thead>
@@ -539,6 +556,7 @@
         <th>ORGANIZATION</th>
         <th>EMAIL</th>
         <th>PHONE</th>
+        <th>PHOTO/VIDEO CONSENT</th>
         <th>SIGN</th>
         <th class="action-col"></th>
       </tr>
