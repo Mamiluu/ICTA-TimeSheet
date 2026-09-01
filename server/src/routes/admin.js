@@ -160,7 +160,13 @@ adminRouter.put('/events/:id', ah(async (req, res) => {
     name: f.name, description: f.description, startAt: f.startAt, endAt: f.endAt,
     timezone: f.timezone, locationType: f.locationType, address: f.address, meetingLink: f.meetingLink
   };
-  const updated = await prisma.event.update({ where: { id: event.id }, data: after });
+  // latitude/longitude are a full replace too (kept out of the audit
+  // snapshot above since they're a derived precision detail, not
+  // something a reviewer needs to see change) -- omitting them from the
+  // update would leave a stale pin attached to whatever address used to
+  // be here if this edit changed the address without re-picking a map
+  // suggestion.
+  const updated = await prisma.event.update({ where: { id: event.id }, data: { ...after, latitude: f.latitude, longitude: f.longitude } });
   await writeAudit({
     actorId: req.user.id,
     action: 'EVENT_UPDATE',

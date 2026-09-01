@@ -115,6 +115,8 @@ function publicEventMeta(event) {
     timezone: event.timezone,
     locationType: event.locationType,
     address: event.address,
+    latitude: event.latitude,
+    longitude: event.longitude,
     meetingLink: event.meetingLink
   };
 }
