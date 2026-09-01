@@ -744,6 +744,8 @@
   var eventWhenDisplay = document.getElementById('eventWhenDisplay');
   var eventWhereDisplay = document.getElementById('eventWhereDisplay');
   var eventWhereLink = document.getElementById('eventWhereLink');
+  var eventMapPreview = document.getElementById('eventMapPreview');
+  var eventMapFrame = document.getElementById('eventMapFrame');
 
   var state = load() || { meta: null, rows: [] };
   // Fallback until the first successful loadRemote() confirms the real
@@ -821,6 +823,7 @@
       eventWhenDisplay.textContent = '—';
       eventWhereDisplay.textContent = '—';
       eventWhereLink.style.display = 'none';
+      eventMapPreview.style.display = 'none';
       return;
     }
     eventDetailsDisplay.textContent = meta.name || '(untitled event)';
