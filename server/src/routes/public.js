@@ -373,6 +373,9 @@ publicRouter.patch('/events/:slug/attendance/:clientId', attendanceLimiter, ah(a
   if (isBlankSignature(req.body.signature)) {
     return res.json({ ok: false, error: 'MISSING_SIGNATURE', message: 'A signature is required — please draw it before saving.' });
   }
+  if (!isValidConsentAnswer(req.body.photoVideoConsent)) {
+    return res.json({ ok: false, error: 'MISSING_CONSENT', message: 'Please indicate whether you consent to being photographed/recorded before saving.' });
+  }
   const emailNormalized = normalizeEmail(req.body.email);
 
   try {
@@ -386,6 +389,7 @@ publicRouter.patch('/events/:slug/attendance/:clientId', attendanceLimiter, ah(a
         phone,
         phoneNormalized,
         signature: String(req.body.signature || ''),
+        photoVideoConsent: req.body.photoVideoConsent,
         // Whatever route got a real signature onto this row -- the
         // attendee's own device via Edit, or a signature-recovery link --
         // any outstanding request for one is satisfied, so it stops
