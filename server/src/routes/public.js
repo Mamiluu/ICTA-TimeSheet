@@ -49,6 +49,19 @@ function isBlankSignature(signature) {
   return !s || s.length < 100 || !s.startsWith('data:image/');
 }
 
+// Same enforcement-boundary reasoning as isBlankSignature above: the
+// client already disables Submit until the attendee has picked "Yes" or
+// "No" (see the consent radio pair in index.html), but that's a UX guard
+// running in a browser we don't control. This is what actually stops a
+// row from ever being created or edited with consent left unanswered --
+// true/false is a real answer either way, anything else (missing,
+// omitted, a stray string) is rejected outright. null only ever exists on
+// rows that predate this column (see the schema.prisma comment); no live
+// submission can produce one.
+function isValidConsentAnswer(value) {
+  return typeof value === 'boolean';
+}
+
 function publicRow(r) {
   return {
     id: r.id,
@@ -273,6 +286,9 @@ publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, 
   if (isBlankSignature(req.body.signature)) {
     return res.json({ ok: false, error: 'MISSING_SIGNATURE', message: 'A signature is required — please draw it before submitting.' });
   }
+  if (!isValidConsentAnswer(req.body.photoVideoConsent)) {
+    return res.json({ ok: false, error: 'MISSING_CONSENT', message: 'Please indicate whether you consent to being photographed/recorded before submitting.' });
+  }
   const emailNormalized = normalizeEmail(req.body.email);
 
   // Idempotency guard first: if this exact submission (by client-generated
@@ -307,7 +323,8 @@ publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, 
         emailNormalized,
         phone,
         phoneNormalized,
-        signature: String(req.body.signature || '')
+        signature: String(req.body.signature || ''),
+        photoVideoConsent: req.body.photoVideoConsent
       }
     });
     sendConfirmationIfEmailed(row, event);
