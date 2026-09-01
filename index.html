@@ -864,7 +864,11 @@
   }
 
   function newRow(){
-    return { id:null, clientId: generateClientId(), submitted:false, submitting:false, name:'', org:'', email:'', phone:'', sign:'' };
+    // consent starts at null (not true or false) -- an unanswered
+    // question, not a default answer. See validateRow/passesSubmitChecks
+    // below: Submit stays blocked until the attendee actively picks Yes
+    // or No, same as name/phone already work.
+    return { id:null, clientId: generateClientId(), submitted:false, submitting:false, name:'', org:'', email:'', phone:'', sign:'', consent:null };
   }
 
   // Guarantees there is always exactly one open, unsubmitted row waiting
@@ -1037,6 +1041,51 @@
         td.appendChild(printValue);
         tr.appendChild(td);
       });
+
+      // Editable only from the same device/session that owns this row
+      // (its own clientId, or a plain visitor who by definition only ever
+      // sees their own row) -- never through admin-edit, which stays
+      // limited to name/org/email/phone same as it already was, so an
+      // admin correcting a typo in someone's organization can't also
+      // quietly change what they consented to.
+      var consentTd = document.createElement('td');
+      consentTd.className = 'consent-cell';
+      var consentLabel = row.consent === true ? 'Consented' : row.consent === false ? 'Declined' : 'Not recorded';
+      // Same access rule as canDrawSignature just below (computed
+      // independently here since that variable isn't declared until the
+      // sign-cell block after this one runs): own device/session only,
+      // never an admin acting on someone else's row.
+      var canSetConsent = !!row.clientId || !isAdmin;
+      if(!locked && canSetConsent){
+        var consentToggle = document.createElement('div');
+        consentToggle.className = 'consent-toggle';
+        var consentGroupName = 'consent-' + (row.clientId || row.id || i);
+        [['Yes', true], ['No', false]].forEach(function(opt){
+          var label = document.createElement('label');
+          var radio = document.createElement('input');
+          radio.type = 'radio';
+          radio.name = consentGroupName;
+          radio.checked = row.consent === opt[1];
+          radio.addEventListener('change', function(){ row.consent = opt[1]; save(); });
+          label.appendChild(radio);
+          label.appendChild(document.createTextNode(opt[0]));
+          consentToggle.appendChild(label);
+        });
+        consentTd.appendChild(consentToggle);
+      } else {
+        var consentChip = document.createElement('span');
+        consentChip.className = 'consent-chip ' + (row.consent === true ? 'yes' : row.consent === false ? 'no' : 'unset');
+        var consentDot = document.createElement('span');
+        consentDot.className = 'dot';
+        consentChip.appendChild(consentDot);
+        consentChip.appendChild(document.createTextNode(consentLabel));
+        consentTd.appendChild(consentChip);
+      }
+      var consentPrint = document.createElement('div');
+      consentPrint.className = 'consent-print-value';
+      consentPrint.textContent = consentLabel;
+      consentTd.appendChild(consentPrint);
+      tr.appendChild(consentTd);
 
       var signTd = document.createElement('td');
       signTd.className = 'sign-cell';
@@ -1337,6 +1386,12 @@
 
     if(row.email && row.email.trim() && !EMAIL_RE.test(row.email.trim())) problems.push('a valid email address');
 
+    // true/false are both acceptable answers -- only "never answered"
+    // (still null) blocks submission, same enforcement the server repeats
+    // in isValidConsentAnswer (public.js), since this client check alone
+    // is only ever a convenience, not the real boundary.
+    if(row.consent !== true && row.consent !== false) problems.push('whether you consent to being photographed/recorded');
+
     if(!row.sign) problems.push('your signature (tap Sign)');
 
     return { problems: problems, normalizedPhone: normalizedPhone };
@@ -1419,7 +1474,8 @@
       org: row.org || '',
       email: row.email || '',
       phone: row.phone || '',
-      signature: row.sign || ''
+      signature: row.sign || '',
+      photoVideoConsent: row.consent
     };
     fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/attendance', {
       method: 'POST',
@@ -1507,7 +1563,7 @@
     var isAdminEdit = !row.clientId && canEditAttendance && row.id;
     var payload = isAdminEdit
       ? { name: row.name || '', org: row.org || '', email: row.email || '', phone: row.phone || '' }
-      : { name: row.name || '', org: row.org || '', email: row.email || '', phone: row.phone || '', signature: row.sign || '' };
+      : { name: row.name || '', org: row.org || '', email: row.email || '', phone: row.phone || '', signature: row.sign || '', photoVideoConsent: row.consent };
     var url = isAdminEdit
       ? API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/attendance/' + encodeURIComponent(row.id) + '/admin-edit'
       : API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/attendance/' + encodeURIComponent(row.clientId);
@@ -1785,7 +1841,11 @@
       sign: rr.signature || '',
       hasPendingSignatureRequest: !!rr.hasPendingSignatureRequest,
       status: rr.status || 'ACTIVE',
-      statusReason: rr.statusReason || ''
+      statusReason: rr.statusReason || '',
+      // Stays null (not coerced to false) when the server has no answer on
+      // file -- a legacy imported row with consent genuinely never asked
+      // must not render as though the attendee actively declined.
+      consent: typeof rr.photoVideoConsent === 'boolean' ? rr.photoVideoConsent : null
     };
   }
 
