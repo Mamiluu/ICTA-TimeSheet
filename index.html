@@ -257,6 +257,51 @@
   tr.history-row .history-verified{ color:#0a7a3a; }
   tr.history-row .history-unverified{ color:#c22; font-weight:700; }
 
+  /* Search/filter bar sits directly above the roster like a caption, and
+     pagination directly below it -- both read as part of the sheet itself
+     (same border language as .event-box) rather than as a separate
+     "app toolbar" bolted on top of a paper form. */
+  .roster-controls{
+    display:flex; gap:10px; align-items:center; margin-bottom:0;
+    border:1.5px solid var(--line); border-bottom:none; padding:8px 10px;
+    flex-wrap:wrap;
+  }
+  .rc-search{
+    flex:1; min-width:200px; display:flex; align-items:center; gap:7px;
+    border:1px solid #ccc; border-radius:5px; padding:5px 9px; background:#fafafa;
+    color:#888;
+  }
+  .rc-search svg{ width:13px; height:13px; flex:none; }
+  .rc-search input{
+    flex:1; border:none; background:transparent; font-family:inherit; font-size:12.5px;
+    color:#1a1a1a; min-width:0;
+  }
+  .rc-search input:focus{ outline:none; }
+  .rc-search input::placeholder{ color:#999; }
+  .rc-search kbd{
+    flex:none; font-family:inherit; font-size:10px; color:#999; border:1px solid #ddd;
+    border-radius:3px; padding:1px 5px; background:#fff;
+  }
+  .rc-search.focused{ border-color:var(--accent); background:#fff; }
+  #rosterStatusFilter{
+    font-family:inherit; font-size:12.5px; padding:6px 8px; border:1px solid #ccc;
+    border-radius:5px; background:#fafafa; color:#333; flex:none;
+  }
+
+  .roster-pagination{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    border:1.5px solid var(--line); border-top:none; padding:7px 10px;
+    font-size:12px; color:var(--muted); flex-wrap:wrap;
+  }
+  .roster-pagination .rp-nav{ display:flex; align-items:center; gap:8px; }
+  .roster-pagination .rp-nav button{
+    border:1px solid #ccc; background:#fff; border-radius:5px; width:26px; height:24px;
+    font-size:14px; line-height:1; cursor:pointer; color:#333;
+  }
+  .roster-pagination .rp-nav button:disabled{ color:#ccc; cursor:default; }
+  .roster-pagination .rp-nav button:not(:disabled):hover{ background:#f4f4f4; }
+  .roster-pagination #rosterPageIndicator{ font-weight:600; min-width:70px; text-align:center; }
+
   .toolbar{
     max-width:900px;
     width:100%;
@@ -393,7 +438,7 @@
 
   @media print{
     body{ background:#fff; padding:0; }
-    .toolbar, .hint, footer.credit, .closing-soon-banner, table.roster .action-col, table.roster td.rowdel, table.roster td.sign-cell button{ display:none !important; }
+    .toolbar, .hint, footer.credit, .closing-soon-banner, .roster-controls, .roster-pagination, table.roster .action-col, table.roster td.rowdel, table.roster td.sign-cell button{ display:none !important; }
     .sheet{ box-shadow:none; max-width:100%; padding:10px 18px; }
     table.roster{ table-layout:auto; }
     table.roster td textarea, .event-box input{ border-color:transparent; }
@@ -462,6 +507,21 @@
 
  
 
+  <div class="roster-controls" id="rosterControls" style="display:none;">
+    <div class="rc-search">
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="6" cy="6" r="4.5"/><path d="M12.5 12.5L9.5 9.5"/></svg>
+      <input type="text" id="rosterSearch" placeholder="Search by name, organization, email or phone…" autocomplete="off">
+      <kbd id="rosterSearchHint">/</kbd>
+    </div>
+    <select id="rosterStatusFilter">
+      <option value="OPEN">All open records</option>
+      <option value="ACTIVE">Active only</option>
+      <option value="FLAGGED_FOR_REMOVAL">Flagged for removal</option>
+      <option value="RETIRED">Retired</option>
+      <option value="EVERYTHING">Everything</option>
+    </select>
+  </div>
+
   <table class="roster" id="roster">
     <colgroup>
       <col style="width:4%">
@@ -485,15 +545,21 @@
     </thead>
     <tbody id="rosterBody"></tbody>
   </table>
+
+  <div class="roster-pagination" id="rosterPagination" style="display:none;">
+    <span class="rp-summary" id="rosterPageSummary"></span>
+    <div class="rp-nav">
+      <button type="button" id="rosterPrevBtn" aria-label="Previous page">‹</button>
+      <span id="rosterPageIndicator"></span>
+      <button type="button" id="rosterNextBtn" aria-label="Next page">›</button>
+    </div>
+  </div>
 </div>
 
 <div class="toolbar">
   <button class="primary" id="addRowBtn">+ Add another row (admin)</button>
   <button class="secondary" id="refreshBtn">Refresh</button>
   <button id="resetBtn">Reset Sheet</button>
-  <label id="showRetiredWrap" style="display:none; align-items:center; gap:6px; font-size:12.5px; color:var(--muted);">
-    <input type="checkbox" id="showRetiredToggle"> Show retired records
-  </label>
 </div>
 <div class="hint">A blank row is ready below, fill it in and tap ✓ to submit, same as signing the paper sheet. Tap the SIGN cell to draw a signature. Made a mistake after submitting? Tap Edit on your row to fix it. <span id="submittedCount"></span></div>
 
