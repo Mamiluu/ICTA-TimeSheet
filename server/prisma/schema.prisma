@@ -110,6 +110,15 @@ model Event {
   // constraint, matching how this schema already validates shape at the
   // route layer rather than with CHECK constraints elsewhere.
   address     String?
+  // Set only when the admin picked a real geocoded suggestion for
+  // `address` (see the OpenStreetMap/Nominatim-backed autocomplete in
+  // admin.html) rather than just typing free text -- null whenever the
+  // address was typed without picking a match, or was edited after a pick
+  // (the old pin can't be trusted to still match changed text). Lets the
+  // attendee-facing page show a real embedded map instead of just a "Get
+  // directions" search-query link when a precise location is known.
+  latitude  Float?
+  longitude Float?
   meetingLink String?
 
   // Nullable so the owning admin can be hard-deleted (superadminRouter DELETE
