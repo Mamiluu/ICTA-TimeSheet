@@ -1003,7 +1003,11 @@
     if(currentPage > totalPages) currentPage = totalPages;
     if(currentPage < 1) currentPage = 1;
     var pageStart = isAdmin ? (currentPage - 1) * PAGE_SIZE : 0;
-    var pageRows = isAdmin ? filtered.slice(pageStart, pageStart + PAGE_SIZE) : filtered;
+    // Printing (see autoPrintRequested below) needs every open row on the
+    // sheet, not just whatever page the admin happened to be viewing --
+    // otherwise the printed attendance sheet silently drops everyone past
+    // PAGE_SIZE.
+    var pageRows = isAdmin && !autoPrintRequested ? filtered.slice(pageStart, pageStart + PAGE_SIZE) : filtered;
     updateRosterControls(filtered.length, totalPages);
 
     if(isAdmin && allSubmitted.length > 0 && filtered.length === 0){
