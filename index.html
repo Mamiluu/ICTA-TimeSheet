@@ -850,6 +850,8 @@
       } else {
         eventWhereLink.style.display = 'none';
       }
+      eventMapPreview.style.display = 'none';
+      eventMapFrame.src = '';
     } else {
       eventWhereDisplay.textContent = meta.address || '—';
       if(meta.address){
@@ -861,6 +863,20 @@
         eventWhereLink.style.display = '';
       } else {
         eventWhereLink.style.display = 'none';
+      }
+      // Only shown when the admin actually picked a geocoded address (see
+      // admin.html's autocomplete) -- a typed-only address has no
+      // coordinates to point a map at, so it falls back to just the
+      // "Get directions" search-query link above.
+      if(typeof meta.latitude === 'number' && typeof meta.longitude === 'number'){
+        var d = 0.006;
+        eventMapFrame.src = 'https://www.openstreetmap.org/export/embed.html?bbox=' +
+          (meta.longitude - d) + ',' + (meta.latitude - d) + ',' + (meta.longitude + d) + ',' + (meta.latitude + d) +
+          '&layer=mapnik&marker=' + meta.latitude + ',' + meta.longitude;
+        eventMapPreview.style.display = '';
+      } else {
+        eventMapPreview.style.display = 'none';
+        eventMapFrame.src = '';
       }
     }
   }
