@@ -661,8 +661,16 @@
   var submittedCount = document.getElementById('submittedCount');
   var addRowBtn = document.getElementById('addRowBtn');
   var resetBtn = document.getElementById('resetBtn');
-  var showRetiredWrap = document.getElementById('showRetiredWrap');
-  var showRetiredToggle = document.getElementById('showRetiredToggle');
+  var rosterControls = document.getElementById('rosterControls');
+  var rosterSearchInput = document.getElementById('rosterSearch');
+  var rosterSearchWrap = document.querySelector('.rc-search');
+  var rosterSearchHint = document.getElementById('rosterSearchHint');
+  var rosterStatusFilterSelect = document.getElementById('rosterStatusFilter');
+  var rosterPagination = document.getElementById('rosterPagination');
+  var rosterPageSummary = document.getElementById('rosterPageSummary');
+  var rosterPageIndicator = document.getElementById('rosterPageIndicator');
+  var rosterPrevBtn = document.getElementById('rosterPrevBtn');
+  var rosterNextBtn = document.getElementById('rosterNextBtn');
   var privacyBadge = document.getElementById('privacyBadge');
   var receiptBanner = document.getElementById('receiptBanner');
   var receiptTitle = document.getElementById('receiptTitle');
@@ -693,7 +701,7 @@
   function applyAdminVisibility(){
     if(addRowBtn) addRowBtn.style.display = isAdmin ? '' : 'none';
     if(resetBtn) resetBtn.style.display = isAdmin ? '' : 'none';
-    if(showRetiredWrap) showRetiredWrap.style.display = isAdmin ? 'inline-flex' : 'none';
+    if(rosterControls) rosterControls.style.display = isAdmin ? 'flex' : 'none';
     // The sealed-roster promise in the badge is only true for a visitor --
     // an admin session genuinely does receive everyone's row (that's the
     // whole point of the dashboard), so showing the badge to them would be
@@ -886,6 +894,43 @@
     return group;
   }
 
+  // "OPEN" (the default) mirrors the old hide-retired-by-default behavior
+  // in one filter instead of a separate checkbox; the other options give
+  // an admin a direct way to jump to exactly the records that need
+  // attention (e.g. everything currently flagged) rather than scanning a
+  // long roster by eye.
+  var searchQuery = '';
+  var statusFilter = 'OPEN';
+  var currentPage = 1;
+  var PAGE_SIZE = 20;
+
+  function rowMatchesSearch(row, q){
+    if(!q) return true;
+    return (row.name || '').toLowerCase().indexOf(q) !== -1 ||
+      (row.org || '').toLowerCase().indexOf(q) !== -1 ||
+      (row.email || '').toLowerCase().indexOf(q) !== -1 ||
+      (row.phone || '').toLowerCase().indexOf(q) !== -1;
+  }
+  function rowMatchesStatusFilter(row){
+    var status = row.status || 'ACTIVE';
+    if(statusFilter === 'EVERYTHING') return true;
+    if(statusFilter === 'OPEN') return status !== 'RETIRED';
+    return status === statusFilter;
+  }
+
+  function updateRosterControls(filteredCount, totalPages){
+    if(!rosterPagination) return;
+    var show = isAdmin && filteredCount > 0;
+    rosterPagination.style.display = show ? 'flex' : 'none';
+    if(!show) return;
+    var start = (currentPage - 1) * PAGE_SIZE + 1;
+    var end = Math.min(filteredCount, currentPage * PAGE_SIZE);
+    rosterPageSummary.textContent = 'Showing ' + start + '–' + end + ' of ' + filteredCount;
+    rosterPageIndicator.textContent = 'Page ' + currentPage + ' of ' + totalPages;
+    rosterPrevBtn.disabled = currentPage <= 1;
+    rosterNextBtn.disabled = currentPage >= totalPages;
+  }
+
   function render(){
     rosterBody.innerHTML = '';
     if(state.rows.length === 0){
@@ -896,14 +941,43 @@
       updateSubmittedCount();
       return;
     }
-    var hideRetired = !(showRetiredToggle && showRetiredToggle.checked);
-    state.rows.forEach(function(row, idx){
-      // Retired rows stay in the data (soft-retired, see /retire in
-      // public.js) but are hidden from the default admin view so the
-      // working sheet stays clean day to day -- the "Show retired
-      // records" toggle brings them back without ever having actually
-      // removed anything.
-      if(row.status === 'RETIRED' && isAdmin && hideRetired) return;
+
+    var allSubmitted = state.rows.filter(function(r){ return r.submitted; });
+    var drafts = state.rows.filter(function(r){ return !r.submitted; });
+
+    // Search/filter/pagination only ever narrow the *admin's* view of the
+    // full roster -- a plain visitor's own row(s) are never filtered out
+    // from under them, so there's nothing to narrow on that device.
+    var q = searchQuery.trim().toLowerCase();
+    var filtered = isAdmin
+      ? allSubmitted.filter(function(row){ return rowMatchesSearch(row, q) && rowMatchesStatusFilter(row); })
+      : allSubmitted;
+
+    var totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    if(currentPage > totalPages) currentPage = totalPages;
+    if(currentPage < 1) currentPage = 1;
+    var pageStart = isAdmin ? (currentPage - 1) * PAGE_SIZE : 0;
+    var pageRows = isAdmin ? filtered.slice(pageStart, pageStart + PAGE_SIZE) : filtered;
+    updateRosterControls(filtered.length, totalPages);
+
+    if(isAdmin && allSubmitted.length > 0 && filtered.length === 0){
+      var emptyFilterTr = document.createElement('tr');
+      emptyFilterTr.className = 'empty-row';
+      emptyFilterTr.innerHTML = '<td class="num"></td><td colspan="6">No entries match your search or filter.</td>';
+      rosterBody.appendChild(emptyFilterTr);
+    }
+
+    // Drafts (the always-ready blank row, or an admin's own in-progress
+    // additions) render after the current page, unaffected by
+    // search/filter/pagination -- narrowing the view to find someone was
+    // never meant to also hide the next open line waiting to be filled in.
+    pageRows.concat(drafts).forEach(function(row, i){
+      // The real position in state.rows -- not this loop's position --
+      // is what openSignatureModal and the draft-delete button below
+      // still need to write back to the right row after pagination
+      // reordered what's actually rendered.
+      var idx = state.rows.indexOf(row);
+      var displayNum = row.submitted ? (pageStart + pageRows.indexOf(row) + 1) : (filtered.length + drafts.indexOf(row) + 1);
 
       var tr = document.createElement('tr');
       if(row.status === 'RETIRED') tr.className = 'submitted-row retired-row';
@@ -912,7 +986,7 @@
 
       var num = document.createElement('td');
       num.className = 'num';
-      num.textContent = idx + 1;
+      num.textContent = displayNum;
       tr.appendChild(num);
 
       var locked = (row.submitted && !row.editing) || row.submitting;
@@ -1805,8 +1879,51 @@
     setTimeout(function(){ window.print(); }, 150);
   }
 
-  if(showRetiredToggle){
-    showRetiredToggle.addEventListener('change', function(){ render(); });
+  if(rosterSearchInput){
+    var searchDebounceTimer;
+    rosterSearchInput.addEventListener('input', function(){
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(function(){
+        searchQuery = rosterSearchInput.value;
+        currentPage = 1;
+        render();
+      }, 150);
+    });
+    rosterSearchInput.addEventListener('focus', function(){
+      if(rosterSearchWrap) rosterSearchWrap.classList.add('focused');
+      if(rosterSearchHint) rosterSearchHint.style.display = 'none';
+    });
+    rosterSearchInput.addEventListener('blur', function(){
+      if(rosterSearchWrap) rosterSearchWrap.classList.remove('focused');
+      if(rosterSearchHint) rosterSearchHint.style.display = rosterSearchInput.value ? 'none' : '';
+    });
+
+    // A small power-user touch (same convention as GitHub/Slack/Linear):
+    // "/" jumps straight to the search box from anywhere on the page,
+    // except while already typing somewhere else -- a plain visitor never
+    // sees the search box at all, so this only ever does anything for an
+    // admin viewing their own event's roster.
+    document.addEventListener('keydown', function(e){
+      if(e.key !== '/' || !isAdmin) return;
+      var active = document.activeElement;
+      var typing = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT' || active.isContentEditable);
+      if(typing) return;
+      e.preventDefault();
+      rosterSearchInput.focus();
+    });
+  }
+  if(rosterStatusFilterSelect){
+    rosterStatusFilterSelect.addEventListener('change', function(){
+      statusFilter = rosterStatusFilterSelect.value;
+      currentPage = 1;
+      render();
+    });
+  }
+  if(rosterPrevBtn){
+    rosterPrevBtn.addEventListener('click', function(){ currentPage -= 1; render(); });
+  }
+  if(rosterNextBtn){
+    rosterNextBtn.addEventListener('click', function(){ currentPage += 1; render(); });
   }
 
   document.getElementById('addRowBtn').addEventListener('click', function(){
