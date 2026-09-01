@@ -130,8 +130,29 @@
   .loctype-toggle button + button{ border-left:1px solid #ccc; }
   .loctype-toggle button.active{ background:var(--accent); color:#fff; font-weight:600; }
 
-  .maps-preview{ font-size:11.5px; margin:-6px 0 12px; }
-  .maps-preview a{ color:var(--accent2); }
+  /* Address autocomplete -- backed by OpenStreetMap's free Nominatim
+     search (see the debounced fetch in the create/edit form JS below), no
+     API key or paid mapping SDK. The dropdown reuses the calendar's own
+     .dp-panel look (border/shadow/radius) so it reads as the same family
+     of "floating picker" as the date fields right above it. */
+  .address-autocomplete{ position:relative; }
+  .aa-status{
+    position:absolute; right:9px; top:9px; font-size:10.5px; color:#999;
+    pointer-events:none;
+  }
+  .aa-panel{ width:100%; padding:4px; max-height:220px; overflow-y:auto; }
+  .aa-panel .aa-item{
+    display:block; width:100%; text-align:left; border:none; background:none;
+    padding:8px 9px; font-size:12.5px; border-radius:6px; cursor:pointer; color:#222;
+  }
+  .aa-panel .aa-item:hover, .aa-panel .aa-item.aa-active{ background:#f7e6e9; }
+  .aa-panel .aa-empty{ padding:10px 9px; font-size:12px; color:#888; font-style:italic; }
+
+  .map-preview{ margin:-4px 0 12px; }
+  .map-preview iframe{
+    width:100%; height:160px; border:1px solid #ddd; border-radius:6px; display:block;
+  }
+  .map-preview a{ display:inline-block; margin-top:4px; font-size:11.5px; color:var(--accent2); }
 
   .badge.virtual{ background:#eef2fb; color:#2a5fd6; }
   .badge.physical{ background:#f4f4f4; color:#555; }
@@ -189,8 +210,17 @@
     </div>
     <div id="newAddressField">
       <label for="newAddress">Address</label>
-      <input type="text" id="newAddress" placeholder="e.g. Kisauni Road, Mombasa">
-      <div class="maps-preview" id="newMapsPreview" style="display:none;"><a href="#" target="_blank" rel="noopener">View on map ↗</a></div>
+      <div class="address-autocomplete" id="newAddressWrap">
+        <input type="text" id="newAddress" placeholder="Start typing an address or venue name…" autocomplete="off">
+        <span class="aa-status" id="newAddressStatus"></span>
+        <input type="hidden" id="newLatitude">
+        <input type="hidden" id="newLongitude">
+        <div class="dp-panel aa-panel" id="newAddressPanel"></div>
+      </div>
+      <div class="map-preview" id="newMapPreview" style="display:none;">
+        <iframe id="newMapFrame" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        <a href="#" target="_blank" rel="noopener" id="newMapLargeLink">Open larger map ↗</a>
+      </div>
     </div>
     <div id="newMeetingLinkField" style="display:none;">
       <label for="newMeetingLink">Meeting link</label>
