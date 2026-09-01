@@ -61,7 +61,8 @@ function publicRow(r) {
     hasPendingSignatureRequest: !!r.signatureRequestTokenHash,
     status: r.status,
     statusReason: r.statusReason,
-    statusAt: r.statusAt
+    statusAt: r.statusAt,
+    photoVideoConsent: r.photoVideoConsent
   };
 }
 
