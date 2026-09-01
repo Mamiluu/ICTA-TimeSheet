@@ -152,6 +152,18 @@ model Attendance {
   isImportedSignature Boolean @default(false)
   createdAt       DateTime @default(now())
 
+  // Whether this attendee agreed to being photographed/recorded at the
+  // event. Nullable on purpose, and not defaulted to either true or false:
+  // null means "never asked" (every row imported from a legacy paper/Excel
+  // sheet, back-filled before this concept existed -- see
+  // isImportedSignature above for the same pattern), true/false is an
+  // explicit answer the attendee actively gave. The public submit routes
+  // in public.js require an explicit boolean for every new/edited row --
+  // this column being nullable is what makes the historical rows honest
+  // ("not recorded"), not a loophole for skipping the question going
+  // forward.
+  photoVideoConsent Boolean?
+
   // Soft-retirement lifecycle: a row is never hard-deleted, only moved
   // ACTIVE -> FLAGGED_FOR_REMOVAL -> RETIRED (or back), see the
   // /flag, /retire, /reopen routes in public.js. Who made each transition
