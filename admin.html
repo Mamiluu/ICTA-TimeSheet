@@ -438,8 +438,15 @@
   var newTimezone = document.getElementById('newTimezone');
   var newLocTypeToggle = document.getElementById('newLocTypeToggle');
   var newAddressField = document.getElementById('newAddressField');
+  var newAddressWrap = document.getElementById('newAddressWrap');
   var newAddress = document.getElementById('newAddress');
-  var newMapsPreview = document.getElementById('newMapsPreview');
+  var newAddressStatus = document.getElementById('newAddressStatus');
+  var newAddressPanel = document.getElementById('newAddressPanel');
+  var newLatitude = document.getElementById('newLatitude');
+  var newLongitude = document.getElementById('newLongitude');
+  var newMapPreview = document.getElementById('newMapPreview');
+  var newMapFrame = document.getElementById('newMapFrame');
+  var newMapLargeLink = document.getElementById('newMapLargeLink');
   var newMeetingLinkField = document.getElementById('newMeetingLinkField');
   var newMeetingLink = document.getElementById('newMeetingLink');
   var createBtn = document.getElementById('createBtn');
@@ -502,21 +509,106 @@
     btn.addEventListener('click', function(){ newLocType = btn.getAttribute('data-loctype'); applyLocType(); });
   });
 
-  // Derived, not stored -- a Google Maps search link built straight from
-  // whatever address is currently typed, so it can never go stale the way
-  // a separately-saved map URL would if the address is edited later. No
-  // API key or geocoding call, just a deep link the browser/Maps app
-  // resolves on click.
-  newAddress.addEventListener('input', function(){
-    var q = newAddress.value.trim();
-    if(q){
-      newMapsPreview.querySelector('a').href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
-      newMapsPreview.style.display = '';
+  // --- Address autocomplete, backed by OpenStreetMap's free Nominatim
+  // search API -- no API key, no billing account, no mapping SDK to load.
+  // Typing shows a live dropdown of real matching places; picking one
+  // stores its actual coordinates (see the latitude/longitude columns on
+  // Event) and shows an embedded map confirming the pin. An address can
+  // still just be typed by hand with nothing picked -- geocoding is an
+  // enhancement here, never a requirement to create the event.
+  function mapEmbedBbox(lat, lon, d){
+    return (lon - d) + ',' + (lat - d) + ',' + (lon + d) + ',' + (lat + d);
+  }
+  function showMapPreview(lat, lon){
+    newMapFrame.src = 'https://www.openstreetmap.org/export/embed.html?bbox=' + mapEmbedBbox(lat, lon, 0.006) + '&layer=mapnik&marker=' + lat + ',' + lon;
+    newMapLargeLink.href = 'https://www.openstreetmap.org/?mlat=' + lat + '&mlon=' + lon + '#map=17/' + lat + '/' + lon;
+    newMapPreview.style.display = '';
+  }
+  function hideMapPreview(){
+    newMapPreview.style.display = 'none';
+    newMapFrame.src = '';
+  }
+  function clearPickedLocation(){
+    newLatitude.value = '';
+    newLongitude.value = '';
+    hideMapPreview();
+  }
+  function closeAddressPanel(){
+    newAddressPanel.classList.remove('open');
+    newAddressPanel.innerHTML = '';
+  }
+  function renderAddressSuggestions(results, query){
+    newAddressPanel.innerHTML = '';
+    if(!results.length){
+      var empty = document.createElement('div');
+      empty.className = 'aa-empty';
+      empty.textContent = 'No matches for "' + query + '" — you can still enter the address by hand.';
+      newAddressPanel.appendChild(empty);
     } else {
-      newMapsPreview.style.display = 'none';
+      results.forEach(function(r){
+        var item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'aa-item';
+        item.textContent = r.display_name;
+        item.addEventListener('click', function(){
+          newLatitude.value = r.lat;
+          newLongitude.value = r.lon;
+          newAddress.value = r.display_name;
+          showMapPreview(+r.lat, +r.lon);
+          closeAddressPanel();
+          refreshCreateBtnState();
+        });
+        newAddressPanel.appendChild(item);
+      });
     }
+    newAddressPanel.classList.add('open');
+  }
+
+  var addressDebounceTimer, addressAbortController;
+  newAddress.addEventListener('input', function(){
+    // Any manual edit invalidates whatever was previously picked -- the
+    // text no longer provably matches those coordinates, so the pin (and
+    // the map preview) is cleared rather than left silently stale.
+    clearPickedLocation();
     refreshCreateBtnState();
+
+    var q = newAddress.value.trim();
+    clearTimeout(addressDebounceTimer);
+    if(addressAbortController) addressAbortController.abort();
+    if(q.length < 3){
+      closeAddressPanel();
+      newAddressStatus.textContent = '';
+      return;
+    }
+    newAddressStatus.textContent = '…';
+    // Debounced well past Nominatim's own "please don't hammer the free
+    // public instance" usage policy -- this fires once typing actually
+    // pauses, never per keystroke.
+    addressDebounceTimer = setTimeout(function(){
+      addressAbortController = new AbortController();
+      fetch('https://nominatim.openstreetmap.org/search?format=json&addressdetails=0&limit=5&q=' + encodeURIComponent(q), { signal: addressAbortController.signal })
+        .then(function(res){ return res.json(); })
+        .then(function(results){
+          newAddressStatus.textContent = '';
+          renderAddressSuggestions(results || [], q);
+        })
+        .catch(function(err){
+          if(err && err.name === 'AbortError') return;
+          newAddressStatus.textContent = '';
+          closeAddressPanel();
+        });
+    }, 500);
   });
+  newAddress.addEventListener('focus', function(){
+    if(newAddressPanel.children.length) newAddressPanel.classList.add('open');
+  });
+  document.addEventListener('mousedown', function(e){
+    if(!newAddressWrap.contains(e.target)) closeAddressPanel();
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape') closeAddressPanel();
+  });
+
   newMeetingLink.addEventListener('input', refreshCreateBtnState);
 
   // Converts a wall-clock date/time as read in `timeZone` to the UTC
@@ -585,7 +677,8 @@
     newTimezone.value = 'Africa/Nairobi';
     newLocType = 'PHYSICAL'; applyLocType();
     newAddress.value = ''; newMeetingLink.value = '';
-    newMapsPreview.style.display = 'none';
+    clearPickedLocation();
+    closeAddressPanel();
     createError.style.display = 'none';
     refreshCreateBtnState();
   }
@@ -614,9 +707,12 @@
     newLocType = ev.locationType; applyLocType();
     newAddress.value = ev.address || '';
     newMeetingLink.value = ev.meetingLink || '';
-    if(ev.locationType === 'PHYSICAL' && ev.address){
-      newMapsPreview.querySelector('a').href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(ev.address);
-      newMapsPreview.style.display = '';
+    if(ev.locationType === 'PHYSICAL' && ev.latitude != null && ev.longitude != null){
+      newLatitude.value = ev.latitude;
+      newLongitude.value = ev.longitude;
+      showMapPreview(ev.latitude, ev.longitude);
+    } else {
+      clearPickedLocation();
     }
     createError.style.display = 'none';
     refreshCreateBtnState();
@@ -644,6 +740,8 @@
       timezone: tz,
       locationType: newLocType,
       address: newLocType === 'PHYSICAL' ? newAddress.value.trim() : '',
+      latitude: newLocType === 'PHYSICAL' && newLatitude.value ? Number(newLatitude.value) : null,
+      longitude: newLocType === 'PHYSICAL' && newLongitude.value ? Number(newLongitude.value) : null,
       meetingLink: newLocType === 'VIRTUAL' ? newMeetingLink.value.trim() : ''
     };
 
