@@ -504,9 +504,10 @@
   var newAddressPanel = document.getElementById('newAddressPanel');
   var newLatitude = document.getElementById('newLatitude');
   var newLongitude = document.getElementById('newLongitude');
-  var newMapPreview = document.getElementById('newMapPreview');
-  var newMapFrame = document.getElementById('newMapFrame');
-  var newMapLargeLink = document.getElementById('newMapLargeLink');
+  var newLocMapEl = document.getElementById('newLocMap');
+  var newLocateBtn = document.getElementById('newLocateBtn');
+  var newLocPinStatus = document.getElementById('newLocPinStatus');
+  var newLocRecent = document.getElementById('newLocRecent');
   var newMeetingLinkField = document.getElementById('newMeetingLinkField');
   var newMeetingLink = document.getElementById('newMeetingLink');
   var createBtn = document.getElementById('createBtn');
@@ -563,6 +564,15 @@
     });
     newAddressField.style.display = newLocType === 'PHYSICAL' ? '' : 'none';
     newMeetingLinkField.style.display = newLocType === 'VIRTUAL' ? '' : 'none';
+    // Leaflet measures its container's on-screen size at init time; while
+    // newAddressField is display:none (Virtual selected) that size is
+    // zero, so switching back to Physical needs an explicit invalidateSize
+    // once the container is actually visible again, or the tiles render
+    // torn/gray until the window happens to resize.
+    if(newLocType === 'PHYSICAL'){
+      ensureLocMap();
+      setTimeout(function(){ locMap.invalidateSize(); }, 50);
+    }
     refreshCreateBtnState();
   }
   Array.prototype.forEach.call(newLocTypeToggle.querySelectorAll('button'), function(btn){
