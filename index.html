@@ -596,8 +596,6 @@
   </div>
 </div>
 
-<script src="assets/map-config.js"></script>
-<script src="https://api.mapbox.com/mapbox-gl-js/v3.29.0/mapbox-gl.js"></script>
 <script>
 (function(){
   // Same origin as this page in production; the Node backend serves both
@@ -741,9 +739,6 @@
   var eventWhenDisplay = document.getElementById('eventWhenDisplay');
   var eventWhereDisplay = document.getElementById('eventWhereDisplay');
   var eventWhereLink = document.getElementById('eventWhereLink');
-  var eventMapPreview = document.getElementById('eventMapPreview');
-  var eventMapEl = document.getElementById('eventMapEl');
-  var eventMap = null, eventMapMarker = null;
 
   var state = load() || { meta: null, rows: [] };
   // Fallback until the first successful loadRemote() confirms the real
@@ -821,7 +816,6 @@
       eventWhenDisplay.textContent = '—';
       eventWhereDisplay.textContent = '—';
       eventWhereLink.style.display = 'none';
-      eventMapPreview.style.display = 'none';
       return;
     }
     eventDetailsDisplay.textContent = meta.name || '(untitled event)';
@@ -848,7 +842,6 @@
       } else {
         eventWhereLink.style.display = 'none';
       }
-      eventMapPreview.style.display = 'none';
     } else {
       eventWhereDisplay.textContent = meta.address || '—';
       if(meta.address){
@@ -860,39 +853,6 @@
         eventWhereLink.style.display = '';
       } else {
         eventWhereLink.style.display = 'none';
-      }
-      // Only shown when the admin actually picked a geocoded address (see
-      // the location picker in admin.html) -- a typed-only address has no
-      // coordinates to point a map at, so it falls back to just the
-      // "Get directions" search-query link above.
-      var mapTokenConfigured = !!(window.MAPBOX_TOKEN && window.MAPBOX_TOKEN.indexOf('PASTE_YOUR') !== 0);
-      if(typeof meta.latitude === 'number' && typeof meta.longitude === 'number' && mapTokenConfigured){
-        eventMapPreview.style.display = '';
-        // A real (read-only) Mapbox map, same engine as the one the
-        // organizer used to place this pin in admin.html, rather than an
-        // embedded OpenStreetMap iframe -- which the server's default CSP
-        // frame-src blocked outright, so this preview never actually
-        // rendered at all before.
-        if(!eventMap){
-          if(!mapboxgl.accessToken) mapboxgl.accessToken = window.MAPBOX_TOKEN;
-          eventMap = new mapboxgl.Map({
-            container: eventMapEl,
-            style: 'mapbox://styles/mapbox/light-v11',
-            center: [meta.longitude, meta.latitude],
-            zoom: 15,
-            scrollZoom: false,
-            attributionControl: true
-          });
-          eventMap.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
-          eventMapMarker = new mapboxgl.Marker({ color: '#c8102e' }).setLngLat([meta.longitude, meta.latitude]).addTo(eventMap);
-          setTimeout(function(){ eventMap.resize(); }, 50);
-        } else {
-          eventMap.setCenter([meta.longitude, meta.latitude]);
-          eventMapMarker.setLngLat([meta.longitude, meta.latitude]);
-          eventMap.resize();
-        }
-      } else {
-        eventMapPreview.style.display = 'none';
       }
     }
   }

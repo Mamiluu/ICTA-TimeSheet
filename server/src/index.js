@@ -30,25 +30,17 @@ app.set('trust proxy', 1); // Render/other reverse proxies sit in front of us; n
 // script-src/style-src specifically. img-src additionally allows the QR
 // code image service admin.html embeds and data: URLs for signature images.
 //
-// api.mapbox.com is allow-listed for Mapbox GL JS (script-src/style-src),
-// its map/geocoding requests (connect-src), and its sprite/tile imagery
-// (img-src) -- this powers the interactive event-location map and venue
-// search in admin.html, and the read-only venue preview in index.html.
-// 'wasm-unsafe-eval' is Mapbox GL JS's own documented requirement for the
-// WebAssembly text-layout engine it loads; worker-src covers the blob:
-// web worker it spins up internally (with no separate worker-src directive
-// this would otherwise fall back to script-src, which doesn't allow
-// blob:). events.mapbox.com is Mapbox's own anonymous usage-telemetry
-// endpoint, unrelated to this app's own data.
+// No map/geocoding provider is wired in right now (event location is a
+// plain typed address -- see admin.html's Address field and
+// assets/map-config.js for notes on re-enabling a map picker later), so
+// there's nothing extra to allow here beyond that.
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-      'script-src': ["'self'", "'unsafe-inline'", 'https://api.mapbox.com', "'wasm-unsafe-eval'"],
-      'style-src': ["'self'", "'unsafe-inline'", 'https://api.mapbox.com'],
-      'img-src': ["'self'", 'data:', 'blob:', 'https://api.qrserver.com', 'https://api.mapbox.com'],
-      'connect-src': ["'self'", 'https://api.mapbox.com', 'https://events.mapbox.com'],
-      'worker-src': ["'self'", 'blob:']
+      'script-src': ["'self'", "'unsafe-inline'"],
+      'style-src': ["'self'", "'unsafe-inline'"],
+      'img-src': ["'self'", 'data:', 'https://api.qrserver.com']
     }
   }
 }));
