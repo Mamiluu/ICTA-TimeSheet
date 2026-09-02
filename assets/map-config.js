@@ -13,4 +13,4 @@
 // can't be used from anywhere else -- Mapbox's public tokens are designed
 // to ship in client-side code like this, security comes from that URL
 // restriction, not from keeping the token secret.
-window.MAPBOX_TOKEN = 'PASTE_YOUR_MAPBOX_PUBLIC_TOKEN_HERE';
+window.MAPBOX_TOKEN = 'pk.eyJ1IjoibWFtaWx1dSIsImEiOiJjbXRraDJ0MXYwazNlMnlzbHA0Z2gybHJmIn0.N_myqMrNfaUbLXbh7pBOBg';
