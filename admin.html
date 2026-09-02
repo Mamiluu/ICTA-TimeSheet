@@ -579,54 +579,144 @@
     btn.addEventListener('click', function(){ newLocType = btn.getAttribute('data-loctype'); applyLocType(); });
   });
 
-  // --- Address autocomplete, backed by OpenStreetMap's free Nominatim
-  // search API -- no API key, no billing account, no mapping SDK to load.
-  // Typing shows a live dropdown of real matching places; picking one
-  // stores its actual coordinates (see the latitude/longitude columns on
-  // Event) and shows an embedded map confirming the pin. An address can
-  // still just be typed by hand with nothing picked -- geocoding is an
-  // enhancement here, never a requirement to create the event.
-  function mapEmbedBbox(lat, lon, d){
-    return (lon - d) + ',' + (lat - d) + ',' + (lon + d) + ',' + (lat + d);
+  // --- Event location picker: live Nominatim search + a real interactive
+  // Leaflet map (click to drop a pin, drag to fine-tune), backed by
+  // OpenStreetMap's free geocoding API -- no key, no billing account, no
+  // paid mapping SDK. Picking a search result, clicking the map, or
+  // dragging the pin all converge on the same stored lat/lon (see the
+  // latitude/longitude columns on Event); typing the address by hand with
+  // nothing picked is still perfectly valid -- geocoding is an
+  // enhancement, never a requirement to create the event.
+  var KENYA_CENTER = [-0.0236, 37.9062];
+  var KENYA_DEFAULT_ZOOM = 6;
+  var locMap = null, locMarker = null;
+
+  function markPinStatus(picked){
+    if(picked){
+      newLocPinStatus.className = 'loc-pin-status picked';
+      newLocPinStatus.innerHTML = '<span class="dot"></span>Pinned — this exact spot is what attendees will see';
+    } else {
+      newLocPinStatus.className = 'loc-pin-status';
+      newLocPinStatus.textContent = 'No pin yet — search above, or click the map to drop one';
+    }
   }
-  function showMapPreview(lat, lon){
-    newMapFrame.src = 'https://www.openstreetmap.org/export/embed.html?bbox=' + mapEmbedBbox(lat, lon, 0.006) + '&layer=mapnik&marker=' + lat + ',' + lon;
-    newMapLargeLink.href = 'https://www.openstreetmap.org/?mlat=' + lat + '&mlon=' + lon + '#map=17/' + lat + '/' + lon;
-    newMapPreview.style.display = '';
+
+  function ensureLocMap(){
+    if(locMap) return locMap;
+    locMap = L.map(newLocMapEl).setView(KENYA_CENTER, KENYA_DEFAULT_ZOOM);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+    }).addTo(locMap);
+    // Clicking the map is just as valid a way to choose a spot as picking
+    // a search result -- reverse-geocode it back to a readable address so
+    // the text field and the pin never end up disagreeing with each other.
+    locMap.on('click', function(e){ placePin(e.latlng.lat, e.latlng.lng, { reverseGeocode: true }); });
+    markPinStatus(false);
+    return locMap;
   }
-  function hideMapPreview(){
-    newMapPreview.style.display = 'none';
-    newMapFrame.src = '';
+
+  function placePin(lat, lon, opts){
+    opts = opts || {};
+    newLatitude.value = lat;
+    newLongitude.value = lon;
+    ensureLocMap();
+    if(!locMarker){
+      locMarker = L.marker([lat, lon], { draggable: true }).addTo(locMap);
+      // Dragging the pin re-syncs the typed address to wherever it lands,
+      // the same as a map click does.
+      locMarker.on('dragend', function(){
+        var pos = locMarker.getLatLng();
+        placePin(pos.lat, pos.lng, { reverseGeocode: true, keepZoom: true });
+      });
+    } else {
+      locMarker.setLatLng([lat, lon]);
+    }
+    locMap.setView([lat, lon], opts.keepZoom ? locMap.getZoom() : Math.max(locMap.getZoom(), 15));
+    markPinStatus(true);
+    refreshCreateBtnState();
+    if(opts.reverseGeocode) reverseGeocode(lat, lon);
   }
+
   function clearPickedLocation(){
     newLatitude.value = '';
     newLongitude.value = '';
-    hideMapPreview();
+    if(locMarker && locMap){ locMap.removeLayer(locMarker); locMarker = null; }
+    markPinStatus(false);
   }
+
   function closeAddressPanel(){
     newAddressPanel.classList.remove('open');
     newAddressPanel.innerHTML = '';
+    activeSuggestionIndex = -1;
   }
+
+  // A pin placed by clicking/dragging the map has real coordinates but no
+  // human-readable address yet -- this fills the text field in from
+  // Nominatim's reverse-geocoding endpoint. Best-effort only: if it fails
+  // (offline, geocoder unreachable) the pin and its coordinates are kept
+  // exactly as placed, the admin can just type the address by hand, and
+  // the event can still be created either way.
+  var reverseDebounceTimer;
+  function reverseGeocode(lat, lon){
+    clearTimeout(reverseDebounceTimer);
+    newAddressStatus.textContent = '…';
+    reverseDebounceTimer = setTimeout(function(){
+      fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lon)
+        .then(function(res){ return res.json(); })
+        .then(function(result){
+          newAddressStatus.textContent = '';
+          if(result && result.display_name){
+            // Set directly (not via a simulated keystroke) so this doesn't
+            // loop back through the 'input' handler and clear the very pin
+            // it's confirming.
+            newAddress.value = result.display_name;
+            refreshCreateBtnState();
+          }
+        })
+        .catch(function(){ newAddressStatus.textContent = ''; });
+    }, 350);
+  }
+
+  // Nominatim's display_name is one long comma-joined string ("Swahilipot
+  // Hub, Mama Ngina Drive, Mombasa, ..."); splitting off the first segment
+  // as a bold headline and the rest as a supporting line reads far faster
+  // in a scannable dropdown than one flat run of text.
+  function splitDisplayName(displayName){
+    var idx = displayName.indexOf(',');
+    if(idx === -1) return { primary: displayName, secondary: '' };
+    return { primary: displayName.slice(0, idx), secondary: displayName.slice(idx + 1).trim() };
+  }
+
   function renderAddressSuggestions(results, query){
     newAddressPanel.innerHTML = '';
+    activeSuggestionIndex = -1;
     if(!results.length){
       var empty = document.createElement('div');
       empty.className = 'aa-empty';
-      empty.textContent = 'No matches for "' + query + '" — you can still enter the address by hand.';
+      empty.textContent = 'No matches for "' + query + '" — click the map below to drop a pin, or enter the address by hand.';
       newAddressPanel.appendChild(empty);
     } else {
       results.forEach(function(r){
+        var parts = splitDisplayName(r.display_name);
         var item = document.createElement('button');
         item.type = 'button';
         item.className = 'aa-item';
-        item.textContent = r.display_name;
+        var primary = document.createElement('span');
+        primary.className = 'aa-primary';
+        primary.textContent = parts.primary;
+        item.appendChild(primary);
+        if(parts.secondary){
+          var secondary = document.createElement('span');
+          secondary.className = 'aa-secondary';
+          secondary.textContent = parts.secondary;
+          item.appendChild(secondary);
+        }
         item.addEventListener('click', function(){
-          newLatitude.value = r.lat;
-          newLongitude.value = r.lon;
           newAddress.value = r.display_name;
-          showMapPreview(+r.lat, +r.lon);
+          placePin(+r.lat, +r.lon, {});
+          saveRecentVenue(r.display_name, +r.lat, +r.lon);
           closeAddressPanel();
-          refreshCreateBtnState();
         });
         newAddressPanel.appendChild(item);
       });
@@ -634,11 +724,65 @@
     newAddressPanel.classList.add('open');
   }
 
-  var addressDebounceTimer, addressAbortController;
+  function renderAddressError(){
+    newAddressPanel.innerHTML = '';
+    activeSuggestionIndex = -1;
+    var msg = document.createElement('div');
+    msg.className = 'aa-error-msg';
+    msg.textContent = "Couldn't reach the address search right now — click the map below to drop a pin instead, or type the address by hand.";
+    newAddressPanel.appendChild(msg);
+    newAddressPanel.classList.add('open');
+  }
+
+  // --- Recently-used venues: a one-click shortcut for county admins who
+  // run repeat events at the same handful of venues (a training hall, a
+  // county hub) instead of re-typing and re-searching the same address
+  // every time. Stored per-browser only -- purely a local convenience, not
+  // synced anywhere -- so it's fine to keep in localStorage rather than on
+  // the server.
+  var RECENT_VENUES_KEY = 'icta_recent_venues_v1';
+  var MAX_RECENT_VENUES = 6;
+  function loadRecentVenues(){
+    try{ return JSON.parse(localStorage.getItem(RECENT_VENUES_KEY) || '[]'); }catch(e){ return []; }
+  }
+  function saveRecentVenue(name, lat, lon){
+    var list = loadRecentVenues().filter(function(v){ return v.name !== name; });
+    list.unshift({ name: name, lat: lat, lon: lon });
+    try{ localStorage.setItem(RECENT_VENUES_KEY, JSON.stringify(list.slice(0, MAX_RECENT_VENUES))); }catch(e){}
+    renderRecentVenues();
+  }
+  function renderRecentVenues(){
+    var list = loadRecentVenues();
+    newLocRecent.innerHTML = '';
+    if(!list.length){ newLocRecent.style.display = 'none'; return; }
+    list.forEach(function(v){
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'loc-chip';
+      chip.innerHTML = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 7a4.5 4.5 0 1 1 1.4 3.3"/><path d="M2.5 3.5v3.2h3.2"/></svg>';
+      chip.appendChild(document.createTextNode(v.name));
+      chip.title = v.name;
+      chip.addEventListener('click', function(){
+        newAddress.value = v.name;
+        placePin(v.lat, v.lon, {});
+        closeAddressPanel();
+      });
+      newLocRecent.appendChild(chip);
+    });
+    newLocRecent.style.display = '';
+  }
+  renderRecentVenues();
+  // Physical is the default location type and its address field starts
+  // visible in the static markup (no user interaction needed to reveal
+  // it), so the map has to be initialized here too, not only from
+  // applyLocType()'s later toggle-driven calls.
+  ensureLocMap();
+
+  var addressDebounceTimer, addressAbortController, activeSuggestionIndex = -1;
   newAddress.addEventListener('input', function(){
     // Any manual edit invalidates whatever was previously picked -- the
-    // text no longer provably matches those coordinates, so the pin (and
-    // the map preview) is cleared rather than left silently stale.
+    // text no longer provably matches those coordinates, so the pin is
+    // cleared from the map rather than left silently stale.
     clearPickedLocation();
     refreshCreateBtnState();
 
@@ -664,10 +808,34 @@
         })
         .catch(function(err){
           if(err && err.name === 'AbortError') return;
+          // A CSP block, a network failure, or Nominatim itself being down
+          // all land here -- previously this just closed the panel with no
+          // explanation, which is exactly what made the search look like
+          // it was doing nothing at all. Now it says so, and still points
+          // at the always-available fallback (click the map).
           newAddressStatus.textContent = '';
-          closeAddressPanel();
+          renderAddressError();
         });
     }, 500);
+  });
+  newAddress.addEventListener('keydown', function(e){
+    var items = newAddressPanel.querySelectorAll('.aa-item');
+    if(!items.length || !newAddressPanel.classList.contains('open')) return;
+    if(e.key === 'ArrowDown'){
+      e.preventDefault();
+      activeSuggestionIndex = Math.min(activeSuggestionIndex + 1, items.length - 1);
+    } else if(e.key === 'ArrowUp'){
+      e.preventDefault();
+      activeSuggestionIndex = Math.max(activeSuggestionIndex - 1, 0);
+    } else if(e.key === 'Enter' && activeSuggestionIndex >= 0){
+      e.preventDefault();
+      items[activeSuggestionIndex].click();
+      return;
+    } else {
+      return;
+    }
+    Array.prototype.forEach.call(items, function(el, i){ el.classList.toggle('aa-active', i === activeSuggestionIndex); });
+    items[activeSuggestionIndex].scrollIntoView({ block: 'nearest' });
   });
   newAddress.addEventListener('focus', function(){
     if(newAddressPanel.children.length) newAddressPanel.classList.add('open');
@@ -677,6 +845,21 @@
   });
   document.addEventListener('keydown', function(e){
     if(e.key === 'Escape') closeAddressPanel();
+  });
+
+  newLocateBtn.addEventListener('click', function(){
+    if(!navigator.geolocation){
+      newLocPinStatus.textContent = "Location access isn't available in this browser.";
+      return;
+    }
+    newLocateBtn.classList.add('busy');
+    navigator.geolocation.getCurrentPosition(function(pos){
+      newLocateBtn.classList.remove('busy');
+      placePin(pos.coords.latitude, pos.coords.longitude, { reverseGeocode: true });
+    }, function(){
+      newLocateBtn.classList.remove('busy');
+      newLocPinStatus.textContent = "Couldn't get your location — check your browser's location permission.";
+    }, { enableHighAccuracy: true, timeout: 8000 });
   });
 
   newMeetingLink.addEventListener('input', refreshCreateBtnState);
@@ -749,6 +932,7 @@
     newAddress.value = ''; newMeetingLink.value = '';
     clearPickedLocation();
     closeAddressPanel();
+    if(locMap) locMap.setView(KENYA_CENTER, KENYA_DEFAULT_ZOOM);
     createError.style.display = 'none';
     refreshCreateBtnState();
   }
@@ -778,9 +962,11 @@
     newAddress.value = ev.address || '';
     newMeetingLink.value = ev.meetingLink || '';
     if(ev.locationType === 'PHYSICAL' && ev.latitude != null && ev.longitude != null){
-      newLatitude.value = ev.latitude;
-      newLongitude.value = ev.longitude;
-      showMapPreview(ev.latitude, ev.longitude);
+      // applyLocType() above just made the map container visible again
+      // (or it already was); its own invalidateSize() is scheduled for
+      // ~50ms out, so the pin placement + view are pushed slightly later
+      // still to land after that, rather than racing it.
+      setTimeout(function(){ placePin(ev.latitude, ev.longitude, {}); }, 60);
     } else {
       clearPickedLocation();
     }

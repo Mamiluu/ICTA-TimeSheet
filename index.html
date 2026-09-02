@@ -6,6 +6,13 @@
 -->
 <meta charset="UTF-8">
 <title>ICT Authority — Attendance Sheet</title>
+<!-- Leaflet renders the small read-only venue map below the event's WHERE
+     field -- see the matching comment in admin.html, where this same
+     library also drives the organizer's interactive location picker.
+     Pinned to an exact version with an integrity hash since it's loaded
+     from a third-party CDN. -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <style>
   :root{
     --ink:#1a1a1a;
@@ -106,7 +113,10 @@
   }
   .event-box .where-link:hover{ text-decoration:underline; }
   .event-map-preview{ border-top:1.5px solid var(--line); padding:8px 10px; }
-  .event-map-preview iframe{ width:100%; height:150px; border:1px solid #ccc; border-radius:4px; display:block; }
+  .event-map-preview .event-map{ width:100%; height:150px; border:1px solid #ccc; border-radius:4px; }
+  .leaflet-control-zoom a{ color:#444 !important; }
+  .leaflet-bar{ border-color:#ccc !important; }
+  .leaflet-control-attribution{ font-size:9.5px !important; }
 
   .notice{
     max-width:900px;
@@ -517,7 +527,7 @@
       </div>
     </div>
     <div class="event-map-preview" id="eventMapPreview" style="display:none;">
-      <iframe id="eventMapFrame" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      <div class="event-map" id="eventMapEl"></div>
     </div>
   </div>
 
@@ -601,6 +611,8 @@
   </div>
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
 (function(){
   // Same origin as this page in production; the Node backend serves both
@@ -745,7 +757,8 @@
   var eventWhereDisplay = document.getElementById('eventWhereDisplay');
   var eventWhereLink = document.getElementById('eventWhereLink');
   var eventMapPreview = document.getElementById('eventMapPreview');
-  var eventMapFrame = document.getElementById('eventMapFrame');
+  var eventMapEl = document.getElementById('eventMapEl');
+  var eventMap = null, eventMapMarker = null;
 
   var state = load() || { meta: null, rows: [] };
   // Fallback until the first successful loadRemote() confirms the real
@@ -851,7 +864,6 @@
         eventWhereLink.style.display = 'none';
       }
       eventMapPreview.style.display = 'none';
-      eventMapFrame.src = '';
     } else {
       eventWhereDisplay.textContent = meta.address || '—';
       if(meta.address){
@@ -865,18 +877,31 @@
         eventWhereLink.style.display = 'none';
       }
       // Only shown when the admin actually picked a geocoded address (see
-      // admin.html's autocomplete) -- a typed-only address has no
+      // the location picker in admin.html) -- a typed-only address has no
       // coordinates to point a map at, so it falls back to just the
       // "Get directions" search-query link above.
       if(typeof meta.latitude === 'number' && typeof meta.longitude === 'number'){
-        var d = 0.006;
-        eventMapFrame.src = 'https://www.openstreetmap.org/export/embed.html?bbox=' +
-          (meta.longitude - d) + ',' + (meta.latitude - d) + ',' + (meta.longitude + d) + ',' + (meta.latitude + d) +
-          '&layer=mapnik&marker=' + meta.latitude + ',' + meta.longitude;
         eventMapPreview.style.display = '';
+        // A real (read-only) Leaflet map, same as the one the organizer
+        // used to place this pin in admin.html, rather than an embedded
+        // OpenStreetMap iframe -- which the server's default CSP frame-src
+        // blocked outright, so this preview never actually rendered before.
+        if(!eventMap){
+          eventMap = L.map(eventMapEl, { zoomControl: true, dragging: true, scrollWheelZoom: false })
+            .setView([meta.latitude, meta.longitude], 15);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+          }).addTo(eventMap);
+          eventMapMarker = L.marker([meta.latitude, meta.longitude]).addTo(eventMap);
+          setTimeout(function(){ eventMap.invalidateSize(); }, 50);
+        } else {
+          eventMap.setView([meta.latitude, meta.longitude], 15);
+          eventMapMarker.setLatLng([meta.latitude, meta.longitude]);
+          eventMap.invalidateSize();
+        }
       } else {
         eventMapPreview.style.display = 'none';
-        eventMapFrame.src = '';
       }
     }
   }
