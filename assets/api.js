@@ -58,3 +58,19 @@ function escapeHtml(s){
     return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
   });
 }
+
+// Shared by admin.html/superadmin.html's topbar -- both hardcode "ICT
+// Authority — <role>" as a sane default, then swap in the real org name
+// once GET /api/branding resolves, same pattern as index.html's own
+// letterhead (see applyBranding there). `suffix` is the page's own role
+// label ("Event Admin" / "Super Admin"); the org name is the only part
+// that ever varies by deployment.
+function applyTopbarBranding(suffix){
+  var el = document.getElementById('brandTopbarTitle');
+  if(!el) return;
+  API.get('/api/branding').then(function(r){
+    if(r.status === 200 && r.data && r.data.ok && r.data.orgName){
+      el.textContent = r.data.orgName + ' — ' + suffix;
+    }
+  }).catch(function(){ /* keep the built-in default */ });
+}

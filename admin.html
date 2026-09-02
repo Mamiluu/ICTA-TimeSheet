@@ -137,7 +137,7 @@
 </style>
 
 <div class="topbar">
-  <div><strong>ICT Authority — Event Admin</strong><span id="whoCounty" style="font-size:12.5px;color:#666;margin-left:8px;"></span></div>
+  <div><strong id="brandTopbarTitle">ICT Authority — Event Admin</strong><span id="whoCounty" style="font-size:12.5px;color:#666;margin-left:8px;"></span></div>
   <div class="who">
     <span id="whoEmail"></span>
     <button id="logoutBtn" style="margin-left:10px;">Log out</button>
@@ -184,6 +184,21 @@
       <button type="button" data-loctype="PHYSICAL" class="active">Physical</button>
       <button type="button" data-loctype="VIRTUAL">Virtual</button>
     </div>
+
+    <!-- Saved on this device only (localStorage, see VENUE_TEMPLATES_KEY
+         below) -- a quick-fill convenience for an admin who runs the same
+         training room or the same Zoom link repeatedly, not a shared/
+         synced venue directory. -->
+    <div id="venueTemplateRow" style="display:flex; gap:8px; align-items:flex-end; margin-bottom:4px;">
+      <div style="flex:1;">
+        <label for="venueTemplateSelect" style="font-weight:normal; color:#666;">Quick-fill a saved venue <span style="font-weight:normal;color:#888;">(optional)</span></label>
+        <select id="venueTemplateSelect" style="margin-bottom:12px;">
+          <option value="">— Select a saved venue —</option>
+        </select>
+      </div>
+      <button type="button" id="deleteVenueTemplateBtn" class="danger" style="display:none; margin-bottom:12px;" title="Remove this saved venue">Remove</button>
+    </div>
+
     <div id="newAddressField">
       <label for="newAddress">Address</label>
       <input type="text" id="newAddress" placeholder="e.g. Swahilipot Hub, Mombasa">
@@ -199,6 +214,14 @@
     <div id="newMeetingLinkField" style="display:none;">
       <label for="newMeetingLink">Meeting link</label>
       <input type="text" id="newMeetingLink" placeholder="https://meet.google.com/abc-defg-hij">
+    </div>
+
+    <label style="display:flex; align-items:center; gap:6px; font-weight:normal; color:#444; margin-top:-6px;">
+      <input type="checkbox" id="saveAsVenueTemplate" style="margin:0; width:auto;">
+      Save this location for next time
+    </label>
+    <div id="venueTemplateNameField" style="display:none; margin-top:8px;">
+      <input type="text" id="venueTemplateName" placeholder="Name this venue, e.g. &quot;Mombasa County Hall&quot;">
     </div>
 
     <button class="primary" id="createBtn" disabled>Create event</button>
@@ -243,6 +266,8 @@
     // admin.html and the attendee page are served from the same folder.
     return location.href.replace(/admin\.html.*$/, 'index.html');
   }
+
+  applyTopbarBranding('Event Admin');
 
   var whoEmail = document.getElementById('whoEmail');
   var whoCounty = document.getElementById('whoCounty');
@@ -484,6 +509,97 @@
 
   newMeetingLink.addEventListener('input', refreshCreateBtnState);
 
+  // --- Saved venues (quick-fill) ---
+  // Deliberately device-local (localStorage), not a server-side model: no
+  // schema, no migration, nothing another admin or device ever sees --
+  // just this browser remembering places/links this admin re-enters often.
+  var VENUE_TEMPLATES_KEY = 'icta_venue_templates_v1';
+  var venueTemplateSelect = document.getElementById('venueTemplateSelect');
+  var deleteVenueTemplateBtn = document.getElementById('deleteVenueTemplateBtn');
+  var saveAsVenueTemplate = document.getElementById('saveAsVenueTemplate');
+  var venueTemplateNameField = document.getElementById('venueTemplateNameField');
+  var venueTemplateName = document.getElementById('venueTemplateName');
+
+  function loadVenueTemplates(){
+    try{
+      var raw = localStorage.getItem(VENUE_TEMPLATES_KEY);
+      var list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list : [];
+    }catch(e){ return []; }
+  }
+  function saveVenueTemplates(list){
+    try{ localStorage.setItem(VENUE_TEMPLATES_KEY, JSON.stringify(list)); }catch(e){}
+  }
+  function renderVenueTemplateOptions(){
+    var list = loadVenueTemplates();
+    var previousValue = venueTemplateSelect.value;
+    venueTemplateSelect.innerHTML = '<option value="">— Select a saved venue —</option>';
+    list.forEach(function(v){
+      var opt = document.createElement('option');
+      opt.value = v.id;
+      opt.textContent = v.name + (v.locationType === 'VIRTUAL' ? ' (virtual)' : '');
+      venueTemplateSelect.appendChild(opt);
+    });
+    if(list.some(function(v){ return v.id === previousValue; })) venueTemplateSelect.value = previousValue;
+    deleteVenueTemplateBtn.style.display = venueTemplateSelect.value ? '' : 'none';
+  }
+  renderVenueTemplateOptions();
+
+  venueTemplateSelect.addEventListener('change', function(){
+    deleteVenueTemplateBtn.style.display = venueTemplateSelect.value ? '' : 'none';
+    if(!venueTemplateSelect.value) return;
+    var v = loadVenueTemplates().filter(function(t){ return t.id === venueTemplateSelect.value; })[0];
+    if(!v) return;
+    newLocType = v.locationType;
+    applyLocType();
+    if(v.locationType === 'PHYSICAL'){
+      newAddress.value = v.address || '';
+      newLatitude.value = v.latitude != null ? v.latitude : '';
+      newLongitude.value = v.longitude != null ? v.longitude : '';
+    } else {
+      newMeetingLink.value = v.meetingLink || '';
+    }
+    if(v.timezone) newTimezone.value = v.timezone;
+    refreshCreateBtnState();
+  });
+
+  deleteVenueTemplateBtn.addEventListener('click', function(){
+    if(!venueTemplateSelect.value) return;
+    var list = loadVenueTemplates().filter(function(t){ return t.id !== venueTemplateSelect.value; });
+    saveVenueTemplates(list);
+    renderVenueTemplateOptions();
+  });
+
+  saveAsVenueTemplate.addEventListener('change', function(){
+    venueTemplateNameField.style.display = saveAsVenueTemplate.checked ? '' : 'none';
+  });
+
+  // Called right after a successful create (see the createBtn handler
+  // below) -- never on edit-save, so quick-filling from a template and
+  // then editing that same field doesn't silently redefine the template
+  // itself.
+  function maybeSaveVenueTemplate(){
+    if(!saveAsVenueTemplate.checked) return;
+    var name = venueTemplateName.value.trim();
+    if(!name) return;
+    var list = loadVenueTemplates();
+    list.push({
+      id: (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'venue-' + Date.now(),
+      name: name,
+      locationType: newLocType,
+      address: newLocType === 'PHYSICAL' ? newAddress.value.trim() : '',
+      latitude: newLocType === 'PHYSICAL' && newLatitude.value ? Number(newLatitude.value) : null,
+      longitude: newLocType === 'PHYSICAL' && newLongitude.value ? Number(newLongitude.value) : null,
+      meetingLink: newLocType === 'VIRTUAL' ? newMeetingLink.value.trim() : '',
+      timezone: newTimezone.value
+    });
+    saveVenueTemplates(list);
+    saveAsVenueTemplate.checked = false;
+    venueTemplateName.value = '';
+    venueTemplateNameField.style.display = 'none';
+    renderVenueTemplateOptions();
+  }
+
   // Converts a wall-clock date/time as read in `timeZone` to the UTC
   // instant it actually refers to, with no timezone library -- Intl
   // already knows every zone's offset (including DST) at any given date,
@@ -551,6 +667,11 @@
     newLocType = 'PHYSICAL'; applyLocType();
     newAddress.value = ''; newMeetingLink.value = '';
     newLatitude.value = ''; newLongitude.value = '';
+    venueTemplateSelect.value = '';
+    deleteVenueTemplateBtn.style.display = 'none';
+    saveAsVenueTemplate.checked = false;
+    venueTemplateName.value = '';
+    venueTemplateNameField.style.display = 'none';
     createError.style.display = 'none';
     refreshCreateBtnState();
   }
@@ -630,6 +751,7 @@
         resultLink.value = url;
         resultQr.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(url);
         createResult.classList.add('open');
+        maybeSaveVenueTemplate();
       }
       resetForm();
       loadEvents();

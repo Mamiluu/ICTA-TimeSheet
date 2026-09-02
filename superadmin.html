@@ -17,7 +17,7 @@
 </style>
 
 <div class="topbar">
-  <div><strong>ICT Authority — Super Admin</strong></div>
+  <div><strong id="brandTopbarTitle">ICT Authority — Super Admin</strong></div>
   <div class="who">
     <span id="whoEmail"></span>
     <button id="logoutBtn" style="margin-left:10px;">Log out</button>
@@ -64,6 +64,8 @@
 <script src="assets/api.js"></script>
 <script>
 (function(){
+  applyTopbarBranding('Super Admin');
+
   var whoEmail = document.getElementById('whoEmail');
   var logoutBtn = document.getElementById('logoutBtn');
   var listPanel = document.getElementById('listPanel');

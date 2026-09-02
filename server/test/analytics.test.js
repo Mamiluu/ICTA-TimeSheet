@@ -33,11 +33,7 @@ describe('bucketByDay', () => {
 
   test('multiple instants on the same local day accumulate', () => {
     const now = new Date('2026-03-10T12:00:00Z');
-    const instants = [
-      new Date('2026-03-10T06:00:00Z'),
-      new Date('2026-03-10T07:00:00Z'),
-      new Date('2026-03-10T08:00:00Z')
-    ];
+    const instants = [new Date('2026-03-10T06:00:00Z'), new Date('2026-03-10T07:00:00Z'), new Date('2026-03-10T08:00:00Z')];
     const buckets = bucketByDay(instants, 1, 'Africa/Nairobi', now);
     assert.deepEqual(buckets, [{ date: '2026-03-10', count: 3 }]);
   });

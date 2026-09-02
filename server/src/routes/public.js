@@ -12,6 +12,7 @@ import { randomToken, hashToken } from '../lib/tokens.js';
 import { writeAudit, verifyChain } from '../lib/audit.js';
 import { sendAttendanceConfirmationEmail } from '../lib/mailer.js';
 import { logger } from '../lib/logger.js';
+import { BRANDING } from '../lib/branding.js';
 
 // Fire-and-forget, same discipline as writeAudit's own .catch(() => {})
 // below: a Brevo outage or a malformed address must never fail the
@@ -141,6 +142,14 @@ function canManageEvent(user, event) {
   // could manage every other one's events, not just their own.
   return user.role === 'COUNTY_ADMIN' && user.county === event.county && event.ownerId === user.id;
 }
+
+// Static, non-secret config -- letterhead text/contact details, not the
+// logo image itself (see the comment on lib/branding.js for why that part
+// isn't included). No auth guard: this is the same information already
+// printed on the sign-in page for anyone at the venue to read.
+publicRouter.get('/branding', (req, res) => {
+  res.json({ ok: true, ...BRANDING });
+});
 
 publicRouter.get('/events/:slug', ah(async (req, res) => {
   const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });

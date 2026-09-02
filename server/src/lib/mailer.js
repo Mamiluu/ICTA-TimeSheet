@@ -2,6 +2,7 @@
 // Proprietary and confidential. See LICENSE in the repository root.
 
 import { formatEventWhen } from './timezone.js';
+import { BRANDING } from './branding.js';
 
 // Sent over Brevo's HTTPS API rather than SMTP. Render's free web services
 // block all outbound traffic on the SMTP ports (25/465/587) as an
@@ -24,7 +25,7 @@ async function sendViaBrevo({ to, subject, html }) {
       Accept: 'application/json'
     },
     body: JSON.stringify({
-      sender: { name: 'ICT Authority — Event Attendance', email: process.env.GMAIL_SENDER_ADDRESS },
+      sender: { name: `${BRANDING.orgName} — ${BRANDING.productName}`, email: process.env.GMAIL_SENDER_ADDRESS },
       to: [{ email: to }],
       subject,
       htmlContent: html
@@ -37,6 +38,10 @@ async function sendViaBrevo({ to, subject, html }) {
   }
 }
 
+// Kept separate from BRANDING (lib/branding.js) -- accent is a color
+// choice baked into these hand-built email templates, not org identity
+// text, so there's no env var for it; it's a code-level styling constant,
+// same footing as index.html's own --accent CSS variable.
 const BRAND = {
   accent: '#c8102e'
 };
@@ -45,7 +50,7 @@ function wrapHtml(bodyHtml) {
   return `<!doctype html>
 <html><body style="margin:0;padding:24px;background:#e9e9e9;font-family:'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;">
   <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:4px;padding:28px 32px;box-shadow:0 4px 24px rgba(0,0,0,.15);">
-    <h1 style="font-size:16px;margin:0 0 16px;color:#1a1a1a;">ICT Authority — Event Attendance</h1>
+    <h1 style="font-size:16px;margin:0 0 16px;color:#1a1a1a;">${BRANDING.orgName} — ${BRANDING.productName}</h1>
     ${bodyHtml}
     <p style="font-size:11px;color:#888;margin-top:28px;">© 2026 Asya Hafidh. All rights reserved.</p>
   </div>
@@ -70,7 +75,7 @@ export async function sendActivationEmail(toEmail, activateUrl, county) {
     <p style="margin:22px 0;"><a href="${activateUrl}" style="background:${BRAND.accent};color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Activate your account</a></p>
     <p style="font-size:11.5px;color:#888;">If the button doesn't work, copy this link: ${activateUrl}</p>
   `);
-  await sendViaBrevo({ to: toEmail, subject: 'Activate your ICT Authority admin account', html });
+  await sendViaBrevo({ to: toEmail, subject: `Activate your ${BRANDING.orgName} admin account`, html });
 }
 
 export async function sendPasswordResetEmail(toEmail, resetUrl) {
@@ -81,7 +86,7 @@ export async function sendPasswordResetEmail(toEmail, resetUrl) {
     <p style="font-size:11.5px;color:#888;">If you didn't request this, you can safely ignore this email — your password will not change.</p>
     <p style="font-size:11.5px;color:#888;">If the button doesn't work, copy this link: ${resetUrl}</p>
   `);
-  await sendViaBrevo({ to: toEmail, subject: 'Reset your ICT Authority admin password', html });
+  await sendViaBrevo({ to: toEmail, subject: `Reset your ${BRANDING.orgName} admin password`, html });
 }
 
 // Attendee-facing, so unlike the two admin emails above this carries no
@@ -165,7 +170,7 @@ export async function sendAttendanceConfirmationEmail(toEmail, details) {
       <div style="padding:26px 30px 0;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr>
-            <td style="font:700 10px/1 'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;letter-spacing:.1em;color:#9a9a9a;text-transform:uppercase;">ICT Authority · Attendance</td>
+            <td style="font:700 10px/1 'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;letter-spacing:.1em;color:#9a9a9a;text-transform:uppercase;">${BRANDING.orgName} · ${BRANDING.productName}</td>
             <td style="text-align:right;font:700 10px/1 'Courier New',monospace;letter-spacing:.05em;color:#9a9a9a;">REF ${refCode}</td>
           </tr>
         </table>
