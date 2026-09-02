@@ -11,6 +11,7 @@ import { sendPasswordResetEmail } from '../lib/mailer.js';
 import { writeAudit } from '../lib/audit.js';
 import { loginLimiter, forgotPasswordLimiter } from '../middleware/rateLimit.js';
 import { ah } from '../lib/asyncHandler.js';
+import { logger } from '../lib/logger.js';
 
 export const authRouter = Router();
 
@@ -94,7 +95,7 @@ authRouter.post('/activate/:token', ah(async (req, res) => {
   // Best-effort: an audit-log write is a record of what happened, not a
   // precondition for it -- a hiccup here should never leave someone stuck
   // unable to activate an account that in fact just activated fine.
-  writeAudit({ actorId: user.id, action: 'ACCOUNT_ACTIVATED', req }).catch((err) => console.error('writeAudit failed', err));
+  writeAudit({ actorId: user.id, action: 'ACCOUNT_ACTIVATED', req }).catch((err) => logger.error('writeAudit failed', { stack: err.stack }));
 
   res.json({ ok: true });
 }));
@@ -109,7 +110,7 @@ authRouter.post('/forgot-password', forgotPasswordLimiter, ah(async (req, res) =
     if (user && user.status === 'ACTIVE') {
       const raw = await issueToken(user.id, 'PASSWORD_RESET');
       const resetUrl = `${process.env.PUBLIC_APP_URL}/reset-password.html?token=${encodeURIComponent(raw)}`;
-      sendPasswordResetEmail(user.email, resetUrl).catch((err) => console.error('sendPasswordResetEmail failed', err));
+      sendPasswordResetEmail(user.email, resetUrl).catch((err) => logger.error('sendPasswordResetEmail failed', { stack: err.stack }));
       writeAudit({ actorId: user.id, action: 'PASSWORD_RESET_REQUESTED', req }).catch(() => {});
     }
   }
@@ -148,7 +149,7 @@ authRouter.post('/reset-password/:token', ah(async (req, res) => {
   // if someone else's session was open (or the reset was because the
   // account was compromised), it dies here rather than riding out its TTL.
   await destroyAllSessionsForUser(userId);
-  writeAudit({ actorId: userId, action: 'PASSWORD_RESET_COMPLETED', req }).catch((err) => console.error('writeAudit failed', err));
+  writeAudit({ actorId: userId, action: 'PASSWORD_RESET_COMPLETED', req }).catch((err) => logger.error('writeAudit failed', { stack: err.stack }));
 
   res.json({ ok: true });
 }));

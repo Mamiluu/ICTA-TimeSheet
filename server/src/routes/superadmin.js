@@ -12,6 +12,7 @@ import { writeAudit } from '../lib/audit.js';
 import { KENYA_COUNTIES, MAX_ACTIVE_COUNTY_ADMINS } from '../lib/constants.js';
 import { isValidEmailShape } from '../lib/normalize.js';
 import { ah } from '../lib/asyncHandler.js';
+import { logger } from '../lib/logger.js';
 
 export const superadminRouter = Router();
 superadminRouter.use(requireRole('SUPER_ADMIN'));
@@ -34,7 +35,7 @@ function publicAdmin(u) {
 // crash (see lib/asyncHandler.js for why that distinction matters here).
 function sendActivationEmailBestEffort(toEmail, activateUrl, county) {
   sendActivationEmail(toEmail, activateUrl, county).catch((err) => {
-    console.error(`sendActivationEmail failed for ${toEmail}`, err);
+    logger.error('sendActivationEmail failed', { toEmail, stack: err.stack });
   });
 }
 
@@ -213,7 +214,7 @@ superadminRouter.delete('/admins/:id', ah(async (req, res) => {
   // super admin rather than the now-gone row, and a hiccup here should
   // never make an already-successful deletion look like it failed to the
   // person who just performed it.
-  writeAudit({ actorId: req.user.id, action: 'ADMIN_DELETE', targetType: 'User', targetId: admin.id, metadata: { email: admin.email, county: admin.county }, req }).catch((err) => console.error('writeAudit failed', err));
+  writeAudit({ actorId: req.user.id, action: 'ADMIN_DELETE', targetType: 'User', targetId: admin.id, metadata: { email: admin.email, county: admin.county }, req }).catch((err) => logger.error('writeAudit failed', { stack: err.stack }));
 
   res.json({ ok: true });
 }));

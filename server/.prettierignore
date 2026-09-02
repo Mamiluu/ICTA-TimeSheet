@@ -1,0 +1,12 @@
+node_modules/
+generated/
+package-lock.json
+
+# Pre-existing hand-authored source: written and reviewed before Prettier
+# was added to this project, with deliberate single-line method chains that
+# Prettier's own opinionated printer would rewrap. Reformatting it now would
+# produce a large diff with no functional change and drop the original
+# author's formatting choices. New/changed files are not exempt -- only this
+# already-settled code.
+src/
+scripts/

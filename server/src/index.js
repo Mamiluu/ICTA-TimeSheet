@@ -13,6 +13,7 @@ import { authRouter } from './routes/auth.js';
 import { superadminRouter } from './routes/superadmin.js';
 import { adminRouter } from './routes/admin.js';
 import { publicRouter } from './routes/public.js';
+import { logger, requestLogger, logRequestError, newErrorRef } from './lib/logger.js';
 
 // The static frontend (index.html, admin.html, assets/, etc.) lives at the
 // repo root, one level above this server/ directory, so a single Node
@@ -47,6 +48,7 @@ app.use(helmet({
 app.use(cors({ origin: process.env.PUBLIC_APP_URL, credentials: true }));
 app.use(express.json({ limit: '2mb' })); // signatures are base64 data URLs, larger than a typical JSON body
 app.use(cookieParser());
+app.use(requestLogger);
 app.use(attachUser);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
@@ -64,10 +66,19 @@ app.use(express.static(REPO_ROOT, { dotfiles: 'ignore', index: false }));
 
 app.use((req, res) => res.status(404).json({ ok: false, error: 'NOT_FOUND' }));
 
+// Express identifies error-handling middleware by arity (exactly 4 params);
+// `next` must stay in the signature even though this handler never calls it.
+// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ ok: false, error: 'INTERNAL_ERROR' });
+  const errorRef = newErrorRef();
+  logRequestError(err, req, errorRef);
+  // The ref is safe to hand back to the caller -- it's an opaque lookup key
+  // into the server's own logs, not a description of what went wrong -- so
+  // an attendee or admin hitting a genuine bug has something concrete to
+  // quote when they report it, without any internal detail leaving the
+  // response body itself.
+  res.status(500).json({ ok: false, error: 'INTERNAL_ERROR', errorRef });
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`ICTA attendance server listening on :${port}`));
+app.listen(port, () => logger.info('server listening', { port }));

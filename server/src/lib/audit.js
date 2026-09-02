@@ -12,7 +12,7 @@ import { hashToken } from './tokens.js';
 // than what it contains. Sorting keys recursively before stringifying
 // makes the hash depend only on the actual data, so it's identical
 // whether it's computed pre-insert (writeAudit) or post-read (verifyChain).
-function canonicalJson(value) {
+export function canonicalJson(value) {
   if (Array.isArray(value)) return '[' + value.map(canonicalJson).join(',') + ']';
   if (value && typeof value === 'object') {
     const keys = Object.keys(value).sort();
@@ -21,7 +21,7 @@ function canonicalJson(value) {
   return JSON.stringify(value === undefined ? null : value);
 }
 
-function entryHashInput(entry) {
+export function entryHashInput(entry) {
   return canonicalJson({
     prevHash: entry.prevHash ?? null,
     actorId: entry.actorId || null,

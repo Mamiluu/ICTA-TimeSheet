@@ -11,6 +11,7 @@ import { MAX_ATTENDANCE_PER_EVENT, SIGNATURE_REQUEST_TTL_MS, EVENT_LINK_VISIBILI
 import { randomToken, hashToken } from '../lib/tokens.js';
 import { writeAudit, verifyChain } from '../lib/audit.js';
 import { sendAttendanceConfirmationEmail } from '../lib/mailer.js';
+import { logger } from '../lib/logger.js';
 
 // Fire-and-forget, same discipline as writeAudit's own .catch(() => {})
 // below: a Brevo outage or a malformed address must never fail the
@@ -32,7 +33,7 @@ function sendConfirmationIfEmailed(row, event) {
     county: event.county,
     recordId: row.id,
     recordedAt: row.createdAt
-  }).catch((err) => console.error('attendance confirmation email failed', err));
+  }).catch((err) => logger.error('attendance confirmation email failed', { stack: err.stack }));
 }
 
 export const publicRouter = Router();
@@ -44,7 +45,7 @@ export const publicRouter = Router();
 // still get a row written with signature: ''. This is the actual
 // enforcement boundary: reject anything that isn't a real drawn signature,
 // regardless of what submitted it.
-function isBlankSignature(signature) {
+export function isBlankSignature(signature) {
   const s = String(signature || '').trim();
   return !s || s.length < 100 || !s.startsWith('data:image/');
 }
@@ -58,7 +59,7 @@ function isBlankSignature(signature) {
 // omitted, a stray string) is rejected outright. null only ever exists on
 // rows that predate this column (see the schema.prisma comment); no live
 // submission can produce one.
-function isValidConsentAnswer(value) {
+export function isValidConsentAnswer(value) {
   return typeof value === 'boolean';
 }
 

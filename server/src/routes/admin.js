@@ -44,7 +44,7 @@ function publicEvent(ev, count) {
 // instant before submitting -- see admin.html) -- this only checks they
 // parse and that start comes before end, it doesn't do any zone math
 // itself.
-function requireEventFields(body) {
+export function requireEventFields(body) {
   const name = String(body.name || '').trim();
   const description = body.description ? String(body.description).trim().slice(0, 2000) : null;
   const timezone = String(body.timezone || '').trim();
@@ -73,7 +73,7 @@ function requireEventFields(body) {
   return { name, description, startAt, endAt, timezone, locationType, address, latitude, longitude, meetingLink, missing };
 }
 
-function validateEventFields(f) {
+export function validateEventFields(f) {
   if (f.missing.length) {
     return { ok: false, error: 'MISSING_FIELDS', message: `Please fill in ${f.missing.join(', ')}.` };
   }
