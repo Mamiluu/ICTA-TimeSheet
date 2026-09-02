@@ -29,13 +29,22 @@ app.set('trust proxy', 1); // Render/other reverse proxies sit in front of us; n
 // CSP -- which blocks all inline script/style -- has to be relaxed for
 // script-src/style-src specifically. img-src additionally allows the QR
 // code image service admin.html embeds and data: URLs for signature images.
+// unpkg is allow-listed for the Leaflet map library (script-src/style-src)
+// and its bundled marker icons (img-src); the OSM tile servers are
+// img-src-only since map tiles are just images. connect-src allows the
+// browser-side fetch() calls to Nominatim's geocoding API that power the
+// address search and click-to-pin map in admin.html's event location
+// picker -- without it those fetches are silently blocked by CSP (no
+// console-visible failure to an ordinary user), which is exactly why
+// typing an address there used to appear to do nothing.
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-      'script-src': ["'self'", "'unsafe-inline'"],
-      'style-src': ["'self'", "'unsafe-inline'"],
-      'img-src': ["'self'", 'data:', 'https://api.qrserver.com']
+      'script-src': ["'self'", "'unsafe-inline'", 'https://unpkg.com'],
+      'style-src': ["'self'", "'unsafe-inline'", 'https://unpkg.com'],
+      'img-src': ["'self'", 'data:', 'https://api.qrserver.com', 'https://unpkg.com', 'https://*.tile.openstreetmap.org'],
+      'connect-src': ["'self'", 'https://nominatim.openstreetmap.org']
     }
   }
 }));
