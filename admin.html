@@ -194,6 +194,7 @@
     display:flex; align-items:center; gap:6px; font-size:11.5px; color:#888; margin-top:7px; min-height:1.4em;
   }
   .loc-pin-status.picked{ color:#1a7f37; font-weight:600; }
+  .loc-pin-status.previewing{ color:#9a6700; font-weight:600; }
   .loc-pin-status .dot{ width:6px; height:6px; border-radius:50%; background:currentColor; flex:none; }
   .loc-hint{ font-size:11px; color:#999; margin:5px 0 12px; }
 
@@ -277,7 +278,7 @@
           </button>
         </div>
         <div class="loc-pin-status" id="newLocPinStatus"></div>
-        <p class="loc-hint">Search above, click the map, or drag the pin to fine-tune the exact spot attendees will see.</p>
+        <p class="loc-hint" id="newLocHint">Search above, click the map, or drag the pin to fine-tune the exact spot attendees will see.</p>
       </div>
     </div>
     <div id="newMeetingLinkField" style="display:none;">
@@ -508,6 +509,7 @@
   var newLocateBtn = document.getElementById('newLocateBtn');
   var newLocPinStatus = document.getElementById('newLocPinStatus');
   var newLocRecent = document.getElementById('newLocRecent');
+  var newLocHint = document.getElementById('newLocHint');
   var newMeetingLinkField = document.getElementById('newMeetingLinkField');
   var newMeetingLink = document.getElementById('newMeetingLink');
   var createBtn = document.getElementById('createBtn');
@@ -590,11 +592,26 @@
   var KENYA_CENTER = [-0.0236, 37.9062];
   var KENYA_DEFAULT_ZOOM = 6;
   var locMap = null, locMarker = null;
+  // Populated once initCountyBias() below resolves this admin's own county
+  // to a real bounding box -- from then on every search is ranked toward
+  // it (viewbox, not a hard filter, so a venue just across a county line
+  // still matches) and a blank map opens already centered there instead of
+  // on the whole country.
+  var countyViewboxParam = null, countyBounds = null;
 
-  function markPinStatus(picked){
-    if(picked){
+  // Three states, not two: a pin the admin explicitly placed (clicked the
+  // map, dragged it, picked a result, used "my location") reads as solid
+  // and "Pinned"; one that's only the live top-of-search-results guess
+  // reads as a lighter, dashed "Previewing" pin so it's visually obvious
+  // it can still change as they keep typing -- without blocking them from
+  // just moving on if it's already correct.
+  function markPinStatus(state){
+    if(state === 'confirmed'){
       newLocPinStatus.className = 'loc-pin-status picked';
       newLocPinStatus.innerHTML = '<span class="dot"></span>Pinned — this exact spot is what attendees will see';
+    } else if(state === 'preview'){
+      newLocPinStatus.className = 'loc-pin-status previewing';
+      newLocPinStatus.innerHTML = '<span class="dot"></span>Previewing your top match — keep typing, or press Enter to confirm';
     } else {
       newLocPinStatus.className = 'loc-pin-status';
       newLocPinStatus.textContent = 'No pin yet — search above, or click the map to drop one';
@@ -612,7 +629,7 @@
     // a search result -- reverse-geocode it back to a readable address so
     // the text field and the pin never end up disagreeing with each other.
     locMap.on('click', function(e){ placePin(e.latlng.lat, e.latlng.lng, { reverseGeocode: true }); });
-    markPinStatus(false);
+    markPinStatus('none');
     return locMap;
   }
 
@@ -622,18 +639,20 @@
     newLongitude.value = lon;
     ensureLocMap();
     if(!locMarker){
-      locMarker = L.marker([lat, lon], { draggable: true }).addTo(locMap);
+      locMarker = L.marker([lat, lon], { draggable: true, opacity: opts.preview ? 0.7 : 1 }).addTo(locMap);
       // Dragging the pin re-syncs the typed address to wherever it lands,
-      // the same as a map click does.
+      // the same as a map click does. A drag is always a deliberate,
+      // confirmed placement, never just a preview.
       locMarker.on('dragend', function(){
         var pos = locMarker.getLatLng();
         placePin(pos.lat, pos.lng, { reverseGeocode: true, keepZoom: true });
       });
     } else {
       locMarker.setLatLng([lat, lon]);
+      locMarker.setOpacity(opts.preview ? 0.7 : 1);
     }
     locMap.setView([lat, lon], opts.keepZoom ? locMap.getZoom() : Math.max(locMap.getZoom(), 15));
-    markPinStatus(true);
+    markPinStatus(opts.preview ? 'preview' : 'confirmed');
     refreshCreateBtnState();
     if(opts.reverseGeocode) reverseGeocode(lat, lon);
   }
@@ -642,7 +661,33 @@
     newLatitude.value = '';
     newLongitude.value = '';
     if(locMarker && locMap){ locMap.removeLayer(locMarker); locMarker = null; }
-    markPinStatus(false);
+    markPinStatus('none');
+  }
+
+  // Resolves the signed-in admin's own county (e.g. "Mombasa") to a real
+  // bounding box via Nominatim, then biases every venue search toward it
+  // and opens the map already framed on it -- a Mombasa admin searching
+  // "swahilipot hub" should get the Mombasa result ranked first without
+  // having to scroll a whole-country map to find it. Best-effort only: if
+  // this lookup fails, search and the map both just fall back to covering
+  // all of Kenya, which still works fine.
+  function initCountyBias(countyName){
+    if(!countyName) return;
+    fetch('https://nominatim.openstreetmap.org/search?format=json&countrycodes=ke&limit=1&q=' + encodeURIComponent(countyName + ' County, Kenya'))
+      .then(function(res){ return res.json(); })
+      .then(function(results){
+        if(!results || !results.length) return;
+        var bb = results[0].boundingbox;
+        var south = Number(bb[0]), north = Number(bb[1]), west = Number(bb[2]), east = Number(bb[3]);
+        countyViewboxParam = west + ',' + south + ',' + east + ',' + north;
+        countyBounds = L.latLngBounds([south, west], [north, east]);
+        if(newLocHint) newLocHint.textContent = 'Search above, click the map, or drag the pin to fine-tune the exact spot attendees will see. Results are prioritized near ' + countyName + '.';
+        // Only actually move the map if the admin hasn't already dropped a
+        // pin while this lookup was still in flight -- their own action
+        // always wins over this background convenience.
+        if(locMap && !locMarker) locMap.fitBounds(countyBounds, { maxZoom: 12 });
+      })
+      .catch(function(){ /* best-effort -- nationwide search/map still work without this */ });
   }
 
   function closeAddressPanel(){
@@ -690,18 +735,22 @@
 
   function renderAddressSuggestions(results, query){
     newAddressPanel.innerHTML = '';
-    activeSuggestionIndex = -1;
+    // The top result is already the one live-previewed on the map (see the
+    // 'input' handler below) the moment results come back -- marking it
+    // active here just makes the dropdown agree with what the map is
+    // already showing, and lets a bare Enter keypress confirm it.
+    activeSuggestionIndex = results.length ? 0 : -1;
     if(!results.length){
       var empty = document.createElement('div');
       empty.className = 'aa-empty';
       empty.textContent = 'No matches for "' + query + '" — click the map below to drop a pin, or enter the address by hand.';
       newAddressPanel.appendChild(empty);
     } else {
-      results.forEach(function(r){
+      results.forEach(function(r, i){
         var parts = splitDisplayName(r.display_name);
         var item = document.createElement('button');
         item.type = 'button';
-        item.className = 'aa-item';
+        item.className = i === 0 ? 'aa-item aa-active' : 'aa-item';
         var primary = document.createElement('span');
         primary.className = 'aa-primary';
         primary.textContent = parts.primary;
@@ -778,18 +827,30 @@
   // applyLocType()'s later toggle-driven calls.
   ensureLocMap();
 
+  function buildAddressSearchUrl(q){
+    // countrycodes=ke because every event this org runs is in Kenya --
+    // without it a query like "hub" can easily surface a same-named place
+    // on another continent ahead of the real one. viewbox+bounded=0 biases
+    // (never excludes) results toward the signed-in admin's own county
+    // once initCountyBias() below has resolved it, so "swahilipot hub"
+    // ranks the Mombasa branch first for a Mombasa admin without blocking
+    // a genuinely different-county match if that's really what they want.
+    var url = 'https://nominatim.openstreetmap.org/search?format=json&addressdetails=0&limit=5&countrycodes=ke&q=' + encodeURIComponent(q);
+    if(countyViewboxParam) url += '&viewbox=' + countyViewboxParam + '&bounded=0';
+    return url;
+  }
+
   var addressDebounceTimer, addressAbortController, activeSuggestionIndex = -1;
   newAddress.addEventListener('input', function(){
-    // Any manual edit invalidates whatever was previously picked -- the
-    // text no longer provably matches those coordinates, so the pin is
-    // cleared from the map rather than left silently stale.
-    clearPickedLocation();
     refreshCreateBtnState();
-
     var q = newAddress.value.trim();
     clearTimeout(addressDebounceTimer);
     if(addressAbortController) addressAbortController.abort();
     if(q.length < 3){
+      // Too short to search at all -- this is the one case a manual edit
+      // clears the pin immediately rather than waiting on a debounce,
+      // since there's nothing left to preview against.
+      clearPickedLocation();
       closeAddressPanel();
       newAddressStatus.textContent = '';
       return;
@@ -800,11 +861,25 @@
     // pauses, never per keystroke.
     addressDebounceTimer = setTimeout(function(){
       addressAbortController = new AbortController();
-      fetch('https://nominatim.openstreetmap.org/search?format=json&addressdetails=0&limit=5&q=' + encodeURIComponent(q), { signal: addressAbortController.signal })
+      fetch(buildAddressSearchUrl(q), { signal: addressAbortController.signal })
         .then(function(res){ return res.json(); })
         .then(function(results){
           newAddressStatus.textContent = '';
           renderAddressSuggestions(results || [], q);
+          if(results && results.length){
+            // This is the fix for "I typed the address and nothing
+            // happened": the top match now lands on the map the moment
+            // results come back, with no separate click required. It's
+            // clearly marked as a preview (see markPinStatus) until the
+            // admin confirms it -- by picking a different result, clicking
+            // the map, or just pressing Enter -- but the coordinates are
+            // already live and will save correctly even if they never do.
+            placePin(+results[0].lat, +results[0].lon, { preview: true });
+          } else {
+            // Nothing matches the current text -- whatever was previewed
+            // for a shorter/earlier version of it no longer applies.
+            clearPickedLocation();
+          }
         })
         .catch(function(err){
           if(err && err.name === 'AbortError') return;
@@ -932,7 +1007,10 @@
     newAddress.value = ''; newMeetingLink.value = '';
     clearPickedLocation();
     closeAddressPanel();
-    if(locMap) locMap.setView(KENYA_CENTER, KENYA_DEFAULT_ZOOM);
+    if(locMap){
+      if(countyBounds) locMap.fitBounds(countyBounds, { maxZoom: 12 });
+      else locMap.setView(KENYA_CENTER, KENYA_DEFAULT_ZOOM);
+    }
     createError.style.display = 'none';
     refreshCreateBtnState();
   }
@@ -1310,6 +1388,7 @@
     if(!user) return;
     loadEvents();
     loadAudit();
+    initCountyBias(user.county);
   });
 })();
 </script>
