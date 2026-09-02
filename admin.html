@@ -137,29 +137,72 @@
   .loctype-toggle button + button{ border-left:1px solid #ccc; }
   .loctype-toggle button.active{ background:var(--accent); color:#fff; font-weight:600; }
 
-  /* Address autocomplete -- backed by OpenStreetMap's free Nominatim
-     search (see the debounced fetch in the create/edit form JS below), no
-     API key or paid mapping SDK. The dropdown reuses the calendar's own
-     .dp-panel look (border/shadow/radius) so it reads as the same family
-     of "floating picker" as the date fields right above it. */
+  /* Address search -- backed by OpenStreetMap's free Nominatim API (see
+     the debounced fetch in the create/edit form JS below), no API key or
+     paid mapping SDK. The dropdown reuses the calendar's own .dp-panel
+     look (border/shadow/radius) so it reads as the same family of
+     "floating picker" as the date fields right above it. Paired below with
+     a real interactive Leaflet map -- not an embedded iframe -- so a
+     pin can be dropped by clicking, or fine-tuned by dragging, whether or
+     not the text search finds the exact spot. */
+  .loc-picker{ position:relative; }
   .address-autocomplete{ position:relative; }
+  .address-autocomplete .aa-pin{
+    position:absolute; left:10px; top:50%; transform:translateY(-50%);
+    width:13px; height:13px; color:#999; pointer-events:none;
+  }
+  #newAddress{ padding-left:30px; padding-right:34px; }
   .aa-status{
-    position:absolute; right:9px; top:9px; font-size:10.5px; color:#999;
+    position:absolute; right:9px; top:50%; transform:translateY(-50%); font-size:10.5px; color:#999;
     pointer-events:none;
   }
-  .aa-panel{ width:100%; padding:4px; max-height:220px; overflow-y:auto; }
+  .aa-panel{ width:100%; padding:4px; max-height:240px; overflow-y:auto; }
   .aa-panel .aa-item{
-    display:block; width:100%; text-align:left; border:none; background:none;
-    padding:8px 9px; font-size:12.5px; border-radius:6px; cursor:pointer; color:#222;
+    display:flex; flex-direction:column; gap:1px; width:100%; text-align:left; border:none; background:none;
+    padding:7px 9px; font-size:12.5px; border-radius:6px; cursor:pointer; color:#222;
   }
+  .aa-panel .aa-item .aa-primary{ font-weight:600; }
+  .aa-panel .aa-item .aa-secondary{ font-size:11px; color:#888; }
   .aa-panel .aa-item:hover, .aa-panel .aa-item.aa-active{ background:#f7e6e9; }
-  .aa-panel .aa-empty{ padding:10px 9px; font-size:12px; color:#888; font-style:italic; }
+  .aa-panel .aa-empty, .aa-panel .aa-error-msg{ padding:10px 9px; font-size:12px; color:#888; font-style:italic; line-height:1.4; }
+  .aa-panel .aa-error-msg{ color:var(--accent); font-style:normal; }
 
-  .map-preview{ margin:-4px 0 12px; }
-  .map-preview iframe{
-    width:100%; height:160px; border:1px solid #ddd; border-radius:6px; display:block;
+  .loc-recent{ display:flex; flex-wrap:wrap; gap:6px; margin:9px 0 0; }
+  .loc-recent .loc-chip{
+    font-size:11px; padding:5px 10px 5px 8px; border-radius:999px; border:1px solid #ddd;
+    background:#fafafa; color:#444; cursor:pointer; display:inline-flex; align-items:center; gap:5px;
   }
-  .map-preview a{ display:inline-block; margin-top:4px; font-size:11.5px; color:var(--accent2); }
+  .loc-recent .loc-chip:hover{ background:#f7e6e9; border-color:var(--accent); color:var(--accent); filter:none; }
+  .loc-recent .loc-chip svg{ width:10px; height:10px; flex:none; color:#aaa; }
+  .loc-recent .loc-chip:hover svg{ color:var(--accent); }
+
+  .loc-map-wrap{ position:relative; margin:10px 0 4px; }
+  .loc-map{
+    width:100%; height:220px; border:1px solid #ddd; border-radius:6px; background:#f2f2f2;
+  }
+  .loc-locate-btn{
+    position:absolute; right:8px; top:8px; z-index:400; width:30px; height:30px; border-radius:6px;
+    border:1px solid #ccc; background:#fff; color:#444; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 1px 4px rgba(0,0,0,.18); padding:0;
+  }
+  .loc-locate-btn:hover{ color:var(--accent); border-color:var(--accent); filter:none; }
+  .loc-locate-btn svg{ width:14px; height:14px; }
+  .loc-locate-btn.busy svg{ animation:locSpin 1s linear infinite; }
+  @keyframes locSpin{ to{ transform:rotate(360deg); } }
+
+  .loc-pin-status{
+    display:flex; align-items:center; gap:6px; font-size:11.5px; color:#888; margin-top:7px; min-height:1.4em;
+  }
+  .loc-pin-status.picked{ color:#1a7f37; font-weight:600; }
+  .loc-pin-status .dot{ width:6px; height:6px; border-radius:50%; background:currentColor; flex:none; }
+  .loc-hint{ font-size:11px; color:#999; margin:5px 0 12px; }
+
+  /* Leaflet's own chrome (zoom buttons, attribution link) renders in flat
+     black/blue by default -- retinted just enough to sit quietly inside
+     this red/white theme instead of clashing with it. */
+  .leaflet-control-zoom a{ color:#444 !important; }
+  .leaflet-bar{ border-color:#ccc !important; box-shadow:0 1px 4px rgba(0,0,0,.18) !important; }
+  .leaflet-control-attribution{ font-size:10px !important; }
 
   .badge.virtual{ background:#eef2fb; color:#2a5fd6; }
   .badge.physical{ background:#f4f4f4; color:#555; }
@@ -216,17 +259,25 @@
       <button type="button" data-loctype="VIRTUAL">Virtual</button>
     </div>
     <div id="newAddressField">
-      <label for="newAddress">Address</label>
-      <div class="address-autocomplete" id="newAddressWrap">
-        <input type="text" id="newAddress" placeholder="Start typing an address or venue name…" autocomplete="off">
-        <span class="aa-status" id="newAddressStatus"></span>
-        <input type="hidden" id="newLatitude">
-        <input type="hidden" id="newLongitude">
-        <div class="dp-panel aa-panel" id="newAddressPanel"></div>
-      </div>
-      <div class="map-preview" id="newMapPreview" style="display:none;">
-        <iframe id="newMapFrame" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
-        <a href="#" target="_blank" rel="noopener" id="newMapLargeLink">Open larger map ↗</a>
+      <label for="newAddress">Venue / address</label>
+      <div class="loc-picker" id="newLocPicker">
+        <div class="address-autocomplete" id="newAddressWrap">
+          <svg class="aa-pin" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M7 12.8S11.5 8.6 11.5 5.4a4.5 4.5 0 1 0-9 0C2.5 8.6 7 12.8 7 12.8Z"/><circle cx="7" cy="5.4" r="1.6"/></svg>
+          <input type="text" id="newAddress" placeholder="Search for a venue or address…" autocomplete="off">
+          <span class="aa-status" id="newAddressStatus"></span>
+          <input type="hidden" id="newLatitude">
+          <input type="hidden" id="newLongitude">
+          <div class="dp-panel aa-panel" id="newAddressPanel"></div>
+        </div>
+        <div class="loc-recent" id="newLocRecent" style="display:none;"></div>
+        <div class="loc-map-wrap">
+          <div class="loc-map" id="newLocMap"></div>
+          <button type="button" class="loc-locate-btn" id="newLocateBtn" title="Use my current location" aria-label="Use my current location">
+            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="2.2"/><path d="M7 .8v2.4M7 10.8v2.4M.8 7h2.4M10.8 7h2.4"/></svg>
+          </button>
+        </div>
+        <div class="loc-pin-status" id="newLocPinStatus"></div>
+        <p class="loc-hint">Search above, click the map, or drag the pin to fine-tune the exact spot attendees will see.</p>
       </div>
     </div>
     <div id="newMeetingLinkField" style="display:none;">
