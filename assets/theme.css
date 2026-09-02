@@ -92,3 +92,17 @@ td.actions button{ font-size:11px; padding:4px 8px; margin-right:4px; }
 .badge.disabled{ background:#fdf2f3; color:var(--accent); }
 
 .footer-note{ text-align:center; font-size:11px; color:#888; }
+
+/* --- Analytics: stat tiles + a dependency-free bar sparkline --- */
+.stat-grid{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+.stat-tile{ flex:1; min-width:130px; background:#fafafa; border:1px solid #eee; border-radius:8px; padding:12px 14px; }
+.stat-tile .stat-label{ font-size:10.5px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:#888; margin-bottom:4px; }
+.stat-tile .stat-value{ font-size:22px; font-weight:700; color:var(--ink); line-height:1.2; }
+.stat-tile .stat-sub{ font-size:11px; color:#888; margin-top:2px; }
+
+.sparkbar{ display:flex; align-items:flex-end; gap:2px; height:44px; margin:6px 0 3px; }
+.sparkbar .bar{ flex:1; background:var(--accent2); border-radius:2px 2px 0 0; min-height:2px; opacity:.8; }
+.sparkbar .bar:hover{ opacity:1; }
+.sparkbar-caption{ display:flex; justify-content:space-between; font-size:10px; color:#999; }
+
+.county-table td.num, .county-table th.num{ text-align:right; }

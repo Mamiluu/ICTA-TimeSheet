@@ -217,6 +217,11 @@
   </div>
 
   <div class="sheet wide">
+    <h2 class="section">At a glance</h2>
+    <div id="insightsWrap"><p class="empty">Loading…</p></div>
+  </div>
+
+  <div class="sheet wide">
     <h2 class="section">Your county's events</h2>
     <button id="refreshEventsBtn">Refresh</button>
     <div id="eventsWrap" style="margin-top:12px;"></div>
@@ -915,10 +920,52 @@
   }
   document.getElementById('refreshAuditBtn').addEventListener('click', loadAudit);
 
+  // --- At-a-glance insights for this county: aggregate counts across this
+  // admin's own events only (see GET /api/admin/analytics) -- the same
+  // scoping /api/admin/events already uses, never anyone else's county.
+  var insightsWrap = document.getElementById('insightsWrap');
+
+  function pct(n, total){ return total > 0 ? Math.round((n / total) * 100) : 0; }
+
+  function renderSparkbar(trend){
+    var max = Math.max.apply(null, [1].concat(trend.map(function(t){ return t.count; })));
+    var bars = trend.map(function(t){
+      var h = Math.round((t.count / max) * 100);
+      var label = t.date + ': ' + t.count + (t.count === 1 ? ' sign-in' : ' sign-ins');
+      return '<div class="bar" style="height:' + Math.max(h, 3) + '%" title="' + escapeHtml(label) + '"></div>';
+    }).join('');
+    var first = trend[0] ? trend[0].date : '';
+    var last = trend[trend.length - 1] ? trend[trend.length - 1].date : '';
+    return '<div class="sparkbar">' + bars + '</div><div class="sparkbar-caption"><span>' + escapeHtml(first) + '</span><span>' + escapeHtml(last) + '</span></div>';
+  }
+
+  function loadAnalytics(){
+    API.get('/api/admin/analytics').then(function(r){
+      if(r.status !== 200 || !r.data.ok){
+        insightsWrap.innerHTML = '<p class="empty">Could not load insights.</p>';
+        return;
+      }
+      var d = r.data;
+      var consentTotal = d.byConsent['true'] + d.byConsent['false'];
+      var consentRate = pct(d.byConsent['true'], consentTotal);
+      insightsWrap.innerHTML = '<div class="stat-grid">'
+        + '<div class="stat-tile"><div class="stat-label">Events</div><div class="stat-value">' + d.totalEvents + '</div></div>'
+        + '<div class="stat-tile"><div class="stat-label">Attendance</div><div class="stat-value">' + (d.byStatus.ACTIVE + d.byStatus.FLAGGED_FOR_REMOVAL + d.byStatus.RETIRED) + '</div>'
+          + '<div class="stat-sub">' + d.byStatus.ACTIVE + ' active · ' + d.byStatus.RETIRED + ' retired</div></div>'
+        + '<div class="stat-tile"><div class="stat-label">Consent rate</div><div class="stat-value">' + consentRate + '%</div>'
+          + '<div class="stat-sub">of ' + consentTotal + ' with an explicit answer</div></div>'
+        + '</div>'
+        + renderSparkbar(d.trend);
+    }).catch(function(){
+      insightsWrap.innerHTML = '<p class="empty">Network error — could not reach the backend.</p>';
+    });
+  }
+
   requireSession().then(function(user){
     if(!user) return;
     loadEvents();
     loadAudit();
+    loadAnalytics();
   });
 })();
 </script>

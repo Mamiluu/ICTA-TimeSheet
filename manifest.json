@@ -1,0 +1,17 @@
+{
+  "name": "ICT Authority — Attendance Sheet",
+  "short_name": "Attendance",
+  "description": "Sign in for an event — no app or account needed.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#faf7f0",
+  "theme_color": "#faf7f0",
+  "icons": [
+    {
+      "src": "assets/icta_logo_cropped.png",
+      "sizes": "279x190",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

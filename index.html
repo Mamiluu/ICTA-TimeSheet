@@ -5,44 +5,102 @@
   Unauthorized copying, modification, or distribution is prohibited.
 -->
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#faf7f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161a15" media="(prefers-color-scheme: dark)">
+<meta name="description" content="Sign in for this event — draw your signature, no app or account needed.">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/icta_logo_cropped.png">
+<link rel="icon" href="assets/icta_logo_cropped.png">
 <title>ICT Authority — Attendance Sheet</title>
 <style>
+  /* ---------------------------------------------------------------------
+     Design language: "the ledger and the stamp." This is a government
+     attendance record, not a SaaS signup form -- the visual vocabulary
+     leans into that on purpose (a bound-ledger card, a hand-drawn ink
+     signature, an official stamp on the receipt) rather than borrowing
+     generic dashboard chrome. Official red stays reserved for the one
+     place it already meant something (the ICTA letterhead) instead of
+     being smeared across every button; the working palette is an ink/
+     paper pairing with a single warm seal color for the moment that
+     actually deserves emphasis -- successfully signing in.
+     --------------------------------------------------------------------- */
   :root{
-    --ink:#1a1a1a;
+    --ink:#1c1a17;
     --line:#000;
-    --paper:#fff;
-    --muted:#555;
+    --paper:#fffdf9;
+    --muted:#5b564c;
     --accent:#c8102e;
     --accent2:#0a7a3a;
-    --bg:#e9e9e9;
+    --bg:#eee9dc;
+    --paper-edge:#e4dcc8;
+    --seal:#a3401f;
+    --seal-ink:#fdf2ea;
+    --ledger-line:#d8cfb8;
+    --focus:#1c1a17;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
   }
   @media (prefers-color-scheme: dark){
-    :root{ --bg:#1e1e1e; }
+    :root{
+      --ink:#ece7db; --paper:#20241d; --muted:#a7a190; --bg:#161a15;
+      --paper-edge:#2b3024; --ledger-line:#343a2c; --seal:#e2a479; --seal-ink:#241a14;
+      --focus:#ece7db;
+    }
   }
-  :root[data-theme="dark"]{ --bg:#1e1e1e; }
-  :root[data-theme="light"]{ --bg:#e9e9e9; }
+  :root[data-theme="dark"]{
+    --ink:#ece7db; --paper:#20241d; --muted:#a7a190; --bg:#161a15;
+    --paper-edge:#2b3024; --ledger-line:#343a2c; --seal:#e2a479; --seal-ink:#241a14;
+    --focus:#ece7db;
+  }
+  :root[data-theme="light"]{
+    --ink:#1c1a17; --paper:#fffdf9; --muted:#5b564c; --bg:#eee9dc;
+    --paper-edge:#e4dcc8; --ledger-line:#d8cfb8; --seal:#a3401f; --seal-ink:#fdf2ea;
+    --focus:#1c1a17;
+  }
 
   *{ box-sizing:border-box; }
   body{
     margin:0;
     padding:24px 12px 60px;
-    background:var(--bg);
+    /* A faint woven texture instead of a flat fill -- reads as paper/cloth
+       stock rather than a screen. Pure CSS, no image asset, ~nothing to
+       load, and it disappears cleanly if a viewer has reduced-motion /
+       forced-colors preferences since it's just two overlaid gradients. */
+    background-color:var(--bg);
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(0,0,0,.035) 1px, transparent 0);
+    background-size:14px 14px;
     font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif;
     color:var(--ink);
     display:flex;
     flex-direction:column;
     align-items:center;
   }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) body{ background-image:radial-gradient(circle at 1px 1px, rgba(255,255,255,.035) 1px, transparent 0); }
+  }
+  :root[data-theme="dark"] body{ background-image:radial-gradient(circle at 1px 1px, rgba(255,255,255,.035) 1px, transparent 0); }
 
   .sheet{
     background:var(--paper);
-    color:#000;
+    color:var(--ink);
     width:100%;
     max-width:900px;
     padding:32px 36px 28px;
-    box-shadow:0 4px 24px rgba(0,0,0,.25);
-    border-radius:4px;
+    box-shadow:0 1px 0 var(--paper-edge), 0 18px 40px -18px rgba(0,0,0,.35), 0 2px 10px rgba(0,0,0,.08);
+    border-radius:7px;
+    border:1px solid var(--paper-edge);
+    position:relative;
   }
+  /* The bound-edge -- a single hairline offset inward on the left, like the
+     stitched/glued spine of a ledger book. Decorative only (aria-hidden via
+     no content), and quietly drops out in print where it'd be noise. */
+  .sheet::before{
+    content:"";
+    position:absolute; left:14px; top:18px; bottom:18px; width:1px;
+    background:var(--ledger-line);
+  }
+  @media print{ .sheet::before{ display:none; } }
 
   .letterhead{
     display:flex;
@@ -51,57 +109,80 @@
     gap:16px;
     border-bottom:0;
     margin-bottom:6px;
+    padding-bottom:14px;
+    border-bottom:1px solid var(--ledger-line);
   }
-  .letterhead .addr{ font-size:12px; line-height:1.5; }
-  .letterhead .addr .org{ font-weight:bold; font-size:13px; }
-  .letterhead .addr a{ color:#000; text-decoration:underline; }
+  .letterhead .addr{ font-size:12px; line-height:1.5; color:var(--muted); }
+  .letterhead .addr .org{ font-weight:bold; font-size:13px; color:var(--ink); font-family:var(--serif); letter-spacing:.2px; }
+  .letterhead .addr a{ color:var(--muted); text-decoration:underline; }
   .letterhead .logo img{ height:56px; display:block; }
 
   h1.title{
     text-align:center;
-    font-size:17px;
-    letter-spacing:.5px;
-    text-decoration:underline;
-    margin:14px 0 18px;
+    font-family:var(--serif);
+    font-weight:600;
+    font-size:19px;
+    letter-spacing:.3px;
+    margin:18px 0 20px;
+    color:var(--ink);
+    position:relative;
+  }
+  /* A short rule under the title rather than an underline through the
+     descenders -- same "this is the formal heading" cue, without making a
+     serif title look like a broken hyperlink. */
+  h1.title::after{
+    content:"";
+    display:block;
+    width:46px; height:2px; margin:9px auto 0;
+    background:var(--seal);
+    border-radius:2px;
   }
 
   .event-box{
-    border:1.5px solid var(--line);
+    border:1px solid var(--ledger-line);
+    border-radius:6px;
     margin-bottom:22px;
+    background:linear-gradient(180deg, rgba(0,0,0,.012), transparent 40px);
+    overflow:hidden;
   }
   .event-box .row{ display:flex; }
   .event-box .field{
-    border-top:1.5px solid var(--line);
-    padding:8px 10px;
+    border-top:1px solid var(--ledger-line);
+    padding:11px 14px;
     flex:1;
   }
   .event-box > .field:first-child{ border-top:none; }
-  .event-box .row .field + .field{ border-left:1.5px solid var(--line); }
+  .event-box .row .field + .field{ border-left:1px solid var(--ledger-line); }
   .event-box label{
-    font-weight:bold;
-    font-size:12.5px;
+    font-weight:700;
+    font-size:10.5px;
+    letter-spacing:.6px;
+    text-transform:uppercase;
+    color:var(--muted);
     display:block;
-    margin-bottom:4px;
+    margin-bottom:5px;
   }
   .event-box input{
     border:none;
-    border-bottom:1px dotted #999;
+    border-bottom:1px dotted var(--muted);
     width:100%;
     font-family:inherit;
     font-size:13px;
     padding:3px 2px;
     background:transparent;
+    color:var(--ink);
   }
   .event-box input:focus{ outline:none; border-bottom:1px solid var(--accent); }
   .event-box .field-value{
-    font-size:13px;
+    font-size:14px;
     min-height:1.3em;
-    color:#111;
+    color:var(--ink);
+    font-family:var(--serif);
   }
-  .event-box .field-value.muted{ color:#999; font-style:italic; }
-  .event-box .field-desc{ font-size:12.5px; color:#444; margin-top:5px; line-height:1.4; }
+  .event-box .field-value.muted{ color:var(--muted); font-style:italic; font-family:inherit; }
+  .event-box .field-desc{ font-size:12.5px; color:var(--muted); margin-top:6px; line-height:1.45; font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; }
   .event-box .where-link{
-    display:inline-block; margin-top:5px; font-size:11.5px; font-weight:600;
+    display:inline-block; margin-top:6px; font-size:11.5px; font-weight:600;
     color:var(--accent2); text-decoration:none;
   }
   .event-box .where-link:hover{ text-decoration:underline; }
@@ -366,9 +447,9 @@
     display:flex;
     align-items:flex-start;
     gap:9px;
-    background:#eef7f1;
-    border:1px solid #bfe3cc;
-    color:#0a5c2e;
+    background:transparent;
+    border:1px dashed var(--ledger-line);
+    color:var(--muted);
     border-radius:6px;
     padding:10px 14px;
     font-size:12.5px;
@@ -376,29 +457,62 @@
     margin-bottom:14px;
   }
   .privacy-badge .icon{ font-size:15px; line-height:1.45; flex:none; }
-  .privacy-badge strong{ font-weight:700; }
-  @media (prefers-color-scheme: dark){
-    :root:not([data-theme="light"]) .privacy-badge{ background:#123322; border-color:#1e5c3c; color:#8fe0b3; }
-  }
-  :root[data-theme="dark"] .privacy-badge{ background:#123322; border-color:#1e5c3c; color:#8fe0b3; }
+  .privacy-badge strong{ font-weight:700; color:var(--ink); }
 
+  /* --- The stamp: the one moment in this whole page that gets to be
+     ceremonial. An attendance record is a small bureaucratic ritual --
+     signing in should feel like getting a document stamped, not like
+     submitting a web form. Built entirely from CSS (a rotated ring +
+     a checkmark), no image asset, so it stays crisp at any size and
+     recolors cleanly in dark mode. */
   .receipt-banner{
     max-width:900px;
     width:100%;
     display:none;
-    background:#0a7a3a;
-    color:#fff;
-    border-radius:6px;
-    padding:14px 16px;
+    align-items:center;
+    gap:16px;
+    background:var(--paper);
+    border:1px solid var(--ledger-line);
+    color:var(--ink);
+    border-radius:8px;
+    padding:16px 20px;
     margin-bottom:14px;
     font-size:13px;
     line-height:1.5;
-    box-shadow:0 4px 14px rgba(10,122,58,.3);
+    box-shadow:0 10px 28px -14px rgba(0,0,0,.35);
   }
-  .receipt-banner.show{ display:block; }
-  .receipt-banner .rb-title{ font-weight:700; font-size:14px; margin-bottom:3px; }
-  .receipt-banner .rb-title .tick{ display:inline-block; margin-right:6px; }
-  .receipt-banner .rb-sub{ opacity:.92; }
+  .receipt-banner.show{ display:flex; animation:rbSlideIn .45s cubic-bezier(.2,.8,.25,1); }
+  .receipt-banner .rb-seal{
+    flex:none;
+    width:52px; height:52px;
+    border-radius:50%;
+    border:2.5px solid var(--seal);
+    color:var(--seal);
+    display:flex; align-items:center; justify-content:center;
+    transform:rotate(-8deg);
+    position:relative;
+    animation:rbStamp .5s cubic-bezier(.34,1.56,.64,1) .08s both;
+  }
+  .receipt-banner .rb-seal::before{
+    content:"";
+    position:absolute; inset:4px;
+    border-radius:50%;
+    border:1px dashed var(--seal);
+    opacity:.6;
+  }
+  .receipt-banner .rb-seal svg{ width:22px; height:22px; position:relative; }
+  .receipt-banner .rb-body{ min-width:0; }
+  .receipt-banner .rb-title{ font-weight:700; font-size:14.5px; margin-bottom:3px; font-family:var(--serif); }
+  .receipt-banner .rb-sub{ opacity:.8; }
+  @keyframes rbSlideIn{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:none; } }
+  @keyframes rbStamp{
+    0%{ transform:rotate(-8deg) scale(2.2); opacity:0; }
+    60%{ opacity:1; }
+    100%{ transform:rotate(-8deg) scale(1); opacity:1; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .receipt-banner.show, .receipt-banner .rb-seal{ animation:none; }
+  }
 
   .closing-soon-banner{
     max-width:900px;
@@ -423,28 +537,191 @@
   }
   :root[data-theme="dark"] .closing-soon-banner{ background:#3a2c0a; border-color:#5c481e; color:#f0cf7a; }
 
+  /* -----------------------------------------------------------------
+     Attendee card mode. A plain visitor only ever has their own single
+     draft/submitted row (the sealed-roster model -- see loadRemote), so
+     the admin's dense spreadsheet-row layout is the wrong shape for them:
+     one wide low table row reading left-to-right is a bad fit for a
+     phone, and it visually undersells what is, for this one person, the
+     entire reason they opened the link. Rather than branch render() into
+     two different DOM structures, the exact same <tr>/<td> markup is
+     restyled here into a single vertical sign-in card, keyed off the
+     role-attendee body class toggled in applyAdminVisibility. Nothing
+     about the underlying state machine, validation, or submit flow
+     changes -- only how it's presented.
+     ----------------------------------------------------------------- */
+  body.role-attendee table.roster{ table-layout:auto; border:none; }
+  body.role-attendee table.roster thead{ display:none; }
+  body.role-attendee table.roster tbody,
+  body.role-attendee table.roster tr,
+  body.role-attendee table.roster td{ display:block; width:auto; border:none; }
+  body.role-attendee table.roster tr.draft-row,
+  body.role-attendee table.roster tr.submitted-row{
+    background:var(--paper);
+    border:1px solid var(--ledger-line);
+    border-radius:10px;
+    padding:20px 20px 16px;
+  }
+  body.role-attendee table.roster tr.submitted-row{ background:var(--paper); }
+  body.role-attendee table.roster td.num{ display:none; }
+  body.role-attendee table.roster td[data-label]{ padding:0 0 14px; }
+  body.role-attendee table.roster td[data-label]::before{
+    content:attr(data-label);
+    display:block;
+    font-size:10.5px;
+    font-weight:700;
+    letter-spacing:.6px;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:6px;
+  }
+  body.role-attendee table.roster td textarea{
+    border:1px solid var(--ledger-line);
+    border-radius:7px;
+    padding:10px 12px;
+    font-size:15px;
+    background:transparent;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  body.role-attendee table.roster td textarea:focus{
+    outline:none;
+    border-color:var(--focus);
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--focus) 12%, transparent);
+    background:transparent;
+  }
+  body.role-attendee table.roster td .print-value{ font-size:15px; padding:10px 0; }
+
+  /* Consent becomes two full-width pill buttons rather than two tiny radio
+     dots -- the same underlying <input type=radio> pair (unchanged), just
+     given a much larger, thumb-friendly hit target and a state that's
+     obvious at a glance instead of a small filled circle. */
+  body.role-attendee .consent-toggle{ flex-direction:row; gap:8px; }
+  body.role-attendee .consent-toggle label{
+    flex:1; justify-content:center; gap:6px;
+    border:1px solid var(--ledger-line); border-radius:7px;
+    padding:9px 10px; font-size:12.5px; font-weight:600; color:var(--muted);
+    transition:border-color .15s, color .15s, background .15s;
+  }
+  body.role-attendee .consent-toggle label:has(input:checked){
+    border-color:var(--accent2); color:var(--accent2);
+    background:color-mix(in srgb, var(--accent2) 8%, transparent);
+  }
+  body.role-attendee .consent-toggle input{ position:absolute; opacity:0; width:1px; height:1px; }
+
+  /* The sign cell becomes the visual anchor of the card: a generous dashed
+     tap target before signing, a framed keepsake of the actual signature
+     after. */
+  body.role-attendee td.sign-cell{ text-align:left; }
+  body.role-attendee td.sign-cell button{
+    all:unset;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    width:100%; box-sizing:border-box;
+    border:1.5px dashed var(--ledger-line);
+    border-radius:8px;
+    padding:16px;
+    font-size:13.5px; font-weight:600; color:var(--muted);
+    cursor:pointer;
+  }
+  body.role-attendee td.sign-cell button::before{ content:"✎"; font-size:16px; }
+  body.role-attendee td.sign-cell button:hover{ border-color:var(--focus); color:var(--ink); }
+  body.role-attendee td.sign-cell .sig-wrap{
+    justify-content:flex-start; gap:12px;
+    border:1px solid var(--ledger-line); border-radius:8px; padding:12px 14px;
+    background:color-mix(in srgb, var(--seal) 4%, transparent);
+  }
+  body.role-attendee td.sign-cell img{ max-height:34px; }
+  body.role-attendee td.sign-cell button.redo-btn{
+    all:unset; margin-left:auto; font-size:11.5px; font-weight:600; color:var(--accent2); cursor:pointer;
+  }
+
+  /* The submit action becomes one unmissable primary button spanning the
+     card's full width, in place of a small checkmark icon at the end of a
+     table row -- there is exactly one thing left to do on this card, so
+     the button says so. */
+  /* Scoped to the draft row specifically -- a *submitted* row's rowdel
+     cell holds a completely different control (a status chip + the
+     segmented icon action-group used for Edit/Flag/etc, shared verbatim
+     with the admin roster view), which must keep its own icon-based
+     styling untouched rather than being relabeled as if it were the
+     submit/clear pair below. */
+  body.role-attendee tr.draft-row td.rowdel{ padding-top:6px; display:flex; flex-direction:column; gap:8px; }
+  /* font-size:0 on the button swallows its own JS-set text node ("✓" /
+     "…", shared with the admin table-row rendering of this exact same
+     button); the ::before pseudo-element restores its own explicit
+     font-size to actually show the replacement label. */
+  body.role-attendee tr.draft-row td.rowdel button.submit-btn{
+    all:unset; box-sizing:border-box; text-align:center;
+    width:100%; padding:13px; border-radius:8px;
+    background:var(--ink); color:var(--paper);
+    font-size:0; cursor:pointer;
+  }
+  body.role-attendee tr.draft-row td.rowdel button.submit-btn::before{
+    content:"Confirm & sign in"; font-size:14.5px; font-weight:700; letter-spacing:.2px;
+  }
+  body.role-attendee tr.draft-row td.rowdel button.submit-btn:disabled{ opacity:.55; cursor:default; }
+  body.role-attendee tr.draft-row td.rowdel button.submit-btn:disabled::before{ content:"Signing in…"; }
+  body.role-attendee tr.draft-row td.rowdel button:not(.submit-btn){
+    all:unset; align-self:center; font-size:0; color:var(--muted); cursor:pointer;
+  }
+  body.role-attendee tr.draft-row td.rowdel button:not(.submit-btn)::before{
+    content:"Clear this entry"; font-size:11.5px; text-decoration:underline;
+  }
+  /* A submitted row's own action area (status chip + Edit icon, if this is
+     the attendee's own row) just needs card-appropriate spacing, not a
+     restyle -- its buttons keep the same look as the admin roster. */
+  body.role-attendee tr.submitted-row td.rowdel{ padding-top:10px; border-top:1px solid var(--ledger-line); }
+
+  /* --- Online / offline status pill + local queue notice --- */
+  .conn-pill{
+    display:none;
+    align-items:center; gap:6px;
+    max-width:900px; width:100%;
+    font-size:11.5px; font-weight:600; color:var(--muted);
+    margin-bottom:10px;
+  }
+  .conn-pill .dot{ width:6px; height:6px; border-radius:50%; background:#c99400; flex:none; }
+  .conn-pill.show{ display:flex; }
+  .conn-pill.queued .dot{ background:#c99400; animation:pillPulse 1.4s ease-in-out infinite; }
+  @keyframes pillPulse{ 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
+
   /* --- Signature modal --- */
   .modal-backdrop{
-    position:fixed; inset:0; background:rgba(0,0,0,.5);
+    position:fixed; inset:0; background:rgba(20,18,14,.55);
+    backdrop-filter:blur(1.5px);
     display:none; align-items:center; justify-content:center; z-index:50;
   }
-  .modal-backdrop.open{ display:flex; }
+  .modal-backdrop.open{ display:flex; animation:modalFade .15s ease-out; }
+  @keyframes modalFade{ from{ opacity:0; } to{ opacity:1; } }
   .modal{
-    background:#fff; color:#000; border-radius:8px; padding:18px;
-    width:340px; max-width:90vw;
+    background:var(--paper); color:var(--ink); border-radius:10px; padding:20px;
+    width:360px; max-width:90vw;
+    border:1px solid var(--ledger-line);
+    box-shadow:0 24px 60px -20px rgba(0,0,0,.5);
+    animation:modalPop .18s cubic-bezier(.2,.8,.25,1);
   }
-  .modal h3{ margin:0 0 10px; font-size:15px; }
+  @keyframes modalPop{ from{ opacity:0; transform:translateY(8px) scale(.98); } to{ opacity:1; transform:none; } }
+  .modal h3{ margin:0 0 4px; font-size:15.5px; font-family:var(--serif); }
+  .modal .modal-hint{ margin:0 0 12px; font-size:11.5px; color:var(--muted); }
   .modal canvas{
-    border:1.5px dashed #999; border-radius:4px; touch-action:none;
-    width:100%; height:140px; background:#fefefe;
+    border:1.5px dashed var(--ledger-line); border-radius:6px; touch-action:none;
+    width:100%; height:150px; background:transparent; cursor:crosshair;
   }
-  .modal .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
+  /* A single guide rule near the bottom of the pad -- like the printed
+     line under a signature block -- so a signature reads as "signed on
+     the line" rather than floating in an empty box. */
+  .modal .sig-pad-wrap{ position:relative; }
+  .modal .sig-pad-wrap::after{
+    content:"";
+    position:absolute; left:14px; right:14px; bottom:34px; height:1px;
+    background:var(--ledger-line); pointer-events:none;
+  }
+  .modal .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
   .modal .modal-actions button{
-    font-family:inherit; font-size:13px; padding:7px 14px; border-radius:6px;
-    border:1px solid #ccc; background:#f2f2f2; cursor:pointer;
+    font-family:inherit; font-size:13px; padding:8px 15px; border-radius:7px;
+    border:1px solid var(--ledger-line); background:transparent; color:var(--ink); cursor:pointer;
   }
-  .modal .modal-actions button.save{ background:var(--accent2); color:#fff; border-color:var(--accent2); }
-  .modal .modal-actions button.clear{ background:#eee; }
+  .modal .modal-actions button.save{ background:var(--ink); color:var(--paper); border-color:var(--ink); font-weight:600; }
+  .modal .modal-actions button.clear{ color:var(--muted); }
 
   footer.credit{
     max-width:900px; width:100%; text-align:center; font-size:11px; color:#888; margin-top:18px;
@@ -492,6 +769,8 @@
 
   <h1 class="title">ATTENDANCE SHEET</h1>
 
+  <div class="conn-pill" id="connPill"><span class="dot"></span><span id="connPillText"></span></div>
+
   <div class="closing-soon-banner" id="closingSoonBanner">
     <span class="icon">⏳</span>
     <span><strong>Closing soon —</strong> <span id="closingSoonText"></span></span>
@@ -517,8 +796,13 @@
   </div>
 
   <div class="receipt-banner" id="receiptBanner">
-    <div class="rb-title"><span class="tick">&#10003;</span><span id="receiptTitle">You're checked in</span></div>
-    <div class="rb-sub" id="receiptSub"></div>
+    <div class="rb-seal" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>
+    </div>
+    <div class="rb-body">
+      <div class="rb-title" id="receiptTitle">You're checked in</div>
+      <div class="rb-sub" id="receiptSub"></div>
+    </div>
   </div>
 
  
@@ -587,7 +871,8 @@
 <div class="modal-backdrop" id="sigBackdrop">
   <div class="modal">
     <h3>Draw your signature</h3>
-    <canvas id="sigCanvas" width="300" height="140"></canvas>
+    <p class="modal-hint">Use your finger, stylus, or mouse — this is recorded alongside your entry.</p>
+    <div class="sig-pad-wrap"><canvas id="sigCanvas" width="300" height="140"></canvas></div>
     <div class="modal-actions">
       <button class="clear" id="sigClearBtn">Clear</button>
       <button id="sigCancelBtn">Cancel</button>
@@ -695,6 +980,8 @@
   var receiptSub = document.getElementById('receiptSub');
   var closingSoonBanner = document.getElementById('closingSoonBanner');
   var closingSoonText = document.getElementById('closingSoonText');
+  var connPill = document.getElementById('connPill');
+  var connPillText = document.getElementById('connPillText');
   var CLOSING_SOON_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 
   // A courtesy heads-up in the last day of the sign-in window (see
@@ -717,6 +1004,12 @@
     closingSoonBanner.classList.add('show');
   }
   function applyAdminVisibility(){
+    // Purely a styling hook (see the body.role-attendee rules below) that
+    // lets the exact same table/row markup render as a compact admin
+    // spreadsheet or as a single-entry sign-in card, without branching the
+    // render() logic itself into two different DOM shapes.
+    document.body.classList.toggle('role-attendee', !isAdmin);
+    document.body.classList.toggle('role-admin', isAdmin);
     if(addRowBtn) addRowBtn.style.display = isAdmin ? '' : 'none';
     if(resetBtn) resetBtn.style.display = isAdmin ? '' : 'none';
     if(rosterControls) rosterControls.style.display = isAdmin ? 'flex' : 'none';
@@ -1017,8 +1310,10 @@
 
       var locked = (row.submitted && !row.editing) || row.submitting;
 
+      var FIELD_LABELS = { name: 'Full name', org: 'Organization', email: 'Email address', phone: 'Phone number' };
       ['name','org','email','phone'].forEach(function(field){
         var td = document.createElement('td');
+        td.dataset.label = FIELD_LABELS[field];
         var textarea = document.createElement('textarea');
         textarea.rows = 1;
         textarea.spellcheck = false;
@@ -1054,6 +1349,7 @@
       // quietly change what they consented to.
       var consentTd = document.createElement('td');
       consentTd.className = 'consent-cell';
+      consentTd.dataset.label = 'Photo / video consent';
       var consentLabel = row.consent === true ? 'Consented' : row.consent === false ? 'Declined' : 'Not recorded';
       // Same access rule as canDrawSignature just below (computed
       // independently here since that variable isn't declared until the
@@ -1093,6 +1389,7 @@
 
       var signTd = document.createElement('td');
       signTd.className = 'sign-cell';
+      signTd.dataset.label = 'Your signature';
       // An admin editing someone else's already-submitted row (row.clientId
       // unset -- see below) never gets to draw or redo that person's
       // signature directly; that stays the attendee's own act via the
@@ -1107,6 +1404,7 @@
         wrap.appendChild(img);
         if(!locked && canDrawSignature){
           var editBtn = document.createElement('button');
+          editBtn.className = 'redo-btn';
           editBtn.textContent = 'Redo';
           editBtn.addEventListener('click', function(){ openSignatureModal(idx); });
           wrap.appendChild(editBtn);
@@ -1472,6 +1770,22 @@
     save();
     render();
 
+    // A kiosk or attendee's own phone losing signal mid-event is the exact
+    // moment this matters most -- rather than let a doomed request run to
+    // its inevitable failure, a known-offline device queues immediately.
+    // navigator.onLine is a hint, not a guarantee (it can be wrong on some
+    // captive-portal/flaky-wifi setups), so the fetch's own .catch below is
+    // still the real safety net for a connection that looked fine but
+    // wasn't.
+    if(!navigator.onLine){
+      row.submitting = false;
+      row._offlineQueued = true;
+      save();
+      render();
+      updateConnPill();
+      return;
+    }
+
     var payload = {
       clientId: row.clientId,
       name: row.name || '',
@@ -1495,6 +1809,7 @@
           ensureDraftRow();
           save();
           render();
+          updateConnPill();
           if(!isAdmin) showReceipt(row, data.duplicate);
         } else {
           save();
@@ -1504,10 +1819,60 @@
       })
       .catch(function(){
         row.submitting = false;
+        // A genuine network failure (not a server-side rejection, which is
+        // handled above) -- same queue-and-retry treatment as the
+        // known-offline branch above it, since from here on the only
+        // difference is *when* the connection problem was discovered.
+        if(!navigator.onLine){
+          row._offlineQueued = true;
+          save();
+          render();
+          updateConnPill();
+          return;
+        }
         save();
         render();
         alert('Network error — could not reach the shared sheet. Please check your connection and try again.');
       });
+  }
+
+  // Rows this device already tried to submit while offline stay ordinary
+  // unsubmitted drafts (so Submit, Edit, and Clear all keep working
+  // normally if the attendee wants to act on it themselves) -- the only
+  // thing _offlineQueued adds is this automatic retry once the connection
+  // that dropped it comes back, via the exact same submitRow() a manual
+  // tap would use, not a parallel code path.
+  function retryQueuedRows(){
+    state.rows
+      .filter(function(r){ return r._offlineQueued && !r.submitted; })
+      .forEach(function(r){ r._offlineQueued = false; submitRow(r); });
+  }
+
+  function updateConnPill(){
+    if(!connPill) return;
+    var hasQueued = state.rows.some(function(r){ return r._offlineQueued; });
+    if(hasQueued){
+      connPill.className = 'conn-pill show queued';
+      connPillText.textContent = 'Offline — your entry is saved on this device and will be sent automatically once you\'re back online.';
+    } else if(!navigator.onLine){
+      connPill.className = 'conn-pill show queued';
+      connPillText.textContent = 'You appear to be offline.';
+    } else {
+      connPill.className = 'conn-pill';
+    }
+  }
+  window.addEventListener('online', function(){ updateConnPill(); retryQueuedRows(); });
+  window.addEventListener('offline', updateConnPill);
+  updateConnPill();
+
+  if('serviceWorker' in navigator){
+    // So the sign-in page can be added to a phone's home screen and still
+    // render its shell if a kiosk device's wifi drops mid-event -- see
+    // sw.js for what it does and, just as importantly, what it
+    // deliberately doesn't (no caching of anything under /api/*).
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js').catch(function(){});
+    });
   }
 
   // A brief, screenshot-friendly confirmation that doubles as the visible

@@ -9,6 +9,7 @@ import { eventSlugId, isValidMeetingLink } from '../lib/normalize.js';
 import { isValidTimeZone } from '../lib/timezone.js';
 import { ah } from '../lib/asyncHandler.js';
 import { EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
+import { bucketByDay, countsByKey } from '../lib/analytics.js';
 
 export const adminRouter = Router();
 adminRouter.use(requireRole('COUNTY_ADMIN'));
@@ -100,6 +101,33 @@ adminRouter.get('/events', ah(async (req, res) => {
     include: { _count: { select: { attendance: true } } }
   });
   res.json({ ok: true, events: events.map((ev) => publicEvent(ev, ev._count.attendance)) });
+}));
+
+// Aggregate-only: counts and day buckets, never a list of who's in them --
+// the roster itself already carries that (via the sealed roster's own
+// admin-scoped view). Answers "how is this county's attendance trending"
+// without adding a second way to browse individual attendees.
+adminRouter.get('/analytics', ah(async (req, res) => {
+  const events = await prisma.event.findMany({
+    where: { county: req.user.county, ownerId: req.user.id, deletedAt: null },
+    select: { id: true }
+  });
+  const eventIds = events.map((e) => e.id);
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  const [statusGroups, consentGroups, recent] = await Promise.all([
+    prisma.attendance.groupBy({ by: ['status'], where: { eventId: { in: eventIds } }, _count: { _all: true } }),
+    prisma.attendance.groupBy({ by: ['photoVideoConsent'], where: { eventId: { in: eventIds } }, _count: { _all: true } }),
+    prisma.attendance.findMany({ where: { eventId: { in: eventIds }, createdAt: { gte: since } }, select: { createdAt: true } })
+  ]);
+
+  res.json({
+    ok: true,
+    totalEvents: events.length,
+    byStatus: countsByKey(statusGroups, ['ACTIVE', 'FLAGGED_FOR_REMOVAL', 'RETIRED'], 'status'),
+    byConsent: countsByKey(consentGroups, [true, false, null], 'photoVideoConsent'),
+    trend: bucketByDay(recent.map((r) => r.createdAt), 30)
+  });
 }));
 
 adminRouter.post('/events', ah(async (req, res) => {

@@ -13,6 +13,7 @@ import { KENYA_COUNTIES, MAX_ACTIVE_COUNTY_ADMINS } from '../lib/constants.js';
 import { isValidEmailShape } from '../lib/normalize.js';
 import { ah } from '../lib/asyncHandler.js';
 import { logger } from '../lib/logger.js';
+import { bucketByDay, countsByKey } from '../lib/analytics.js';
 
 export const superadminRouter = Router();
 superadminRouter.use(requireRole('SUPER_ADMIN'));
@@ -51,6 +52,42 @@ superadminRouter.get('/admins', ah(async (req, res) => {
     activeCount,
     cap: MAX_ACTIVE_COUNTY_ADMINS,
     counties: KENYA_COUNTIES
+  });
+}));
+
+// Platform-wide rollup, aggregate only -- per-county totals and a 30-day
+// trend, never a name, phone, email, or signature. That data already has
+// exactly one legitimate access path (a county admin's own event export,
+// audited in admin.js) and this doesn't add a second one.
+superadminRouter.get('/analytics', ah(async (req, res) => {
+  const events = await prisma.event.findMany({ where: { deletedAt: null }, select: { id: true, county: true } });
+  const eventIds = events.map((e) => e.id);
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  const [statusGroups, consentGroups, recent, attendanceByEvent] = await Promise.all([
+    prisma.attendance.groupBy({ by: ['status'], where: { eventId: { in: eventIds } }, _count: { _all: true } }),
+    prisma.attendance.groupBy({ by: ['photoVideoConsent'], where: { eventId: { in: eventIds } }, _count: { _all: true } }),
+    prisma.attendance.findMany({ where: { eventId: { in: eventIds }, createdAt: { gte: since } }, select: { createdAt: true } }),
+    prisma.attendance.groupBy({ by: ['eventId'], where: { eventId: { in: eventIds } }, _count: { _all: true } })
+  ]);
+
+  const attendanceCountByEvent = new Map(attendanceByEvent.map((g) => [g.eventId, g._count._all]));
+  const byCounty = new Map();
+  for (const ev of events) {
+    const row = byCounty.get(ev.county) || { county: ev.county, events: 0, attendance: 0 };
+    row.events += 1;
+    row.attendance += attendanceCountByEvent.get(ev.id) || 0;
+    byCounty.set(ev.county, row);
+  }
+
+  res.json({
+    ok: true,
+    totalEvents: events.length,
+    totalAttendance: [...attendanceCountByEvent.values()].reduce((a, b) => a + b, 0),
+    byStatus: countsByKey(statusGroups, ['ACTIVE', 'FLAGGED_FOR_REMOVAL', 'RETIRED'], 'status'),
+    byConsent: countsByKey(consentGroups, [true, false, null], 'photoVideoConsent'),
+    trend: bucketByDay(recent.map((r) => r.createdAt), 30),
+    byCounty: [...byCounty.values()].sort((a, b) => b.attendance - a.attendance)
   });
 }));
 
