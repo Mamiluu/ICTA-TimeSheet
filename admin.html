@@ -7,6 +7,13 @@
 <meta charset="UTF-8">
 <title>ICT Authority — Event Admin</title>
 <link rel="stylesheet" href="assets/theme.css">
+<!-- Leaflet powers the interactive event-location map below (search result
+     preview, click-to-drop-pin, drag-to-adjust) -- a real map instance
+     rather than an embedded OpenStreetMap iframe, which the default CSP
+     frame-src would block anyway. Pinned to an exact version with an
+     integrity hash since it's loaded from a third-party CDN. -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <style>
   .topbar{ width:100%; max-width:900px; display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
   .topbar .who{ font-size:12.5px; color:#666; }
@@ -257,6 +264,8 @@
   <p class="footer-note">© 2026 Asya Hafidh. All rights reserved.</p>
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="assets/api.js"></script>
 <script>
 (function(){
