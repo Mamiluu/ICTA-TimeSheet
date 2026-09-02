@@ -7,13 +7,15 @@
 <meta charset="UTF-8">
 <title>ICT Authority — Event Admin</title>
 <link rel="stylesheet" href="assets/theme.css">
-<!-- Leaflet powers the interactive event-location map below (search result
-     preview, click-to-drop-pin, drag-to-adjust) -- a real map instance
-     rather than an embedded OpenStreetMap iframe, which the default CSP
-     frame-src would block anyway. Pinned to an exact version with an
-     integrity hash since it's loaded from a third-party CDN. -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<!-- Mapbox GL JS powers the interactive event-location map below (venue
+     search with a live preview pin, click-to-drop-pin, drag-to-adjust) and
+     its Search Box API is what actually finds named venues -- OpenStreetMap
+     /Nominatim's free index doesn't have most small Kenyan venues (tested:
+     it has no record of Swahilipot Hub at all), which is why that's what
+     this now runs on instead. Pinned to an exact version since it's loaded
+     from a third-party CDN. See assets/map-config.js for the access token
+     this needs to actually work. -->
+<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.29.0/mapbox-gl.css">
 <style>
   .topbar{ width:100%; max-width:900px; display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
   .topbar .who{ font-size:12.5px; color:#666; }
@@ -137,14 +139,15 @@
   .loctype-toggle button + button{ border-left:1px solid #ccc; }
   .loctype-toggle button.active{ background:var(--accent); color:#fff; font-weight:600; }
 
-  /* Address search -- backed by OpenStreetMap's free Nominatim API (see
-     the debounced fetch in the create/edit form JS below), no API key or
-     paid mapping SDK. The dropdown reuses the calendar's own .dp-panel
-     look (border/shadow/radius) so it reads as the same family of
-     "floating picker" as the date fields right above it. Paired below with
-     a real interactive Leaflet map -- not an embedded iframe -- so a
-     pin can be dropped by clicking, or fine-tuned by dragging, whether or
-     not the text search finds the exact spot. */
+  /* Address search -- backed by Mapbox's Search Box API (see the debounced
+     fetch in the create/edit form JS below); its real business/POI index
+     is the reason this exists at all -- OpenStreetMap's free Nominatim API
+     doesn't have most small Kenyan venues indexed. The dropdown reuses the
+     calendar's own .dp-panel look (border/shadow/radius) so it reads as
+     the same family of "floating picker" as the date fields right above
+     it. Paired below with a real interactive Mapbox GL map -- not an
+     embedded iframe -- so a pin can be dropped by clicking, or fine-tuned
+     by dragging, whether or not the text search finds the exact spot. */
   .loc-picker{ position:relative; }
   .address-autocomplete{ position:relative; }
   .address-autocomplete .aa-pin{
@@ -179,6 +182,11 @@
   .loc-map-wrap{ position:relative; margin:10px 0 4px; }
   .loc-map{
     width:100%; height:220px; border:1px solid #ddd; border-radius:6px; background:#f2f2f2;
+    overflow:hidden;
+  }
+  .loc-map-unconfigured{
+    height:100%; display:flex; align-items:center; justify-content:center; text-align:center;
+    font-size:12px; color:#888; padding:16px; line-height:1.5;
   }
   .loc-locate-btn{
     position:absolute; right:8px; top:8px; z-index:400; width:30px; height:30px; border-radius:6px;
@@ -198,12 +206,17 @@
   .loc-pin-status .dot{ width:6px; height:6px; border-radius:50%; background:currentColor; flex:none; }
   .loc-hint{ font-size:11px; color:#999; margin:5px 0 12px; }
 
-  /* Leaflet's own chrome (zoom buttons, attribution link) renders in flat
-     black/blue by default -- retinted just enough to sit quietly inside
-     this red/white theme instead of clashing with it. */
-  .leaflet-control-zoom a{ color:#444 !important; }
-  .leaflet-bar{ border-color:#ccc !important; box-shadow:0 1px 4px rgba(0,0,0,.18) !important; }
-  .leaflet-control-attribution{ font-size:10px !important; }
+  /* Mapbox GL's own chrome (zoom buttons, attribution link) renders with
+     its own default shadow/radius -- retouched just enough to sit quietly
+     inside this red/white theme's flatter, thinner-bordered button style
+     instead of looking like a bolted-on third-party widget. */
+  .mapboxgl-ctrl-group{
+    border:1px solid #ccc !important; box-shadow:0 1px 4px rgba(0,0,0,.18) !important;
+    border-radius:6px !important; overflow:hidden;
+  }
+  .mapboxgl-ctrl-group button{ width:28px !important; height:28px !important; }
+  .mapboxgl-ctrl-attrib{ font-size:10px !important; }
+  .mapboxgl-ctrl-logo{ opacity:.8; }
 
   .badge.virtual{ background:#eef2fb; color:#2a5fd6; }
   .badge.physical{ background:#f4f4f4; color:#555; }
@@ -316,8 +329,8 @@
   <p class="footer-note">© 2026 Asya Hafidh. All rights reserved.</p>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="assets/map-config.js"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.29.0/mapbox-gl.js"></script>
 <script src="assets/api.js"></script>
 <script>
 (function(){
@@ -566,14 +579,14 @@
     });
     newAddressField.style.display = newLocType === 'PHYSICAL' ? '' : 'none';
     newMeetingLinkField.style.display = newLocType === 'VIRTUAL' ? '' : 'none';
-    // Leaflet measures its container's on-screen size at init time; while
+    // Mapbox GL measures its container's on-screen size at init time; while
     // newAddressField is display:none (Virtual selected) that size is
-    // zero, so switching back to Physical needs an explicit invalidateSize
-    // once the container is actually visible again, or the tiles render
-    // torn/gray until the window happens to resize.
+    // zero, so switching back to Physical needs an explicit resize() once
+    // the container is actually visible again, or the map renders
+    // torn/blank until the window happens to resize on its own.
     if(newLocType === 'PHYSICAL'){
       ensureLocMap();
-      setTimeout(function(){ locMap.invalidateSize(); }, 50);
+      setTimeout(function(){ if(locMap) locMap.resize(); }, 50);
     }
     refreshCreateBtnState();
   }
@@ -581,30 +594,44 @@
     btn.addEventListener('click', function(){ newLocType = btn.getAttribute('data-loctype'); applyLocType(); });
   });
 
-  // --- Event location picker: live Nominatim search + a real interactive
-  // Leaflet map (click to drop a pin, drag to fine-tune), backed by
-  // OpenStreetMap's free geocoding API -- no key, no billing account, no
-  // paid mapping SDK. Picking a search result, clicking the map, or
-  // dragging the pin all converge on the same stored lat/lon (see the
+  // --- Event location picker: Mapbox's Search Box API (live venue search,
+  // with a real business/POI index -- OpenStreetMap/Nominatim's free index
+  // doesn't have most small Kenyan venues at all, which is what this
+  // replaced) paired with a real interactive Mapbox GL map: click to drop
+  // a pin, drag to fine-tune. Picking a search result, clicking the map,
+  // or dragging the pin all converge on the same stored lat/lon (see the
   // latitude/longitude columns on Event); typing the address by hand with
   // nothing picked is still perfectly valid -- geocoding is an
   // enhancement, never a requirement to create the event.
-  var KENYA_CENTER = [-0.0236, 37.9062];
-  var KENYA_DEFAULT_ZOOM = 6;
+  var MAPBOX_TOKEN_CONFIGURED = !!(window.MAPBOX_TOKEN && window.MAPBOX_TOKEN.indexOf('PASTE_YOUR') !== 0);
+  if(MAPBOX_TOKEN_CONFIGURED) mapboxgl.accessToken = window.MAPBOX_TOKEN;
+
+  var KENYA_CENTER = [37.9062, -0.0236]; // Mapbox GL takes [lng, lat], not [lat, lng]
+  var KENYA_DEFAULT_ZOOM = 5;
   var locMap = null, locMarker = null;
   // Populated once initCountyBias() below resolves this admin's own county
-  // to a real bounding box -- from then on every search is ranked toward
-  // it (viewbox, not a hard filter, so a venue just across a county line
-  // still matches) and a blank map opens already centered there instead of
-  // on the whole country.
-  var countyViewboxParam = null, countyBounds = null;
+  // to a real center + bounding box -- from then on every search is ranked
+  // toward it (proximity bias, not a hard filter, so a venue just across a
+  // county line still matches) and a blank map opens already framed there
+  // instead of on the whole country.
+  var countyProximity = null, countyBoundsLngLat = null;
+
+  // Every /suggest + /retrieve pair is grouped by this token so Mapbox can
+  // bill it as one search session rather than many unrelated ones -- a
+  // fresh one starts whenever the admin begins a new search (the field was
+  // empty) and whenever a result is actually confirmed.
+  var searchSessionToken = null;
+  function newSearchSession(){
+    searchSessionToken = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('sbx-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+  }
+  newSearchSession();
 
   // Three states, not two: a pin the admin explicitly placed (clicked the
   // map, dragged it, picked a result, used "my location") reads as solid
   // and "Pinned"; one that's only the live top-of-search-results guess
-  // reads as a lighter, dashed "Previewing" pin so it's visually obvious
-  // it can still change as they keep typing -- without blocking them from
-  // just moving on if it's already correct.
+  // reads as a lighter, translucent "Previewing" pin so it's visually
+  // obvious it can still change as they keep typing -- without blocking
+  // them from just moving on if it's already correct.
   function markPinStatus(state){
     if(state === 'confirmed'){
       newLocPinStatus.className = 'loc-pin-status picked';
@@ -620,15 +647,26 @@
 
   function ensureLocMap(){
     if(locMap) return locMap;
-    locMap = L.map(newLocMapEl).setView(KENYA_CENTER, KENYA_DEFAULT_ZOOM);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
-    }).addTo(locMap);
+    if(!MAPBOX_TOKEN_CONFIGURED){
+      // No token yet -- rather than let Mapbox GL fail with a blank gray
+      // box and a console full of 401s, say so plainly. The address field
+      // itself still works fine as a plain typed-in address either way.
+      newLocMapEl.innerHTML = '<div class="loc-map-unconfigured">Map preview isn\'t configured yet — an admin needs to add a Mapbox token in assets/map-config.js. You can still type the address below by hand.</div>';
+      markPinStatus('none');
+      return null;
+    }
+    locMap = new mapboxgl.Map({
+      container: newLocMapEl,
+      style: 'mapbox://styles/mapbox/light-v11',
+      center: KENYA_CENTER,
+      zoom: KENYA_DEFAULT_ZOOM,
+      attributionControl: true
+    });
+    locMap.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-left');
     // Clicking the map is just as valid a way to choose a spot as picking
     // a search result -- reverse-geocode it back to a readable address so
     // the text field and the pin never end up disagreeing with each other.
-    locMap.on('click', function(e){ placePin(e.latlng.lat, e.latlng.lng, { reverseGeocode: true }); });
+    locMap.on('click', function(e){ placePin(e.lngLat.lat, e.lngLat.lng, { reverseGeocode: true }); });
     markPinStatus('none');
     return locMap;
   }
@@ -638,20 +676,22 @@
     newLatitude.value = lat;
     newLongitude.value = lon;
     ensureLocMap();
-    if(!locMarker){
-      locMarker = L.marker([lat, lon], { draggable: true, opacity: opts.preview ? 0.7 : 1 }).addTo(locMap);
-      // Dragging the pin re-syncs the typed address to wherever it lands,
-      // the same as a map click does. A drag is always a deliberate,
-      // confirmed placement, never just a preview.
-      locMarker.on('dragend', function(){
-        var pos = locMarker.getLatLng();
-        placePin(pos.lat, pos.lng, { reverseGeocode: true, keepZoom: true });
-      });
-    } else {
-      locMarker.setLatLng([lat, lon]);
-      locMarker.setOpacity(opts.preview ? 0.7 : 1);
+    if(locMap){
+      if(!locMarker){
+        locMarker = new mapboxgl.Marker({ draggable: true, color: '#c8102e' }).setLngLat([lon, lat]).addTo(locMap);
+        // Dragging the pin re-syncs the typed address to wherever it
+        // lands, the same as a map click does. A drag is always a
+        // deliberate, confirmed placement, never just a preview.
+        locMarker.on('dragend', function(){
+          var pos = locMarker.getLngLat();
+          placePin(pos.lat, pos.lng, { reverseGeocode: true, keepZoom: true });
+        });
+      } else {
+        locMarker.setLngLat([lon, lat]);
+      }
+      locMarker.getElement().style.opacity = opts.preview ? '0.65' : '1';
+      locMap.flyTo({ center: [lon, lat], zoom: opts.keepZoom ? locMap.getZoom() : Math.max(locMap.getZoom(), 15), duration: opts.keepZoom ? 400 : 700 });
     }
-    locMap.setView([lat, lon], opts.keepZoom ? locMap.getZoom() : Math.max(locMap.getZoom(), 15));
     markPinStatus(opts.preview ? 'preview' : 'confirmed');
     refreshCreateBtnState();
     if(opts.reverseGeocode) reverseGeocode(lat, lon);
@@ -660,32 +700,35 @@
   function clearPickedLocation(){
     newLatitude.value = '';
     newLongitude.value = '';
-    if(locMarker && locMap){ locMap.removeLayer(locMarker); locMarker = null; }
+    if(locMarker){ locMarker.remove(); locMarker = null; }
     markPinStatus('none');
   }
 
   // Resolves the signed-in admin's own county (e.g. "Mombasa") to a real
-  // bounding box via Nominatim, then biases every venue search toward it
-  // and opens the map already framed on it -- a Mombasa admin searching
-  // "swahilipot hub" should get the Mombasa result ranked first without
-  // having to scroll a whole-country map to find it. Best-effort only: if
-  // this lookup fails, search and the map both just fall back to covering
-  // all of Kenya, which still works fine.
+  // center + bounding box via Mapbox's Geocoding API, then biases every
+  // venue search toward it and opens the map already framed on it -- a
+  // Mombasa admin searching "swahilipot hub" should get the Mombasa result
+  // ranked first without having to scroll a whole-country map to find it.
+  // Best-effort only: if this lookup fails, search and the map both just
+  // fall back to covering all of Kenya, which still works fine.
   function initCountyBias(countyName){
-    if(!countyName) return;
-    fetch('https://nominatim.openstreetmap.org/search?format=json&countrycodes=ke&limit=1&q=' + encodeURIComponent(countyName + ' County, Kenya'))
+    if(!countyName || !MAPBOX_TOKEN_CONFIGURED) return;
+    fetch('https://api.mapbox.com/search/geocode/v6/forward?country=ke&limit=1&q=' + encodeURIComponent(countyName + ' County, Kenya') + '&access_token=' + encodeURIComponent(window.MAPBOX_TOKEN))
       .then(function(res){ return res.json(); })
-      .then(function(results){
-        if(!results || !results.length) return;
-        var bb = results[0].boundingbox;
-        var south = Number(bb[0]), north = Number(bb[1]), west = Number(bb[2]), east = Number(bb[3]);
-        countyViewboxParam = west + ',' + south + ',' + east + ',' + north;
-        countyBounds = L.latLngBounds([south, west], [north, east]);
+      .then(function(data){
+        var f = data && data.features && data.features[0];
+        if(!f) return;
+        var bbox = f.bbox || (f.properties && f.properties.bbox);
+        if(f.geometry && f.geometry.coordinates) countyProximity = f.geometry.coordinates;
+        if(bbox) countyBoundsLngLat = [[bbox[0], bbox[1]], [bbox[2], bbox[3]]];
         if(newLocHint) newLocHint.textContent = 'Search above, click the map, or drag the pin to fine-tune the exact spot attendees will see. Results are prioritized near ' + countyName + '.';
         // Only actually move the map if the admin hasn't already dropped a
         // pin while this lookup was still in flight -- their own action
         // always wins over this background convenience.
-        if(locMap && !locMarker) locMap.fitBounds(countyBounds, { maxZoom: 12 });
+        if(locMap && !locMarker){
+          if(countyBoundsLngLat) locMap.fitBounds(countyBoundsLngLat, { maxZoom: 12, duration: 800 });
+          else if(countyProximity) locMap.flyTo({ center: countyProximity, zoom: 10 });
+        }
       })
       .catch(function(){ /* best-effort -- nationwide search/map still work without this */ });
   }
@@ -698,24 +741,27 @@
 
   // A pin placed by clicking/dragging the map has real coordinates but no
   // human-readable address yet -- this fills the text field in from
-  // Nominatim's reverse-geocoding endpoint. Best-effort only: if it fails
+  // Mapbox's reverse-geocoding endpoint. Best-effort only: if it fails
   // (offline, geocoder unreachable) the pin and its coordinates are kept
   // exactly as placed, the admin can just type the address by hand, and
   // the event can still be created either way.
   var reverseDebounceTimer;
   function reverseGeocode(lat, lon){
+    if(!MAPBOX_TOKEN_CONFIGURED) return;
     clearTimeout(reverseDebounceTimer);
     newAddressStatus.textContent = '…';
     reverseDebounceTimer = setTimeout(function(){
-      fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lon)
+      fetch('https://api.mapbox.com/search/searchbox/v1/reverse?longitude=' + lon + '&latitude=' + lat + '&limit=1&access_token=' + encodeURIComponent(window.MAPBOX_TOKEN))
         .then(function(res){ return res.json(); })
-        .then(function(result){
+        .then(function(data){
           newAddressStatus.textContent = '';
-          if(result && result.display_name){
+          var f = data && data.features && data.features[0];
+          var label = f && f.properties && (f.properties.full_address || f.properties.place_formatted || f.properties.name);
+          if(label){
             // Set directly (not via a simulated keystroke) so this doesn't
             // loop back through the 'input' handler and clear the very pin
             // it's confirming.
-            newAddress.value = result.display_name;
+            newAddress.value = label;
             refreshCreateBtnState();
           }
         })
@@ -723,14 +769,25 @@
     }, 350);
   }
 
-  // Nominatim's display_name is one long comma-joined string ("Swahilipot
-  // Hub, Mama Ngina Drive, Mombasa, ..."); splitting off the first segment
-  // as a bold headline and the rest as a supporting line reads far faster
-  // in a scannable dropdown than one flat run of text.
-  function splitDisplayName(displayName){
-    var idx = displayName.indexOf(',');
-    if(idx === -1) return { primary: displayName, secondary: '' };
-    return { primary: displayName.slice(0, idx), secondary: displayName.slice(idx + 1).trim() };
+  // Turns a /retrieve response into the confirmed pin + address text --
+  // shared by clicking a suggestion and by pressing Enter on the
+  // highlighted one, both of which are a deliberate, final choice (unlike
+  // the live top-of-list preview below, which is just a guess in progress).
+  function confirmSuggestion(s){
+    if(!MAPBOX_TOKEN_CONFIGURED) return;
+    fetch('https://api.mapbox.com/search/searchbox/v1/retrieve/' + encodeURIComponent(s.mapbox_id) + '?session_token=' + searchSessionToken + '&access_token=' + encodeURIComponent(window.MAPBOX_TOKEN))
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        var f = data && data.features && data.features[0];
+        if(!f) return;
+        var coords = f.geometry.coordinates; // [lng, lat]
+        var label = (f.properties && (f.properties.full_address || f.properties.place_formatted)) || s.name;
+        newAddress.value = label;
+        placePin(coords[1], coords[0], {});
+        saveRecentVenue(label, coords[1], coords[0]);
+        newSearchSession(); // a confirmed pick ends this search session
+      })
+      .catch(function(){ /* the admin can still type/click the map by hand */ });
   }
 
   function renderAddressSuggestions(results, query){
@@ -746,25 +803,23 @@
       empty.textContent = 'No matches for "' + query + '" — click the map below to drop a pin, or enter the address by hand.';
       newAddressPanel.appendChild(empty);
     } else {
-      results.forEach(function(r, i){
-        var parts = splitDisplayName(r.display_name);
+      results.forEach(function(s, i){
         var item = document.createElement('button');
         item.type = 'button';
         item.className = i === 0 ? 'aa-item aa-active' : 'aa-item';
         var primary = document.createElement('span');
         primary.className = 'aa-primary';
-        primary.textContent = parts.primary;
+        primary.textContent = s.name || '';
         item.appendChild(primary);
-        if(parts.secondary){
+        var secondaryText = s.full_address || s.place_formatted || '';
+        if(secondaryText){
           var secondary = document.createElement('span');
           secondary.className = 'aa-secondary';
-          secondary.textContent = parts.secondary;
+          secondary.textContent = secondaryText;
           item.appendChild(secondary);
         }
         item.addEventListener('click', function(){
-          newAddress.value = r.display_name;
-          placePin(+r.lat, +r.lon, {});
-          saveRecentVenue(r.display_name, +r.lat, +r.lon);
+          confirmSuggestion(s);
           closeAddressPanel();
         });
         newAddressPanel.appendChild(item);
@@ -827,22 +882,25 @@
   // applyLocType()'s later toggle-driven calls.
   ensureLocMap();
 
-  function buildAddressSearchUrl(q){
-    // countrycodes=ke because every event this org runs is in Kenya --
-    // without it a query like "hub" can easily surface a same-named place
-    // on another continent ahead of the real one. viewbox+bounded=0 biases
-    // (never excludes) results toward the signed-in admin's own county
-    // once initCountyBias() below has resolved it, so "swahilipot hub"
-    // ranks the Mombasa branch first for a Mombasa admin without blocking
-    // a genuinely different-county match if that's really what they want.
-    var url = 'https://nominatim.openstreetmap.org/search?format=json&addressdetails=0&limit=5&countrycodes=ke&q=' + encodeURIComponent(q);
-    if(countyViewboxParam) url += '&viewbox=' + countyViewboxParam + '&bounded=0';
+  function buildSuggestUrl(q){
+    // country=ke because every event this org runs is in Kenya -- without
+    // it a query like "hub" can easily surface a same-named place on
+    // another continent ahead of the real one. proximity biases (never
+    // excludes) results toward the signed-in admin's own county once
+    // initCountyBias() above has resolved it, so "swahilipot hub" ranks
+    // the Mombasa branch first for a Mombasa admin without blocking a
+    // genuinely different-county match if that's really what they want.
+    var url = 'https://api.mapbox.com/search/searchbox/v1/suggest?q=' + encodeURIComponent(q) +
+      '&session_token=' + searchSessionToken + '&access_token=' + encodeURIComponent(window.MAPBOX_TOKEN) +
+      '&country=ke&language=en&limit=5';
+    if(countyProximity) url += '&proximity=' + countyProximity[0] + ',' + countyProximity[1];
     return url;
   }
 
-  var addressDebounceTimer, addressAbortController, activeSuggestionIndex = -1;
+  var addressDebounceTimer, addressAbortController, previewAbortController, activeSuggestionIndex = -1;
   newAddress.addEventListener('input', function(){
     refreshCreateBtnState();
+    if(!MAPBOX_TOKEN_CONFIGURED) return; // plain free-typed address until a token is configured
     var q = newAddress.value.trim();
     clearTimeout(addressDebounceTimer);
     if(addressAbortController) addressAbortController.abort();
@@ -853,20 +911,19 @@
       clearPickedLocation();
       closeAddressPanel();
       newAddressStatus.textContent = '';
+      newSearchSession(); // the previous attempt was abandoned -- next one starts fresh
       return;
     }
     newAddressStatus.textContent = '…';
-    // Debounced well past Nominatim's own "please don't hammer the free
-    // public instance" usage policy -- this fires once typing actually
-    // pauses, never per keystroke.
     addressDebounceTimer = setTimeout(function(){
       addressAbortController = new AbortController();
-      fetch(buildAddressSearchUrl(q), { signal: addressAbortController.signal })
+      fetch(buildSuggestUrl(q), { signal: addressAbortController.signal })
         .then(function(res){ return res.json(); })
-        .then(function(results){
+        .then(function(data){
           newAddressStatus.textContent = '';
-          renderAddressSuggestions(results || [], q);
-          if(results && results.length){
+          var suggestions = (data && data.suggestions) || [];
+          renderAddressSuggestions(suggestions, q);
+          if(suggestions.length){
             // This is the fix for "I typed the address and nothing
             // happened": the top match now lands on the map the moment
             // results come back, with no separate click required. It's
@@ -874,7 +931,15 @@
             // admin confirms it -- by picking a different result, clicking
             // the map, or just pressing Enter -- but the coordinates are
             // already live and will save correctly even if they never do.
-            placePin(+results[0].lat, +results[0].lon, { preview: true });
+            if(previewAbortController) previewAbortController.abort();
+            previewAbortController = new AbortController();
+            fetch('https://api.mapbox.com/search/searchbox/v1/retrieve/' + encodeURIComponent(suggestions[0].mapbox_id) + '?session_token=' + searchSessionToken + '&access_token=' + encodeURIComponent(window.MAPBOX_TOKEN), { signal: previewAbortController.signal })
+              .then(function(res){ return res.json(); })
+              .then(function(retrieveData){
+                var f = retrieveData && retrieveData.features && retrieveData.features[0];
+                if(f) placePin(f.geometry.coordinates[1], f.geometry.coordinates[0], { preview: true });
+              })
+              .catch(function(){ /* the dropdown list is still there to pick from by hand */ });
           } else {
             // Nothing matches the current text -- whatever was previewed
             // for a shorter/earlier version of it no longer applies.
@@ -883,15 +948,16 @@
         })
         .catch(function(err){
           if(err && err.name === 'AbortError') return;
-          // A CSP block, a network failure, or Nominatim itself being down
-          // all land here -- previously this just closed the panel with no
-          // explanation, which is exactly what made the search look like
-          // it was doing nothing at all. Now it says so, and still points
-          // at the always-available fallback (click the map).
+          // A CSP block, a network failure, or Mapbox itself being
+          // unreachable all land here -- previously (back when this ran on
+          // Nominatim) this just closed the panel with no explanation,
+          // which is exactly what made the search look like it was doing
+          // nothing at all. Now it says so, and still points at the
+          // always-available fallback (click the map).
           newAddressStatus.textContent = '';
           renderAddressError();
         });
-    }, 500);
+    }, 400);
   });
   newAddress.addEventListener('keydown', function(e){
     var items = newAddressPanel.querySelectorAll('.aa-item');
@@ -1007,9 +1073,10 @@
     newAddress.value = ''; newMeetingLink.value = '';
     clearPickedLocation();
     closeAddressPanel();
+    newSearchSession();
     if(locMap){
-      if(countyBounds) locMap.fitBounds(countyBounds, { maxZoom: 12 });
-      else locMap.setView(KENYA_CENTER, KENYA_DEFAULT_ZOOM);
+      if(countyBoundsLngLat) locMap.fitBounds(countyBoundsLngLat, { maxZoom: 12, duration: 500 });
+      else locMap.flyTo({ center: KENYA_CENTER, zoom: KENYA_DEFAULT_ZOOM, duration: 500 });
     }
     createError.style.display = 'none';
     refreshCreateBtnState();
@@ -1041,9 +1108,9 @@
     newMeetingLink.value = ev.meetingLink || '';
     if(ev.locationType === 'PHYSICAL' && ev.latitude != null && ev.longitude != null){
       // applyLocType() above just made the map container visible again
-      // (or it already was); its own invalidateSize() is scheduled for
-      // ~50ms out, so the pin placement + view are pushed slightly later
-      // still to land after that, rather than racing it.
+      // (or it already was); its own resize() is scheduled for ~50ms out,
+      // so the pin placement + view are pushed slightly later still to
+      // land after that, rather than racing it.
       setTimeout(function(){ placePin(ev.latitude, ev.longitude, {}); }, 60);
     } else {
       clearPickedLocation();
