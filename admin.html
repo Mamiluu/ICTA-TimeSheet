@@ -749,7 +749,11 @@
         var url = attendeePageUrl() + '?event=' + encodeURIComponent(r.data.event.slug);
         lastCreatedEventSlug = r.data.event.slug;
         resultLink.value = url;
-        resultQr.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(url);
+        // Rendered by our own server (see GET /api/admin/events/:id/qr) --
+        // no third party ever sees this event's real sign-in URL. Cookie
+        // auth rides along automatically since this is a same-origin
+        // <img> request, same as any other same-origin resource.
+        resultQr.src = '/api/admin/events/' + encodeURIComponent(r.data.event.id) + '/qr';
         createResult.classList.add('open');
         maybeSaveVenueTemplate();
       }

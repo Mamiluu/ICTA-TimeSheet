@@ -28,8 +28,11 @@ app.set('trust proxy', 1); // Render/other reverse proxies sit in front of us; n
 // (every page has its own inline <script>/<style> -- see the plan's
 // rationale for staying framework-free at this scale), so Helmet's default
 // CSP -- which blocks all inline script/style -- has to be relaxed for
-// script-src/style-src specifically. img-src additionally allows the QR
-// code image service admin.html embeds and data: URLs for signature images.
+// script-src/style-src specifically. img-src additionally allows data:
+// URLs for signature images and the QR code images admin.html embeds --
+// those are now rendered by this server itself (GET
+// /api/admin/events/:id/qr, via the local `qrcode` package) rather than a
+// third-party image service, so no external host needs allowing here.
 //
 // No map/geocoding provider is wired in right now (event location is a
 // plain typed address -- see admin.html's Address field and
@@ -41,7 +44,7 @@ app.use(helmet({
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
       'script-src': ["'self'", "'unsafe-inline'"],
       'style-src': ["'self'", "'unsafe-inline'"],
-      'img-src': ["'self'", 'data:', 'https://api.qrserver.com']
+      'img-src': ["'self'", 'data:']
     }
   }
 }));

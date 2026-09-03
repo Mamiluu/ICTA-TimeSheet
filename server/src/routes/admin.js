@@ -10,6 +10,7 @@ import { isValidTimeZone } from '../lib/timezone.js';
 import { ah } from '../lib/asyncHandler.js';
 import { EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
 import { bucketByDay, countsByKey } from '../lib/analytics.js';
+import QRCode from 'qrcode';
 
 export const adminRouter = Router();
 adminRouter.use(requireRole('COUNTY_ADMIN'));
@@ -171,6 +172,26 @@ async function findOwnEvent(req) {
   if (!event || event.deletedAt || event.county !== req.user.county || event.ownerId !== req.user.id) return null;
   return event;
 }
+
+// Rendered entirely on this server (the `qrcode` package, a local library
+// with no network calls of its own) rather than by pointing an <img> at a
+// third-party QR-rendering API -- the previous approach handed every
+// event's real sign-in URL to api.qrserver.com on every view, which is
+// exactly the kind of unnecessary third party this pilot otherwise avoids.
+// PUBLIC_APP_URL is reused unchanged from the activation/reset-link
+// construction elsewhere (auth.js, superadmin.js) rather than trusting
+// anything from the request, so this can't be made to encode an arbitrary
+// URL by a caller.
+adminRouter.get('/events/:id/qr', ah(async (req, res) => {
+  const event = await findOwnEvent(req);
+  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+  const url = `${process.env.PUBLIC_APP_URL}/index.html?event=${encodeURIComponent(event.slug)}`;
+  const png = await QRCode.toBuffer(url, { width: 180, margin: 1 });
+  res.set('Content-Type', 'image/png');
+  res.set('Cache-Control', 'private, max-age=3600');
+  res.send(png);
+}));
 
 adminRouter.put('/events/:id', ah(async (req, res) => {
   const event = await findOwnEvent(req);
