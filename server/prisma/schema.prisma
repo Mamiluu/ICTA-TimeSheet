@@ -110,13 +110,15 @@ model Event {
   // constraint, matching how this schema already validates shape at the
   // route layer rather than with CHECK constraints elsewhere.
   address     String?
-  // Set only when the admin picked a real geocoded suggestion for
-  // `address` (see the OpenStreetMap/Nominatim-backed autocomplete in
-  // admin.html) rather than just typing free text -- null whenever the
-  // address was typed without picking a match, or was edited after a pick
-  // (the old pin can't be trusted to still match changed text). Lets the
-  // attendee-facing page show a real embedded map instead of just a "Get
-  // directions" search-query link when a precise location is known.
+  // Was set only when the admin picked a real geocoded suggestion for
+  // `address` from a map/search picker that has since been removed (see
+  // assets/map-config.js's own comment on the dormant Mapbox integration
+  // it was going to use) -- admin.html's Address field is plain typed text
+  // today, so no current UI sets these for a new event. Kept nullable and
+  // round-tripped on edit (see beginEditEvent in admin.html) purely so an
+  // event that already has coordinates from before the picker's removal
+  // doesn't silently lose them; a future picker (Mapbox or otherwise)
+  // would set these fields again.
   latitude  Float?
   longitude Float?
   meetingLink String?
