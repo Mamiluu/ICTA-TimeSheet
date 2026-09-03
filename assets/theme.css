@@ -92,6 +92,7 @@ td.actions button{ font-size:11px; padding:4px 8px; margin-right:4px; }
 .badge.disabled{ background:#fdf2f3; color:var(--accent); }
 
 .footer-note{ text-align:center; font-size:11px; color:#888; }
+.footer-note a{ color:#888; text-decoration:underline; }
 
 /* --- Analytics: stat tiles + a dependency-free bar sparkline --- */
 .stat-grid{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px; }

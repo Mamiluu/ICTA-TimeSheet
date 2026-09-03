@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+  Proprietary and confidential. See LICENSE in the repository root.
+  Unauthorized copying, modification, or distribution is prohibited.
+-->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — Attendance Sheet</title>
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  body{ align-items:center; }
+  .sheet.wide{ max-width:720px; }
+  h2.section{ margin-top:26px; }
+  h2.section:first-of-type{ margin-top:0; }
+  .sheet p, .sheet li{ font-size:13px; line-height:1.6; color:#333; }
+  .sheet ul{ margin:8px 0; padding-left:20px; }
+  .sheet li{ margin-bottom:4px; }
+  .updated{ font-size:11.5px; color:#888; margin-bottom:0; }
+  .back-link{ font-size:12.5px; margin-bottom:16px; display:inline-block; }
+</style>
+
+<div class="sheet wide">
+  <a class="back-link" href="javascript:history.back()">&larr; Back</a>
+  <h1 class="title" id="brandOrgName">ICT Authority</h1>
+  <p class="sub" id="brandSubtitle">Attendance Sheet — Privacy Policy</p>
+  <p class="updated">Last updated: 3 September 2026</p>
+
+  <h2 class="section">What this page covers</h2>
+  <p>This is the digital attendance register you sign in to at an event, replacing a paper sign-in sheet. This
+  policy explains exactly what it collects, why, who can see it, and how long it's kept — in plain language, not
+  boilerplate. If anything here doesn't match what the system actually does, that's a bug in this policy, not a
+  license to assume otherwise — tell the event organizer.</p>
+
+  <h2 class="section">What is collected when you sign in</h2>
+  <ul>
+    <li><strong>Your name</strong> and, optionally, your <strong>organization</strong>.</li>
+    <li>Your <strong>email address and/or phone number</strong> — at least one is required, both are accepted, so
+      you can be identified as the same attendee if you ever need to correct your entry.</li>
+    <li>A <strong>signature</strong> you draw on-screen with your finger, stylus, or mouse.</li>
+    <li>An explicit <strong>yes/no answer</strong> on whether you consent to being photographed or filmed at the
+      event. This is never assumed or defaulted — the sign-in form will not accept your entry until you've
+      actively chosen one.</li>
+  </ul>
+  <p>Nothing else is collected from you directly. The page does not use tracking cookies, does not run any
+  third-party analytics or advertising script, and does not ask for your location.</p>
+
+  <h2 class="section">Who can see your entry</h2>
+  <p>This system is built around one rule: <strong>you can only ever see your own row.</strong> An ordinary
+  attendee's device never receives anyone else's name, contact details, signature, or even the total number of
+  people who have signed in — that count is visible only to the event's own organizer. The only people who can
+  see the full attendee list for an event are:</p>
+  <ul>
+    <li>The specific county admin account that created that event, and</li>
+    <li>A super admin account, for platform administration.</li>
+  </ul>
+  <p>Every time an admin exports the list, prints it, or corrects an entry, that action is written to a
+  tamper-evident audit log — a record of who accessed or changed what, and when, that cannot be silently edited
+  after the fact. This exists so "who looked at this" is never just a promise.</p>
+
+  <h2 class="section">Why this data is collected</h2>
+  <p>Solely to create an official attendance record for the specific event you signed in to — the same purpose a
+  paper sign-in sheet at the door would serve. Your email, if provided, is also used to send you a one-time
+  confirmation of your entry and, if the organizer needs it, a secure link to add or redo your signature. It is
+  not used for marketing, and is not shared with any third party for their own purposes.</p>
+
+  <h2 class="section">How long your entry is kept, and correcting mistakes</h2>
+  <p>Because this is meant to stand in for an official paper record, entries are not silently deleted — the same
+  way you can't tear a page out of a physical attendance register on request. If your entry has a mistake, you
+  (from the same device you signed in on) or the event organizer can correct it, and every correction is logged
+  in the audit trail. An organizer can also flag or retire an entry (for example, a duplicate or a fraudulent
+  signature) — this keeps the record honest rather than erasing it outright. If you have a concern about your own
+  entry that you can't resolve this way, contact the event organizer using the details on the sign-in page, or
+  the contact details below.</p>
+
+  <h2 class="section">Where this data lives</h2>
+  <p>Event and attendance data is stored in a managed Postgres database with encrypted connections. Transactional
+  email (account activation, password resets, and your own sign-in confirmation) is sent through a third-party
+  email delivery provider (Brevo) solely to deliver that specific message to the address you provided — it is not
+  given access to the attendance list itself.</p>
+
+  <h2 class="section">Kenya's Data Protection Act, 2019</h2>
+  <p>This system's design choices — collecting only what's needed for attendance, requiring an explicit answer on
+  photo/video consent rather than assuming one, restricting the attendee list to the event's own organizer, and
+  logging who accesses or changes a record — follow the core principles of Kenya's Data Protection Act, 2019
+  (lawfulness, purpose limitation, data minimization, and integrity of processing). This statement describes how
+  the system is built, not a certified legal compliance determination.</p>
+
+  <h2 class="section">Contact</h2>
+  <p>For a question about your own entry at a specific event, start with that event's organizer — their contact
+  details are shown on the sign-in page itself. For anything else:</p>
+  <p id="brandContactBlock">
+    <span id="brandOrgName2">ICT Authority</span><br>
+    Tel: <span id="brandPhone">+254 20 2089061</span><br>
+    <a href="https://www.icta.go.ke" target="_blank" rel="noopener" id="brandWebsite">www.icta.go.ke</a>
+  </p>
+</div>
+<p class="footer-note">© 2026 Asya Hafidh. All rights reserved.</p>
+
+<script src="assets/api.js"></script>
+<script>
+(function(){
+  // Same pattern as index.html's letterhead and admin.html/superadmin.html's
+  // topbar (see applyTopbarBranding in assets/api.js) -- falls back to the
+  // page's own built-in defaults if this deployment hasn't configured
+  // BRAND_* env vars, or the request fails.
+  API.get('/api/branding').then(function(r){
+    if(r.status !== 200 || !r.data || !r.data.ok) return;
+    var b = r.data;
+    if(b.orgName){
+      document.getElementById('brandOrgName').textContent = b.orgName;
+      document.getElementById('brandOrgName2').textContent = b.orgName;
+    }
+    if(b.productName) document.getElementById('brandSubtitle').textContent = b.productName + ' — Privacy Policy';
+    if(b.phone) document.getElementById('brandPhone').textContent = b.phone;
+    if(b.website){
+      var site = document.getElementById('brandWebsite');
+      site.href = b.website;
+      site.textContent = b.website.replace(/^https?:\/\//, '');
+    }
+  }).catch(function(){});
+})();
+</script>
