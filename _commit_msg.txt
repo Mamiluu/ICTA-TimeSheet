@@ -1,0 +1,27 @@
+Remove the api.qrserver.com third-party dependency for QR codes
+
+Every time an admin viewed an event's QR code, the browser sent that
+event's real sign-in URL to api.qrserver.com to have it rendered as an
+image -- an unnecessary third party learning about every event created,
+and a real privacy inconsistency against a project that otherwise avoids
+exactly this kind of leak.
+
+- server: add the `qrcode` package (a local library, no network calls of
+  its own) and a new GET /api/admin/events/:id/qr route, scoped through
+  the same findOwnEvent() ownership check as every other single-event
+  admin route. Encodes PUBLIC_APP_URL + the event's own slug -- never a
+  client-supplied URL, so this can't be made to encode arbitrary data.
+- admin.html: point the QR <img> at that route instead. It's a same-
+  origin request, so the existing session cookie covers it with no
+  extra wiring.
+- Removed the now-unneeded api.qrserver.com allowance from the CSP's
+  img-src.
+- server/test/qr.test.js: confirms our actual usage produces a real PNG
+  in this runtime (not re-testing the qrcode library's own encoding
+  correctness, which is well-established).
+
+Brevo (transactional email) and the Render/Neon hosting choice remain --
+removing Brevo would mean either self-hosting SMTP (Render's free tier
+blocks outbound SMTP ports entirely, and self-run mail has serious
+deliverability problems of its own) or another provider; removing
+Render/Neon is a deployment decision, not a code change.
