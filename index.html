@@ -540,138 +540,35 @@
   :root[data-theme="dark"] .closing-soon-banner{ background:#3a2c0a; border-color:#5c481e; color:#f0cf7a; }
 
   /* -----------------------------------------------------------------
-     Attendee card mode. A plain visitor only ever has their own single
-     draft/submitted row (the sealed-roster model -- see loadRemote), so
-     the admin's dense spreadsheet-row layout is the wrong shape for them:
-     one wide low table row reading left-to-right is a bad fit for a
-     phone, and it visually undersells what is, for this one person, the
-     entire reason they opened the link. Rather than branch render() into
-     two different DOM structures, the exact same <tr>/<td> markup is
-     restyled here into a single vertical sign-in card, keyed off the
-     role-attendee body class toggled in applyAdminVisibility. Nothing
-     about the underlying state machine, validation, or submit flow
-     changes -- only how it's presented.
+     Table polish. The attendee's row and the admin's roster are the same
+     classic bordered grid they've always been (numbered row, column
+     headers, cell-by-cell entry) -- that structure stays exactly as it
+     is, on purpose. What's refined here is the detail inside it: a
+     calmer focus state on the active cell, a proper "sign here" affordance
+     instead of a bare button, and typography consistent with the rest of
+     the redesigned page -- none of it changes a row into anything other
+     than a row.
      ----------------------------------------------------------------- */
-  body.role-attendee table.roster{ table-layout:auto; border:none; }
-  body.role-attendee table.roster thead{ display:none; }
-  body.role-attendee table.roster tbody,
-  body.role-attendee table.roster tr,
-  body.role-attendee table.roster td{ display:block; width:auto; border:none; }
-  body.role-attendee table.roster tr.draft-row,
-  body.role-attendee table.roster tr.submitted-row{
-    background:var(--paper);
-    border:1px solid var(--ledger-line);
-    border-radius:10px;
-    padding:20px 20px 16px;
-  }
-  body.role-attendee table.roster tr.submitted-row{ background:var(--paper); }
-  body.role-attendee table.roster td.num{ display:none; }
-  body.role-attendee table.roster td[data-label]{ padding:0 0 14px; }
-  body.role-attendee table.roster td[data-label]::before{
-    content:attr(data-label);
-    display:block;
-    font-size:10.5px;
+  table.roster th{
     font-weight:700;
-    letter-spacing:.6px;
-    text-transform:uppercase;
+    letter-spacing:.3px;
     color:var(--muted);
-    margin-bottom:6px;
+    background:color-mix(in srgb, var(--ink) 4%, var(--paper));
   }
-  body.role-attendee table.roster td textarea{
-    border:1px solid var(--ledger-line);
-    border-radius:7px;
-    padding:10px 12px;
-    font-size:15px;
-    background:transparent;
-    transition:border-color .15s, box-shadow .15s;
-  }
-  body.role-attendee table.roster td textarea:focus{
+  table.roster td textarea:focus{
     outline:none;
-    border-color:var(--focus);
-    box-shadow:0 0 0 3px color-mix(in srgb, var(--focus) 12%, transparent);
-    background:transparent;
+    background:color-mix(in srgb, var(--accent2) 7%, transparent);
   }
-  body.role-attendee table.roster td .print-value{ font-size:15px; padding:10px 0; }
-
-  /* Consent becomes two full-width pill buttons rather than two tiny radio
-     dots -- the same underlying <input type=radio> pair (unchanged), just
-     given a much larger, thumb-friendly hit target and a state that's
-     obvious at a glance instead of a small filled circle. */
-  body.role-attendee .consent-toggle{ flex-direction:row; gap:8px; }
-  body.role-attendee .consent-toggle label{
-    flex:1; justify-content:center; gap:6px;
-    border:1px solid var(--ledger-line); border-radius:7px;
-    padding:9px 10px; font-size:12.5px; font-weight:600; color:var(--muted);
-    transition:border-color .15s, color .15s, background .15s;
+  table.roster td.sign-cell button{
+    font-family:inherit;
+    display:inline-flex; align-items:center; gap:5px;
+    border:1px solid var(--ledger-line);
+    border-radius:5px;
+    background:var(--paper);
+    color:var(--ink);
   }
-  body.role-attendee .consent-toggle label:has(input:checked){
-    border-color:var(--accent2); color:var(--accent2);
-    background:color-mix(in srgb, var(--accent2) 8%, transparent);
-  }
-  body.role-attendee .consent-toggle input{ position:absolute; opacity:0; width:1px; height:1px; }
-
-  /* The sign cell becomes the visual anchor of the card: a generous dashed
-     tap target before signing, a framed keepsake of the actual signature
-     after. */
-  body.role-attendee td.sign-cell{ text-align:left; }
-  body.role-attendee td.sign-cell button{
-    all:unset;
-    display:flex; align-items:center; justify-content:center; gap:8px;
-    width:100%; box-sizing:border-box;
-    border:1.5px dashed var(--ledger-line);
-    border-radius:8px;
-    padding:16px;
-    font-size:13.5px; font-weight:600; color:var(--muted);
-    cursor:pointer;
-  }
-  body.role-attendee td.sign-cell button::before{ content:"✎"; font-size:16px; }
-  body.role-attendee td.sign-cell button:hover{ border-color:var(--focus); color:var(--ink); }
-  body.role-attendee td.sign-cell .sig-wrap{
-    justify-content:flex-start; gap:12px;
-    border:1px solid var(--ledger-line); border-radius:8px; padding:12px 14px;
-    background:color-mix(in srgb, var(--seal) 4%, transparent);
-  }
-  body.role-attendee td.sign-cell img{ max-height:34px; }
-  body.role-attendee td.sign-cell button.redo-btn{
-    all:unset; margin-left:auto; font-size:11.5px; font-weight:600; color:var(--accent2); cursor:pointer;
-  }
-
-  /* The submit action becomes one unmissable primary button spanning the
-     card's full width, in place of a small checkmark icon at the end of a
-     table row -- there is exactly one thing left to do on this card, so
-     the button says so. */
-  /* Scoped to the draft row specifically -- a *submitted* row's rowdel
-     cell holds a completely different control (a status chip + the
-     segmented icon action-group used for Edit/Flag/etc, shared verbatim
-     with the admin roster view), which must keep its own icon-based
-     styling untouched rather than being relabeled as if it were the
-     submit/clear pair below. */
-  body.role-attendee tr.draft-row td.rowdel{ padding-top:6px; display:flex; flex-direction:column; gap:8px; }
-  /* font-size:0 on the button swallows its own JS-set text node ("✓" /
-     "…", shared with the admin table-row rendering of this exact same
-     button); the ::before pseudo-element restores its own explicit
-     font-size to actually show the replacement label. */
-  body.role-attendee tr.draft-row td.rowdel button.submit-btn{
-    all:unset; box-sizing:border-box; text-align:center;
-    width:100%; padding:13px; border-radius:8px;
-    background:var(--ink); color:var(--paper);
-    font-size:0; cursor:pointer;
-  }
-  body.role-attendee tr.draft-row td.rowdel button.submit-btn::before{
-    content:"Confirm & sign in"; font-size:14.5px; font-weight:700; letter-spacing:.2px;
-  }
-  body.role-attendee tr.draft-row td.rowdel button.submit-btn:disabled{ opacity:.55; cursor:default; }
-  body.role-attendee tr.draft-row td.rowdel button.submit-btn:disabled::before{ content:"Signing in…"; }
-  body.role-attendee tr.draft-row td.rowdel button:not(.submit-btn){
-    all:unset; align-self:center; font-size:0; color:var(--muted); cursor:pointer;
-  }
-  body.role-attendee tr.draft-row td.rowdel button:not(.submit-btn)::before{
-    content:"Clear this entry"; font-size:11.5px; text-decoration:underline;
-  }
-  /* A submitted row's own action area (status chip + Edit icon, if this is
-     the attendee's own row) just needs card-appropriate spacing, not a
-     restyle -- its buttons keep the same look as the admin roster. */
-  body.role-attendee tr.submitted-row td.rowdel{ padding-top:10px; border-top:1px solid var(--ledger-line); }
+  table.roster td.sign-cell button::before{ content:"✎"; font-size:11px; }
+  table.roster td.sign-cell button:hover{ border-color:var(--accent2); color:var(--accent2); }
 
   /* --- Online / offline status pill + local queue notice --- */
   .conn-pill{
@@ -1041,12 +938,6 @@
     closingSoonBanner.classList.add('show');
   }
   function applyAdminVisibility(){
-    // Purely a styling hook (see the body.role-attendee rules below) that
-    // lets the exact same table/row markup render as a compact admin
-    // spreadsheet or as a single-entry sign-in card, without branching the
-    // render() logic itself into two different DOM shapes.
-    document.body.classList.toggle('role-attendee', !isAdmin);
-    document.body.classList.toggle('role-admin', isAdmin);
     if(addRowBtn) addRowBtn.style.display = isAdmin ? '' : 'none';
     if(resetBtn) resetBtn.style.display = isAdmin ? '' : 'none';
     if(rosterControls) rosterControls.style.display = isAdmin ? 'flex' : 'none';
@@ -1347,10 +1238,8 @@
 
       var locked = (row.submitted && !row.editing) || row.submitting;
 
-      var FIELD_LABELS = { name: 'Full name', org: 'Organization', email: 'Email address', phone: 'Phone number' };
       ['name','org','email','phone'].forEach(function(field){
         var td = document.createElement('td');
-        td.dataset.label = FIELD_LABELS[field];
         var textarea = document.createElement('textarea');
         textarea.rows = 1;
         textarea.spellcheck = false;
@@ -1386,7 +1275,6 @@
       // quietly change what they consented to.
       var consentTd = document.createElement('td');
       consentTd.className = 'consent-cell';
-      consentTd.dataset.label = 'Photo / video consent';
       var consentLabel = row.consent === true ? 'Consented' : row.consent === false ? 'Declined' : 'Not recorded';
       // Same access rule as canDrawSignature just below (computed
       // independently here since that variable isn't declared until the
@@ -1426,7 +1314,6 @@
 
       var signTd = document.createElement('td');
       signTd.className = 'sign-cell';
-      signTd.dataset.label = 'Your signature';
       // An admin editing someone else's already-submitted row (row.clientId
       // unset -- see below) never gets to draw or redo that person's
       // signature directly; that stays the attendee's own act via the
