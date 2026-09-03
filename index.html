@@ -458,6 +458,8 @@
   }
   .privacy-badge .icon{ font-size:15px; line-height:1.45; flex:none; }
   .privacy-badge strong{ font-weight:700; color:var(--ink); }
+  .privacy-badge a{ color:var(--accent2); font-weight:600; text-decoration:none; white-space:nowrap; }
+  .privacy-badge a:hover{ text-decoration:underline; }
 
   /* --- The stamp: the one moment in this whole page that gets to be
      ceremonial. An attendance record is a small bureaucratic ritual --
@@ -792,6 +794,11 @@
         <a class="where-link" id="eventWhereLink" href="#" target="_blank" rel="noopener" style="display:none;"></a>
       </div>
     </div>
+  </div>
+
+  <div class="privacy-badge" id="privacyBadge">
+    <span class="icon" aria-hidden="true">&#128274;</span>
+    <span><strong>Your entry is sealed.</strong> You can only see your own row — never anyone else's name, phone, email, or signature, and not even how many people have signed in. Only this event's organizer sees the full list. <a href="privacy.html" target="_blank" rel="noopener">Read the privacy policy →</a></span>
   </div>
 
   <div class="receipt-banner" id="receiptBanner">
