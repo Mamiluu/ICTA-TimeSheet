@@ -74,3 +74,127 @@ function applyTopbarBranding(suffix){
     }
   }).catch(function(){ /* keep the built-in default */ });
 }
+
+// --- Audit trail formatting -------------------------------------------
+// Shared by admin.html's "My activity" and superadmin.html's per-admin
+// audit drill-down, both of which used to render a row's Detail column as
+// a literal JSON.stringify(metadata) -- correct, but unreadable at a
+// glance for anyone who isn't the person who wrote the route that logged
+// it. This turns each of the ~17 actions this app actually writes (see
+// every writeAudit() call site under server/src/routes/) into a plain-
+// language summary, and an EVENT_UPDATE/ATTENDANCE_EDIT's before/after
+// pair into just the fields that actually changed, not a full record
+// dump. The raw metadata is never hidden, only tucked behind a per-row
+// <details> toggle -- an audit trail that hides its own source data on a
+// redesign would defeat the entire point of having one.
+var AUDIT_ACTION_META = {
+  LOGIN: { label: 'Logged in', tone: 'neutral' },
+  LOGOUT: { label: 'Logged out', tone: 'neutral' },
+  ACCOUNT_ACTIVATED: { label: 'Activated account', tone: 'positive' },
+  PASSWORD_RESET_REQUESTED: { label: 'Requested password reset', tone: 'neutral' },
+  PASSWORD_RESET_COMPLETED: { label: 'Completed password reset', tone: 'positive' },
+  SIGNATURE_REQUESTED: { label: 'Requested signature', tone: 'neutral' },
+  ATTENDANCE_EDIT: { label: 'Edited entry', tone: 'neutral' },
+  ATTENDANCE_FLAGGED: { label: 'Flagged entry', tone: 'warning' },
+  ATTENDANCE_RETIRED: { label: 'Removed entry', tone: 'danger' },
+  ATTENDANCE_REOPENED: { label: 'Reopened entry', tone: 'positive' },
+  EVENT_CREATE: { label: 'Created event', tone: 'positive' },
+  EVENT_UPDATE: { label: 'Updated event', tone: 'neutral' },
+  EVENT_DELETE: { label: 'Deleted event', tone: 'danger' },
+  EVENT_ATTENDANCE_EXPORTED: { label: 'Exported attendance', tone: 'info' },
+  ADMIN_CREATE: { label: 'Created admin', tone: 'positive' },
+  ADMIN_ACTIVATION_LINK_VIEWED: { label: 'Viewed activation link', tone: 'neutral' },
+  ADMIN_DISABLE: { label: 'Disabled admin', tone: 'danger' },
+  ADMIN_REACTIVATE: { label: 'Reactivated admin', tone: 'positive' },
+  ADMIN_DELETE: { label: 'Deleted admin', tone: 'danger' }
+};
+
+var AUDIT_FIELD_LABELS = {
+  name: 'Name', description: 'Description', startAt: 'Start', endAt: 'End', timezone: 'Timezone',
+  locationType: 'Location type', address: 'Address', meetingLink: 'Meeting link',
+  organization: 'Organization', email: 'Email', phone: 'Phone'
+};
+
+function auditFieldValue(key, value){
+  if(value == null || value === '') return '—';
+  if(key === 'startAt' || key === 'endAt') return new Date(value).toLocaleString();
+  return String(value);
+}
+
+// Only the fields that actually differ -- before/after are always built
+// with identical key sets by the routes that log them (see EVENT_UPDATE
+// in admin.js, ATTENDANCE_EDIT in public.js), so comparing after's keys
+// against before covers every real case.
+function auditDiff(before, after){
+  if(!before || !after) return [];
+  return Object.keys(after)
+    .filter(function(k){ return Object.prototype.hasOwnProperty.call(before, k) && before[k] !== after[k]; })
+    .map(function(k){
+      var label = AUDIT_FIELD_LABELS[k] || k;
+      return escapeHtml(label) + ': ' + escapeHtml(auditFieldValue(k, before[k])) + ' → ' + escapeHtml(auditFieldValue(k, after[k]));
+    });
+}
+
+function auditSummary(e){
+  var m = e.metadata || {};
+  switch(e.action){
+    case 'SIGNATURE_REQUESTED':
+      return 'Sent a signature request to ' + escapeHtml(m.name || 'an attendee');
+    case 'ATTENDANCE_EDIT': {
+      var editChanges = auditDiff(m.before, m.after);
+      return editChanges.length ? editChanges.join('<br>') : 'Saved with no actual field changes';
+    }
+    case 'ATTENDANCE_FLAGGED':
+      return escapeHtml(m.name || 'An entry') + (m.reason ? ' — “' + escapeHtml(m.reason) + '”' : '');
+    case 'ATTENDANCE_RETIRED':
+      return 'Confirmed removal of ' + escapeHtml(m.name || 'an entry') + (m.reason ? ' — “' + escapeHtml(m.reason) + '”' : '');
+    case 'ATTENDANCE_REOPENED':
+      return 'Reopened ' + escapeHtml(m.name || 'an entry') + (m.previousStatus ? ' (was ' + escapeHtml(m.previousStatus) + ')' : '') + (m.reason ? ' — “' + escapeHtml(m.reason) + '”' : '');
+    case 'EVENT_CREATE':
+      return '“' + escapeHtml(m.name || '') + '” — ' + escapeHtml(auditFieldValue('startAt', m.startAt)) +
+        (m.locationType === 'VIRTUAL' ? ' · Virtual' : (m.address ? ' · ' + escapeHtml(m.address) : ''));
+    case 'EVENT_UPDATE': {
+      var eventChanges = auditDiff(m.before, m.after);
+      return eventChanges.length ? eventChanges.join('<br>') : 'Saved with no actual field changes';
+    }
+    case 'EVENT_DELETE':
+      return '“' + escapeHtml(m.name || '') + '”';
+    case 'EVENT_ATTENDANCE_EXPORTED':
+      return '“' + escapeHtml(m.name || '') + '” — ' + (m.rowCount != null ? m.rowCount : '?') + (m.rowCount === 1 ? ' record' : ' records');
+    case 'ADMIN_CREATE':
+      return escapeHtml(m.county || '');
+    case 'ADMIN_DELETE':
+      return escapeHtml(m.email || '') + (m.county ? ' (' + escapeHtml(m.county) + ')' : '');
+    default:
+      return e.targetType ? escapeHtml(e.targetType) + (e.targetId ? ' ' + escapeHtml(String(e.targetId).slice(0, 8)) : '') : '';
+  }
+}
+
+// A short, approximate hint alongside the exact timestamp every caller
+// already renders -- never the only time shown, since an official record
+// should say precisely when something happened, not just "a while ago".
+function auditRelativeTime(date){
+  var mins = Math.round((Date.now() - date.getTime()) / 60000);
+  if(mins < 1) return 'just now';
+  if(mins < 60) return mins + 'm ago';
+  var hours = Math.round(mins / 60);
+  if(hours < 24) return hours + 'h ago';
+  var days = Math.round(hours / 24);
+  if(days < 30) return days + 'd ago';
+  return null;
+}
+
+// Returns everything a caller needs to render one audit row: a colored
+// action badge, a human-readable summary, and (if this entry actually
+// carries metadata) a collapsed <details> block with the untouched raw
+// JSON -- callers just drop these into whatever <td> markup that page
+// already uses.
+function formatAuditEntry(e){
+  var meta = AUDIT_ACTION_META[e.action] || { label: e.action, tone: 'neutral' };
+  var rawJson = e.metadata ? JSON.stringify(e.metadata, null, 2) : '';
+  return {
+    badgeHtml: '<span class="audit-badge audit-badge-' + meta.tone + '">' + escapeHtml(meta.label) + '</span>',
+    summaryHtml: auditSummary(e) || '<span class="audit-empty">—</span>',
+    rawHtml: rawJson ? '<details class="audit-raw"><summary>Raw</summary><pre>' + escapeHtml(rawJson) + '</pre></details>' : ''
+  };
+}
