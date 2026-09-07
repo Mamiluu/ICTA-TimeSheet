@@ -1030,11 +1030,13 @@
       var tbody = document.createElement('tbody');
       r.data.entries.forEach(function(e){
         var tr = document.createElement('tr');
-        var detail = e.metadata ? JSON.stringify(e.metadata) : (e.targetType ? e.targetType + ' ' + e.targetId : '');
+        var when = new Date(e.createdAt);
+        var rel = auditRelativeTime(when);
+        var f = formatAuditEntry(e);
         tr.innerHTML =
-          '<td>' + escapeHtml(new Date(e.createdAt).toLocaleString()) + '</td>' +
-          '<td>' + escapeHtml(e.action) + '</td>' +
-          '<td style="font-size:11px;color:#666;">' + escapeHtml(detail) + '</td>';
+          '<td>' + escapeHtml(when.toLocaleString()) + (rel ? '<div class="audit-relative">' + escapeHtml(rel) + '</div>' : '') + '</td>' +
+          '<td>' + f.badgeHtml + '</td>' +
+          '<td class="audit-detail">' + f.summaryHtml + f.rawHtml + '</td>';
         tbody.appendChild(tr);
       });
       table.appendChild(tbody);
