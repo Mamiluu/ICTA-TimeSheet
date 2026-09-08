@@ -692,6 +692,7 @@
     table.roster tbody tr.retired-row{ opacity:.7; box-shadow:none; }
     table.roster tbody tr.empty-row,
     table.roster tbody tr.history-row{
+      display:block;
       padding:12px 14px;
       box-shadow:none;
     }
@@ -700,6 +701,7 @@
       display:block;
       border:none !important;
       padding:0;
+      min-width:0;
     }
 
     /* The row number as a numbered tab riding the card's top edge, the
@@ -725,7 +727,7 @@
     /* Field slips: label printed above the value, exactly the small-caps
        treatment the EVENT DETAILS box above already uses -- one label
        language for the whole page instead of a second one invented here. */
-    table.roster td.field-cell{ margin-top:12px; }
+    table.roster td.field-cell{ margin-top:12px; flex:0 0 100%; }
     table.roster td.field-cell::before{
       display:block;
       font-weight:700;
@@ -739,7 +741,7 @@
     table.roster td.field-org::before{ content:"Organization"; }
     table.roster td.field-email::before{ content:"Email"; }
     table.roster td.field-phone::before{ content:"Phone"; }
-    table.roster td.field-name{ margin-top:6px; }
+    table.roster td.field-name{ margin-top:6px; order:1; }
     table.roster td.field-name textarea{
       font-family:var(--serif);
       font-size:15.5px;
@@ -752,21 +754,28 @@
     }
 
     /* Organization and phone share a line, the way two short fields on a
-       paper form share a line -- everything else keeps the full width. */
+       paper form share a line -- everything else keeps the full width.
+       Visual order is set explicitly (order:2/3) since the cells arrive
+       in the DOM as name, org, email, phone -- email would otherwise
+       wedge itself between this pair. */
     table.roster td.field-org, table.roster td.field-phone{
-      display:inline-block;
-      width:48%;
-      vertical-align:top;
+      flex:0 0 48%;
+      min-width:0;
     }
-    table.roster td.field-org{ margin-right:4%; }
+    table.roster td.field-org{ order:2; }
+    table.roster td.field-email{ order:4; }
+    table.roster td.field-phone{ order:3; }
 
     table.roster td.consent-cell,
     table.roster td.sign-cell{
       display:block;
+      flex:0 0 100%;
       margin-top:14px;
       padding-top:12px !important;
       border-top:1px dotted var(--ledger-line) !important;
     }
+    table.roster td.consent-cell{ order:5; }
+    table.roster td.sign-cell{ order:6; }
     table.roster td.consent-cell::before{
       content:"Photo/Video Consent";
       display:block;
@@ -800,6 +809,8 @@
 
     table.roster td.rowdel{
       display:flex;
+      order:7;
+      flex:0 0 100%;
       align-items:center;
       flex-wrap:wrap;
       gap:8px;
