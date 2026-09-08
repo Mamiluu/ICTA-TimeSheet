@@ -244,9 +244,14 @@
     word-break:break-word;
   }
   table.roster td.sign-cell{ text-align:center; vertical-align:middle; padding-top:2px; padding-bottom:2px; }
-  table.roster td.sign-cell .sig-wrap{ display:flex; align-items:center; justify-content:center; gap:5px; }
+  table.roster td.sign-cell .sig-wrap{
+    display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:5px; max-width:100%;
+  }
+  table.roster td.sign-cell .sig-wrap.sig-wrap-col{ flex-direction:column; align-items:stretch; }
   table.roster td.sign-cell img{ max-height:24px; max-width:70%; display:block; }
   table.roster td.sign-cell button{
+    box-sizing:border-box;
+    max-width:100%;
     font-size:10px;
     padding:2px 6px;
     line-height:1.2;
@@ -256,6 +261,11 @@
     border-radius:3px;
     flex:none;
   }
+  table.roster td.sign-cell .sig-link-input{
+    box-sizing:border-box; width:100%; max-width:150px; font-size:9.5px;
+    padding:2px 4px; border:1px solid #bbb; border-radius:3px;
+  }
+  table.roster td.sign-cell .sig-request-hint{ font-size:9px; color:var(--muted); line-height:1.3; }
   table.roster td.consent-cell{ text-align:center; vertical-align:middle; padding-top:2px; padding-bottom:2px; }
   .consent-toggle{ display:flex; flex-direction:column; gap:3px; align-items:flex-start; font-size:11px; }
   .consent-toggle label{ display:flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap; }
@@ -1393,9 +1403,6 @@
       } else if(!locked && canDrawSignature){
         var signBtn = document.createElement('button');
         signBtn.textContent = 'Sign';
-        signBtn.style.fontSize = '11px';
-        signBtn.style.padding = '4px 10px';
-        signBtn.style.cursor = 'pointer';
         signBtn.addEventListener('click', function(){ openSignatureModal(idx); });
         signTd.appendChild(signBtn);
       } else if(isAdmin && row.id){
@@ -1404,22 +1411,18 @@
         // not used yet. Only an admin managing this event sees this; a
         // plain visitor never gets a roster of anyone but themselves.
         var sigWrap = document.createElement('div');
-        sigWrap.className = 'sig-wrap';
-        sigWrap.style.flexDirection = 'column';
-        sigWrap.style.alignItems = 'stretch';
+        sigWrap.className = 'sig-wrap sig-wrap-col';
         var link = pendingSigLinks[row.id];
         if(link){
           var linkInput = document.createElement('input');
           linkInput.type = 'text';
           linkInput.readOnly = true;
           linkInput.value = link;
-          linkInput.style.fontSize = '10px';
-          linkInput.style.width = '150px';
+          linkInput.className = 'sig-link-input';
           linkInput.addEventListener('click', function(){ linkInput.select(); });
           sigWrap.appendChild(linkInput);
           var copyBtn = document.createElement('button');
           copyBtn.textContent = 'Copy link';
-          copyBtn.style.fontSize = '11px';
           copyBtn.addEventListener('click', function(){
             (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject())
               .catch(function(){ linkInput.select(); document.execCommand('copy'); })
@@ -1427,16 +1430,12 @@
           });
           sigWrap.appendChild(copyBtn);
           var hint = document.createElement('div');
-          hint.style.fontSize = '10px';
-          hint.style.color = '#888';
+          hint.className = 'sig-request-hint';
           hint.textContent = 'Send to ' + (row.phone || row.email || 'attendee') + ' — valid 7 days';
           sigWrap.appendChild(hint);
         } else {
           var reqBtn = document.createElement('button');
           reqBtn.textContent = row.hasPendingSignatureRequest ? 'Resend sig. link' : 'Request signature';
-          reqBtn.style.fontSize = '11px';
-          reqBtn.style.padding = '4px 10px';
-          reqBtn.style.cursor = 'pointer';
           reqBtn.addEventListener('click', function(){ requestSignature(row); });
           sigWrap.appendChild(reqBtn);
         }
