@@ -667,8 +667,15 @@
     table.roster thead{ display:none; }
     table.roster{ border:none; }
 
+    /* The card is a flex container with an explicit visual order per
+       field (below) rather than relying on DOM order -- the markup still
+       emits cells in table-column order (name, org, email, phone, …),
+       and flex `order` is what lets Organization and Phone land on the
+       same line without the email field wedged between them. */
     table.roster tbody tr{
-      display:block;
+      display:flex;
+      flex-wrap:wrap;
+      column-gap:4%;
       position:relative;
       background:var(--paper);
       border:1px solid var(--ledger-line);
@@ -713,7 +720,7 @@
       text-align:center;
     }
     tr.draft-row td.num{ border-color:var(--ledger-line); color:var(--muted); }
-    tr.empty-row td.num, tr.history-row td.num{ position:static; width:auto; height:auto; border:none; background:none; display:inline; }
+    tr.empty-row td.num{ position:static; width:auto; height:auto; border:none; background:none; display:inline; }
 
     /* Field slips: label printed above the value, exactly the small-caps
        treatment the EVENT DETAILS box above already uses -- one label
