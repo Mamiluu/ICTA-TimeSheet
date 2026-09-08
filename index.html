@@ -15,15 +15,14 @@
 <title>ICT Authority — Attendance Sheet</title>
 <style>
   /* ---------------------------------------------------------------------
-     Design language: "the ledger and the stamp." This is a government
-     attendance record, not a SaaS signup form -- the visual vocabulary
-     leans into that on purpose (a bound-ledger card, a hand-drawn ink
-     signature, an official stamp on the receipt) rather than borrowing
-     generic dashboard chrome. Official red stays reserved for the one
-     place it already meant something (the ICTA letterhead) instead of
-     being smeared across every button; the working palette is an ink/
-     paper pairing with a single warm seal color for the moment that
-     actually deserves emphasis -- successfully signing in.
+     Design language: the plain paper register. This replaces a physical
+     printed attendance sheet, so it reads as one -- ruled black borders,
+     a serif letterhead, no drop shadows, gradients, filled pill badges,
+     or rounded "app card" chrome -- the same page whether it's on a
+     laptop, a tablet, or a phone (the roster table itself never
+     restructures across sizes; see .roster-scroll below). Color is used
+     only where it carries real meaning (a status dot, a destructive
+     action) rather than as decoration.
      --------------------------------------------------------------------- */
   :root{
     --ink:#1c1a17;
@@ -581,8 +580,9 @@
   @media print{
     body{ background:#fff; padding:0; }
     .toolbar, .hint, footer.credit, .closing-soon-banner, .roster-controls, .roster-pagination, table.roster .action-col, table.roster td.rowdel, table.roster td.sign-cell button{ display:none !important; }
-    .sheet{ box-shadow:none; max-width:100%; padding:10px 18px; }
-    table.roster{ table-layout:auto; }
+    .sheet{ max-width:100%; padding:10px 18px; }
+    .roster-scroll{ overflow:visible; }
+    table.roster{ table-layout:auto; min-width:0; }
     table.roster td textarea, .event-box input{ border-color:transparent; }
     table.roster tr.draft-row, table.roster tr.empty-row{ display:none !important; }
     table.roster td textarea{ display:none !important; }
@@ -685,6 +685,7 @@
     </select>
   </div>
 
+  <div class="roster-scroll">
   <table class="roster" id="roster">
     <colgroup>
       <col style="width:4%">
@@ -710,7 +711,8 @@
     </thead>
     <tbody id="rosterBody"></tbody>
   </table>
-  
+  </div>
+
   <div class="roster-pagination" id="rosterPagination" style="display:none;">
     <span class="rp-summary" id="rosterPageSummary"></span>
     <div class="rp-nav">
@@ -1199,7 +1201,6 @@
 
       ['name','org','email','phone'].forEach(function(field){
         var td = document.createElement('td');
-        td.className = 'field-cell field-' + field;
         var textarea = document.createElement('textarea');
         textarea.rows = 1;
         textarea.spellcheck = false;
