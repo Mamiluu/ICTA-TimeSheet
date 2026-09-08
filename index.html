@@ -272,7 +272,7 @@
   .consent-print-value{ display:none; font-size:12px; text-align:center; }
 
   table.roster tr.empty-row td{ color:#999; font-style:italic; }
-  table.roster td.rowdel{ text-align:center; vertical-align:middle; white-space:nowrap; }
+  table.roster td.rowdel{ text-align:center; vertical-align:middle; }
   table.roster td.rowdel button{
     border:none; background:none; cursor:pointer; font-size:14px; line-height:1; padding:2px 4px;
   }
@@ -309,6 +309,8 @@
 
   .action-group{
     display:inline-flex;
+    flex-wrap:wrap;
+    max-width:100%;
     border:1px solid var(--ledger-line);
     overflow:hidden;
     background:var(--paper);
