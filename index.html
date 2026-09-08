@@ -58,12 +58,29 @@
   }
 
   *{ box-sizing:border-box; }
+  html{ overflow-x:hidden; }
   body{
     margin:0;
     padding:24px 12px 60px;
     background:var(--bg);
     font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif;
     color:var(--ink);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    overflow-x:hidden;
+  }
+  /* #mainContent is a flex item of body with no explicit width, which
+     normally just shrink-wraps its content -- but a flex item's
+     shrink-wrap floor is its descendants' min-content size, and the
+     roster table below deliberately declares min-width:640px so it can
+     scroll sideways instead of squeezing illegible on a phone. Without
+     pinning mainContent's own width here, that 640px would win the fight
+     and drag the *entire page* wide instead of just the table -- exactly
+     the "whole sheet shifted and cut off" breakage this fixes. */
+  #mainContent{
+    width:100%;
+    min-width:0;
     display:flex;
     flex-direction:column;
     align-items:center;
@@ -101,43 +118,35 @@
   h1.title{
     text-align:center;
     font-family:var(--serif);
-    font-weight:600;
-    font-size:19px;
-    letter-spacing:.3px;
-    margin:18px 0 20px;
+    font-weight:700;
+    font-size:18px;
+    letter-spacing:.5px;
+    margin:16px 0 20px;
     color:var(--ink);
-    position:relative;
-  }
-  /* A short rule under the title rather than an underline through the
-     descenders -- same "this is the formal heading" cue, without making a
-     serif title look like a broken hyperlink. */
-  h1.title::after{
-    content:"";
-    display:block;
-    width:100%; height:1px; margin:10px auto 0;
-    background:var(--ink);
+    text-decoration:underline;
+    text-underline-offset:4px;
   }
 
   .event-box{
-    border:1px solid var(--ledger-line);
+    border:1px solid var(--line);
     margin-bottom:22px;
     background:var(--paper);
     overflow:hidden;
   }
   .event-box .row{ display:flex; }
   .event-box .field{
-    border-top:1px solid var(--ledger-line);
+    border-top:1px solid var(--line);
     padding:11px 14px;
     flex:1;
   }
   .event-box > .field:first-child{ border-top:none; }
-  .event-box .row .field + .field{ border-left:1px solid var(--ledger-line); }
+  .event-box .row .field + .field{ border-left:1px solid var(--line); }
   .event-box label{
     font-weight:700;
-    font-size:10.5px;
-    letter-spacing:.6px;
+    font-size:11px;
+    letter-spacing:.4px;
     text-transform:uppercase;
-    color:var(--muted);
+    color:var(--ink);
     display:block;
     margin-bottom:5px;
   }
