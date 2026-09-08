@@ -203,7 +203,6 @@
   }
   table.roster th{
     font-size:12px;
-    background:#f4f4f4;
   }
   table.roster td.num{ text-align:center; color:var(--muted); vertical-align:middle; }
   table.roster td textarea{
@@ -437,12 +436,9 @@
   .privacy-badge strong{ font-weight:700; color:var(--ink); }
   .privacy-badge a{ color:var(--ink); font-weight:600; text-decoration:underline; white-space:nowrap; }
 
-  /* --- The stamp: the one moment in this whole page that gets to be
-     ceremonial. An attendance record is a small bureaucratic ritual --
-     signing in should feel like getting a document stamped, not like
-     submitting a web form. Built entirely from CSS (a rotated ring +
-     a checkmark), no image asset, so it stays crisp at any size and
-     recolors cleanly in dark mode. */
+  /* --- The receipt: a plain ringed checkmark, the same weight as a rubber
+     date-stamp on a paper form -- no fill color, no bounce-in animation,
+     it just confirms the entry was recorded. */
   .receipt-banner{
     max-width:900px;
     width:100%;
@@ -502,8 +498,8 @@
   table.roster th{
     font-weight:700;
     letter-spacing:.3px;
-    color:var(--muted);
-    background:color-mix(in srgb, var(--ink) 4%, var(--paper));
+    color:var(--ink);
+    background:var(--paper);
   }
   table.roster td textarea:focus{
     outline:none;
