@@ -62,45 +62,27 @@
   body{
     margin:0;
     padding:24px 12px 60px;
-    /* A faint woven texture instead of a flat fill -- reads as paper/cloth
-       stock rather than a screen. Pure CSS, no image asset, ~nothing to
-       load, and it disappears cleanly if a viewer has reduced-motion /
-       forced-colors preferences since it's just two overlaid gradients. */
-    background-color:var(--bg);
-    background-image:
-      radial-gradient(circle at 1px 1px, rgba(0,0,0,.035) 1px, transparent 0);
-    background-size:14px 14px;
+    background:var(--bg);
     font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif;
     color:var(--ink);
     display:flex;
     flex-direction:column;
     align-items:center;
   }
-  @media (prefers-color-scheme: dark){
-    :root:not([data-theme="light"]) body{ background-image:radial-gradient(circle at 1px 1px, rgba(255,255,255,.035) 1px, transparent 0); }
-  }
-  :root[data-theme="dark"] body{ background-image:radial-gradient(circle at 1px 1px, rgba(255,255,255,.035) 1px, transparent 0); }
 
+  /* The sheet itself reads as an actual printed attendance sheet -- the
+     same plain ruled page this replaces, not a shadowed, rounded "card"
+     floating above the background. One thin black-ish rule for an edge,
+     nothing else. */
   .sheet{
     background:var(--paper);
     color:var(--ink);
     width:100%;
     max-width:900px;
-    padding:32px 36px 28px;
-    box-shadow:0 1px 0 var(--paper-edge), 0 18px 40px -18px rgba(0,0,0,.35), 0 2px 10px rgba(0,0,0,.08);
-    border-radius:7px;
-    border:1px solid var(--paper-edge);
+    padding:26px 30px 24px;
+    border:1px solid var(--ledger-line);
     position:relative;
   }
-  /* The bound-edge -- a single hairline offset inward on the left, like the
-     stitched/glued spine of a ledger book. Decorative only (aria-hidden via
-     no content), and quietly drops out in print where it'd be noise. */
-  .sheet::before{
-    content:"";
-    position:absolute; left:14px; top:18px; bottom:18px; width:1px;
-    background:var(--ledger-line);
-  }
-  @media print{ .sheet::before{ display:none; } }
 
   .letterhead{
     display:flex;
