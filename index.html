@@ -819,18 +819,21 @@
       border-top:1px dotted var(--ledger-line) !important;
     }
     table.roster td.rowdel .status-chip{ margin-bottom:0; margin-right:auto; }
-    table.roster td.rowdel button{
+    /* Direct children only -- the confirm/flag buttons buried inside
+       .flag-reason-box keep their own dedicated styling below, this is
+       just the plain ✓ / ✕ submit-and-delete pair. */
+    table.roster td.rowdel > button{
       font-size:14px;
       padding:8px 14px;
       border-radius:7px;
     }
-    table.roster td.rowdel button.submit-btn{
+    table.roster td.rowdel > button.submit-btn{
       background:var(--accent2);
       border-color:var(--accent2);
       color:#fff;
       font-weight:700;
     }
-    table.roster td.rowdel button:not(.submit-btn){
+    table.roster td.rowdel > button:not(.submit-btn){
       border:1px solid var(--ledger-line);
       color:var(--muted);
     }
