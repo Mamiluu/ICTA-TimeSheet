@@ -601,18 +601,61 @@
   }
 
   /* -----------------------------------------------------------------
-     Small screens: the sheet is the same sheet -- same letterhead, same
-     ruled table, same column order -- just narrower, so the parts that
-     can reasonably stack (the letterhead block, the admin search bar)
-     do, and the roster itself scrolls sideways (via .roster-scroll
-     above) instead of being redrawn into something a laptop user
-     wouldn't recognize.
+     Small screens: the sheet is the same sheet, laid out exactly the way
+     it is on a laptop -- letterhead in a row with the logo at the right,
+     the event box's DATE/LOCATION cells side by side, the roster's eight
+     columns in their same order. Nothing here restructures or restacks
+     anything; only the sheet's own outer padding tightens (below), and
+     -- via the @container blocks that follow -- every size inside it
+     (logo, type, cell padding) scales down together as the sheet has
+     less width to work with, the way a printed page shrinks to fit a
+     smaller sheet of paper without redrawing its layout.
      ----------------------------------------------------------------- */
   @media (max-width:640px){
     .sheet{ padding:18px 14px 20px; }
-    .letterhead{ flex-direction:column-reverse; align-items:center; text-align:center; gap:8px; }
-    .roster-controls{ flex-direction:column; align-items:stretch; }
-    #rosterStatusFilter{ width:100%; }
+  }
+
+  /* Fluid sheet type: a container query on .sheet itself (see
+     container-name:sheet above), so the letterhead, title, event box
+     and admin toolbar all scale down together in step with the roster's
+     own container query below -- one consistent shrink, not several
+     independently-tuned breakpoints drifting apart from each other. */
+  @container sheet (max-width:620px){
+    .letterhead .logo img{ height:40px; }
+    .letterhead .addr{ font-size:10px; }
+    .letterhead .addr .org{ font-size:11px; }
+    h1.title{ font-size:15px; margin:13px 0 16px; }
+    .event-box label{ font-size:9.5px; }
+    .event-box .field-value{ font-size:12px; }
+    .event-box .field-desc{ font-size:11px; }
+    .event-box .where-link{ font-size:10.5px; }
+    .privacy-badge{ font-size:11px; padding:8px 11px; }
+    .receipt-banner{ font-size:11.5px; padding:11px 14px; }
+    .closing-soon-banner{ font-size:11px; }
+    .toolbar button{ font-size:11.5px; padding:7px 12px; }
+    .hint{ font-size:11px; }
+    footer.credit{ font-size:10px; }
+    .rc-search{ min-width:120px; }
+    .rc-search input{ font-size:11px; }
+    #rosterStatusFilter{ font-size:11px; padding:5px 6px; }
+  }
+  @container sheet (max-width:400px){
+    .letterhead .logo img{ height:30px; }
+    .letterhead .addr{ font-size:8.5px; }
+    .letterhead .addr .org{ font-size:9.5px; }
+    h1.title{ font-size:12.5px; margin:10px 0 13px; }
+    .event-box label{ font-size:8px; }
+    .event-box .field-value{ font-size:10.5px; }
+    .event-box .field-desc{ font-size:9.5px; }
+    .event-box .field{ padding:8px 10px; }
+    .privacy-badge{ font-size:9.5px; padding:7px 9px; gap:6px; }
+    .privacy-badge .icon{ font-size:12px; }
+    .toolbar button{ font-size:10px; padding:6px 9px; }
+    .hint{ font-size:9.5px; }
+    .rc-search{ min-width:90px; padding:4px 6px; }
+    .rc-search input{ font-size:10px; }
+    .rc-search kbd{ display:none; }
+    #rosterStatusFilter{ font-size:10px; }
   }
 
   /* -----------------------------------------------------------------
