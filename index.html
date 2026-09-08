@@ -640,11 +640,186 @@
     .consent-print-value{ display:block !important; }
   }
 
+  /* -----------------------------------------------------------------
+     Small screens: the roster stops trying to be a shrunken table (eight
+     columns crammed into ~340px just wraps every header into a ladder of
+     three-letter fragments) and becomes what the paper metaphor already
+     implies at that size -- a stack of individual attendance slips, one
+     per person, the way a clipboard of index cards reads before anyone
+     ever ruled it into a grid. Column headers move onto each slip as
+     printed field labels instead of vanishing into a hidden thead; the
+     row number becomes a small numbered tab clipped to the card the way
+     a ledger tab sits proud of the page edge. Nothing here is a generic
+     "responsive table" reflow -- it borrows the ledger/stamp vocabulary
+     already established above (dotted rules, serif field values, the
+     seal color) so the card and the desktop sheet clearly belong to the
+     same document.
+     ----------------------------------------------------------------- */
   @media (max-width:640px){
-    .sheet{ padding:20px 14px; }
+    .sheet{ padding:18px 12px 22px; }
+    .sheet::before{ display:none; }
     .letterhead{ flex-direction:column-reverse; align-items:center; text-align:center; gap:8px; }
-    table.roster{ font-size:11px; }
-    table.roster th, table.roster td{ padding:4px; }
+
+    .roster-controls{ flex-direction:column; align-items:stretch; }
+    #rosterStatusFilter{ width:100%; }
+
+    table.roster, table.roster tbody{ display:block; width:100%; }
+    table.roster thead{ display:none; }
+    table.roster{ border:none; }
+
+    table.roster tbody tr{
+      display:block;
+      position:relative;
+      background:var(--paper);
+      border:1px solid var(--ledger-line);
+      border-radius:9px;
+      margin:0 0 14px;
+      padding:18px 13px 13px;
+      box-shadow:0 1px 0 var(--paper-edge), 0 8px 20px -16px rgba(0,0,0,.4);
+    }
+    table.roster tbody tr.draft-row{
+      border-style:dashed;
+      box-shadow:none;
+      background:color-mix(in srgb, var(--ink) 2.5%, var(--paper));
+    }
+    table.roster tbody tr.retired-row{ opacity:.7; box-shadow:none; }
+    table.roster tbody tr.empty-row,
+    table.roster tbody tr.history-row{
+      padding:12px 14px;
+      box-shadow:none;
+    }
+
+    table.roster td{
+      display:block;
+      border:none !important;
+      padding:0;
+    }
+
+    /* The row number as a numbered tab riding the card's top edge, the
+       same gesture as a ledger's tabbed page edge -- not a table cell
+       anyone reads left-to-right anymore. */
+    table.roster td.num{
+      position:absolute;
+      top:-11px; left:14px;
+      width:24px; height:24px;
+      display:flex; align-items:center; justify-content:center;
+      background:var(--paper);
+      border:1.5px solid var(--seal);
+      border-radius:50%;
+      color:var(--seal);
+      font-family:var(--serif);
+      font-weight:700;
+      font-size:11.5px;
+      text-align:center;
+    }
+    tr.draft-row td.num{ border-color:var(--ledger-line); color:var(--muted); }
+    tr.empty-row td.num, tr.history-row td.num{ position:static; width:auto; height:auto; border:none; background:none; display:inline; }
+
+    /* Field slips: label printed above the value, exactly the small-caps
+       treatment the EVENT DETAILS box above already uses -- one label
+       language for the whole page instead of a second one invented here. */
+    table.roster td.field-cell{ margin-top:12px; }
+    table.roster td.field-cell::before{
+      display:block;
+      font-weight:700;
+      font-size:10px;
+      letter-spacing:.6px;
+      text-transform:uppercase;
+      color:var(--muted);
+      margin-bottom:3px;
+    }
+    table.roster td.field-name::before{ content:"Name"; }
+    table.roster td.field-org::before{ content:"Organization"; }
+    table.roster td.field-email::before{ content:"Email"; }
+    table.roster td.field-phone::before{ content:"Phone"; }
+    table.roster td.field-name{ margin-top:6px; }
+    table.roster td.field-name textarea{
+      font-family:var(--serif);
+      font-size:15.5px;
+      font-weight:600;
+    }
+    table.roster td.field-cell textarea, table.roster td.field-cell .print-value{
+      font-size:13.5px;
+      line-height:1.4;
+      padding:1px 1px 4px;
+    }
+
+    /* Organization and phone share a line, the way two short fields on a
+       paper form share a line -- everything else keeps the full width. */
+    table.roster td.field-org, table.roster td.field-phone{
+      display:inline-block;
+      width:48%;
+      vertical-align:top;
+    }
+    table.roster td.field-org{ margin-right:4%; }
+
+    table.roster td.consent-cell,
+    table.roster td.sign-cell{
+      display:block;
+      margin-top:14px;
+      padding-top:12px !important;
+      border-top:1px dotted var(--ledger-line) !important;
+    }
+    table.roster td.consent-cell::before{
+      content:"Photo/Video Consent";
+      display:block;
+      font-weight:700;
+      font-size:10px;
+      letter-spacing:.6px;
+      text-transform:uppercase;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
+    table.roster td.sign-cell::before{
+      content:"Signature";
+      display:block;
+      font-weight:700;
+      font-size:10px;
+      letter-spacing:.6px;
+      text-transform:uppercase;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
+    .consent-toggle{ flex-direction:row; gap:16px; }
+    .consent-toggle label{ font-size:12.5px; }
+    table.roster td.sign-cell .sig-wrap{ justify-content:flex-start; }
+    table.roster td.sign-cell img{ max-height:32px; }
+    table.roster td.sign-cell button{
+      width:100%;
+      justify-content:center;
+      padding:9px;
+      font-size:13px;
+    }
+
+    table.roster td.rowdel{
+      display:flex;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:14px;
+      padding-top:12px !important;
+      border-top:1px dotted var(--ledger-line) !important;
+    }
+    table.roster td.rowdel .status-chip{ margin-bottom:0; margin-right:auto; }
+    table.roster td.rowdel button{
+      font-size:14px;
+      padding:8px 14px;
+      border-radius:7px;
+    }
+    table.roster td.rowdel button.submit-btn{
+      background:var(--accent2);
+      border-color:var(--accent2);
+      color:#fff;
+      font-weight:700;
+    }
+    table.roster td.rowdel button:not(.submit-btn){
+      border:1px solid var(--ledger-line);
+      color:var(--muted);
+    }
+    .action-group{ margin-left:auto; }
+    .action-group .ag-btn{ width:32px; height:32px; }
+    .action-group .ag-btn svg{ width:14px; height:14px; }
+    .flag-reason-box{ width:100%; }
   }
 </style>
 
@@ -1240,6 +1415,7 @@
 
       ['name','org','email','phone'].forEach(function(field){
         var td = document.createElement('td');
+        td.className = 'field-cell field-' + field;
         var textarea = document.createElement('textarea');
         textarea.rows = 1;
         textarea.spellcheck = false;
