@@ -72,12 +72,11 @@
   }
   /* #mainContent is a flex item of body with no explicit width, which
      normally just shrink-wraps its content -- but a flex item's
-     shrink-wrap floor is its descendants' min-content size, and the
-     roster table below deliberately declares min-width:640px so it can
-     scroll sideways instead of squeezing illegible on a phone. Without
-     pinning mainContent's own width here, that 640px would win the fight
-     and drag the *entire page* wide instead of just the table -- exactly
-     the "whole sheet shifted and cut off" breakage this fixes. */
+     shrink-wrap floor is its descendants' min-content size. Pinning it
+     to width:100% / min-width:0 keeps it locked to the viewport
+     regardless of what shows up inside it later, rather than leaving
+     that guarantee to whichever child happens not to assert a
+     min-width today. */
   #mainContent{
     width:100%;
     min-width:0;
@@ -184,16 +183,24 @@
   .notice p{ margin:0 0 6px; font-size:13.5px; color:var(--muted); }
   .notice a{ color:var(--ink); text-decoration:underline; }
 
-  /* The roster is one table at every width -- laptop, tablet or phone.
-     Rather than restructuring rows into cards on a narrow screen (which
-     stops looking like the sheet everyone already knows), it keeps its
-     desktop proportions and, below its natural width, scrolls sideways
-     inside .roster-scroll -- the same trade a physical wide attendance
-     sheet makes on a small clipboard. */
-  .roster-scroll{ width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  /* The roster is one table at every width -- laptop, tablet or phone --
+     never rebuilt into cards on a narrow screen. What changes is type
+     size, via a CSS container query (@container below) rather than a
+     viewport media query: it reads the actual width .roster-scroll has
+     to work with and steps the table's font/padding down to fit, so the
+     same eight columns stay on screen and in the same order all the way
+     down to a phone, with no horizontal scrolling needed. overflow-x
+     stays on as a safety net only, for the rare row whose content can't
+     shrink any further. */
+  .roster-scroll{
+    width:100%;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    container-type:inline-size;
+    container-name:roster;
+  }
   table.roster{
     width:100%;
-    min-width:640px;
     table-layout:fixed;
     border-collapse:collapse;
     font-size:12.5px;
@@ -582,7 +589,7 @@
     .toolbar, .hint, footer.credit, .closing-soon-banner, .roster-controls, .roster-pagination, table.roster .action-col, table.roster td.rowdel, table.roster td.sign-cell button{ display:none !important; }
     .sheet{ max-width:100%; padding:10px 18px; }
     .roster-scroll{ overflow:visible; }
-    table.roster{ table-layout:auto; min-width:0; }
+    table.roster{ table-layout:auto; }
     table.roster td textarea, .event-box input{ border-color:transparent; }
     table.roster tr.draft-row, table.roster tr.empty-row{ display:none !important; }
     table.roster td textarea{ display:none !important; }
@@ -604,6 +611,46 @@
     .letterhead{ flex-direction:column-reverse; align-items:center; text-align:center; gap:8px; }
     .roster-controls{ flex-direction:column; align-items:stretch; }
     #rosterStatusFilter{ width:100%; }
+  }
+
+  /* -----------------------------------------------------------------
+     Fluid roster type. A container query, not a viewport media query --
+     it responds to how much width .roster-scroll actually has (so the
+     same page nested somewhere narrower behaves the same way a phone
+     would), and steps every size inside the table down together as that
+     shrinks: text, cell padding, the Sign button, the consent radios,
+     the row-action icons. The eight columns and their order never
+     change -- only their type size does -- so the phone reads as the
+     same sheet as the laptop, just set smaller, the way a form shrinks
+     to fit a smaller sheet of paper rather than losing columns.
+     ----------------------------------------------------------------- */
+  @container roster (max-width:620px){
+    table.roster{ font-size:10.5px; }
+    table.roster th{ font-size:9.5px; letter-spacing:0; }
+    table.roster th, table.roster td{ padding:4px 4px; }
+    table.roster td textarea, table.roster td .print-value{ font-size:10.5px; }
+    table.roster td.sign-cell button{ font-size:9px; padding:2px 5px; }
+    table.roster td.sign-cell img{ max-height:20px; }
+    .consent-toggle{ font-size:9.5px; gap:2px; }
+    .status-chip, .consent-chip{ font-size:9px; }
+    .action-group .ag-btn{ width:19px; height:19px; }
+    .action-group .ag-btn svg{ width:10px; height:10px; }
+    table.roster td.rowdel button{ font-size:12px; padding:3px; }
+  }
+  @container roster (max-width:460px){
+    table.roster{ font-size:9px; }
+    table.roster th{ font-size:8px; }
+    table.roster th, table.roster td{ padding:3px; }
+    table.roster td textarea, table.roster td .print-value{ font-size:9px; line-height:1.25; }
+    table.roster td.sign-cell button{ font-size:7.5px; padding:1px 3px; gap:2px; }
+    table.roster td.sign-cell button::before{ font-size:7.5px; }
+    table.roster td.sign-cell img{ max-height:16px; }
+    .consent-toggle{ font-size:8px; gap:1px; }
+    .consent-toggle label{ gap:2px; }
+    .status-chip, .consent-chip{ font-size:8px; gap:3px; }
+    .action-group .ag-btn{ width:16px; height:16px; }
+    .action-group .ag-btn svg{ width:9px; height:9px; }
+    table.roster td.rowdel button{ font-size:10.5px; padding:2px; }
   }
 </style>
 
