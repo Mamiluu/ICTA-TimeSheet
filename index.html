@@ -109,20 +109,28 @@
     align-items:center;
   }
 
-  /* The sheet itself reads as an actual printed attendance sheet -- the
-     same plain ruled page this replaces, not a shadowed, rounded "card"
-     floating above the background. One thin black-ish rule for an edge,
-     nothing else. */
+  /* The sheet reads as a document set on a table, not a hovering "app
+     card" -- a crisp paper tone lifted off the page by tone and a soft
+     contact shadow rather than a heavy border, with a thin accent rule
+     across the top standing in for a letterhead seal. */
   .sheet{
     background:var(--paper);
     color:var(--ink);
     width:100%;
     max-width:900px;
-    padding:26px 30px 24px;
+    padding:28px 32px 26px;
     border:1px solid var(--ledger-line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow-card);
     position:relative;
     container-type:inline-size;
     container-name:sheet;
+  }
+  .sheet::before{
+    content:"";
+    position:absolute; top:0; left:0; right:0; height:4px;
+    border-radius:var(--radius) var(--radius) 0 0;
+    background:linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 40%, var(--accent2)) 55%, var(--accent2));
   }
 
   .letterhead{
@@ -130,45 +138,54 @@
     justify-content:space-between;
     align-items:flex-start;
     gap:16px;
-    margin-bottom:16px;
+    margin:6px 0 16px;
+    padding-bottom:16px;
+    border-bottom:1px solid var(--ledger-line);
   }
-  .letterhead .addr{ font-size:12px; line-height:1.5; color:var(--ink); }
-  .letterhead .addr .org{ font-weight:bold; font-size:13px; color:var(--ink); font-family:var(--serif); letter-spacing:.2px; }
-  .letterhead .addr a{ color:var(--ink); text-decoration:underline; }
-  .letterhead .logo img{ height:56px; display:block; }
+  .letterhead .addr{ font-size:12px; line-height:1.55; color:var(--muted); }
+  .letterhead .addr .org{ font-weight:700; font-size:15px; color:var(--ink); font-family:var(--serif); letter-spacing:.2px; display:block; margin-bottom:3px; }
+  .letterhead .addr a{ color:var(--ink); text-decoration:underline; text-underline-offset:2px; }
+  .letterhead .logo img{ height:50px; display:block; border-radius:8px; }
 
   h1.title{
     text-align:center;
     font-family:var(--serif);
     font-weight:700;
-    font-size:18px;
-    letter-spacing:.5px;
-    margin:16px 0 20px;
+    font-size:19px;
+    letter-spacing:.6px;
+    margin:4px 0 22px;
     color:var(--ink);
-    text-decoration:underline;
-    text-underline-offset:4px;
+    position:relative;
+  }
+  h1.title::after{
+    content:"";
+    display:block;
+    width:56px; height:2px; margin:9px auto 0;
+    background:var(--accent);
+    border-radius:2px;
   }
 
   .event-box{
-    border:1px solid var(--line);
-    margin-bottom:22px;
-    background:var(--paper);
+    border:1px solid var(--ledger-line);
+    border-radius:var(--radius-sm);
+    margin-bottom:20px;
+    background:var(--surface-recessed);
     overflow:hidden;
   }
   .event-box .row{ display:flex; }
   .event-box .field{
-    border-top:1px solid var(--line);
-    padding:11px 14px;
+    border-top:1px solid var(--ledger-line);
+    padding:13px 16px;
     flex:1;
   }
   .event-box > .field:first-child{ border-top:none; }
-  .event-box .row .field + .field{ border-left:1px solid var(--line); }
+  .event-box .row .field + .field{ border-left:1px solid var(--ledger-line); }
   .event-box label{
     font-weight:700;
-    font-size:11px;
-    letter-spacing:.4px;
+    font-size:10.5px;
+    letter-spacing:.6px;
     text-transform:uppercase;
-    color:var(--ink);
+    color:var(--accent2);
     display:block;
     margin-bottom:5px;
   }
@@ -190,10 +207,11 @@
     font-family:var(--serif);
   }
   .event-box .field-value.muted{ color:var(--muted); font-style:italic; font-family:inherit; }
-  .event-box .field-desc{ font-size:12.5px; color:var(--muted); margin-top:6px; line-height:1.45; font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; }
+  .event-box .field-desc{ font-size:12.5px; color:var(--muted); margin-top:6px; line-height:1.45; font-family:var(--sans); }
   .event-box .where-link{
-    display:inline-block; margin-top:6px; font-size:11.5px; font-weight:600;
-    color:var(--ink); text-decoration:underline;
+    display:inline-block; margin-top:7px; font-size:11.5px; font-weight:700;
+    color:var(--accent2); text-decoration:none;
+    border-bottom:1px solid color-mix(in srgb, var(--accent2) 45%, transparent);
   }
 
   .notice{
