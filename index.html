@@ -15,55 +15,79 @@
 <title>ICT Authority : Attendance Sheet</title>
 <style>
   /* ---------------------------------------------------------------------
-     Design language: the plain paper register. This replaces a physical
-     printed attendance sheet, so it reads as one -- ruled black borders,
-     a serif letterhead, no drop shadows, gradients, filled pill badges,
-     or rounded "app card" chrome -- the same page whether it's on a
-     laptop, a tablet, or a phone (the roster table itself never
-     restructures across sizes; see .roster-scroll below). Color is used
-     only where it carries real meaning (a status dot, a destructive
-     action) rather than as decoration.
+     Design language: a working ledger, not a "printed paper" facsimile
+     and not a generic dashboard. Ruled structure and a serif letterhead
+     carry the document's authority; a warm, distinctly-toned page behind
+     a lighter paper card gives it real depth without gradients, glass,
+     or drop-shadow chrome. Every border color is a token that is
+     redefined per theme -- --line in particular used to be a hardcoded
+     #000 that dark mode never touched, which is why the ruled grid went
+     invisible against a near-black page. Under ~640px the roster stops
+     shrinking its type to fit eight columns and instead lays each entry
+     out as a stacked record card -- the columns are the same data, just
+     legible at phone width instead of set at 8px.
      --------------------------------------------------------------------- */
   :root{
-    --ink:#1c1a17;
-    --line:#000;
-    --paper:#ffffff;
-    --muted:#5b564c;
-    --accent:#c8102e;
-    --accent2:#0a7a3a;
-    --bg:#ffffff;
-    --paper-edge:#e4dcc8;
-    --seal:#a3401f;
-    --seal-ink:#fdf2ea;
-    --ledger-line:#d8cfb8;
-    --focus:#1c1a17;
+    --ink:#18140f;
+    --paper:#fffdf9;
+    --bg:#efe8d8;
+    --muted:#6d6455;
+    --accent:#b8102b;
+    --accent2:#0d7a40;
+    --line:rgba(24,20,15,.55);
+    --ledger-line:rgba(24,20,15,.16);
+    --surface-recessed:color-mix(in srgb, var(--ink) 4%, var(--paper));
+    --surface-recessed-strong:color-mix(in srgb, var(--ink) 7%, var(--paper));
+    --radius:12px;
+    --radius-sm:7px;
+    --shadow-card:0 1px 2px rgba(24,20,15,.05), 0 10px 28px -18px rgba(24,20,15,.35);
+    --focus-ring:0 0 0 3px color-mix(in srgb, var(--ink) 18%, transparent);
     --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    color-scheme:light;
   }
   @media (prefers-color-scheme: dark){
     :root{
-      --ink:#ece7db; --paper:#20241d; --muted:#a7a190; --bg:#161a15;
-      --paper-edge:#2b3024; --ledger-line:#343a2c; --seal:#e2a479; --seal-ink:#241a14;
-      --focus:#ece7db;
+      --ink:#f3ede0; --paper:#18150f; --muted:#a89d87; --bg:#0c0a07;
+      --accent:#ff5c73; --accent2:#33d67d;
+      --line:rgba(243,237,224,.4); --ledger-line:rgba(243,237,224,.14);
+      --surface-recessed:color-mix(in srgb, var(--ink) 8%, var(--paper));
+      --surface-recessed-strong:color-mix(in srgb, var(--ink) 13%, var(--paper));
+      --shadow-card:0 1px 2px rgba(0,0,0,.3), 0 12px 28px -16px rgba(0,0,0,.55);
+      --focus-ring:0 0 0 3px color-mix(in srgb, var(--ink) 30%, transparent);
+      color-scheme:dark;
     }
   }
   :root[data-theme="dark"]{
-    --ink:#ece7db; --paper:#20241d; --muted:#a7a190; --bg:#161a15;
-    --paper-edge:#2b3024; --ledger-line:#343a2c; --seal:#e2a479; --seal-ink:#241a14;
-    --focus:#ece7db;
+    --ink:#f3ede0; --paper:#18150f; --muted:#a89d87; --bg:#0c0a07;
+    --accent:#ff5c73; --accent2:#33d67d;
+    --line:rgba(243,237,224,.4); --ledger-line:rgba(243,237,224,.14);
+    --surface-recessed:color-mix(in srgb, var(--ink) 8%, var(--paper));
+    --surface-recessed-strong:color-mix(in srgb, var(--ink) 13%, var(--paper));
+    --shadow-card:0 1px 2px rgba(0,0,0,.3), 0 12px 28px -16px rgba(0,0,0,.55);
+    --focus-ring:0 0 0 3px color-mix(in srgb, var(--ink) 30%, transparent);
+    color-scheme:dark;
   }
   :root[data-theme="light"]{
-    --ink:#1c1a17; --paper:#ffffff; --muted:#5b564c; --bg:#ffffff;
-    --paper-edge:#e4dcc8; --ledger-line:#d8cfb8; --seal:#a3401f; --seal-ink:#fdf2ea;
-    --focus:#1c1a17;
+    --ink:#18140f; --paper:#fffdf9; --muted:#6d6455; --bg:#efe8d8;
+    --accent:#b8102b; --accent2:#0d7a40;
+    --line:rgba(24,20,15,.55); --ledger-line:rgba(24,20,15,.16);
+    --surface-recessed:color-mix(in srgb, var(--ink) 4%, var(--paper));
+    --surface-recessed-strong:color-mix(in srgb, var(--ink) 7%, var(--paper));
+    --shadow-card:0 1px 2px rgba(24,20,15,.05), 0 10px 28px -18px rgba(24,20,15,.35);
+    --focus-ring:0 0 0 3px color-mix(in srgb, var(--ink) 18%, transparent);
+    color-scheme:light;
   }
 
   *{ box-sizing:border-box; }
   html{ overflow-x:hidden; }
   body{
     margin:0;
-    padding:24px 12px 60px;
-    background:var(--bg);
-    font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif;
+    padding:28px 14px 60px;
+    background:
+      radial-gradient(color-mix(in srgb, var(--ink) 6%, transparent) 1px, transparent 1px) 0 0/22px 22px,
+      var(--bg);
+    font-family:var(--sans);
     color:var(--ink);
     display:flex;
     flex-direction:column;
