@@ -4,8 +4,8 @@
   "description": "Sign in for an event — no app or account needed.",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#efe8d8",
-  "theme_color": "#efe8d8",
+  "background_color": "#faf7f0",
+  "theme_color": "#faf7f0",
   "icons": [
     {
       "src": "assets/icta_logo_cropped.png",
