@@ -6,8 +6,8 @@
 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#faf7f0" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#161a15" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#efe8d8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c0a07" media="(prefers-color-scheme: dark)">
 <meta name="description" content="Sign in for this event — draw your signature, no app or account needed.">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="assets/icta_logo_cropped.png">
@@ -81,6 +81,9 @@
 
   *{ box-sizing:border-box; }
   html{ overflow-x:hidden; }
+  a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible{
+    outline:none; box-shadow:var(--focus-ring); border-radius:4px;
+  }
   body{
     margin:0;
     padding:28px 14px 60px;
@@ -622,9 +625,14 @@
   @keyframes modalPop{ from{ opacity:0; transform:translateY(8px) scale(.98); } to{ opacity:1; transform:none; } }
   .modal h3{ margin:0 0 4px; font-size:15.5px; font-family:var(--serif); }
   .modal .modal-hint{ margin:0 0 12px; font-size:11.5px; color:var(--muted); }
+  /* The pad itself stays a fixed light paper tone regardless of theme --
+     the stroke drawn on it is solid dark ink (see ctx.strokeStyle in the
+     script below), so a transparent canvas over a dark-mode .modal would
+     make the signature invisible while actually being drawn. A real
+     signature pad doesn't go dark at night; this one shouldn't either. */
   .modal canvas{
-    border:1.5px dashed var(--ledger-line); border-radius:6px; touch-action:none;
-    width:100%; height:150px; background:transparent; cursor:crosshair;
+    border:1.5px dashed #c9bea2; border-radius:6px; touch-action:none;
+    width:100%; height:150px; background:#fbf8f1; cursor:crosshair;
   }
   /* A single guide rule near the bottom of the pad -- like the printed
      line under a signature block -- so a signature reads as "signed on
@@ -633,7 +641,7 @@
   .modal .sig-pad-wrap::after{
     content:"";
     position:absolute; left:14px; right:14px; bottom:34px; height:1px;
-    background:var(--ledger-line); pointer-events:none;
+    background:#c9bea2; pointer-events:none;
   }
   .modal .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
   .modal .modal-actions button{
