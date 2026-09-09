@@ -220,28 +220,29 @@
     background:var(--paper);
     color:var(--ink);
     border:1px solid var(--ledger-line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow-card);
     padding:32px 28px;
     text-align:center;
   }
-  .notice h2{ margin:0 0 10px; font-size:16px; }
+  .notice h2{ margin:0 0 10px; font-size:16px; font-family:var(--serif); }
   .notice p{ margin:0 0 6px; font-size:13.5px; color:var(--muted); }
-  .notice a{ color:var(--ink); text-decoration:underline; }
+  .notice a{ color:var(--accent2); text-decoration:underline; }
 
-  /* The roster is one table at every width -- laptop, tablet or phone --
-     never rebuilt into cards on a narrow screen. What changes is type
-     size, via a CSS container query (@container below) rather than a
-     viewport media query: it reads the actual width .roster-scroll has
-     to work with and steps the table's font/padding down to fit, so the
-     same eight columns stay on screen and in the same order all the way
-     down to a phone, with no horizontal scrolling needed. overflow-x
-     stays on as a safety net only, for the rare row whose content can't
-     shrink any further. */
+  /* Above ~640px the roster stays the classic ruled grid, just refined
+     (zebra rows, a calmer header, tokens instead of hardcoded grays).
+     Below that -- see the roster card-mode block near the bottom of this
+     file -- each entry becomes a stacked record card instead of an
+     eight-column table shrunk to unreadable type; same data, same
+     order, legible at phone width. */
   .roster-scroll{
     width:100%;
     overflow-x:auto;
     -webkit-overflow-scrolling:touch;
     container-type:inline-size;
     container-name:roster;
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
   }
   table.roster{
     width:100%;
@@ -250,16 +251,23 @@
     font-size:12.5px;
   }
   table.roster th, table.roster td{
-    border:1.3px solid var(--line);
-    padding:6px 7px;
+    border:1px solid var(--ledger-line);
+    padding:8px 9px;
     text-align:left;
     vertical-align:top;
     overflow-wrap:break-word;
   }
-  table.roster th{
-    font-size:12px;
+  table.roster thead th{
+    border-top:none;
   }
-  table.roster td.num{ text-align:center; color:var(--muted); vertical-align:middle; }
+  table.roster tr > :first-child{ border-left:none; }
+  table.roster tr > :last-child{ border-right:none; }
+  table.roster tbody tr:last-child td{ border-bottom:none; }
+  table.roster th{
+    font-size:11px;
+  }
+  table.roster tbody tr.submitted-row:nth-of-type(odd){ background:var(--surface-recessed); }
+  table.roster td.num{ text-align:center; color:var(--muted); vertical-align:middle; font-variant-numeric:tabular-nums; }
   table.roster td textarea{
     display:block;
     border:none;
@@ -270,13 +278,15 @@
     padding:2px;
     margin:0;
     background:transparent;
+    color:var(--ink);
     resize:none;
     overflow:hidden;
     white-space:pre-wrap;
     word-break:break-word;
     min-height:1.35em;
   }
-  table.roster td textarea:focus{ outline:none; background:#fffbe6; }
+  table.roster td textarea::placeholder{ color:color-mix(in srgb, var(--muted) 75%, transparent); }
+  table.roster td textarea:focus{ outline:none; background:color-mix(in srgb, var(--accent2) 10%, transparent); border-radius:3px; }
   table.roster td .print-value{
     display:none;
     font-size:12.5px;
@@ -285,62 +295,67 @@
     white-space:pre-wrap;
     word-break:break-word;
   }
-  table.roster td.sign-cell{ text-align:center; vertical-align:middle; padding-top:2px; padding-bottom:2px; }
+  table.roster td.sign-cell{ text-align:center; vertical-align:middle; padding-top:4px; padding-bottom:4px; }
   table.roster td.sign-cell .sig-wrap{
-    display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:5px; max-width:100%;
+    display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:6px; max-width:100%;
   }
   table.roster td.sign-cell .sig-wrap.sig-wrap-col{ flex-direction:column; align-items:stretch; }
-  table.roster td.sign-cell img{ max-height:24px; max-width:70%; display:block; }
+  table.roster td.sign-cell img{ max-height:26px; max-width:70%; display:block; margin:0 auto; }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) table.roster td.sign-cell img{ filter:invert(1) brightness(1.3); } }
+  :root[data-theme="dark"] table.roster td.sign-cell img{ filter:invert(1) brightness(1.3); }
   table.roster td.sign-cell button{
     box-sizing:border-box;
     max-width:100%;
-    font-size:10px;
-    padding:2px 6px;
-    line-height:1.2;
+    font-size:10.5px;
+    padding:3px 8px;
+    line-height:1.3;
     cursor:pointer;
-    border:1px solid #bbb;
-    background:#f7f7f7;
-    border-radius:3px;
+    border:1px solid var(--ledger-line);
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:5px;
     flex:none;
   }
   table.roster td.sign-cell .sig-link-input{
     box-sizing:border-box; width:100%; max-width:150px; font-size:9.5px;
-    padding:2px 4px; border:1px solid #bbb; border-radius:3px;
+    padding:2px 4px; border:1px solid var(--ledger-line); border-radius:3px;
+    background:var(--paper); color:var(--ink);
   }
   table.roster td.sign-cell .sig-request-hint{ font-size:9px; color:var(--muted); line-height:1.3; }
-  table.roster td.consent-cell{ text-align:center; vertical-align:middle; padding-top:2px; padding-bottom:2px; }
+  table.roster td.consent-cell{ text-align:center; vertical-align:middle; padding-top:4px; padding-bottom:4px; }
   .consent-toggle{ display:flex; flex-direction:column; gap:3px; align-items:flex-start; font-size:11px; }
   .consent-toggle label{ display:flex; align-items:center; gap:4px; cursor:pointer; white-space:nowrap; }
-  .consent-toggle input{ margin:0; }
+  .consent-toggle input{ margin:0; accent-color:var(--accent2); }
   .consent-chip{
     display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700;
     letter-spacing:.15px; color:var(--ink); max-width:100%; overflow-wrap:anywhere;
   }
   .consent-chip .dot{ width:5px; height:5px; border-radius:50%; background:currentColor; flex:none; }
-  .consent-chip.yes .dot{ color:#0a7a3a; }
-  .consent-chip.no .dot{ color:#7a1717; }
+  .consent-chip.yes .dot{ color:var(--accent2); }
+  .consent-chip.no .dot{ color:var(--accent); }
   .consent-chip.unset{ color:var(--muted); font-style:italic; font-weight:600; }
   .consent-chip.unset .dot{ color:var(--muted); }
   .consent-print-value{ display:none; font-size:12px; text-align:center; }
 
-  table.roster tr.empty-row td{ color:#999; font-style:italic; }
+  table.roster tr.empty-row td{ color:var(--muted); font-style:italic; }
   table.roster td.rowdel{ text-align:center; vertical-align:middle; }
   table.roster td.rowdel button{
-    border:none; background:none; cursor:pointer; font-size:14px; line-height:1; padding:2px 4px;
+    border:none; background:none; cursor:pointer; font-size:15px; line-height:1; padding:4px 6px;
+    border-radius:5px; color:var(--muted);
   }
-  table.roster td.rowdel button.submit-btn{ color:#0a7a3a; font-weight:bold; }
-  table.roster td.rowdel button:disabled{ color:#aaa; cursor:default; }
-  table.roster td.rowdel button:not(.submit-btn){ color:#c22; }
-  table.roster tr.retired-row{ background:#f4f4f4; opacity:.75; }
-  table.roster tr.retired-row textarea{ text-decoration:line-through; color:#888; }
+  table.roster td.rowdel button.submit-btn{ color:var(--accent2); font-weight:bold; }
+  table.roster td.rowdel button:disabled{ color:color-mix(in srgb, var(--muted) 55%, transparent); cursor:default; }
+  table.roster td.rowdel button:not(.submit-btn):not(:disabled){ color:var(--accent); }
+  table.roster td.rowdel button:not(:disabled):hover{ background:var(--surface-recessed-strong); }
+  table.roster tr.retired-row{ background:var(--surface-recessed); opacity:.7; }
+  table.roster tr.retired-row textarea{ text-decoration:line-through; color:var(--muted); }
 
-  /* status-chip and action-group below replace the row's old plain
-     checkmark/pill/text-link buttons with one small design system --
-     every submitted row gets exactly one chip (its current state) and at
-     most one icon toolbar (the actions that apply to that state), rather
-     than a different-looking control per action. A plain text label with
-     a small colored dot -- not a filled pill -- keeps the roster reading
-     as a ruled register rather than a dashboard. */
+  /* status-chip and action-group: one small design system for every
+     submitted row -- exactly one chip for its current state, and at most
+     one icon toolbar for the actions that apply to that state -- rather
+     than a different-looking control per action. A plain label with a
+     small colored dot, not a filled pill, keeps the roster reading as a
+     register rather than a dashboard. */
   .status-chip{
     display:inline-flex;
     align-items:center;
@@ -355,15 +370,16 @@
     overflow-wrap:anywhere;
   }
   .status-chip .dot{ width:5px; height:5px; border-radius:50%; background:currentColor; flex:none; }
-  .status-chip.active .dot{ color:#0a7a3a; }
-  .status-chip.flagged .dot{ color:#7a4e00; }
-  .status-chip.retired .dot{ color:#7a1717; }
+  .status-chip.active .dot{ color:var(--accent2); }
+  .status-chip.flagged .dot{ color:#c99400; }
+  .status-chip.retired .dot{ color:var(--accent); }
 
   .action-group{
     display:inline-flex;
     flex-wrap:wrap;
     max-width:100%;
     border:1px solid var(--ledger-line);
+    border-radius:6px;
     overflow:hidden;
     background:var(--paper);
     vertical-align:middle;
@@ -374,24 +390,24 @@
     display:flex;
     align-items:center;
     justify-content:center;
-    width:23px;
-    height:23px;
-    color:#777;
+    width:24px;
+    height:24px;
+    color:var(--muted);
     cursor:pointer;
-    border-right:1px solid #eee;
+    border-right:1px solid var(--ledger-line);
   }
   .action-group .ag-btn:last-child{ border-right:none; }
   .action-group .ag-btn svg{ width:12px; height:12px; display:block; }
-  .action-group .ag-btn:hover{ background:#f4f4f4; color:#333; }
-  .action-group .ag-btn:disabled{ color:#ccc; cursor:default; background:none; }
-  .action-group .ag-btn.danger:hover{ background:#fdecec; color:var(--accent); }
-  .action-group .ag-btn.positive:hover{ background:#eaf7ee; color:var(--accent2); }
-  .action-group .ag-btn.active-icon{ background:#eef2fb; color:#2a5fd6; }
+  .action-group .ag-btn:hover{ background:var(--surface-recessed-strong); color:var(--ink); }
+  .action-group .ag-btn:disabled{ color:color-mix(in srgb, var(--muted) 45%, transparent); cursor:default; background:none; }
+  .action-group .ag-btn.danger:hover{ background:color-mix(in srgb, var(--accent) 14%, transparent); color:var(--accent); }
+  .action-group .ag-btn.positive:hover{ background:color-mix(in srgb, var(--accent2) 14%, transparent); color:var(--accent2); }
+  .action-group .ag-btn.active-icon{ background:color-mix(in srgb, var(--accent2) 16%, transparent); color:var(--accent2); }
 
   .flag-reason-box{ display:flex; flex-direction:column; gap:5px; align-items:stretch; }
   .flag-reason-box textarea{
-    font-family:inherit; font-size:11.5px; border:1px solid #ccc; border-radius:4px;
-    padding:4px 6px; resize:vertical; min-height:40px;
+    font-family:inherit; font-size:11.5px; border:1px solid var(--ledger-line); border-radius:4px;
+    padding:4px 6px; resize:vertical; min-height:40px; background:var(--paper); color:var(--ink);
   }
   .flag-reason-box .flag-reason-actions{ display:flex; gap:6px; justify-content:center; }
   .flag-reason-box .flag-reason-actions button.flag-btn{
@@ -400,55 +416,62 @@
   }
   .flag-reason-box .flag-reason-actions button.flag-btn:disabled{ opacity:.6; }
 
-  tr.history-row td{ background:#fafafa; font-size:11.5px; padding:8px 10px; }
-  tr.history-row .history-entry{ padding:3px 0; border-top:1px dotted #ddd; }
+  tr.history-row td{ background:var(--surface-recessed); font-size:11.5px; padding:9px 11px; color:var(--ink); }
+  tr.history-row .history-entry{ padding:4px 0; border-top:1px dotted var(--ledger-line); }
   tr.history-row .history-entry:first-child{ border-top:none; }
-  tr.history-row .history-verified{ color:#0a7a3a; }
-  tr.history-row .history-unverified{ color:#c22; font-weight:700; }
+  tr.history-row .history-verified{ color:var(--accent2); }
+  tr.history-row .history-unverified{ color:var(--accent); font-weight:700; }
 
-  /* Search/filter bar sits directly above the roster like a caption, and
-     pagination directly below it -- both read as part of the sheet itself
-     (same border language as .event-box) rather than as a separate
-     "app toolbar" bolted on top of a paper form. */
+  /* The search bar, roster table and pagination strip read as one
+     module -- see .roster-module, which supplies the shared border,
+     radius and shadow; the three children below only add the internal
+     hairline that separates them from each other. */
+  .roster-module{
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    overflow:hidden;
+    background:var(--paper);
+    box-shadow:var(--shadow-card);
+  }
   .roster-controls{
-    display:flex; gap:10px; align-items:center; margin-bottom:0;
-    border:1.5px solid var(--line); border-bottom:none; padding:8px 10px;
+    display:flex; gap:10px; align-items:center;
+    border-bottom:1px solid var(--ledger-line); padding:10px 12px;
     flex-wrap:wrap;
   }
   .rc-search{
     flex:1; min-width:200px; display:flex; align-items:center; gap:7px;
-    border:1px solid #ccc; border-radius:5px; padding:5px 9px; background:#fafafa;
-    color:#888;
+    border:1px solid var(--ledger-line); border-radius:8px; padding:6px 10px;
+    background:var(--surface-recessed); color:var(--muted);
   }
   .rc-search svg{ width:13px; height:13px; flex:none; }
   .rc-search input{
     flex:1; border:none; background:transparent; font-family:inherit; font-size:12.5px;
-    color:#1a1a1a; min-width:0;
+    color:var(--ink); min-width:0;
   }
   .rc-search input:focus{ outline:none; }
-  .rc-search input::placeholder{ color:#999; }
+  .rc-search input::placeholder{ color:var(--muted); }
   .rc-search kbd{
-    flex:none; font-family:inherit; font-size:10px; color:#999; border:1px solid #ddd;
-    border-radius:3px; padding:1px 5px; background:#fff;
+    flex:none; font-family:inherit; font-size:10px; color:var(--muted); border:1px solid var(--ledger-line);
+    border-radius:3px; padding:1px 5px; background:var(--paper);
   }
-  .rc-search.focused{ border-color:var(--ink); background:#fff; }
+  .rc-search.focused{ border-color:var(--accent2); background:var(--paper); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent2) 16%, transparent); }
   #rosterStatusFilter{
-    font-family:inherit; font-size:12.5px; padding:6px 8px; border:1px solid #ccc;
-    border-radius:5px; background:#fafafa; color:#333; flex:none;
+    font-family:inherit; font-size:12.5px; padding:7px 9px; border:1px solid var(--ledger-line);
+    border-radius:8px; background:var(--surface-recessed); color:var(--ink); flex:none;
   }
 
   .roster-pagination{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
-    border:1.5px solid var(--line); border-top:none; padding:7px 10px;
+    border-top:1px solid var(--ledger-line); padding:8px 12px;
     font-size:12px; color:var(--muted); flex-wrap:wrap;
   }
   .roster-pagination .rp-nav{ display:flex; align-items:center; gap:8px; }
   .roster-pagination .rp-nav button{
-    border:1px solid #ccc; background:#fff; border-radius:5px; width:26px; height:24px;
-    font-size:14px; line-height:1; cursor:pointer; color:#333;
+    border:1px solid var(--ledger-line); background:var(--paper); border-radius:6px; width:28px; height:26px;
+    font-size:14px; line-height:1; cursor:pointer; color:var(--ink);
   }
-  .roster-pagination .rp-nav button:disabled{ color:#ccc; cursor:default; }
-  .roster-pagination .rp-nav button:not(:disabled):hover{ background:#f4f4f4; }
+  .roster-pagination .rp-nav button:disabled{ color:color-mix(in srgb, var(--muted) 50%, transparent); cursor:default; }
+  .roster-pagination .rp-nav button:not(:disabled):hover{ background:var(--surface-recessed-strong); }
   .roster-pagination #rosterPageIndicator{ font-weight:600; min-width:70px; text-align:center; }
 
   .toolbar{
@@ -462,59 +485,64 @@
   .toolbar button{
     font-family:inherit;
     font-size:13px;
-    padding:9px 16px;
-    border-radius:2px;
-    border:1px solid var(--ink);
+    font-weight:600;
+    padding:10px 18px;
+    border-radius:8px;
+    border:1px solid var(--ledger-line);
     background:var(--paper);
     color:var(--ink);
     cursor:pointer;
+    box-shadow:var(--shadow-card);
   }
-  .toolbar button.primary{ font-weight:700; }
-  .toolbar button.secondary{ font-weight:600; }
-  .toolbar button:hover{ background:color-mix(in srgb, var(--ink) 6%, var(--paper)); }
+  .toolbar button.primary{ font-weight:700; background:var(--ink); color:var(--paper); border-color:var(--ink); }
+  .toolbar button.secondary{ font-weight:600; border-color:var(--accent2); color:var(--accent2); }
+  .toolbar button:hover{ filter:brightness(1.06); }
+  .toolbar button.primary:hover{ filter:brightness(1.15); }
 
   .hint{
     max-width:900px;
     width:100%;
     font-size:12px;
-    color:#666;
+    color:var(--muted);
     margin:-6px 0 14px;
   }
-  :root[data-theme="dark"] .hint{ color:#aaa; }
-  @media (prefers-color-scheme: dark){
-    :root:not([data-theme="light"]) .hint{ color:#aaa; }
-  }
-  #submittedCount{ font-weight:600; }
+  #submittedCount{ font-weight:600; color:var(--ink); }
 
+  /* Info strips share one language: a tinted left rule plus a soft
+     background wash keyed to the accent that names what kind of notice
+     it is, instead of a dashed placeholder-looking outline. */
   .privacy-badge{
     max-width:900px;
     width:100%;
     display:flex;
     align-items:flex-start;
-    gap:9px;
-    background:transparent;
-    border:1px dashed var(--ledger-line);
+    gap:10px;
+    background:var(--surface-recessed);
+    border:1px solid var(--ledger-line);
+    border-left:3px solid var(--accent2);
+    border-radius:var(--radius-sm);
     color:var(--muted);
-    padding:10px 14px;
+    padding:11px 14px;
     font-size:12.5px;
     line-height:1.45;
     margin-bottom:14px;
   }
   .privacy-badge .icon{ font-size:15px; line-height:1.45; flex:none; }
   .privacy-badge strong{ font-weight:700; color:var(--ink); }
-  .privacy-badge a{ color:var(--ink); font-weight:600; text-decoration:underline; white-space:nowrap; }
+  .privacy-badge a{ color:var(--accent2); font-weight:600; text-decoration:underline; white-space:nowrap; }
 
-  /* --- The receipt: a plain ringed checkmark, the same weight as a rubber
-     date-stamp on a paper form -- no fill color, no bounce-in animation,
-     it just confirms the entry was recorded. */
+  /* --- The receipt: confirms the entry was recorded, weighted like a
+     stamp rather than a bouncy toast. */
   .receipt-banner{
     max-width:900px;
     width:100%;
     display:none;
     align-items:center;
     gap:14px;
-    background:var(--paper);
-    border:1px solid var(--ink);
+    background:var(--surface-recessed);
+    border:1px solid var(--ledger-line);
+    border-left:3px solid var(--accent2);
+    border-radius:var(--radius-sm);
     color:var(--ink);
     padding:14px 18px;
     margin-bottom:14px;
@@ -526,25 +554,27 @@
     flex:none;
     width:38px; height:38px;
     border-radius:50%;
-    border:2px solid var(--ink);
-    color:var(--ink);
+    border:2px solid var(--accent2);
+    color:var(--accent2);
     display:flex; align-items:center; justify-content:center;
   }
   .receipt-banner .rb-seal svg{ width:18px; height:18px; }
   .receipt-banner .rb-body{ min-width:0; }
   .receipt-banner .rb-title{ font-weight:700; font-size:14.5px; margin-bottom:3px; font-family:var(--serif); }
-  .receipt-banner .rb-sub{ opacity:.8; }
+  .receipt-banner .rb-sub{ color:var(--muted); }
 
   .closing-soon-banner{
     max-width:900px;
     width:100%;
     display:none;
     align-items:flex-start;
-    gap:9px;
-    background:transparent;
-    border:1px dashed var(--ledger-line);
+    gap:10px;
+    background:var(--surface-recessed);
+    border:1px solid var(--ledger-line);
+    border-left:3px solid #c99400;
+    border-radius:var(--radius-sm);
     color:var(--ink);
-    padding:10px 14px;
+    padding:11px 14px;
     font-size:12.5px;
     line-height:1.45;
     margin-bottom:14px;
@@ -553,33 +583,12 @@
   .closing-soon-banner .icon{ font-size:15px; line-height:1.45; flex:none; }
   .closing-soon-banner strong{ font-weight:700; }
 
-  /* -----------------------------------------------------------------
-     Table polish. The attendee's row and the admin's roster are the same
-     classic bordered grid they've always been (numbered row, column
-     headers, cell-by-cell entry) -- that structure stays exactly as it
-     is, on purpose. What's refined here is the detail inside it: a
-     calmer focus state on the active cell, a proper "sign here" affordance
-     instead of a bare button, and typography consistent with the rest of
-     the redesigned page -- none of it changes a row into anything other
-     than a row.
-     ----------------------------------------------------------------- */
   table.roster th{
     font-weight:700;
     letter-spacing:.3px;
     color:var(--ink);
-    background:var(--paper);
-  }
-  table.roster td textarea:focus{
-    outline:none;
-    background:color-mix(in srgb, var(--accent2) 7%, transparent);
-  }
-  table.roster td.sign-cell button{
-    font-family:inherit;
-    display:inline-flex; align-items:center; gap:5px;
-    border:1px solid var(--ledger-line);
-    border-radius:5px;
-    background:var(--paper);
-    color:var(--ink);
+    background:var(--surface-recessed);
+    border-bottom:2px solid var(--line);
   }
   table.roster td.sign-cell button::before{ content:"✎"; font-size:11px; }
   table.roster td.sign-cell button:hover{ border-color:var(--accent2); color:var(--accent2); }
@@ -637,15 +646,17 @@
   .modal .modal-actions button.clear{ color:var(--muted); }
 
   footer.credit{
-    max-width:900px; width:100%; text-align:center; font-size:11px; color:#888; margin-top:18px;
+    max-width:900px; width:100%; text-align:center; font-size:11px; color:var(--muted); margin-top:18px;
   }
-  footer.credit a{ color:#888; text-decoration:underline; }
+  footer.credit a{ color:var(--muted); text-decoration:underline; }
 
   @media print{
     body{ background:#fff; padding:0; }
     .toolbar, .hint, footer.credit, .closing-soon-banner, .roster-controls, .roster-pagination, table.roster .action-col, table.roster td.rowdel, table.roster td.sign-cell button{ display:none !important; }
-    .sheet{ max-width:100%; padding:10px 18px; }
+    .sheet{ max-width:100%; padding:10px 18px; box-shadow:none; }
+    .sheet::before{ display:none; }
     .roster-scroll{ overflow:visible; }
+    table.roster, table.roster thead, table.roster tbody, table.roster tr, table.roster th, table.roster td{ display:revert; width:revert; }
     table.roster{ table-layout:auto; }
     table.roster td textarea, .event-box input{ border-color:transparent; }
     table.roster tr.draft-row, table.roster tr.empty-row{ display:none !important; }
@@ -667,7 +678,7 @@
      smaller sheet of paper without redrawing its layout.
      ----------------------------------------------------------------- */
   @media (max-width:640px){
-    .sheet{ padding:18px 14px 20px; }
+    .sheet{ padding:18px 14px 20px; border-radius:10px; }
   }
 
   /* Fluid sheet type: a container query on .sheet itself (see
