@@ -724,44 +724,109 @@
     #rosterStatusFilter{ font-size:10px; }
   }
 
-  /* -----------------------------------------------------------------
-     Fluid roster type. A container query, not a viewport media query --
-     it responds to how much width .roster-scroll actually has (so the
-     same page nested somewhere narrower behaves the same way a phone
-     would), and steps every size inside the table down together as that
-     shrinks: text, cell padding, the Sign button, the consent radios,
-     the row-action icons. The eight columns and their order never
-     change -- only their type size does -- so the phone reads as the
-     same sheet as the laptop, just set smaller, the way a form shrinks
-     to fit a smaller sheet of paper rather than losing columns.
-     ----------------------------------------------------------------- */
-  @container roster (max-width:620px){
-    table.roster{ font-size:10.5px; }
-    table.roster th{ font-size:9.5px; letter-spacing:0; }
-    table.roster th, table.roster td{ padding:4px 4px; }
-    table.roster td textarea, table.roster td .print-value{ font-size:10.5px; }
-    table.roster td.sign-cell button{ font-size:9px; padding:2px 5px; }
-    table.roster td.sign-cell img{ max-height:20px; }
-    .consent-toggle{ font-size:9.5px; gap:2px; }
-    .status-chip, .consent-chip{ font-size:9px; }
-    .action-group .ag-btn{ width:19px; height:19px; }
-    .action-group .ag-btn svg{ width:10px; height:10px; }
-    table.roster td.rowdel button{ font-size:12px; padding:3px; }
+  /* Tablet: still the ruled grid, just tightened a notch so eight
+     columns keep breathing room before card mode takes over. */
+  @container roster (max-width:760px){
+    table.roster{ font-size:11.5px; }
+    table.roster th{ font-size:10.5px; letter-spacing:0; }
+    table.roster th, table.roster td{ padding:6px 6px; }
+    table.roster td textarea, table.roster td .print-value{ font-size:11.5px; }
+    table.roster td.sign-cell button{ font-size:10px; padding:3px 6px; }
+    table.roster td.sign-cell img{ max-height:22px; }
+    .consent-toggle{ font-size:10.5px; gap:2px; }
+    .status-chip, .consent-chip{ font-size:9.5px; }
+    .action-group .ag-btn{ width:21px; height:21px; }
+    .action-group .ag-btn svg{ width:11px; height:11px; }
   }
-  @container roster (max-width:460px){
-    table.roster{ font-size:9px; }
-    table.roster th{ font-size:8px; }
-    table.roster th, table.roster td{ padding:3px; }
-    table.roster td textarea, table.roster td .print-value{ font-size:9px; line-height:1.25; }
-    table.roster td.sign-cell button{ font-size:7.5px; padding:1px 3px; gap:2px; }
-    table.roster td.sign-cell button::before{ font-size:7.5px; }
-    table.roster td.sign-cell img{ max-height:16px; }
-    .consent-toggle{ font-size:8px; gap:1px; }
-    .consent-toggle label{ gap:2px; }
-    .status-chip, .consent-chip{ font-size:8px; gap:3px; }
-    .action-group .ag-btn{ width:16px; height:16px; }
-    .action-group .ag-btn svg{ width:9px; height:9px; }
-    table.roster td.rowdel button{ font-size:10.5px; padding:2px; }
+
+  /* -----------------------------------------------------------------
+     Phone: record cards, not a shrunk table. An eight-column grid
+     stops being usable well before an eight-point font would -- past
+     this width the roster switches from a table to one bordered card
+     per entry, each field labelled inline via ::before (the column
+     order is fixed by the markup -- name, org, email, phone, consent,
+     sign, actions -- so a static label per nth-child needs no change
+     to the row-building JS). Same data, same fields, just laid out the
+     way a person actually reads a form on a phone: top to bottom, one
+     full-width answer at a time.
+     ----------------------------------------------------------------- */
+  @container roster (max-width:600px){
+    table.roster, table.roster thead, table.roster tbody, table.roster tr{ display:block; width:auto; }
+    table.roster{ font-size:13px; }
+    table.roster thead{ display:none; }
+
+    table.roster tbody tr{
+      position:relative;
+      background:var(--paper);
+      border-bottom:1px solid var(--ledger-line);
+      padding:30px 14px 12px;
+    }
+    table.roster tbody tr:last-child{ border-bottom:none; }
+    table.roster tbody tr.submitted-row:nth-of-type(odd){ background:var(--paper); }
+    table.roster tbody tr.draft-row{ background:var(--surface-recessed); }
+
+    table.roster td{
+      display:block;
+      border:none;
+      padding:7px 0;
+      width:auto;
+    }
+    table.roster td.num{
+      position:absolute; top:10px; right:14px; left:auto;
+      padding:0; text-align:right;
+      font-size:11px; font-weight:700; letter-spacing:.3px;
+      color:var(--muted);
+    }
+    table.roster td.num::before{ content:"#"; }
+
+    table.roster td:nth-child(2)::before,
+    table.roster td:nth-child(3)::before,
+    table.roster td:nth-child(4)::before,
+    table.roster td:nth-child(5)::before,
+    table.roster td:nth-child(6)::before,
+    table.roster td:nth-child(7)::before{
+      display:block;
+      font-size:10px;
+      font-weight:700;
+      letter-spacing:.5px;
+      text-transform:uppercase;
+      color:var(--accent2);
+      margin-bottom:3px;
+    }
+    table.roster td:nth-child(2)::before{ content:"Name"; }
+    table.roster td:nth-child(3)::before{ content:"Organization"; }
+    table.roster td:nth-child(4)::before{ content:"Email"; }
+    table.roster td:nth-child(5)::before{ content:"Phone"; }
+    table.roster td:nth-child(6)::before{ content:"Photo / video consent"; }
+    table.roster td:nth-child(7)::before{ content:"Signature"; }
+
+    table.roster td:nth-child(2),
+    table.roster td:nth-child(3),
+    table.roster td:nth-child(4),
+    table.roster td:nth-child(5){ border-bottom:1px dotted var(--ledger-line); }
+
+    table.roster td textarea, table.roster td .print-value{ font-size:13.5px; padding:0; }
+    table.roster td.sign-cell, table.roster td.consent-cell{ text-align:left; }
+    table.roster td.sign-cell .sig-wrap{ justify-content:flex-start; }
+    table.roster td.sign-cell button{ font-size:12.5px; padding:6px 12px; min-height:34px; }
+    table.roster td.consent-cell .consent-toggle{ flex-direction:row; gap:16px; font-size:13px; }
+
+    table.roster td.rowdel{
+      display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+      margin-top:6px; padding-top:12px; padding-bottom:0;
+      border-top:1px solid var(--ledger-line);
+      justify-content:flex-end;
+    }
+    table.roster tr.submitted-row td.rowdel{ justify-content:space-between; }
+    table.roster td.rowdel button{ min-width:34px; min-height:34px; font-size:16px; }
+    table.roster td.rowdel button.submit-btn, table.roster td.rowdel button.flag-btn{ font-size:14px; }
+
+    table.roster tr.empty-row{ padding:16px 14px; text-align:center; }
+    table.roster tr.empty-row td.num{ display:none; }
+    table.roster tr.empty-row td[colspan]{ padding:0; }
+
+    tr.history-row{ display:block; }
+    tr.history-row td{ display:block; border-radius:0; margin:-1px 0 0; }
   }
 </style>
 
