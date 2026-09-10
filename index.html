@@ -6,8 +6,7 @@
 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#faf7f0" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#161a15" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#faf7f0">
 <meta name="description" content="Sign in for this event — draw your signature, no app or account needed.">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="assets/icta_logo_cropped.png">
@@ -24,7 +23,13 @@
      only where it carries real meaning (a status dot, a destructive
      action) rather than as decoration.
      --------------------------------------------------------------------- */
+  /* Always the light paper palette, regardless of the device's system
+     theme -- this is a facsimile of a printed sheet, and paper doesn't
+     go dark at night. Forcing it here (color-scheme:light too, so native
+     form controls don't switch out from under it) avoids the class of
+     dark-mode contrast bugs entirely instead of chasing them per device. */
   :root{
+    color-scheme:light;
     --ink:#1c1a17;
     --line:#000;
     --paper:#ffffff;
@@ -38,23 +43,6 @@
     --ledger-line:#d8cfb8;
     --focus:#1c1a17;
     --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
-  }
-  @media (prefers-color-scheme: dark){
-    :root{
-      --ink:#ece7db; --line:#ece7db; --paper:#20241d; --muted:#a7a190; --bg:#161a15;
-      --paper-edge:#2b3024; --ledger-line:#343a2c; --seal:#e2a479; --seal-ink:#241a14;
-      --focus:#ece7db;
-    }
-  }
-  :root[data-theme="dark"]{
-    --ink:#ece7db; --line:#ece7db; --paper:#20241d; --muted:#a7a190; --bg:#161a15;
-    --paper-edge:#2b3024; --ledger-line:#343a2c; --seal:#e2a479; --seal-ink:#241a14;
-    --focus:#ece7db;
-  }
-  :root[data-theme="light"]{
-    --ink:#1c1a17; --paper:#ffffff; --muted:#5b564c; --bg:#ffffff;
-    --paper-edge:#e4dcc8; --ledger-line:#d8cfb8; --seal:#a3401f; --seal-ink:#fdf2ea;
-    --focus:#1c1a17;
   }
 
   *{ box-sizing:border-box; }
@@ -437,10 +425,6 @@
     font-size:12px;
     color:#666;
     margin:-6px 0 14px;
-  }
-  :root[data-theme="dark"] .hint{ color:#aaa; }
-  @media (prefers-color-scheme: dark){
-    :root:not([data-theme="light"]) .hint{ color:#aaa; }
   }
   #submittedCount{ font-weight:600; }
 
