@@ -16,6 +16,7 @@
 :root[data-theme="light"]{ --bg:#e9e9e9; }
 
 *{ box-sizing:border-box; }
+html{ overflow-x:hidden; }
 body{
   margin:0;
   padding:24px 12px 60px;
@@ -25,7 +26,14 @@ body{
   display:flex;
   flex-direction:column;
   align-items:center;
+  overflow-x:hidden;
 }
+/* The card itself stays the same width at every viewport (100% up to
+   its max-width) -- what used to break "the page stays one consistent
+   size" was content inside it that couldn't shrink, a wide table
+   especially, forcing the whole page wider than the screen instead of
+   just scrolling within its own card. overflow-x:auto here, plus each
+   table's min-width below, contains that to the card. */
 .sheet{
   background:var(--paper);
   color:#000;
@@ -35,6 +43,7 @@ body{
   box-shadow:0 4px 24px rgba(0,0,0,.25);
   border-radius:4px;
   margin-bottom:20px;
+  overflow-x:auto;
 }
 .sheet.wide{ max-width:900px; }
 h1.title{ font-size:18px; margin:0 0 4px; }
@@ -80,7 +89,10 @@ button.link{ border:none; background:none; color:var(--accent); text-decoration:
 .notice.error{ color:var(--accent); background:#fdf2f3; border:1px solid var(--accent); }
 .empty{ color:#888; font-style:italic; font-size:13px; }
 
-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+/* min-width keeps columns readable rather than crushing them to fit a
+   phone -- .sheet's own overflow-x:auto (above) is what lets a table
+   this wide scroll within its card instead of blowing out the page. */
+table{ width:100%; min-width:520px; border-collapse:collapse; font-size:12.5px; }
 th, td{ border:1px solid #ddd; padding:7px 8px; text-align:left; vertical-align:top; }
 th{ background:#f4f4f4; font-size:12px; }
 td.actions{ white-space:nowrap; }
