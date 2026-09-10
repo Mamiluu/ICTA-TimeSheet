@@ -403,6 +403,7 @@
     display:flex;
     flex-wrap:wrap;
     gap:10px;
+    margin-top:20px;
     margin-bottom:16px;
   }
   .toolbar button{
@@ -418,6 +419,7 @@
   .toolbar button.primary{ font-weight:700; }
   .toolbar button.secondary{ font-weight:600; }
   .toolbar button:hover{ background:color-mix(in srgb, var(--ink) 6%, var(--paper)); }
+  .toolbar button:disabled{ opacity:.6; cursor:default; }
 
   .hint{
     max-width:900px;
@@ -2182,7 +2184,7 @@
   }
 
   function loadRemote(){
-    fetch(API_BASE + '/api/events/' + eventQuery)
+    return fetch(API_BASE + '/api/events/' + eventQuery)
       .then(function(res){ return res.json(); })
       .then(function(data){
         if(!data || !data.ok){
@@ -2354,7 +2356,28 @@
   });
 
   var refreshBtn = document.getElementById('refreshBtn');
-  if(refreshBtn) refreshBtn.addEventListener('click', loadRemote);
+  // loadRemote() on its own gives no visible sign anything happened when
+  // the data it fetches back is unchanged -- which, for a visitor polling
+  // their own one row, is the common case. Tapping Refresh needs its own
+  // confirmation independent of whether the fetch actually changed
+  // anything: disable the button and relabel it while the request is in
+  // flight, then show a brief "Refreshed" before reverting, so the tap is
+  // never silently swallowed.
+  if(refreshBtn){
+    refreshBtn.addEventListener('click', function(){
+      if(refreshBtn.disabled) return;
+      var originalLabel = refreshBtn.textContent;
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = 'Refreshing…';
+      loadRemote().then(function(){
+        refreshBtn.textContent = 'Refreshed ✓';
+        setTimeout(function(){
+          refreshBtn.disabled = false;
+          refreshBtn.textContent = originalLabel;
+        }, 1100);
+      });
+    });
+  }
 
   // --- Signature modal ---
   var backdrop = document.getElementById('sigBackdrop');
