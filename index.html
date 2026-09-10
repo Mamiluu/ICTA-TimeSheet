@@ -591,6 +591,11 @@
     .sheet{ max-width:100%; padding:10px 18px; }
     .roster-scroll{ overflow:visible; }
     table.roster{ table-layout:auto; }
+    /* Without this, a row that happens to fall across a page boundary
+       gets sliced mid-cell -- part of an organization or email on one
+       printed page, the rest of that same row on the next. This keeps
+       a whole row together, moving it to the next page instead. */
+    table.roster tr{ break-inside:avoid; page-break-inside:avoid; }
     table.roster td textarea, .event-box input{ border-color:transparent; }
     table.roster tr.draft-row, table.roster tr.empty-row{ display:none !important; }
     table.roster td textarea{ display:none !important; }
