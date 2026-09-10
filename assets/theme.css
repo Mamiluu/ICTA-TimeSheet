@@ -28,12 +28,6 @@ body{
   align-items:center;
   overflow-x:hidden;
 }
-/* The card itself stays the same width at every viewport (100% up to
-   its max-width) -- what used to break "the page stays one consistent
-   size" was content inside it that couldn't shrink, a wide table
-   especially, forcing the whole page wider than the screen instead of
-   just scrolling within its own card. overflow-x:auto here, plus each
-   table's min-width below, contains that to the card. */
 .sheet{
   background:var(--paper);
   color:#000;
@@ -43,9 +37,19 @@ body{
   box-shadow:0 4px 24px rgba(0,0,0,.25);
   border-radius:4px;
   margin-bottom:20px;
-  overflow-x:auto;
 }
 .sheet.wide{ max-width:900px; }
+/* The card itself stays the same width at every viewport (100% up to
+   its max-width) -- what used to break "the page stays one consistent
+   size" was a wide table inside it, forcing the whole page wider than
+   the screen instead of scrolling within its own card. Scoped to the
+   actual table-wrap containers rather than .sheet itself: admin.html's
+   date-picker dropdown (.dp-panel, position:absolute) needs to overflow
+   its card freely, and overflow-x:auto on an element forces overflow-y
+   to clip too (per spec, a non-visible axis silently upgrades the other
+   from visible to auto) -- putting this on .sheet would clip that
+   dropdown instead of just containing a wide table. */
+#adminsWrap, #auditWrap, #insightsWrap, #eventsWrap{ overflow-x:auto; }
 h1.title{ font-size:18px; margin:0 0 4px; }
 .sub{ font-size:12.5px; color:#666; margin:0 0 18px; }
 h2.section{ font-size:14px; margin:0 0 12px; border-bottom:1.5px solid var(--line); padding-bottom:6px; }
