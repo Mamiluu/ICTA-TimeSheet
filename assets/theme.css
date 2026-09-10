@@ -138,6 +138,20 @@ td.actions button{ font-size:11px; padding:4px 8px; margin-right:4px; }
   font-size:10.5px; line-height:1.5; color:#555; overflow-x:auto; white-space:pre-wrap; word-break:break-word;
 }
 
+/* Below 480px, a side-by-side form row or a topbar with the brand on
+   one side and account controls on the other no longer has room to
+   stay side-by-side without squeezing illegibly -- stack them instead.
+   Deliberately not touching properties any page's own local <style>
+   already sets on these same selectors (each page's .topbar rule keeps
+   its display/justify-content/align-items unconditionally, so this
+   only adds flex-direction/gap, which no page redefines, to avoid a
+   cascade fight over which stylesheet loaded last). */
+@media (max-width:480px){
+  .row{ flex-direction:column; gap:0; }
+  .topbar{ flex-direction:column; gap:8px; }
+  .topbar .who{ width:100%; display:flex; justify-content:space-between; align-items:center; }
+}
+
 /* --- Preloader, shared by every page that links this stylesheet ---
    Same motif as index.html's: a ring drawn once around the org mark,
    like a stamp being pressed, not a spinner that loops forever. Each
