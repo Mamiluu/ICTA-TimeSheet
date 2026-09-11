@@ -42,7 +42,6 @@
     --seal-ink:#fdf2ea;
     --ledger-line:#d8cfb8;
     --focus:#1c1a17;
-    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
   }
 
   *{ box-sizing:border-box; }
@@ -97,13 +96,13 @@
     margin-bottom:16px;
   }
   .letterhead .addr{ font-size:12px; line-height:1.5; color:var(--ink); }
-  .letterhead .addr .org{ font-weight:bold; font-size:13px; color:var(--ink); font-family:var(--serif); letter-spacing:.2px; }
+  .letterhead .addr .org{ font-weight:bold; font-size:13px; color:var(--ink); font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; letter-spacing:.2px; }
   .letterhead .addr a{ color:var(--ink); text-decoration:underline; }
   .letterhead .logo img{ height:56px; display:block; }
 
   h1.title{
     text-align:center;
-    font-family:var(--serif);
+    font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif;
     font-weight:700;
     font-size:18px;
     letter-spacing:.5px;
@@ -151,7 +150,7 @@
     font-size:14px;
     min-height:1.3em;
     color:var(--ink);
-    font-family:var(--serif);
+    font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif;
   }
   .event-box .field-value.muted{ color:var(--muted); font-style:italic; font-family:inherit; }
   .event-box .field-desc{ font-size:12.5px; color:var(--muted); margin-top:6px; line-height:1.45; font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; }
@@ -476,7 +475,7 @@
   }
   .receipt-banner .rb-seal svg{ width:18px; height:18px; }
   .receipt-banner .rb-body{ min-width:0; }
-  .receipt-banner .rb-title{ font-weight:700; font-size:14.5px; margin-bottom:3px; font-family:var(--serif); }
+  .receipt-banner .rb-title{ font-weight:700; font-size:14.5px; margin-bottom:3px; font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; }
   .receipt-banner .rb-sub{ opacity:.8; }
 
   .closing-soon-banner{
@@ -557,7 +556,7 @@
     animation:modalPop .18s cubic-bezier(.2,.8,.25,1);
   }
   @keyframes modalPop{ from{ opacity:0; transform:translateY(8px) scale(.98); } to{ opacity:1; transform:none; } }
-  .modal h3{ margin:0 0 4px; font-size:15.5px; font-family:var(--serif); }
+  .modal h3{ margin:0 0 4px; font-size:15.5px; font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; }
   .modal .modal-hint{ margin:0 0 12px; font-size:11.5px; color:var(--muted); }
   .modal canvas{
     border:1.5px dashed var(--ledger-line); border-radius:6px; touch-action:none;
@@ -740,7 +739,7 @@
     opacity:0; animation:preloaderCaptionIn .5s ease .95s forwards;
   }
   .preloader-org{ font-size:10.5px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:var(--accent2); }
-  .preloader-title{ font-family:var(--serif); font-size:15px; font-weight:700; color:var(--ink); letter-spacing:.3px; }
+  .preloader-title{ font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; font-size:15px; font-weight:700; color:var(--ink); letter-spacing:.3px; }
   @keyframes preloaderCaptionIn{ to{ opacity:1; } }
   @media (prefers-reduced-motion: reduce){
     .preloader-logo, .preloader-ring-draw, .preloader-caption{ animation:none; opacity:1; }
