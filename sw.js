@@ -9,7 +9,7 @@
 // queue -- the Background Sync API this might otherwise reach for isn't
 // supported in Safari/iOS as of this writing, which is exactly the device
 // class a walk-in attendee is most likely holding.
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const SHELL_CACHE = 'icta-shell-' + CACHE_VERSION;
 const SHELL_URLS = ['index.html', 'assets/theme.css', 'assets/icta_logo_cropped.png', 'manifest.json'];
 
