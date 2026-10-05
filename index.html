@@ -478,6 +478,14 @@
   .receipt-banner .rb-body{ min-width:0; }
   .receipt-banner .rb-title{ font-weight:700; font-size:14.5px; margin-bottom:3px; font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; }
   .receipt-banner .rb-sub{ opacity:.8; }
+  .days-panel{ display:none; max-width:900px; width:100%; background:var(--paper); border:1px solid var(--ink); color:var(--ink); padding:14px 18px; margin-bottom:14px; font-size:13px; line-height:1.5; }
+  .days-panel .dp-title{ font-weight:700; font-size:14.5px; margin-bottom:3px; font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; }
+  .days-panel .dp-sub{ opacity:.8; margin-bottom:8px; }
+  .days-panel .dp-list{ list-style:none; margin:0; padding:0; }
+  .days-panel .dp-row{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:8px 0; border-top:1px solid var(--ledger-line); }
+  .days-panel .dp-state{ font-size:12px; opacity:.8; }
+  .days-panel .dp-btn{ font:inherit; padding:6px 12px; border:1px solid var(--ink); background:var(--paper); color:var(--ink); cursor:pointer; }
+  .days-panel .dp-btn:disabled{ opacity:.5; cursor:default; }
 
   .closing-soon-banner{
     max-width:900px;
@@ -839,6 +847,12 @@
       <div class="rb-title" id="receiptTitle">You're checked in</div>
       <div class="rb-sub" id="receiptSub"></div>
     </div>
+  </div>
+
+  <div class="days-panel" id="daysPanel">
+    <div class="dp-title">Sign the other days</div>
+    <div class="dp-sub">This event runs over several days. Your entry covers all of them, so sign each day while it is open.</div>
+    <ul class="dp-list" id="daysList"></ul>
   </div>
 
  
@@ -2280,6 +2294,7 @@
           return;
         }
         if(!Array.isArray(data.rows)) return;
+        eventDays = Array.isArray(data.days) ? data.days : [];
         state.meta = data.event || state.meta;
         if(data.capacity) capacity = data.capacity;
         if(typeof data.submittedCount === 'number') remoteSubmittedCount = data.submittedCount;
@@ -2327,6 +2342,7 @@
           ensureDraftRow();
           save();
           render();
+          renderDaysPanel();
           return;
         }
 
@@ -2338,8 +2354,12 @@
           .then(function(res){ return res.json(); })
           .then(function(myData){
             var byClientId = {};
+            mySignedDayIds = [];
             if(myData && myData.ok && Array.isArray(myData.rows)){
-              myData.rows.forEach(function(rr){ byClientId[rr.clientId] = rr; });
+              myData.rows.forEach(function(rr){
+                byClientId[rr.clientId] = rr;
+                mySignedDayIds = mySignedDayIds.concat(rr.signedDayIds || []);
+              });
             }
             // Only ever touch rows this device already knew were its own;
             // a clientId missing from the response (network hiccup, or the
@@ -2353,6 +2373,7 @@
             ensureDraftRow();
             save();
             render();
+            renderDaysPanel();
             triggerAutoPrintOnce();
           })
           .catch(function(){ /* offline — keep showing last known state */ });
@@ -2467,6 +2488,88 @@
   var ctx = canvas.getContext('2d');
   var drawing = false;
   var activeRowIndex = null;
+  var dayTarget = null;
+  var eventDays = [];
+  var mySignedDayIds = [];
+  var daysPanel = document.getElementById('daysPanel');
+  var daysList = document.getElementById('daysList');
+
+  function renderDaysPanel(){
+    if(!daysPanel) return;
+    var ownSubmitted = state.rows.find(function(r){ return r.submitted && r.clientId; });
+    if(isAdmin || !ownSubmitted || eventDays.length < 2){ daysPanel.style.display = 'none'; return; }
+    daysPanel.style.display = '';
+    daysList.textContent = '';
+    eventDays.forEach(function(d, i){
+      var li = document.createElement('li');
+      li.className = 'dp-row';
+      var label = document.createElement('span');
+      label.textContent = 'Day ' + (i + 1) + ' · ' + new Date(d.startAt).toLocaleDateString();
+      var stateText = document.createElement('span');
+      stateText.className = 'dp-state';
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'dp-btn';
+      if(mySignedDayIds.indexOf(d.id) !== -1){
+        stateText.textContent = 'Signed';
+        btn.textContent = 'Signed';
+        btn.disabled = true;
+      } else if(d.open){
+        stateText.textContent = 'Open now';
+        btn.textContent = 'Sign this day';
+        btn.addEventListener('click', function(){ openDaySignature(d.id); });
+      } else if(new Date(d.opensAt).getTime() > Date.now()){
+        stateText.textContent = 'Opens ' + new Date(d.opensAt).toLocaleString();
+        btn.textContent = 'Not open yet';
+        btn.disabled = true;
+      } else {
+        stateText.textContent = 'Closed';
+        btn.textContent = 'Closed';
+        btn.disabled = true;
+      }
+      li.appendChild(label);
+      li.appendChild(stateText);
+      li.appendChild(btn);
+      daysList.appendChild(li);
+    });
+  }
+
+  function openDaySignature(dayId){
+    dayTarget = dayId;
+    activeRowIndex = null;
+    hasInk = false;
+    backdrop.classList.add('open');
+    setTimeout(function(){
+      resizeCanvas();
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+    }, 0);
+  }
+
+  function saveDaySignature(){
+    if(!hasInk){
+      alert('Please draw your signature before saving — the box is currently empty.');
+      return;
+    }
+    var own = state.rows.find(function(r){ return r.submitted && r.clientId; });
+    if(!own){ closeSignatureModal(); return; }
+    var dayId = dayTarget;
+    fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/days/' + encodeURIComponent(dayId) + '/signatures', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId: own.clientId, signature: canvas.toDataURL('image/png') })
+    })
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        if(data && data.ok){
+          closeSignatureModal();
+          showReceipt(own, !!data.duplicate);
+          loadRemote();
+          return;
+        }
+        alert((data && data.message) || 'This day could not be signed right now.');
+      })
+      .catch(function(){ alert('No connection. Please try again when you are back online.'); });
+  }
   var lastX, lastY;
   // canvas.toDataURL() on a completely untouched canvas still returns a
   // valid, non-empty PNG -- just a picture of nothing -- so row.sign being
@@ -2499,6 +2602,7 @@
   function closeSignatureModal(){
     backdrop.classList.remove('open');
     activeRowIndex = null;
+    dayTarget = null;
   }
 
   function getPos(e){
@@ -2539,6 +2643,7 @@
   });
   document.getElementById('sigCancelBtn').addEventListener('click', closeSignatureModal);
   document.getElementById('sigSaveBtn').addEventListener('click', function(){
+    if(dayTarget !== null){ saveDaySignature(); return; }
     if(activeRowIndex === null) return;
     if(!hasInk){
       alert('Please draw your signature before saving — the box is currently empty.');

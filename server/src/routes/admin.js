@@ -260,7 +260,8 @@ function attendanceRow(r) {
     status: r.status,
     statusReason: r.statusReason,
     statusAt: r.statusAt,
-    photoVideoConsent: r.photoVideoConsent
+    photoVideoConsent: r.photoVideoConsent,
+    signedDays: (r.daySignatures || []).map((s) => ({ dayId: s.dayId, signedAt: s.signedAt }))
   };
 }
 
@@ -269,10 +270,14 @@ adminRouter.get('/events/:id/attendance', ah(async (req, res) => {
   const event = await findOwnEvent(req);
   if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
 
-  const attendance = await prisma.attendance.findMany({
-    where: { eventId: event.id },
-    orderBy: { createdAt: 'asc' }
-  });
+  const [attendance, days] = await Promise.all([
+    prisma.attendance.findMany({
+      where: { eventId: event.id },
+      orderBy: { createdAt: 'asc' },
+      include: { daySignatures: { select: { dayId: true, signedAt: true } } }
+    }),
+    prisma.eventDay.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } })
+  ]);
   await writeAudit({
     actorId: req.user.id,
     action: 'EVENT_ATTENDANCE_EXPORTED',
@@ -282,7 +287,12 @@ adminRouter.get('/events/:id/attendance', ah(async (req, res) => {
     req
   });
 
-  res.json({ ok: true, event: publicEvent(event), rows: attendance.map(attendanceRow) });
+  res.json({
+    ok: true,
+    event: publicEvent(event),
+    days: days.map((d) => ({ id: d.id, position: d.position, startAt: d.startAt, endAt: d.endAt })),
+    rows: attendance.map(attendanceRow)
+  });
 }));
 
 adminRouter.get('/audit', ah(async (req, res) => {

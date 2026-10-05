@@ -973,10 +973,17 @@
         window.alert(r.data.message || 'Could not export attendance.');
         return;
       }
-      var lines = [['#', 'Name', 'Organization', 'Email', 'Phone', 'Photo/Video Consent', 'Submitted At'].join(',')];
+      var days = r.data.days || [];
+      var multiDay = days.length > 1;
+      var dayHeaders = multiDay ? days.map(function(d){ return 'Day ' + d.position + ' Signed'; }) : [];
+      var lines = [['#', 'Name', 'Organization', 'Email', 'Phone', 'Photo/Video Consent', 'Submitted At'].concat(dayHeaders).join(',')];
       r.data.rows.forEach(function(row, idx){
         var consentText = row.photoVideoConsent === true ? 'Consented' : row.photoVideoConsent === false ? 'Declined' : 'Not recorded';
-        var vals = [idx + 1, row.name, row.org, row.email, row.phone, consentText, row.timestamp ? new Date(row.timestamp).toLocaleString() : ''].map(function(v){
+        var dayCells = multiDay ? days.map(function(d){
+          var s = (row.signedDays || []).find(function(x){ return x.dayId === d.id; });
+          return s ? 'Yes (' + new Date(s.signedAt).toLocaleString() + ')' : 'No';
+        }) : [];
+        var vals = [idx + 1, row.name, row.org, row.email, row.phone, consentText, row.timestamp ? new Date(row.timestamp).toLocaleString() : ''].concat(dayCells).map(function(v){
           var s = String(v == null ? '' : v);
           if(/[",\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
           return s;
