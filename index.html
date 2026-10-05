@@ -486,6 +486,14 @@
   .days-panel .dp-state{ font-size:12px; opacity:.8; }
   .days-panel .dp-btn{ font:inherit; padding:6px 12px; border:1px solid var(--ink); background:var(--paper); color:var(--ink); cursor:pointer; }
   .days-panel .dp-btn:disabled{ opacity:.5; cursor:default; }
+  .seal-block{ display:none; gap:14px; align-items:center; margin-top:14px; padding-top:12px; border-top:1px solid var(--ink); font-size:11.5px; color:var(--ink); }
+  .seal-block img{ width:96px; height:96px; flex:none; }
+  .seal-block .seal-title{ font-weight:700; font-size:13px; margin-bottom:3px; }
+  .seal-block .seal-line{ overflow-wrap:anywhere; }
+  .seal-block .seal-code{ font-family:ui-monospace, Consolas, monospace; letter-spacing:.12em; font-size:13px; margin:4px 0; }
+  table.roster .day-strip{ display:flex; flex-wrap:wrap; justify-content:center; gap:4px; }
+  table.roster .day-strip-cell img{ max-height:24px; max-width:60px; display:block; }
+  table.roster .day-strip-missing{ font-size:9px; color:var(--muted); align-self:center; }
 
   .closing-soon-banner{
     max-width:900px;
@@ -916,6 +924,17 @@
   <button id="resetBtn">Reset Sheet</button>
 </div>
 <div class="hint">A blank row is ready below, fill it in and tap ✓ to submit, same as signing the paper sheet. Tap the SIGN cell to draw a signature. Made a mistake after submitting? Tap Edit on your row to fix it. <span id="submittedCount"></span></div>
+
+<div class="seal-block" id="sealBlock">
+  <img id="sealQr" alt="Scan to verify this sheet" width="96" height="96">
+  <div>
+    <div class="seal-title">Sealed sheet</div>
+    <div class="seal-line" id="sealDay"></div>
+    <div class="seal-line" id="sealWhen"></div>
+    <div class="seal-code" id="sealCodeText"></div>
+    <div class="seal-line" id="sealVerify"></div>
+  </div>
+</div>
 
 <footer class="credit">Digital ICT Authority paper attendance sheet. <a href="privacy.html" target="_blank" rel="noopener">Privacy policy</a><br>© 2026 Asya Hafidh. All rights reserved.</footer>
 </div>
@@ -1468,12 +1487,17 @@
       // request-signature link in the branch further down, same as the
       // comment on that branch already promises.
       var canDrawSignature = !!row.clientId || !isAdmin;
+      var multiDay = eventDays.length > 1 && !!row.submitted;
       if(row.sign){
         var wrap = document.createElement('div');
         wrap.className = 'sig-wrap';
-        var img = document.createElement('img');
-        img.src = row.sign;
-        wrap.appendChild(img);
+        if(multiDay){
+          wrap.appendChild(buildDayStrip(row));
+        } else {
+          var img = document.createElement('img');
+          img.src = row.sign;
+          wrap.appendChild(img);
+        }
         if(!locked && canDrawSignature){
           var editBtn = document.createElement('button');
           editBtn.className = 'redo-btn';
@@ -2258,6 +2282,7 @@
       var kept = editingById[rr.id];
       kept.status = rr.status || 'ACTIVE';
       kept.statusReason = rr.statusReason || '';
+      kept.daySigs = rr.daySignatures || [];
       return kept;
     }
     return {
@@ -2269,6 +2294,7 @@
       email: rr.email || '',
       phone: rr.phone || '',
       sign: rr.signature || '',
+      daySigs: rr.daySignatures || [],
       hasPendingSignatureRequest: !!rr.hasPendingSignatureRequest,
       status: rr.status || 'ACTIVE',
       statusReason: rr.statusReason || '',
@@ -2389,9 +2415,35 @@
   var autoPrintRequested = /(?:^|[?&])print=1(?:&|$)/.test(location.search);
   var autoPrintDone = false;
   function triggerAutoPrintOnce(){
-    if(!autoPrintRequested || autoPrintDone) return;
+    if(!autoPrintRequested || autoPrintDone || !sealLoaded) return;
     autoPrintDone = true;
     setTimeout(function(){ window.print(); }, 150);
+  }
+
+  // A printed sheet that came from "Seal & print" carries its seal code in
+  // the URL. The seal details load alongside the roster, and printing waits
+  // for them so the code is on the page when the print dialog opens.
+  var sealCode = (function(){
+    var m = /(?:^|[?&])seal=([0-9A-Za-z]{10})(?:&|$)/.exec(location.search);
+    return m ? m[1].toUpperCase() : null;
+  })();
+  var sealLoaded = !sealCode;
+  if(sealCode){
+    fetch(API_BASE + '/api/seals/' + encodeURIComponent(sealCode))
+      .then(function(res){ return res.json(); })
+      .then(function(d){
+        if(d && d.ok){
+          var verifyUrl = window.location.origin + '/verify.html?code=' + sealCode;
+          document.getElementById('sealDay').textContent = 'Day ' + d.dayPosition + ' of ' + d.eventName;
+          document.getElementById('sealWhen').textContent = 'Sealed ' + new Date(d.sealedAt).toLocaleString();
+          document.getElementById('sealCodeText').textContent = sealCode;
+          document.getElementById('sealVerify').textContent = 'Verify at ' + verifyUrl;
+          document.getElementById('sealQr').src = API_BASE + '/api/seals/' + encodeURIComponent(sealCode) + '/qr';
+          document.getElementById('sealBlock').style.display = 'flex';
+        }
+      })
+      .catch(function(){ /* print without the seal block rather than never printing */ })
+      .then(function(){ sealLoaded = true; triggerAutoPrintOnce(); });
   }
 
   if(rosterSearchInput){
@@ -2532,6 +2584,28 @@
       li.appendChild(btn);
       daysList.appendChild(li);
     });
+  }
+
+  function buildDayStrip(row){
+    var strip = document.createElement('div');
+    strip.className = 'day-strip';
+    eventDays.forEach(function(d, i){
+      var cell = document.createElement('span');
+      var sig = (row.daySigs || []).find(function(s){ return s.dayId === d.id; });
+      if(sig){
+        cell.className = 'day-strip-cell';
+        cell.title = 'Day ' + (i + 1) + ' signature';
+        var im = document.createElement('img');
+        im.src = sig.signature;
+        im.alt = 'Day ' + (i + 1) + ' signature';
+        cell.appendChild(im);
+      } else {
+        cell.className = 'day-strip-cell day-strip-missing';
+        cell.textContent = 'D' + (i + 1) + ' —';
+      }
+      strip.appendChild(cell);
+    });
+    return strip;
   }
 
   function openDaySignature(dayId){

@@ -5,6 +5,7 @@ import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { requireRole } from '../middleware/auth.js';
 import { writeAudit } from '../lib/audit.js';
+import { newSealCode, digestOf, buildDaySnapshot } from '../lib/seal.js';
 import { eventSlugId, isValidMeetingLink } from '../lib/normalize.js';
 import { isValidTimeZone } from '../lib/timezone.js';
 import { ah } from '../lib/asyncHandler.js';
@@ -292,6 +293,40 @@ adminRouter.get('/events/:id/attendance', ah(async (req, res) => {
     event: publicEvent(event),
     days: days.map((d) => ({ id: d.id, position: d.position, startAt: d.startAt, endAt: d.endAt })),
     rows: attendance.map(attendanceRow)
+  });
+}));
+
+// Only the event's own admin can seal, the same ownership rule as every
+// other write on an event. Sealing is optional: an unsealed sheet prints
+// and exports exactly as before.
+adminRouter.post('/events/:id/days/:dayId/seal', ah(async (req, res) => {
+  const event = await findOwnEvent(req);
+  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+  const day = await prisma.eventDay.findFirst({ where: { id: req.params.dayId, eventId: event.id } });
+  if (!day) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+  const snapshot = await buildDaySnapshot(event, day);
+  const digest = digestOf(snapshot);
+  const code = newSealCode();
+  const seal = await prisma.sheetSeal.create({
+    data: { id: code, eventId: event.id, dayId: day.id, digest, snapshot, sealedById: req.user.id }
+  });
+  await writeAudit({
+    actorId: req.user.id,
+    action: 'SHEET_SEALED',
+    targetType: 'SheetSeal',
+    targetId: code,
+    metadata: { digest, eventId: event.id, dayId: day.id, rowCount: snapshot.rows.length },
+    req
+  });
+
+  res.json({
+    ok: true,
+    code,
+    digest,
+    sealedAt: seal.createdAt,
+    verifyUrl: `${process.env.PUBLIC_APP_URL}/verify.html?code=${code}`
   });
 }));
 

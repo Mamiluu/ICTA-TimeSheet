@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verify an attendance sheet</title>
+<style>
+  :root{ --ink:#1c1a17; --muted:#5b564c; --paper:#ffffff; --line:#1c1a17; --ok:#1d6b3a; --warn:#a3401f; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:#f6f3ec; color:var(--ink); font-family:system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; font-size:15px; line-height:1.5; }
+  main{ max-width:640px; margin:0 auto; padding:32px 16px; }
+  h1{ font-size:22px; margin:0 0 6px; }
+  .lede{ color:var(--muted); margin:0 0 22px; }
+  form{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:22px; }
+  input[type=text]{ flex:1 1 220px; font:inherit; font-family:ui-monospace, Consolas, monospace; letter-spacing:.08em; text-transform:uppercase; padding:10px 12px; border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+  button{ font:inherit; padding:10px 16px; border:1px solid var(--line); background:var(--ink); color:var(--paper); cursor:pointer; }
+  .card{ background:var(--paper); border:1px solid var(--line); padding:18px; }
+  .card h2{ font-size:16px; margin:0 0 10px; }
+  .check{ display:flex; gap:10px; align-items:flex-start; padding:8px 0; border-top:1px solid #e4dcc8; }
+  .check:first-of-type{ border-top:0; }
+  .mark{ flex:none; width:22px; height:22px; border-radius:50%; border:2px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; }
+  .ok{ color:var(--ok); }
+  .bad{ color:var(--warn); }
+  .note{ color:var(--muted); font-size:13px; }
+  dl{ display:grid; grid-template-columns:auto 1fr; gap:6px 14px; margin:14px 0 0; font-size:14px; }
+  dt{ color:var(--muted); }
+  dd{ margin:0; }
+  .msg{ color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Verify an attendance sheet</h1>
+  <p class="lede">Every printed sheet carries a seal code. Enter it here to check the sheet against the record it was made from.</p>
+
+  <form id="codeForm">
+    <input type="text" id="codeInput" maxlength="10" placeholder="Seal code" autocomplete="off" spellcheck="false" aria-label="Seal code">
+    <button type="submit">Check</button>
+  </form>
+
+  <div class="card" id="result" aria-live="polite">
+    <p class="msg" id="message">Enter a seal code to begin.</p>
+  </div>
+</main>
+
+<script>
+  (function(){
+    var form = document.getElementById('codeForm');
+    var input = document.getElementById('codeInput');
+    var result = document.getElementById('result');
+
+    function clear(){ while(result.firstChild) result.removeChild(result.firstChild); }
+
+    function line(ok, text, note){
+      var row = document.createElement('div');
+      row.className = 'check';
+      var mark = document.createElement('span');
+      mark.className = 'mark ' + (ok === null ? '' : ok ? 'ok' : 'bad');
+      mark.textContent = ok === null ? '•' : ok ? '✓' : '✕';
+      mark.setAttribute('aria-hidden', 'true');
+      var body = document.createElement('div');
+      var title = document.createElement('div');
+      title.textContent = text;
+      body.appendChild(title);
+      if(note){
+        var n = document.createElement('div');
+        n.className = 'note';
+        n.textContent = note;
+        body.appendChild(n);
+      }
+      row.appendChild(mark);
+      row.appendChild(body);
+      return row;
+    }
+
+    function message(text){
+      clear();
+      var p = document.createElement('p');
+      p.className = 'msg';
+      p.textContent = text;
+      result.appendChild(p);
+    }
+
+    function show(data){
+      clear();
+      var h = document.createElement('h2');
+      h.textContent = 'Sealed record found';
+      result.appendChild(h);
+
+      var dl = document.createElement('dl');
+      [
+        ['Event', data.eventName],
+        ['Day', 'Day ' + data.dayPosition],
+        ['Sealed', new Date(data.sealedAt).toLocaleString()],
+        ['People listed', String(data.rowCount)],
+        ['Signed on this day', String(data.signedCount)]
+      ].forEach(function(pair){
+        var dt = document.createElement('dt'); dt.textContent = pair[0];
+        var dd = document.createElement('dd'); dd.textContent = pair[1];
+        dl.appendChild(dt); dl.appendChild(dd);
+      });
+      result.appendChild(dl);
+
+      result.appendChild(line(data.recordMatchesSeal,
+        data.recordMatchesSeal ? 'The stored record matches its seal' : 'The stored record does not match its seal',
+        data.recordMatchesSeal ? null : 'This record may have been altered. Contact the event organiser.'));
+      result.appendChild(line(data.auditTrailIntact,
+        data.auditTrailIntact ? 'The audit trail for this seal is intact' : 'The audit trail for this seal could not be confirmed',
+        data.auditTrailIntact ? null : 'Treat this sheet with caution until the organiser confirms it.'));
+      result.appendChild(line(null,
+        data.changedSinceSealed ? 'The event record has changed since this sheet was sealed' : 'The event record is unchanged since this sheet was sealed',
+        data.changedSinceSealed ? 'Later sign-ins, edits or status changes are normal. This note only says the record moved on after sealing.' : null));
+    }
+
+    function check(code){
+      code = String(code || '').trim().toUpperCase();
+      if(!code){ message('Enter a seal code to begin.'); return; }
+      message('Checking…');
+      fetch('/api/seals/' + encodeURIComponent(code))
+        .then(function(res){ return res.json(); })
+        .then(function(data){
+          if(data && data.ok){ show(data); return; }
+          message('No sheet matches that code. Check the code printed at the foot of the sheet.');
+        })
+        .catch(function(){ message('Could not reach the server. Try again in a moment.'); });
+    }
+
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      var code = input.value.trim().toUpperCase();
+      var url = new URL(window.location.href);
+      url.searchParams.set('code', code);
+      history.replaceState(null, '', url.toString());
+      check(code);
+    });
+
+    var fromUrl = new URLSearchParams(window.location.search).get('code');
+    if(fromUrl){
+      input.value = fromUrl.toUpperCase();
+      check(fromUrl);
+    }
+  })();
+</script>
+</body>
+</html>

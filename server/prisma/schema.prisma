@@ -139,9 +139,25 @@ model Event {
 
   attendance Attendance[]
   days       EventDay[]
+  seals      SheetSeal[]
 
   @@index([county])
   @@index([ownerId])
+}
+
+model SheetSeal {
+  id         String    @id
+  eventId    String
+  event      Event     @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  dayId      String
+  day        EventDay  @relation(fields: [dayId], references: [id], onDelete: Restrict)
+  digest     String
+  snapshot   Json
+  sealedById String?
+  createdAt  DateTime  @default(now())
+
+  @@index([eventId])
+  @@index([dayId])
 }
 
 model EventDay {
@@ -152,6 +168,7 @@ model EventDay {
   startAt    DateTime
   endAt      DateTime
   signatures SessionSignature[]
+  seals      SheetSeal[]
 
   @@unique([eventId, position])
   @@index([eventId])

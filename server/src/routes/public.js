@@ -3,6 +3,7 @@
 
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
+import QRCode from 'qrcode';
 import { prisma } from '../lib/prisma.js';
 import { normalizePhone, normalizeEmail, isValidEmailShape } from '../lib/normalize.js';
 import { attendanceLimiter } from '../middleware/rateLimit.js';
@@ -14,6 +15,7 @@ import { sendAttendanceConfirmationEmail } from '../lib/mailer.js';
 import { logger } from '../lib/logger.js';
 import { BRANDING } from '../lib/branding.js';
 import { dayIsOpen, dayOpensAt, dayClosesAt, ensureFirstDay } from '../lib/days.js';
+import { SEAL_CODE_PATTERN, buildDaySnapshot, digestOf } from '../lib/seal.js';
 
 // Fire-and-forget, same discipline as writeAudit's own .catch(() => {})
 // below: a Brevo outage or a malformed address must never fail the
@@ -76,6 +78,7 @@ function publicRow(r) {
     signature: r.signature,
     hasPendingSignatureRequest: !!r.signatureRequestTokenHash,
     signedDayIds: (r.daySignatures || []).map((s) => s.dayId),
+    daySignatures: (r.daySignatures || []).map((s) => ({ dayId: s.dayId, signature: s.signature })),
     status: r.status,
     statusReason: r.statusReason,
     statusAt: r.statusAt,
@@ -208,7 +211,7 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
       ? prisma.attendance.findMany({
           where: { eventId: event.id },
           orderBy: { createdAt: 'asc' },
-          include: { daySignatures: { select: { dayId: true } } }
+          include: { daySignatures: { select: { dayId: true, signature: true } } }
         })
       : Promise.resolve([]),
     prisma.eventDay.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } })
@@ -274,6 +277,53 @@ publicRouter.post('/events/:slug/attendance/:rowId/request-signature', attendanc
   });
 }));
 
+// Public check of a printed sheet's seal. Returns only counts and times, never
+// names, phones, emails or signatures: the printout is in circulation, and
+// the full record stays behind the admin's own session. Three separate
+// checks, because each can fail independently: the stored snapshot still
+// matches its digest, the audit entry for the seal is still intact, and the
+// live data has or hasn't changed since sealing (a change is normal, not a
+// failure, so it is reported as a note).
+publicRouter.get('/seals/:code', attendanceLimiter, ah(async (req, res) => {
+  const code = String(req.params.code || '').toUpperCase();
+  if (!SEAL_CODE_PATTERN.test(code)) return res.json({ ok: false, error: 'NOT_FOUND' });
+
+  const seal = await prisma.sheetSeal.findUnique({
+    where: { id: code },
+    include: { event: true, day: true }
+  });
+  if (!seal) return res.json({ ok: false, error: 'NOT_FOUND' });
+
+  const auditEntry = await prisma.auditLog.findFirst({
+    where: { action: 'SHEET_SEALED', targetType: 'SheetSeal', targetId: seal.id }
+  });
+  const live = await buildDaySnapshot(seal.event, seal.day);
+
+  res.json({
+    ok: true,
+    sealedAt: seal.createdAt,
+    eventName: seal.event.name,
+    dayPosition: seal.day.position,
+    rowCount: seal.snapshot.rows.length,
+    signedCount: seal.snapshot.rows.filter((r) => r.signed).length,
+    recordMatchesSeal: digestOf(seal.snapshot) === seal.digest,
+    auditTrailIntact: !!auditEntry && verifyChain([auditEntry])[0],
+    changedSinceSealed: digestOf(live) !== seal.digest
+  });
+}));
+
+publicRouter.get('/seals/:code/qr', attendanceLimiter, ah(async (req, res) => {
+  const code = String(req.params.code || '').toUpperCase();
+  if (!SEAL_CODE_PATTERN.test(code)) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const seal = await prisma.sheetSeal.findUnique({ where: { id: code }, select: { id: true } });
+  if (!seal) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+  const png = await QRCode.toBuffer(`${process.env.PUBLIC_APP_URL}/verify.html?code=${code}`, { width: 120, margin: 1 });
+  res.set('Content-Type', 'image/png');
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.send(png);
+}));
+
 // Lets a visitor's own device recover exactly its own row(s) -- and nobody
 // else's -- after a reload, refresh, or revisit. clientIds are random
 // UUIDs generated client-side at submit time and never echoed back to any
@@ -290,7 +340,7 @@ publicRouter.post('/events/:slug/my-attendance', attendanceLimiter, ah(async (re
 
   const rows = await prisma.attendance.findMany({
     where: { eventId: event.id, clientId: { in: clientIds } },
-    include: { daySignatures: { select: { dayId: true } } }
+    include: { daySignatures: { select: { dayId: true, signature: true } } }
   });
   res.json({ ok: true, rows: rows.map(ownRow) });
 }));
