@@ -150,7 +150,8 @@ adminRouter.post('/events', ah(async (req, res) => {
       slug: eventSlugId(f.name), name: f.name, description: f.description,
       startAt: f.startAt, endAt: f.endAt, timezone: f.timezone,
       locationType: f.locationType, address: f.address, latitude: f.latitude, longitude: f.longitude, meetingLink: f.meetingLink,
-      county: req.user.county, ownerId: req.user.id
+      county: req.user.county, ownerId: req.user.id,
+      days: { create: { position: 1, startAt: f.startAt, endAt: f.endAt } }
     }
   });
   await writeAudit({
@@ -215,7 +216,15 @@ adminRouter.put('/events/:id', ah(async (req, res) => {
   // update would leave a stale pin attached to whatever address used to
   // be here if this edit changed the address without re-picking a map
   // suggestion.
-  const updated = await prisma.event.update({ where: { id: event.id }, data: { ...after, latitude: f.latitude, longitude: f.longitude } });
+  const updated = await prisma.event.update({
+    where: { id: event.id },
+    data: {
+      ...after,
+      latitude: f.latitude,
+      longitude: f.longitude,
+      days: { updateMany: { where: { position: 1 }, data: { startAt: f.startAt, endAt: f.endAt } } }
+    }
+  });
   await writeAudit({
     actorId: req.user.id,
     action: 'EVENT_UPDATE',

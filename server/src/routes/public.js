@@ -13,6 +13,7 @@ import { writeAudit, verifyChain } from '../lib/audit.js';
 import { sendAttendanceConfirmationEmail } from '../lib/mailer.js';
 import { logger } from '../lib/logger.js';
 import { BRANDING } from '../lib/branding.js';
+import { dayIsOpen, dayOpensAt, dayClosesAt, ensureFirstDay } from '../lib/days.js';
 
 // Fire-and-forget, same discipline as writeAudit's own .catch(() => {})
 // below: a Brevo outage or a malformed address must never fail the
@@ -74,6 +75,7 @@ function publicRow(r) {
     phone: r.phone,
     signature: r.signature,
     hasPendingSignatureRequest: !!r.signatureRequestTokenHash,
+    signedDayIds: (r.daySignatures || []).map((s) => s.dayId),
     status: r.status,
     statusReason: r.statusReason,
     statusAt: r.statusAt,
@@ -200,16 +202,30 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
   // A retired row (duplicate, fraudulent entry, etc.) no longer occupies a
   // seat -- it stays in the roster for the owning admin (manage=true, see
   // below) but doesn't count toward the capacity a plain visitor sees.
-  const [submittedCount, attendance] = await Promise.all([
+  const [submittedCount, attendance, days] = await Promise.all([
     prisma.attendance.count({ where: { eventId: event.id, status: { not: 'RETIRED' } } }),
     manage
-      ? prisma.attendance.findMany({ where: { eventId: event.id }, orderBy: { createdAt: 'asc' } })
-      : Promise.resolve([])
+      ? prisma.attendance.findMany({
+          where: { eventId: event.id },
+          orderBy: { createdAt: 'asc' },
+          include: { daySignatures: { select: { dayId: true } } }
+        })
+      : Promise.resolve([]),
+    prisma.eventDay.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } })
   ]);
 
   res.json({
     ok: true,
     event: publicEventMeta(event),
+    days: days.map((d) => ({
+      id: d.id,
+      position: d.position,
+      startAt: d.startAt,
+      endAt: d.endAt,
+      opensAt: dayOpensAt(d),
+      closesAt: dayClosesAt(d),
+      open: dayIsOpen(d)
+    })),
     rows: attendance.map(publicRow),
     submittedCount,
     capacity: MAX_ATTENDANCE_PER_EVENT,
@@ -273,7 +289,8 @@ publicRouter.post('/events/:slug/my-attendance', attendanceLimiter, ah(async (re
   if (!clientIds.length) return res.json({ ok: true, rows: [] });
 
   const rows = await prisma.attendance.findMany({
-    where: { eventId: event.id, clientId: { in: clientIds } }
+    where: { eventId: event.id, clientId: { in: clientIds } },
+    include: { daySignatures: { select: { dayId: true } } }
   });
   res.json({ ok: true, rows: rows.map(ownRow) });
 }));
@@ -324,6 +341,9 @@ publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, 
     return res.json({ ok: false, error: 'EVENT_FULL', message: 'This event has reached its maximum of ' + MAX_ATTENDANCE_PER_EVENT + ' attendees.' });
   }
 
+  const firstDay = await ensureFirstDay(event);
+  const signature = String(req.body.signature || '');
+
   try {
     const row = await prisma.attendance.create({
       data: {
@@ -335,8 +355,9 @@ publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, 
         emailNormalized,
         phone,
         phoneNormalized,
-        signature: String(req.body.signature || ''),
-        photoVideoConsent: req.body.photoVideoConsent
+        signature,
+        photoVideoConsent: req.body.photoVideoConsent,
+        daySignatures: { create: { dayId: firstDay.id, signature } }
       }
     });
     sendConfirmationIfEmailed(row, event);
@@ -353,6 +374,62 @@ publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, 
         if (existing) return res.json({ ok: true, id: existing.id, duplicate: true });
       }
       return res.json({ ok: false, error: 'ALREADY_SIGNED', message: 'This phone number or email has already signed in for this event.' });
+    }
+    throw err;
+  }
+}));
+
+// Signs a later day of a multi-day event. Same clientId proof as the
+// self-edit route below: only the device that made the first sign-in can add
+// signatures to that person's row. Only this route is windowed; the first
+// sign-in above stays open for as long as the event link is.
+publicRouter.post('/events/:slug/days/:dayId/signatures', attendanceLimiter, ah(async (req, res) => {
+  const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
+  if (!event || event.deletedAt) return res.json({ ok: false, error: 'Unknown event' });
+  if (isLinkExpired(event)) {
+    return res.json({ ok: false, error: 'LINK_EXPIRED', message: 'Sign-in for this event has closed.' });
+  }
+
+  const day = await prisma.eventDay.findFirst({ where: { id: req.params.dayId, eventId: event.id } });
+  if (!day) return res.json({ ok: false, error: 'UNKNOWN_DAY', message: 'That day is not part of this event.' });
+
+  const clientId = String(req.body.clientId || '');
+  const attendee = clientId
+    ? await prisma.attendance.findUnique({ where: { eventId_clientId: { eventId: event.id, clientId } } })
+    : null;
+  if (!attendee) {
+    return res.json({ ok: false, error: 'NOT_FOUND', message: 'Sign in from the device you used on the first day to sign other days.' });
+  }
+  if (attendee.status === 'RETIRED') {
+    return res.json({ ok: false, error: 'RETIRED', message: 'This entry has been retired and can no longer sign.' });
+  }
+
+  if (isBlankSignature(req.body.signature)) {
+    return res.json({ ok: false, error: 'MISSING_SIGNATURE', message: 'A signature is required — please draw it before submitting.' });
+  }
+  if (!dayIsOpen(day)) {
+    return res.json({
+      ok: false,
+      error: 'DAY_NOT_OPEN',
+      message: 'Signing for this day is not open right now.',
+      opensAt: dayOpensAt(day),
+      closesAt: dayClosesAt(day)
+    });
+  }
+
+  const existing = await prisma.sessionSignature.findUnique({
+    where: { attendanceId_dayId: { attendanceId: attendee.id, dayId: day.id } }
+  });
+  if (existing) return res.json({ ok: true, id: existing.id, duplicate: true });
+
+  try {
+    const sig = await prisma.sessionSignature.create({
+      data: { attendanceId: attendee.id, dayId: day.id, signature: String(req.body.signature) }
+    });
+    return res.json({ ok: true, id: sig.id });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return res.json({ ok: true, duplicate: true });
     }
     throw err;
   }
@@ -389,6 +466,8 @@ publicRouter.patch('/events/:slug/attendance/:clientId', attendanceLimiter, ah(a
     return res.json({ ok: false, error: 'MISSING_CONSENT', message: 'Please indicate whether you consent to being photographed/recorded before saving.' });
   }
   const emailNormalized = normalizeEmail(req.body.email);
+  const firstDay = await ensureFirstDay(event);
+  const signature = String(req.body.signature || '');
 
   try {
     const row = await prisma.attendance.update({
@@ -400,8 +479,15 @@ publicRouter.patch('/events/:slug/attendance/:clientId', attendanceLimiter, ah(a
         emailNormalized,
         phone,
         phoneNormalized,
-        signature: String(req.body.signature || ''),
+        signature,
         photoVideoConsent: req.body.photoVideoConsent,
+        daySignatures: {
+          upsert: {
+            where: { attendanceId_dayId: { attendanceId: existing.id, dayId: firstDay.id } },
+            create: { dayId: firstDay.id, signature },
+            update: { signature }
+          }
+        },
         // Whatever route got a real signature onto this row -- the
         // attendee's own device via Edit, or a signature-recovery link --
         // any outstanding request for one is satisfied, so it stops
@@ -646,7 +732,10 @@ publicRouter.get('/signature-requests/:token', attendanceLimiter, ah(async (req,
 
 publicRouter.post('/signature-requests/:token', attendanceLimiter, ah(async (req, res) => {
   const tokenHash = hashToken(String(req.params.token || ''));
-  const row = await prisma.attendance.findUnique({ where: { signatureRequestTokenHash: tokenHash } });
+  const row = await prisma.attendance.findUnique({
+    where: { signatureRequestTokenHash: tokenHash },
+    include: { event: true }
+  });
   if (!row || !row.signatureRequestExpiresAt || row.signatureRequestExpiresAt < new Date()) {
     return res.json({ ok: false, error: 'INVALID_TOKEN', message: 'This link has expired or was already used. Ask the event organizer to send a new one.' });
   }
@@ -658,10 +747,11 @@ publicRouter.post('/signature-requests/:token', attendanceLimiter, ah(async (req
   // compare-and-set trick consumeToken uses: it's what makes the link
   // single-use under concurrency (e.g. opened twice) rather than by
   // convention only.
+  const signature = String(req.body.signature);
   const result = await prisma.attendance.updateMany({
     where: { id: row.id, signatureRequestTokenHash: tokenHash },
     data: {
-      signature: String(req.body.signature),
+      signature,
       signatureRequestTokenHash: null,
       signatureRequestExpiresAt: null
     }
@@ -669,5 +759,11 @@ publicRouter.post('/signature-requests/:token', attendanceLimiter, ah(async (req
   if (result.count === 0) {
     return res.json({ ok: false, error: 'INVALID_TOKEN', message: 'This link has already been used.' });
   }
+  const firstDay = await ensureFirstDay(row.event);
+  await prisma.sessionSignature.upsert({
+    where: { attendanceId_dayId: { attendanceId: row.id, dayId: firstDay.id } },
+    create: { attendanceId: row.id, dayId: firstDay.id, signature },
+    update: { signature }
+  });
   res.json({ ok: true });
 }));

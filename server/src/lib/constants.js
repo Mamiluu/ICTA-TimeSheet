@@ -37,4 +37,9 @@ export const SIGNATURE_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days for a
 // /api/admin/events/:id/attendance route, not this link.
 export const EVENT_LINK_VISIBILITY_MS = 5 * 24 * 60 * 60 * 1000;
 
+// Per-day signing window for multi-day events (see lib/days.js). Applies to
+// signing a day after the first one; the first sign-in is never windowed.
+export const DAY_SIGN_OPENS_BEFORE_MS = 30 * 60 * 1000;
+export const DAY_SIGN_CLOSES_AFTER_MS = 2 * 60 * 60 * 1000;
+
 export const SESSION_COOKIE_NAME = 'icta_session';
