@@ -785,6 +785,7 @@
     document.addEventListener('DOMContentLoaded', function(){
       var pre = document.getElementById('preloader');
       if(!pre) return;
+      if(/(?:^|[?&])print=1(?:&|$)/.test(location.search)){ pre.remove(); return; }
       var logo = document.getElementById('preloaderLogo');
       var orgLogo = document.getElementById('orgLogoImg');
       if(logo && orgLogo) logo.src = orgLogo.src;
@@ -2418,6 +2419,8 @@
   function triggerAutoPrintOnce(){
     if(!autoPrintRequested || autoPrintDone || !sealLoaded) return;
     autoPrintDone = true;
+    var pre = document.getElementById('preloader');
+    if(pre) pre.remove();
     setTimeout(function(){ window.print(); }, 150);
   }
 
