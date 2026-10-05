@@ -2550,7 +2550,7 @@
     if(!daysPanel) return;
     var ownSubmitted = state.rows.find(function(r){ return r.submitted && r.clientId; });
     if(isAdmin || !ownSubmitted || eventDays.length < 2){ daysPanel.style.display = 'none'; return; }
-    daysPanel.style.display = '';
+    daysPanel.style.display = 'block';
     daysList.textContent = '';
     eventDays.forEach(function(d, i){
       var li = document.createElement('li');
