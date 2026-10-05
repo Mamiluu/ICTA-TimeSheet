@@ -138,9 +138,37 @@ model Event {
   deletedAt DateTime?
 
   attendance Attendance[]
+  days       EventDay[]
 
   @@index([county])
   @@index([ownerId])
+}
+
+model EventDay {
+  id         String             @id @default(uuid())
+  eventId    String
+  event      Event              @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  position   Int
+  startAt    DateTime
+  endAt      DateTime
+  signatures SessionSignature[]
+
+  @@unique([eventId, position])
+  @@index([eventId])
+}
+
+model SessionSignature {
+  id                  String    @id @default(uuid())
+  attendanceId        String
+  attendance          Attendance @relation(fields: [attendanceId], references: [id], onDelete: Restrict)
+  dayId               String
+  day                 EventDay  @relation(fields: [dayId], references: [id], onDelete: Restrict)
+  signature           String
+  isImportedSignature Boolean   @default(false)
+  signedAt            DateTime  @default(now())
+
+  @@unique([attendanceId, dayId])
+  @@index([dayId])
 }
 
 model Attendance {
@@ -192,6 +220,8 @@ model Attendance {
   // exists in the link handed to the admin.
   signatureRequestTokenHash String?   @unique
   signatureRequestExpiresAt DateTime?
+
+  daySignatures SessionSignature[]
 
   @@unique([eventId, clientId])
   @@unique([eventId, phoneNormalized])
