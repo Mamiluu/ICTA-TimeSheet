@@ -67,6 +67,16 @@ export function isValidConsentAnswer(value) {
   return typeof value === 'boolean';
 }
 
+// Name, organization and a well-formed email are required on every entry,
+// same as the sign-in form enforces client-side. Returns the first missing
+// field's label, or null when all are present.
+export function missingAttendeeField(body) {
+  if (!String(body.name || '').trim()) return 'name';
+  if (!String(body.org || '').trim()) return 'organization';
+  if (!isValidEmailShape(String(body.email || '').trim())) return 'email address';
+  return null;
+}
+
 function publicRow(r) {
   return {
     id: r.id,
@@ -362,6 +372,8 @@ publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, 
   const phone = String(req.body.phone || '');
   const phoneNormalized = normalizePhone(phone);
   if (!phoneNormalized) return res.json({ ok: false, error: 'INVALID_PHONE', message: 'Enter a valid Kenyan phone number.' });
+  const missing = missingAttendeeField(req.body);
+  if (missing) return res.json({ ok: false, error: 'MISSING_FIELD', message: `Please provide your ${missing}.` });
   if (isBlankSignature(req.body.signature)) {
     return res.json({ ok: false, error: 'MISSING_SIGNATURE', message: 'A signature is required — please draw it before submitting.' });
   }
@@ -509,6 +521,8 @@ publicRouter.patch('/events/:slug/attendance/:clientId', attendanceLimiter, ah(a
   const phone = String(req.body.phone || '');
   const phoneNormalized = normalizePhone(phone);
   if (!phoneNormalized) return res.json({ ok: false, error: 'INVALID_PHONE', message: 'Enter a valid Kenyan phone number.' });
+  const missing = missingAttendeeField(req.body);
+  if (missing) return res.json({ ok: false, error: 'MISSING_FIELD', message: `Please provide your ${missing}.` });
   if (isBlankSignature(req.body.signature)) {
     return res.json({ ok: false, error: 'MISSING_SIGNATURE', message: 'A signature is required — please draw it before saving.' });
   }
