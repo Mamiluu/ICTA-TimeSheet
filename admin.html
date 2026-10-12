@@ -9,6 +9,7 @@
 <link rel="icon" href="assets/icta_logo_cropped.png">
 <title>ICT Authority : Event Admin</title>
 <link rel="stylesheet" href="assets/theme.css">
+<link rel="stylesheet" href="assets/shell.css">
 <style>
   .topbar{ width:100%; max-width:900px; display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
   .topbar .who{ font-size:12.5px; color:#666; }
@@ -135,53 +136,8 @@
   .badge.virtual{ background:#eef2fb; color:#2a5fd6; }
   .badge.physical{ background:#f4f4f4; color:#555; }
 
-  /* --- App shell: sidebar + one section at a time --- */
-  body{ padding:0; display:block; }
-  .app-shell{ display:flex; min-height:100vh; width:100%; }
-  .sidenav{
-    position:fixed; top:0; left:0; z-index:30; height:100vh; width:236px;
-    background:#15171c; color:#d7d9de; display:flex; flex-direction:column; padding:16px 12px; overflow-y:auto;
-  }
-  .side-brand{ display:flex; align-items:center; gap:10px; padding:2px 6px 14px; color:#fff; font-size:12.5px; line-height:1.3; }
-  .side-brand img{ background:#fff; border-radius:6px; padding:2px; }
-  .side-user{ display:flex; align-items:center; gap:10px; background:#1f222a; border-radius:8px; padding:9px 10px; margin-bottom:6px; }
-  .avatar{ flex:none; width:34px; height:34px; border-radius:50%; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; }
-  .who-email{ font-size:11.5px; color:#fff; word-break:break-all; }
-  .who-county{ font-size:11px; color:#9aa0ac; }
-  .nav-group{ font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:#7d8390; margin:16px 8px 6px; }
-  .nav-item{
-    display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:7px; margin-bottom:2px;
-    color:#d7d9de; text-decoration:none; font-size:13px; border-left:3px solid transparent;
-  }
-  .nav-item svg{ width:17px; height:17px; flex:none; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
-  .nav-item:hover{ background:#22252d; color:#fff; }
-  .nav-item.active{ background:#2a1519; color:#fff; border-left-color:var(--accent); font-weight:700; }
-  .nav-item.active svg{ stroke:var(--accent); }
-  .nav-item:focus-visible, .side-logout:focus-visible, #navToggle:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
-  .side-logout{ margin-top:auto; background:transparent; border:1px solid #3a3e48; color:#d7d9de; padding:9px; border-radius:7px; }
-  .side-logout:hover{ background:#22252d; filter:none; }
-  .app-main{ flex:1; min-width:0; margin-left:236px; padding:24px 32px 60px; }
-  .view-title{ font-size:20px; margin:0 0 16px; max-width:1320px; }
-  .view{ display:none; max-width:1320px; }
-  .app-main .sheet.wide{ max-width:none; }
   #eventsWrap{ overflow:visible; }
-  .view.active{ display:block; }
-  .dash-cta{ margin:0; display:flex; gap:8px; flex-wrap:wrap; }
-  .profile-dl{ display:grid; grid-template-columns:90px 1fr; gap:8px 12px; margin:0 0 14px; font-size:13px; }
-  .profile-dl dt{ color:#666; } .profile-dl dd{ margin:0; word-break:break-all; }
-  .mobilebar, .nav-scrim{ display:none; }
-  @media (max-width: 820px){
-    .mobilebar{ display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:40; background:#15171c; color:#fff; padding:10px 14px; width:100%; }
-    #navToggle{ background:transparent; border:1px solid #3a3e48; color:#fff; font-size:18px; line-height:1; padding:6px 11px; border-radius:6px; }
-    .app-shell{ flex-wrap:wrap; }
-    .sidenav{ position:fixed; z-index:60; left:0; top:0; height:100vh; transform:translateX(-100%); transition:transform .2s ease; }
-    .sidenav.open{ transform:none; }
-    .nav-scrim.open{ display:block; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:50; }
-    .app-main{ margin-left:0; padding:16px 12px 60px; width:100%; }
-    .view-title{ display:none; }
-    .sheet{ padding:20px 16px; }
-  }
-  @media (prefers-reduced-motion: reduce){ .sidenav{ transition:none; } }
+
 
   .rm-backdrop{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:90; align-items:center; justify-content:center; padding:16px; }
   .rm-backdrop.open{ display:flex; }
@@ -275,86 +231,6 @@
   .schedule-chip b{ color:var(--accent); margin-right:4px; }
   .badge.days{ background:#fdeef0; color:var(--accent); }
 
-  /* ==================================================================
-     Admin polish. Everything below is scoped to .app-shell so the login,
-     activation and attendee pages that share theme.css are untouched.
-     One set of tokens, one radius scale, one focus ring.
-     ================================================================== */
-  body{ background:#f3f4f6; }
-  .app-shell{
-    --ui-font:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif;
-    --c-text:#1c1e23; --c-muted:#6a7080; --c-faint:#9aa1af;
-    --c-line:#e6e8ec; --c-line-strong:#d3d7de; --c-soft:#f7f8fa;
-    --c-accent:#c8102e; --c-accent-dark:#a60d26; --c-accent-wash:#fdecef;
-    --c-ok:#0b6b36; --c-ok-wash:#e8f6ee; --c-warn:#8a5a00; --c-warn-wash:#fff3d4;
-    --r-sm:6px; --r-md:9px; --r-lg:14px;
-    --shadow-1:0 1px 2px rgba(20,24,34,.05), 0 1px 3px rgba(20,24,34,.06);
-    --shadow-2:0 10px 30px rgba(20,24,34,.14), 0 2px 6px rgba(20,24,34,.06);
-    --ring:0 0 0 3px rgba(200,16,46,.2);
-    font-family:var(--ui-font);
-    color:var(--c-text);
-  }
-  .app-main{ font-family:var(--ui-font); font-size:14px; line-height:1.5; color:var(--c-text); }
-  .app-main .view-title{ font-size:22px; font-weight:700; letter-spacing:-.01em; margin:2px 0 18px; }
-
-  /* Cards */
-  .app-main .sheet{
-    border:1px solid var(--c-line); border-radius:var(--r-lg); box-shadow:var(--shadow-1);
-    padding:24px 28px; margin-bottom:18px; color:var(--c-text);
-  }
-  .app-main h2.section{
-    font-size:15px; font-weight:700; letter-spacing:-.005em; color:var(--c-text);
-    border-bottom:1px solid var(--c-line); padding-bottom:12px; margin:0 0 18px;
-  }
-  .app-main label{ font-size:13px; font-weight:600; color:var(--c-text); margin-bottom:6px; }
-  .app-main .empty{ font-style:normal; color:var(--c-muted); font-size:13.5px; padding:6px 0; }
-  .app-main .error{ color:#b42318; font-size:13px; }
-
-  /* Fields */
-  .app-main .sheet input[type=text]:not(.datefield-input), .app-main .sheet input[type=search],
-  .app-main .sheet input[type=email], .app-main .sheet select, .app-main .sheet textarea,
-  .app-main .datetime-row input[type=time], .app-main .rm-card select{
-    font-family:var(--ui-font); font-size:14px; color:var(--c-text);
-    padding:10px 12px; border:1px solid var(--c-line-strong); border-radius:var(--r-md);
-    background-color:#fff; transition:border-color .15s ease, box-shadow .15s ease;
-  }
-  .app-main .datefield-input{ font-family:var(--ui-font); font-size:14px; padding:10px 36px 10px 12px; border:1px solid var(--c-line-strong); border-radius:var(--r-md); }
-  .app-main input::placeholder, .app-main textarea::placeholder{ color:var(--c-faint); }
-  .app-main .sheet input:hover:not(:disabled), .app-main .sheet select:hover, .app-main .sheet textarea:hover{ border-color:#b8bec9; }
-  .app-main .sheet input:focus, .app-main .sheet select:focus, .app-main .sheet textarea:focus,
-  .app-main .datefield-input:focus, .app-main .rm-card select:focus{
-    outline:none; border-color:var(--c-accent); box-shadow:var(--ring);
-  }
-  .app-main .loctype-toggle{ border-color:var(--c-line-strong); border-radius:var(--r-md); }
-  .app-main .loctype-toggle button{ padding:9px 18px; font-size:13.5px; }
-
-  /* Buttons: one family, scoped so the calendar picker's own buttons stay as they are */
-  .app-main .sheet > button, .app-main .ev-toolbar button, .app-main .ev-actions > button,
-  .app-main .rm-actions button, .app-main .door-actions button, .app-main .door-manual button,
-  .app-main .dash-cta button, .app-main .link-row button, .app-main .ev-more summary{
-    font-family:var(--ui-font); font-size:13.5px; font-weight:600; line-height:1.2;
-    padding:9px 16px; border:1px solid var(--c-line-strong); border-radius:var(--r-md);
-    background:#fff; color:var(--c-text); cursor:pointer; filter:none;
-    transition:background-color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .05s ease;
-  }
-  .app-main .sheet > button:hover, .app-main .ev-toolbar button:hover, .app-main .ev-actions > button:hover,
-  .app-main .rm-actions button:hover, .app-main .door-actions button:hover, .app-main .door-manual button:hover,
-  .app-main .dash-cta button:hover, .app-main .link-row button:hover, .app-main .ev-more summary:hover{
-    background:var(--c-soft); border-color:#b8bec9; filter:none;
-  }
-  .app-main .sheet > button:active, .app-main .ev-actions > button:active, .app-main .rm-actions button:active{ transform:translateY(1px); }
-  .app-main button.primary, .app-main .ev-actions > button.primary{
-    background:var(--c-accent); border-color:var(--c-accent); color:#fff; font-weight:600;
-    box-shadow:0 1px 2px rgba(166,13,38,.35);
-  }
-  .app-main button.primary:hover:not(:disabled), .app-main .ev-actions > button.primary:hover{
-    background:var(--c-accent-dark); border-color:var(--c-accent-dark); color:#fff;
-  }
-  .app-main button:focus-visible, .app-main .ev-more summary:focus-visible, .app-main a:focus-visible{
-    outline:none; box-shadow:var(--ring);
-  }
-  .app-main button:disabled{ opacity:.5; cursor:not-allowed; box-shadow:none; }
-
   /* Events: toolbar + cards */
   .app-main .ev-toolbar{ gap:10px; }
   .app-main .ev-toolbar select{ min-width:150px; }
@@ -398,34 +274,6 @@
   .app-main .ev-menu-item.danger:hover{ background:#fef0ee; color:#912018; }
   .app-main .ev-menu-item:disabled{ opacity:.5; }
 
-  /* Dashboard */
-  .app-main .stat-grid{ gap:14px; margin-bottom:6px; }
-  .app-main .stat-tile{ background:#fff; border:1px solid var(--c-line); border-radius:var(--r-md); padding:16px 18px; box-shadow:var(--shadow-1); }
-  .app-main .stat-tile .stat-label{ font-size:11.5px; letter-spacing:.06em; color:var(--c-muted); margin-bottom:8px; }
-  .app-main .stat-tile .stat-value{ font-size:30px; font-weight:700; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
-  .app-main .stat-tile .stat-sub{ font-size:12.5px; color:var(--c-muted); margin-top:4px; }
-  .app-main .sparkbar .bar{ background:var(--c-accent); opacity:.75; border-radius:3px 3px 0 0; }
-  .app-main .day-bar-track{ height:14px; border-radius:999px; background:#eceef2; }
-  .app-main .day-bar-fill{ background:var(--c-ok); }
-  .app-main .day-bar-extra{ background:#86c4a1; }
-  .app-main .day-bar-row{ font-size:13.5px; }
-  .app-main .day-bar-meta, .app-main .day-note{ color:var(--c-muted); font-size:12.5px; }
-  .app-main .dash-cta{ margin-top:4px; }
-
-  .app-main .spark-title{ font-size:12.5px; font-weight:600; color:var(--c-muted); margin:18px 0 4px; }
-  .app-main .sparkbar{ height:56px; }
-  .app-main .sparkbar-caption{ font-size:11.5px; color:var(--c-faint); }
-  .app-main .day-bar-row{ grid-template-columns:70px minmax(0,1fr) 200px; }
-  @media (max-width: 820px){ .app-main .day-bar-row{ grid-template-columns:54px minmax(0,1fr); } }
-
-  /* Tables (activity log) */
-  .app-main table{ font-size:13.5px; border-collapse:separate; border-spacing:0; border:1px solid var(--c-line); border-radius:var(--r-md); overflow:hidden; }
-  .app-main th{ background:var(--c-soft); font-size:11.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--c-muted); border:0; border-bottom:1px solid var(--c-line); padding:11px 14px; }
-  .app-main td{ border:0; border-bottom:1px solid var(--c-line); padding:12px 14px; }
-  .app-main tbody tr:last-child td{ border-bottom:0; }
-  .app-main tbody tr:hover td{ background:#fafbfc; }
-  .app-main .audit-badge{ font-size:11.5px; padding:3px 10px; }
-
   /* Forms and panels */
   .app-main .schedule-box{ background:var(--c-soft); border:1px solid var(--c-line); border-left:3px solid var(--c-accent); border-radius:var(--r-md); padding:14px 16px; }
   .app-main .schedule-chip{ font-size:12.5px; padding:4px 12px; border-color:var(--c-line-strong); }
@@ -441,34 +289,7 @@
   .app-main a{ color:var(--c-accent-dark); }
   .app-main .footer-note{ color:var(--c-faint); margin-top:8px; }
 
-  /* Sidebar */
-  .sidenav{ width:248px; padding:18px 14px; font-family:var(--ui-font); background:#14161b; border-right:1px solid #1f232b; }
-  .app-main{ margin-left:248px; }
-  .side-brand{ gap:12px; padding:2px 8px 18px; font-size:13px; font-weight:600; letter-spacing:.005em; }
-  .side-brand img{ width:32px; height:32px; border-radius:8px; padding:3px; }
-  .side-user{ background:#1b1e25; border:1px solid #242934; border-radius:var(--r-md); padding:11px 12px; margin-bottom:4px; }
-  .avatar{ width:36px; height:36px; font-size:14px; box-shadow:0 0 0 2px #14161b, 0 0 0 3px rgba(255,255,255,.12); }
-  .side-user > div:last-child{ min-width:0; }
-  .who-email{ font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; word-break:normal; }
-  .who-county{ font-size:12px; color:#98a0af; }
-  .nav-group{ font-size:11px; letter-spacing:.12em; color:#78808f; margin:20px 10px 8px; font-weight:600; }
-  .nav-item{ font-size:14px; padding:10px 12px; border-radius:var(--r-md); border-left:0; position:relative; gap:12px; color:#c9cfdb; transition:background-color .15s ease, color .15s ease; }
-  .nav-item:hover{ background:#1d2129; color:#fff; }
-  .nav-item.active{ background:rgba(200,16,46,.16); color:#fff; font-weight:600; }
-  .nav-item.active::before{ content:""; position:absolute; left:-14px; top:9px; bottom:9px; width:3px; border-radius:0 3px 3px 0; background:var(--c-accent, #c8102e); }
-  .nav-item.active svg{ stroke:#ff6b82; }
-  .nav-item svg{ width:18px; height:18px; }
-  .side-logout{ font-family:var(--ui-font); font-size:13.5px; font-weight:600; padding:10px; border-radius:var(--r-md); border-color:#2a2f3a; color:#c9cfdb; transition:background-color .15s ease, border-color .15s ease; }
-  .side-logout:hover{ background:#1d2129; border-color:#3a4150; color:#fff; filter:none; }
-  .nav-item:focus-visible, .side-logout:focus-visible{ outline:none; box-shadow:0 0 0 2px #14161b, 0 0 0 4px #ff6b82; }
-  @media (max-width: 820px){
-    .app-main{ margin-left:0; }
-    .app-main .sheet{ padding:18px 16px; }
-    .app-main .view-title{ display:none; }
-  }
-  @media (prefers-reduced-motion: reduce){
-    .app-main *, .sidenav *{ transition:none !important; animation:none !important; }
-  }</style>
+</style>
 
 <div class="preloader" id="preloader" role="status" aria-live="polite" aria-label="Loading">
   <div class="preloader-mark">
