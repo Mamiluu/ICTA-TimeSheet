@@ -75,6 +75,20 @@
   <div id="insightsWrap"><p class="empty">Loading…</p></div>
 </div>
 
+<div class="sheet wide" id="anchorPanel">
+  <h2 class="section">Audit trail integrity</h2>
+  <p class="sub" style="margin-bottom:10px;">Every day the latest entry of the tamper-evident audit trail is emailed to each super admin. That email is a copy nobody can change from inside the system. Paste a hash from one of those emails to check that nothing up to that point was altered or removed.</p>
+  <div id="anchorStatus" class="empty">Loading…</div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 14px;">
+    <button id="anchorSendBtn" class="primary" type="button">Send an anchor email now</button>
+  </div>
+  <label for="anchorHash">Check an anchor</label>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <input type="text" id="anchorHash" placeholder="Paste the 64-character hash" autocomplete="off" spellcheck="false" style="flex:1; min-width:240px; margin-bottom:0; font-family:Consolas,monospace;">
+    <button id="anchorCheckBtn" type="button">Check</button>
+  </div>
+  <p id="anchorResult" role="status" aria-live="polite" style="margin:12px 0 0; font-size:13px;"></p>
+</div>
 <div class="sheet wide" id="listPanel">
   <h2 class="section">County admins</h2>
   <button id="refreshBtn">Refresh</button>
@@ -431,8 +445,40 @@
     createPanel.style.display = '';
   });
 
+  // --- Audit chain anchors ---
+  var anchorStatus = document.getElementById('anchorStatus');
+  var anchorResult = document.getElementById('anchorResult');
+  function showAnchorStatus(){
+    API.get('/api/superadmin/anchor').then(function(r){
+      if(!r.data.ok){ anchorStatus.textContent = 'Could not load the anchor status.'; return; }
+      if(!r.data.head){ anchorStatus.textContent = 'No chained audit entries yet.'; return; }
+      anchorStatus.textContent = r.data.head.count + ' entries on record. ' + (r.data.lastAnchorAt ? 'Last anchor emailed ' + new Date(r.data.lastAnchorAt).toLocaleString() + '.' : 'No anchor has been emailed yet.');
+    }).catch(function(){ anchorStatus.textContent = 'Network error — could not reach the backend.'; });
+  }
+  document.getElementById('anchorSendBtn').addEventListener('click', function(){
+    var btn = this; btn.disabled = true; anchorResult.textContent = '';
+    API.post('/api/superadmin/anchor').then(function(r){
+      btn.disabled = false;
+      anchorResult.textContent = r.data.ok ? 'Anchor recorded and emailed to ' + r.data.sent + ' super admin(s).' : (r.data.message || 'Could not send the anchor.');
+      showAnchorStatus();
+    }).catch(function(){ btn.disabled = false; anchorResult.textContent = 'Network error — could not reach the backend.'; });
+  });
+  document.getElementById('anchorCheckBtn').addEventListener('click', function(){
+    var hash = document.getElementById('anchorHash').value.trim();
+    anchorResult.textContent = 'Checking…';
+    API.post('/api/superadmin/anchor/check', { hash: hash }).then(function(r){
+      var d = r.data;
+      if(!d.ok){ anchorResult.textContent = d.message || 'Could not check that hash.'; return; }
+      if(!d.found){ anchorResult.textContent = '✕ ' + d.message; return; }
+      var msg = d.intactUpToAnchor
+        ? '✓ That entry is still in the trail (entry ' + d.position + ') and every entry up to it is intact. ' + d.entriesSince + ' newer entries have been added since.'
+        : '✕ That entry exists, but something before it was altered after the anchor was sent.';
+      if(d.hashMismatches || d.linkBreaks) msg += ' Whole-trail scan: ' + d.hashMismatches + ' altered entr' + (d.hashMismatches === 1 ? 'y' : 'ies') + ', ' + d.linkBreaks + ' break(s) in the chain order.';
+      anchorResult.textContent = msg;
+    }).catch(function(){ anchorResult.textContent = 'Network error — could not reach the backend.'; });
+  });
   requireSession().then(function(user){
-    if(user){ loadAdmins(); loadAnalytics(); }
+    if(user){ loadAdmins(); loadAnalytics(); showAnchorStatus(); }
   });
 })();
 </script>

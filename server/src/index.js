@@ -13,6 +13,7 @@ import { authRouter } from './routes/auth.js';
 import { superadminRouter } from './routes/superadmin.js';
 import { adminRouter } from './routes/admin.js';
 import { publicRouter } from './routes/public.js';
+import { startAnchorJob } from './lib/anchor.js';
 import { logger, requestLogger, logRequestError, newErrorRef } from './lib/logger.js';
 
 // The static frontend (index.html, admin.html, assets/, etc.) lives at the
@@ -84,4 +85,7 @@ app.use((err, req, res, next) => {
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => logger.info('server listening', { port }));
+app.listen(port, () => {
+  logger.info('server listening', { port });
+  startAnchorJob();
+});

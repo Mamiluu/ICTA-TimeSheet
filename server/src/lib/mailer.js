@@ -210,3 +210,22 @@ export async function sendAttendanceConfirmationEmail(toEmail, details) {
 
   await sendViaBrevo({ to: toEmail, subject: `You're on record — ${eventName}${dayTag ? ' (' + dayTag + ')' : ''}`, html });
 }
+
+// Sent to every super admin each day. Its whole value is that it sits in an
+// inbox the application cannot edit: the hash below is the audit chain's
+// latest entry at send time, so a later check can show whether anything up to
+// it was changed or removed. There is nothing to click.
+export async function sendChainAnchorEmail(toEmail, head) {
+  devLogLink(`chain anchor for ${toEmail}`, head.hash);
+  const html = wrapHtml(`
+    <p style="font-size:13.5px;color:#333;">Daily record-integrity anchor. Keep this email: it is your independent copy of the audit trail's latest entry.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:13px;color:#1a1a1a;margin:14px 0;">
+      <tr><td style="padding:3px 14px 3px 0;color:#888;">Entries on record</td><td><strong>${escapeHtml(head.count)}</strong></td></tr>
+      <tr><td style="padding:3px 14px 3px 0;color:#888;">Latest entry time</td><td>${escapeHtml(formatRecordedAt(new Date(head.at)))}</td></tr>
+    </table>
+    <p style="font-size:11px;color:#888;margin:0 0 4px;">LATEST ENTRY HASH</p>
+    <p style="font-family:'Courier New',monospace;font-size:12px;word-break:break-all;background:#f4f4f4;padding:10px;border-radius:4px;color:#1a1a1a;">${escapeHtml(head.hash)}</p>
+    <p style="font-size:11.5px;color:#888;">To check it later, open the super admin page, paste this hash into "Check an anchor" and the system will tell you whether that entry, and everything before it, is still intact.</p>
+  `);
+  await sendViaBrevo({ to: toEmail, subject: `${BRANDING.orgName} audit anchor — ${head.count} entries`, html });
+}

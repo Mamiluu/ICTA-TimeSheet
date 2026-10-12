@@ -11,6 +11,7 @@ import { sendActivationEmail } from '../lib/mailer.js';
 import { writeAudit } from '../lib/audit.js';
 import { KENYA_COUNTIES, MAX_ACTIVE_COUNTY_ADMINS } from '../lib/constants.js';
 import { isValidEmailShape } from '../lib/normalize.js';
+import { chainHead, lastAnchorAt, sendAnchor, checkAnchor } from '../lib/anchor.js';
 import { ah } from '../lib/asyncHandler.js';
 import { logger } from '../lib/logger.js';
 import { bucketByDay, countsByKey } from '../lib/analytics.js';
@@ -282,4 +283,24 @@ superadminRouter.get('/audit', ah((req, res) => {
     where.actor = { county: String(req.query.county) };
   }
   return pagedAudit(where, req, res);
+}));
+
+// --- Audit chain anchors ---
+// See lib/anchor.js: the chain head is emailed to every super admin daily,
+// and any kept hash can be checked against the live chain here.
+superadminRouter.get('/anchor', ah(async (req, res) => {
+  const [head, last] = await Promise.all([chainHead(), lastAnchorAt()]);
+  res.json({ ok: true, head, lastAnchorAt: last });
+}));
+
+superadminRouter.post('/anchor', ah(async (req, res) => {
+  const result = await sendAnchor({ actorId: req.user.id, req });
+  if (!result.head) return res.json({ ok: false, error: 'EMPTY_CHAIN', message: 'There are no chained entries to anchor yet.' });
+  res.json({ ok: true, sent: result.sent, head: result.head });
+}));
+
+superadminRouter.post('/anchor/check', ah(async (req, res) => {
+  const hash = String(req.body.hash || '').trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(hash)) return res.status(400).json({ ok: false, error: 'INVALID_HASH', message: 'Paste the full 64-character hash from the anchor email.' });
+  res.json({ ok: true, ...(await checkAnchor(hash)) });
 }));
