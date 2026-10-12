@@ -624,7 +624,21 @@
     .sheet{ max-width:100%; padding:10px 18px; }
     .roster-scroll{ overflow:visible; }
     table.roster{ table-layout:auto; }
-    /* Without this, a row that happens to fall across a page boundary
+    /* A multi-day sheet is sized for a screen (minimum width, fixed day
+       columns). On paper it has to fit the page instead: drop those, let the
+       table take exactly the page width, and give each day a modest share so
+       every day's column stays inside the border. */
+    .sheet.sheet-wide{ max-width:100%; }
+    table.roster{ min-width:0 !important; width:100% !important; }
+    table.roster.multiday #rosterCols col{ width:auto !important; }
+    table.roster.multiday th.day-head, table.roster.multiday td.day-sign-cell{ width:11%; }
+    table.roster.multiday td.day-sign-cell{ height:40px; }
+    table.roster.multiday td.day-sign-cell img{ max-height:30px; }
+    table.roster.multiday td, table.roster.multiday th{ overflow-wrap:break-word; }
+    /* Keep a phone number on one line; the other columns give way instead. */
+    table.roster.multiday td:nth-child(5) .print-value{ white-space:nowrap; }
+    table.roster.multiday td .print-value{ word-break:normal; }
+    table.roster.multiday th.day-head.today{ background:none; }    /* Without this, a row that happens to fall across a page boundary
        gets sliced mid-cell -- part of an organization or email on one
        printed page, the rest of that same row on the next. This keeps
        a whole row together, moving it to the next page instead. */
