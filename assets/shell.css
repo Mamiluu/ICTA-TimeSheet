@@ -37,8 +37,8 @@ body{ padding:0; display:block; overflow-x:clip; }
 .side-logout{ margin-top:auto; background:transparent; border:1px solid #3a3e48; color:#d7d9de; padding:9px; border-radius:7px; }
 .side-logout:hover{ background:#22252d; filter:none; }
 .app-main{ flex:1; min-width:0; margin-left:236px; padding:24px 32px 60px; }
-.view-title{ font-size:20px; margin:0 0 16px; max-width:1320px; }
-.view{ display:none; max-width:1320px; }
+.view-title{ font-size:20px; margin:0 0 16px; }
+.view{ display:none; }
 .app-main .sheet.wide{ max-width:none; }
 .view.active{ display:block; }
 .dash-cta{ margin:0; display:flex; gap:8px; flex-wrap:wrap; }
