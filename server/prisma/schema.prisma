@@ -168,6 +168,8 @@ model EventDay {
   position   Int
   startAt    DateTime
   endAt      DateTime
+  // Set when an admin reopens a closed day; signing stays open until then.
+  reopenedUntil DateTime?
   signatures SessionSignature[]
   seals      SheetSeal[]
 

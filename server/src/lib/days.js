@@ -8,13 +8,21 @@ export function dayOpensAt(day) {
   return new Date(day.startAt.getTime() - DAY_SIGN_OPENS_BEFORE_MS);
 }
 
+// An admin can reopen a closed day for a limited time (reopenedUntil). That
+// only ever extends the window, never shortens it.
 export function dayClosesAt(day) {
-  return new Date(day.endAt.getTime() + DAY_SIGN_CLOSES_AFTER_MS);
+  const normal = day.endAt.getTime() + DAY_SIGN_CLOSES_AFTER_MS;
+  const extended = day.reopenedUntil ? new Date(day.reopenedUntil).getTime() : 0;
+  return new Date(Math.max(normal, extended));
 }
 
 export function dayIsOpen(day, now = Date.now()) {
-  return now >= dayOpensAt(day).getTime() && now <= dayClosesAt(day).getTime();
+  const extended = day.reopenedUntil && now <= new Date(day.reopenedUntil).getTime();
+  return (now >= dayOpensAt(day).getTime() && now <= dayClosesAt(day).getTime()) || !!extended;
 }
+
+export const REOPEN_DEFAULT_HOURS = 24;
+export const REOPEN_MAX_HOURS = 72;
 
 export const MAX_EVENT_DAYS = 31;
 

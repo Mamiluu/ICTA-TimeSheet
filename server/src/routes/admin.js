@@ -9,7 +9,7 @@ import { newSealCode, digestOf, buildDaySnapshot, buildEventSnapshot } from '../
 import { eventSlugId, isValidMeetingLink } from '../lib/normalize.js';
 import { isValidTimeZone } from '../lib/timezone.js';
 import { ah } from '../lib/asyncHandler.js';
-import { resolveSchedule } from '../lib/days.js';
+import { resolveSchedule, dayClosesAt, REOPEN_DEFAULT_HOURS, REOPEN_MAX_HOURS } from '../lib/days.js';
 import { EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
 import { bucketByDay, countsByKey } from '../lib/analytics.js';
 import QRCode from 'qrcode';
@@ -103,7 +103,7 @@ adminRouter.get('/events', ah(async (req, res) => {
     orderBy: { createdAt: 'desc' },
     include: {
       _count: { select: { attendance: true } },
-      days: { orderBy: { position: 'asc' }, select: { position: true, startAt: true, endAt: true } }
+      days: { orderBy: { position: 'asc' }, select: { id: true, position: true, startAt: true, endAt: true, reopenedUntil: true } }
     }
   });
   res.json({ ok: true, events: events.map((ev) => ({ ...publicEvent(ev, ev._count.attendance), days: ev.days })) });
@@ -368,6 +368,24 @@ adminRouter.post('/events/:id/days/:dayId/seal', ah(async (req, res) => {
 
 // Seals every day of the event as one sheet with one code, the way the printed
 // multi-day sheet reads. The per-day route above stays for older callers.
+// Lets the organiser reopen a day whose signing window has closed, for a
+// limited time, e.g. when the network was down at the venue. Always audited.
+adminRouter.post('/events/:id/days/:dayId/reopen', ah(async (req, res) => {
+  const event = await findOwnEvent(req);
+  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const day = await prisma.eventDay.findFirst({ where: { id: req.params.dayId, eventId: event.id } });
+  if (!day) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+  const hours = Math.min(REOPEN_MAX_HOURS, Math.max(1, Math.round(Number(req.body.hours)) || REOPEN_DEFAULT_HOURS));
+  const reopenedUntil = new Date(Date.now() + hours * 60 * 60 * 1000);
+  const updated = await prisma.eventDay.update({ where: { id: day.id }, data: { reopenedUntil } });
+  await writeAudit({
+    actorId: req.user.id, action: 'DAY_REOPENED', targetType: 'EventDay', targetId: day.id,
+    metadata: { eventId: event.id, position: day.position, hours, reopenedUntil }, req
+  });
+  res.json({ ok: true, reopenedUntil, closesAt: dayClosesAt(updated) });
+}));
+
 adminRouter.post('/events/:id/seal', ah(async (req, res) => {
   const event = await findOwnEvent(req);
   if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });

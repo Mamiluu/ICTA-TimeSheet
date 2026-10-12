@@ -86,3 +86,22 @@ describe('single-day events', () => {
     }
   });
 });
+describe('reopened days', () => {
+  const closed = { startAt: new Date('2026-10-05T06:00:00Z'), endAt: new Date('2026-10-05T10:00:00Z') };
+  const at = Date.parse('2026-10-06T09:00:00Z');
+
+  test('a closed day is shut until it is reopened', () => {
+    assert.equal(dayIsOpen(closed, at), false);
+    assert.equal(dayIsOpen({ ...closed, reopenedUntil: new Date('2026-10-06T12:00:00Z') }, at), true);
+  });
+
+  test('a reopen that has itself run out does not open the day', () => {
+    assert.equal(dayIsOpen({ ...closed, reopenedUntil: new Date('2026-10-06T08:00:00Z') }, at), false);
+  });
+
+  test('a reopen earlier than the normal close never shortens the window', () => {
+    const d = { ...closed, reopenedUntil: new Date('2026-10-05T07:00:00Z') };
+    assert.equal(dayClosesAt(d).toISOString(), '2026-10-05T12:00:00.000Z');
+    assert.equal(dayIsOpen(d, Date.parse('2026-10-05T11:00:00Z')), true);
+  });
+});
