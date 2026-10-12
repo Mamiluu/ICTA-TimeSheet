@@ -13,6 +13,7 @@ import { resolveSchedule, dayClosesAt, REOPEN_DEFAULT_HOURS, REOPEN_MAX_HOURS } 
 import { EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
 import { bucketByDay, countsByKey, summarizeDays } from '../lib/analytics.js';
 import { doorStampDataUri, clockInZone } from '../lib/stamp.js';
+import { loadClaimPackData } from '../lib/integrity.js';
 import { notifyDaySigned } from './public.js';
 import QRCode from 'qrcode';
 
@@ -391,13 +392,11 @@ adminRouter.post('/events/:id/days/:dayId/reopen', ah(async (req, res) => {
   res.json({ ok: true, reopenedUntil, closesAt: dayClosesAt(updated) });
 }));
 
-adminRouter.post('/events/:id/seal', ah(async (req, res) => {
-  const event = await findOwnEvent(req);
-  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
-
+// Seals every day of the event as one record and writes it to the audit chain.
+// Shared by the plain "Seal & print" route and by claim-pack approval.
+async function sealWholeEvent(event, req) {
   const days = await prisma.eventDay.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } });
-  if (!days.length) return res.status(400).json({ ok: false, error: 'NO_DAYS', message: 'This event has no day to seal.' });
-
+  if (!days.length) return null;
   const snapshot = await buildEventSnapshot(event, days);
   const digest = digestOf(snapshot);
   const code = newSealCode();
@@ -412,15 +411,86 @@ adminRouter.post('/events/:id/seal', ah(async (req, res) => {
     metadata: { digest, eventId: event.id, scope: 'EVENT', dayCount: days.length, rowCount: snapshot.days[0].rows.length },
     req
   });
-
-  res.json({
-    ok: true,
+  return {
     code,
     digest,
     dayCount: days.length,
     sealedAt: seal.createdAt,
     verifyUrl: `${process.env.PUBLIC_APP_URL}/verify.html?code=${code}`
+  };
+}
+
+adminRouter.post('/events/:id/seal', ah(async (req, res) => {
+  const event = await findOwnEvent(req);
+  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const sealed = await sealWholeEvent(event, req);
+  if (!sealed) return res.status(400).json({ ok: false, error: 'NO_DAYS', message: 'This event has no day to seal.' });
+  res.json({ ok: true, ...sealed });
+}));
+
+// --- Claim pack: the attendance record in a form a finance office or auditor
+// can check, with an integrity report and a recorded approval. ---
+// Names and phone numbers leave the system here, exactly as they do in an
+// export, so generating one is audited the same way.
+adminRouter.get('/events/:id/claim-pack', ah(async (req, res) => {
+  const event = await findOwnEvent(req);
+  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+  const data = await loadClaimPackData(event);
+  const [seal, approval] = await Promise.all([
+    prisma.sheetSeal.findFirst({ where: { eventId: event.id, dayId: null }, orderBy: { createdAt: 'desc' } }),
+    prisma.auditLog.findFirst({ where: { action: 'CLAIM_PACK_APPROVED', targetType: 'Event', targetId: event.id }, orderBy: { createdAt: 'desc' } })
+  ]);
+  await writeAudit({
+    actorId: req.user.id,
+    action: 'CLAIM_PACK_GENERATED',
+    targetType: 'Event',
+    targetId: event.id,
+    metadata: { name: event.name, rowCount: data.people.length },
+    req
   });
+
+  res.json({
+    ok: true,
+    event: { ...publicEvent(event), county: event.county },
+    days: data.days.map((d) => ({ id: d.id, position: d.position, startAt: d.startAt, endAt: d.endAt })),
+    matrix: data.matrix,
+    findings: data.findings,
+    retiredCount: data.retiredCount,
+    seal: seal ? { code: seal.id, sealedAt: seal.createdAt, verifyUrl: `${process.env.PUBLIC_APP_URL}/verify.html?code=${seal.id}` } : null,
+    approval: approval
+      ? { by: approval.actorEmail, at: approval.createdAt, note: approval.metadata?.note || '', sealCode: approval.metadata?.sealCode || null }
+      : null
+  });
+}));
+
+// Approving seals the record and writes who approved it, when, and what the
+// integrity report said at that moment. Review items must be acknowledged: the
+// approver is saying they looked, so the log can show it.
+adminRouter.post('/events/:id/claim-pack/approve', ah(async (req, res) => {
+  const event = await findOwnEvent(req);
+  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+  const data = await loadClaimPackData(event);
+  const review = data.findings.filter((f) => f.severity === 'review').length;
+  const notes = data.findings.length - review;
+  if (!data.people.length) return res.status(400).json({ ok: false, error: 'EMPTY', message: 'There is nobody on this event yet, so there is nothing to approve.' });
+  if (review > 0 && req.body.acknowledge !== true) {
+    return res.status(400).json({ ok: false, error: 'REVIEW_REQUIRED', message: `Tick the box to confirm you have reviewed the ${review} item${review === 1 ? '' : 's'} flagged for review.` });
+  }
+
+  const sealed = await sealWholeEvent(event, req);
+  if (!sealed) return res.status(400).json({ ok: false, error: 'NO_DAYS', message: 'This event has no day to seal.' });
+  const note = String(req.body.note || '').trim().slice(0, 500);
+  await writeAudit({
+    actorId: req.user.id,
+    action: 'CLAIM_PACK_APPROVED',
+    targetType: 'Event',
+    targetId: event.id,
+    metadata: { sealCode: sealed.code, note, review, notes, people: data.people.length, acknowledged: review > 0 },
+    req
+  });
+  res.json({ ok: true, code: sealed.code, sealedAt: sealed.sealedAt, verifyUrl: sealed.verifyUrl });
 }));
 
 // Counts only: how many signed each day, by how, and how many are missing.

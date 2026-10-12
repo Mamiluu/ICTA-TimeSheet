@@ -1307,6 +1307,7 @@
     }));
     menu.appendChild(menuItem('Export CSV', function(b){ exportEventCsv(ev, b); }));
     menu.appendChild(menuItem('Print sheet', function(b){ printEventSheet(ev, b); }));
+    menu.appendChild(menuItem('Claim pack', function(){ window.open('claim-pack.html?event=' + encodeURIComponent(ev.id), '_blank'); }));
     menu.appendChild(menuItem('Seal & print', function(b){ sealEventDay(ev, b); }));
     menu.appendChild(menuItem('Reopen a day', function(){ openReopenModal(ev); }));
     var sep = document.createElement('div'); sep.className = 'ev-menu-sep'; menu.appendChild(sep);

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+  Proprietary and confidential. See LICENSE in the repository root.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attendance claim pack</title>
+<link rel="icon" href="assets/icta_logo_cropped.png">
+<style>
+  :root{
+    --ink:#1b1a18; --muted:#6a655b; --rule:#d9d2c3; --paper:#fffdf8; --page:#ebe7de;
+    --accent:#c8102e; --ok:#14683a; --ok-wash:#e6f4ec; --warn:#8a5a00; --warn-wash:#fff1cf;
+  }
+  @media (prefers-color-scheme: dark){ :root{ --page:#1d1c1a; } }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--page); color:var(--ink); font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; font-size:14px; line-height:1.5; }
+
+  .toolbar{ max-width:1180px; margin:0 auto; padding:18px 16px 10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .toolbar .spacer{ flex:1; }
+  .toolbar a, .toolbar button{ font:inherit; font-size:13px; font-weight:600; color:#fff; background:var(--ink); border:0; border-radius:8px; padding:9px 16px; cursor:pointer; text-decoration:none; }
+  .toolbar .quiet{ background:transparent; color:var(--ink); border:1px solid var(--rule); }
+  .toolbar .primary{ background:var(--accent); }
+  button:focus-visible, a:focus-visible, textarea:focus-visible, input:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .state{ max-width:1180px; margin:0 auto 12px; padding:0 16px; }
+  .state > div{ border-left:4px solid currentColor; background:var(--paper); padding:10px 14px; border-radius:0 8px 8px 0; font-size:13px; }
+  .state .draft{ color:var(--warn); } .state .done{ color:var(--ok); }
+  .state b{ display:block; color:var(--ink); }
+  .state span{ color:var(--muted); }
+
+  .sheet{ position:relative; max-width:1180px; margin:0 auto 40px; background:var(--paper); padding:44px 52px 36px; box-shadow:0 10px 40px rgba(0,0,0,.18); }
+  .sheet.draft::before{ content:"DRAFT"; position:absolute; top:42%; left:50%; transform:translate(-50%,-50%) rotate(-18deg); font-size:130px; font-weight:700; letter-spacing:.12em; color:rgba(200,16,46,.06); pointer-events:none; }
+
+  .head{ display:flex; align-items:center; gap:14px; }
+  .head img{ width:44px; height:44px; object-fit:contain; }
+  .org{ font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); }
+  .org strong{ display:block; color:var(--ink); font-size:13px; letter-spacing:.12em; }
+  .head .doc{ margin-left:auto; text-align:right; }
+  .doc .kicker{ font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--accent); font-weight:700; }
+  .doc h1{ font-family:Georgia, "Times New Roman", serif; font-weight:400; font-size:24px; margin:2px 0 0; }
+  .redrule{ height:3px; width:64px; background:var(--accent); margin:18px 0 20px; }
+
+  .facts{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:0; border:1px solid var(--ink); margin-bottom:20px; }
+  .facts > div{ padding:10px 14px; border-right:1px solid var(--rule); }
+  .facts > div:last-child{ border-right:0; }
+  .facts .k{ font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+  .facts .v{ font-size:14.5px; font-weight:700; word-break:break-word; }
+  .facts .wide{ grid-column:span 2; }
+
+  h2{ font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; font-weight:700; }
+  .tiles{ display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
+  .tile{ flex:1; min-width:120px; border:1px solid var(--rule); border-radius:8px; padding:10px 14px; }
+  .tile b{ display:block; font-size:24px; line-height:1.1; font-variant-numeric:tabular-nums; }
+  .tile span{ font-size:12px; color:var(--muted); }
+
+  .report{ margin-bottom:22px; }
+  .verdict{ display:inline-flex; align-items:center; gap:8px; padding:5px 12px; border-radius:999px; font-size:12.5px; font-weight:700; margin-bottom:10px; }
+  .verdict.clean{ background:var(--ok-wash); color:var(--ok); }
+  .verdict.flag{ background:var(--warn-wash); color:var(--warn); }
+  .finding{ display:grid; grid-template-columns:22px 1fr; gap:10px; padding:9px 0; border-top:1px solid var(--rule); }
+  .finding:first-of-type{ border-top:0; }
+  .dot{ width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; margin-top:1px; }
+  .dot.review{ background:var(--warn-wash); color:var(--warn); border:1.5px solid var(--warn); }
+  .dot.note{ background:#eef0f3; color:var(--muted); border:1.5px solid #c3c8d1; }
+  .finding b{ display:block; font-size:13.5px; }
+  .finding span{ font-size:12.5px; color:var(--muted); }
+  .method-note{ font-size:12px; color:var(--muted); margin-top:6px; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  caption{ text-align:left; }
+  th{ text-align:left; font-weight:700; font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); border-bottom:1.5px solid var(--ink); padding:7px 8px 7px 0; vertical-align:bottom; }
+  td{ padding:8px 8px 8px 0; border-bottom:1px solid var(--rule); vertical-align:top; }
+  th.c, td.c{ text-align:center; padding-left:4px; padding-right:4px; }
+  td.n{ color:var(--muted); width:34px; font-variant-numeric:tabular-nums; }
+  td.ph{ white-space:nowrap; font-variant-numeric:tabular-nums; }
+  th .dd{ display:block; font-weight:400; letter-spacing:0; text-transform:none; color:var(--ink); font-size:11.5px; font-variant-numeric:tabular-nums; }
+  .mark{ font-size:15px; }
+  .mark.none{ color:#c3c8d1; }
+  tfoot td{ border-top:1.5px solid var(--ink); border-bottom:0; font-weight:700; }
+  .legend{ font-size:12px; color:var(--muted); margin:8px 0 22px; }
+
+  .approval{ display:grid; grid-template-columns:1fr auto; gap:24px; align-items:center; border:1px solid var(--ink); padding:16px 20px; break-inside:avoid; }
+  .approval h3{ margin:0 0 4px; font-size:15px; }
+  .approval p{ margin:2px 0; font-size:13px; color:var(--muted); }
+  .approval .who{ color:var(--ink); font-weight:700; }
+  .seal{ display:flex; gap:14px; align-items:center; }
+  .seal img{ width:96px; height:96px; border:1px solid var(--rule); padding:3px; background:#fff; image-rendering:pixelated; }
+  .seal .code{ font-family:Consolas,"Courier New",monospace; font-size:16px; font-weight:700; letter-spacing:.14em; }
+  .seal .how{ font-size:11.5px; color:var(--muted); max-width:240px; }
+
+  .form{ border:1px dashed var(--ink); padding:16px 20px; margin-top:4px; }
+  .form label{ display:block; font-size:13px; font-weight:700; margin-bottom:6px; }
+  .form textarea{ width:100%; font:inherit; padding:9px 11px; border:1px solid #c9c2b2; border-radius:8px; background:#fff; color:var(--ink); min-height:64px; resize:vertical; }
+  .form .ack{ display:flex; gap:9px; align-items:flex-start; margin:12px 0; font-size:13px; background:var(--warn-wash); padding:10px 12px; border-radius:8px; }
+  .form .ack input{ margin-top:3px; }
+  .form .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+  .form button{ font:inherit; font-size:13.5px; font-weight:700; color:#fff; background:var(--accent); border:0; border-radius:8px; padding:10px 18px; cursor:pointer; }
+  .form button:disabled{ opacity:.5; cursor:not-allowed; }
+  .form .err{ color:#a4122a; font-size:13px; }
+  .foot{ font-size:11px; color:var(--muted); text-align:center; margin-top:18px; }
+  .msg{ max-width:700px; margin:60px auto; padding:0 16px; text-align:center; color:var(--muted); }
+
+  @page{ size:A4 landscape; margin:10mm; }
+  @media print{
+    body{ background:#fff; }
+    .toolbar, .state, .form, .noprint{ display:none !important; }
+    .sheet{ box-shadow:none; margin:0; max-width:none; padding:0; }
+    .sheet.draft::before{ color:rgba(200,16,46,.10); }
+    thead{ display:table-header-group; }
+    tr{ break-inside:avoid; }
+  }
+  @media (max-width: 760px){
+    .sheet{ padding:24px 16px; overflow-x:auto; }
+    .facts{ grid-template-columns:1fr 1fr; }
+    .facts .wide{ grid-column:span 2; }
+    .approval{ grid-template-columns:1fr; }
+    .head .doc{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar" id="toolbar" style="display:none;">
+  <a class="quiet" href="admin.html#events">&larr; Back to events</a>
+  <span class="spacer"></span>
+  <button type="button" class="quiet" id="printBtn">Print or save as PDF</button>
+</div>
+<div class="state" id="state" aria-live="polite"></div>
+<main id="root"><p class="msg">Preparing the claim pack…</p></main>
+
+<script src="assets/api.js"></script>
+<script>
+(function(){
+  var root = document.getElementById('root');
+  var stateBox = document.getElementById('state');
+  var toolbar = document.getElementById('toolbar');
+  var eventId = (new URLSearchParams(location.search).get('event') || '').trim();
+
+  function el(tag, cls, text){
+    var n = document.createElement(tag);
+    if(cls) n.className = cls;
+    if(text != null) n.textContent = text;
+    return n;
+  }
+  function clear(n){ while(n.firstChild) n.removeChild(n.firstChild); }
+  function fmt(iso, tz, opts){ return new Intl.DateTimeFormat('en-GB', Object.assign({ timeZone: tz }, opts)).format(new Date(iso)); }
+  function fact(label, value, cls){
+    var d = el('div', cls || '');
+    d.appendChild(el('div', 'k', label));
+    d.appendChild(el('div', 'v', value));
+    return d;
+  }
+  function message(text){ clear(root); toolbar.style.display = 'none'; root.appendChild(el('p', 'msg', text)); }
+
+  var MARK = { DEVICE: ['✓', 'Signed on the attendee’s own device'], PHONE: ['☎', 'Checked in by registered phone number'], DOOR: ['▣', 'Scanned at the door by the organiser'] };
+
+  function render(d){
+    clear(root); clear(stateBox);
+    toolbar.style.display = 'flex';
+    var ev = d.event, tz = ev.timezone;
+    var review = d.findings.filter(function(f){ return f.severity === 'review'; });
+    var approved = !!d.approval;
+    document.title = 'Claim pack — ' + ev.name;
+
+    var s = el('div', approved ? 'done' : 'draft');
+    s.appendChild(el('b', null, approved ? 'Approved and sealed' : 'Draft — not yet approved'));
+    s.appendChild(el('span', null, approved
+      ? 'Approved by ' + d.approval.by + ' on ' + fmt(d.approval.at, tz, { day: 'numeric', month: 'long', year: 'numeric' }) + '.'
+      : 'Check the integrity report below, then approve to seal this record. Until then the printout is marked as a draft.'));
+    stateBox.appendChild(s);
+
+    var sheet = el('article', 'sheet' + (approved ? '' : ' draft'));
+
+    var head = el('div', 'head');
+    var logo = document.createElement('img'); logo.src = 'assets/icta_logo_cropped.png'; logo.alt = '';
+    var org = el('div', 'org'); org.appendChild(el('strong', null, 'ICT Authority')); org.appendChild(document.createTextNode('Attendance register'));
+    var doc = el('div', 'doc'); doc.appendChild(el('div', 'kicker', 'Attendance claim pack')); doc.appendChild(el('h1', null, ev.name));
+    head.appendChild(logo); head.appendChild(org); head.appendChild(doc);
+    sheet.appendChild(head);
+    sheet.appendChild(el('div', 'redrule'));
+
+    var first = d.days[0], last = d.days[d.days.length - 1];
+    var range = d.days.length > 1
+      ? fmt(first.startAt, tz, { day: 'numeric', month: 'short' }) + ' to ' + fmt(last.startAt, tz, { day: 'numeric', month: 'short', year: 'numeric' })
+      : fmt(first.startAt, tz, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    var facts = el('div', 'facts');
+    facts.appendChild(fact('Event', ev.name, 'wide'));
+    facts.appendChild(fact('County', ev.county));
+    facts.appendChild(fact('Dates', range));
+    facts.appendChild(fact('Venue', ev.locationType === 'VIRTUAL' ? 'Virtual event' : (ev.address || '—'), 'wide'));
+    facts.appendChild(fact('Days', String(d.days.length)));
+    facts.appendChild(fact('Prepared', fmt(new Date().toISOString(), tz, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })));
+    sheet.appendChild(facts);
+
+    var marks = d.matrix.totals.reduce(function(a, b){ return a + b; }, 0);
+    var tiles = el('div', 'tiles');
+    [[d.matrix.rows.length, 'people on the record'], [d.days.length, d.days.length === 1 ? 'day' : 'days'], [marks, 'attendance marks in total'], [d.retiredCount, 'withdrawn entries left out']].forEach(function(t){
+      var tile = el('div', 'tile'); tile.appendChild(el('b', null, String(t[0]))); tile.appendChild(el('span', null, t[1])); tiles.appendChild(tile);
+    });
+    sheet.appendChild(tiles);
+
+    // Integrity report
+    var report = el('section', 'report');
+    report.appendChild(el('h2', null, 'Integrity report'));
+    var v = el('div', 'verdict ' + (review.length ? 'flag' : 'clean'),
+      review.length ? '! ' + review.length + (review.length === 1 ? ' item' : ' items') + ' to review' : '✓ No issues found');
+    report.appendChild(v);
+    d.findings.forEach(function(f){
+      var row = el('div', 'finding');
+      row.appendChild(el('span', 'dot ' + f.severity, f.severity === 'review' ? '!' : 'i'));
+      var body = el('div'); body.appendChild(el('b', null, f.title)); body.appendChild(el('span', null, f.detail));
+      row.appendChild(body); report.appendChild(row);
+    });
+    report.appendChild(el('p', 'method-note', 'These checks point out patterns worth a second look. They are prompts for a person to review, not findings of wrongdoing.'));
+    sheet.appendChild(report);
+
+    // Attendance matrix
+    var table = document.createElement('table');
+    var thead = document.createElement('thead'), hr = document.createElement('tr');
+    ['#', 'Name', 'Organization', 'Phone'].forEach(function(h){ hr.appendChild(el('th', null, h)); });
+    d.days.forEach(function(day, i){
+      var th = el('th', 'c'); th.appendChild(document.createTextNode('Day ' + (i + 1)));
+      th.appendChild(el('span', 'dd', fmt(day.startAt, tz, { day: '2-digit', month: '2-digit' })));
+      hr.appendChild(th);
+    });
+    hr.appendChild(el('th', 'c', 'Days'));
+    thead.appendChild(hr); table.appendChild(thead);
+    var tbody = document.createElement('tbody');
+    d.matrix.rows.forEach(function(r){
+      var tr = document.createElement('tr');
+      tr.appendChild(el('td', 'n', String(r.n)));
+      tr.appendChild(el('td', null, r.name));
+      tr.appendChild(el('td', null, r.organization));
+      tr.appendChild(el('td', 'ph', r.phone));
+      r.days.forEach(function(c){
+        var td = el('td', 'c');
+        if(c.signed){ var m = MARK[c.method] || MARK.DEVICE; var s2 = el('span', 'mark', m[0]); s2.title = m[1]; td.appendChild(s2); }
+        else { td.appendChild(el('span', 'mark none', '—')); }
+        tr.appendChild(td);
+      });
+      tr.appendChild(el('td', 'c', String(r.daysAttended)));
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    var tfoot = document.createElement('tfoot'), fr = document.createElement('tr');
+    var tl = el('td', null, 'Signed each day'); tl.colSpan = 4; fr.appendChild(tl);
+    d.matrix.totals.forEach(function(t){ fr.appendChild(el('td', 'c', String(t))); });
+    fr.appendChild(el('td', 'c', ''));
+    tfoot.appendChild(fr); table.appendChild(tfoot);
+    sheet.appendChild(table);
+    sheet.appendChild(el('p', 'legend', '✓ signed on own device   ☎ checked in by registered phone number   ▣ scanned at the door   — did not attend that day'));
+
+    // Approval and seal
+    if(approved){
+      var ap = el('section', 'approval');
+      var left = el('div');
+      left.appendChild(el('h3', null, 'Approved'));
+      var p1 = el('p'); p1.appendChild(document.createTextNode('Approved by ')); p1.appendChild(el('span', 'who', d.approval.by)); p1.appendChild(document.createTextNode(' on ' + fmt(d.approval.at, tz, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) + '.'));
+      left.appendChild(p1);
+      if(d.approval.note) left.appendChild(el('p', null, 'Note: ' + d.approval.note));
+      if(review.length) left.appendChild(el('p', null, review.length + (review.length === 1 ? ' item was' : ' items were') + ' flagged for review at approval.'));
+      ap.appendChild(left);
+      var code = d.approval.sealCode || (d.seal && d.seal.code);
+      if(code){
+        var seal = el('div', 'seal');
+        var qr = document.createElement('img'); qr.src = '/api/seals/' + encodeURIComponent(code) + '/qr'; qr.alt = 'QR code to verify this record'; qr.width = 96; qr.height = 96;
+        var t = el('div'); t.appendChild(el('div', 'code', code.slice(0, 5) + '-' + code.slice(5)));
+        t.appendChild(el('div', 'how', 'Verify at ' + location.host + '/verify.html with this code, or scan the QR. The check compares this record with the live attendance data.'));
+        seal.appendChild(qr); seal.appendChild(t); ap.appendChild(seal);
+      }
+      sheet.appendChild(ap);
+    } else {
+      var draftNote = el('section', 'approval');
+      var dl = el('div'); dl.appendChild(el('h3', null, 'Not yet approved'));
+      dl.appendChild(el('p', null, 'This copy is a draft. Approve it online to seal the record and add a verification code.'));
+      draftNote.appendChild(dl); sheet.appendChild(draftNote);
+    }
+
+    // Approval form (screen only)
+    var form = el('section', 'form');
+    form.appendChild(el('h2', null, approved ? 'Approve again' : 'Approve and seal'));
+    var lab = el('label', null, 'Note for the record (optional)'); lab.setAttribute('for', 'approveNote');
+    var note = document.createElement('textarea'); note.id = 'approveNote'; note.maxLength = 500; note.placeholder = 'e.g. Checked against the register and the venue booking.';
+    form.appendChild(lab); form.appendChild(note);
+    var ackBox = null;
+    if(review.length){
+      var ack = el('label', 'ack');
+      ackBox = document.createElement('input'); ackBox.type = 'checkbox';
+      ack.appendChild(ackBox);
+      ack.appendChild(el('span', null, 'I have reviewed the ' + review.length + (review.length === 1 ? ' item' : ' items') + ' flagged above and I am satisfied this record can be approved.'));
+      form.appendChild(ack);
+    }
+    var row = el('div', 'row');
+    var btn = el('button', null, approved ? 'Approve and seal again' : 'Approve and seal'); btn.type = 'button';
+    var err = el('span', 'err');
+    row.appendChild(btn); row.appendChild(err); form.appendChild(row);
+    form.appendChild(el('p', 'method-note', 'Approving seals the record as it is now. Later changes will show on the verification page as "changed since sealed".'));
+    btn.addEventListener('click', function(){
+      err.textContent = '';
+      if(ackBox && !ackBox.checked){ err.textContent = 'Tick the box to confirm you reviewed the flagged items.'; return; }
+      btn.disabled = true; btn.textContent = 'Sealing…';
+      API.post('/api/admin/events/' + encodeURIComponent(eventId) + '/claim-pack/approve', { note: note.value, acknowledge: !!(ackBox && ackBox.checked) }).then(function(r){
+        if(!r.data.ok){ btn.disabled = false; btn.textContent = approved ? 'Approve and seal again' : 'Approve and seal'; err.textContent = r.data.message || 'Could not approve this record.'; return; }
+        load();
+      }).catch(function(){ btn.disabled = false; btn.textContent = 'Approve and seal'; err.textContent = 'Network error — could not reach the server.'; });
+    });
+    sheet.appendChild(form);
+
+    sheet.appendChild(el('p', 'foot', 'Prepared from the live attendance record by ' + ev.county + ' County, ICT Authority. Signatures are not reproduced here; the seal covers a fingerprint of each one.'));
+    root.appendChild(sheet);
+  }
+
+  function load(){
+    if(!eventId){ message('No event selected. Open a claim pack from the Events page.'); return; }
+    API.get('/api/admin/events/' + encodeURIComponent(eventId) + '/claim-pack').then(function(r){
+      if(r.status === 401 || r.status === 403){ location.href = 'login.html'; return; }
+      if(!r.data || !r.data.ok){ message('Could not load this claim pack. It may not be one of your events.'); return; }
+      render(r.data);
+    }).catch(function(){ message('Could not reach the server. Try again in a moment.'); });
+  }
+
+  document.getElementById('printBtn').addEventListener('click', function(){ window.print(); });
+  load();
+})();
+</script>
+</body>
+</html>
