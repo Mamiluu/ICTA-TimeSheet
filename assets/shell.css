@@ -12,9 +12,7 @@
 html{ overflow-x:clip; scrollbar-gutter:stable; }
 body{ padding:0; display:block; overflow-x:clip; }
 .app-main{ max-width:100%; }
-/* Content sits centred in the space beside the sidebar instead of hugging the
-   left edge with a large empty area to its right on wide screens. */
-.view, .view-title, .footer-note{ margin-left:auto; margin-right:auto; width:100%; }
+
 .app-shell{ display:flex; min-height:100vh; width:100%; }
 .sidenav{
   position:fixed; top:0; left:0; z-index:30; height:100vh; width:236px;
@@ -76,7 +74,7 @@ body{ background:#f3f4f6; }
   color:var(--c-text);
 }
 .app-main{ font-family:var(--ui-font); font-size:14px; line-height:1.5; color:var(--c-text); }
-.app-main .view-title{ font-size:22px; font-weight:700; letter-spacing:-.01em; margin:2px auto 18px; }
+.app-main .view-title{ font-size:22px; font-weight:700; letter-spacing:-.01em; margin:2px 0 18px; }
 
 /* Cards */
 .app-main .sheet{
