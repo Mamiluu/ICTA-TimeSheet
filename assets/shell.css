@@ -226,3 +226,15 @@ body{ background:#f3f4f6; }
 .app-main .ev-menu-item.danger:hover{ background:#fef0ee; color:#912018; }
 .app-main .ev-menu-item:disabled{ opacity:.5; }
 @keyframes menuIn{ from{ opacity:0; transform:translateY(-4px); } to{ opacity:1; transform:none; } }
+
+/* --- Status pills --- */
+.pill{ display:inline-block; font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; background:#f0f0f0; color:#555; white-space:nowrap; }
+.pill.open{ background:#eafaf0; color:#0a6a32; }
+.pill.closing-soon{ background:#fff4d6; color:#8a6000; }
+.pill.closed{ background:#f0f0f0; color:#777; }
+.pill.days{ background:#fdeef0; color:var(--accent); }
+.app-main .pill{ font-size:12px; font-weight:600; padding:4px 11px; background:var(--c-soft); color:var(--c-muted); }
+.app-main .pill.open{ background:var(--c-ok-wash); color:var(--c-ok); }
+.app-main .pill.closing-soon{ background:var(--c-warn-wash); color:var(--c-warn); }
+.app-main .pill.closed{ background:#eef0f3; color:var(--c-muted); }
+.app-main .pill.days{ background:var(--c-accent-wash); color:var(--c-accent-dark); }
