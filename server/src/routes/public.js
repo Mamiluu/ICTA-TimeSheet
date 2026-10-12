@@ -16,7 +16,8 @@ import { logger } from '../lib/logger.js';
 import { BRANDING } from '../lib/branding.js';
 import { dayIsOpen, dayOpensAt, dayClosesAt, ensureFirstDay, pickSigningDay, anchorDayFor } from '../lib/days.js';
 import { maskName } from '../lib/mask.js';
-import { SEAL_CODE_PATTERN, buildDaySnapshot, buildEventSnapshot, summarizeSnapshot, digestOf } from '../lib/seal.js';
+import { certificateEligible, loadCertificateSnapshot, certificateStillHolds, publicCertificateView } from '../lib/certificate.js';
+import { newSealCode, SEAL_CODE_PATTERN, buildDaySnapshot, buildEventSnapshot, summarizeSnapshot, digestOf } from '../lib/seal.js';
 
 // Fire-and-forget, same discipline as writeAudit's own .catch(() => {})
 // below: a Brevo outage or a malformed address must never fail the
@@ -140,7 +141,8 @@ function publicEventMeta(event) {
     address: event.address,
     latitude: event.latitude,
     longitude: event.longitude,
-    meetingLink: event.meetingLink
+    meetingLink: event.meetingLink,
+    certificatesEnabled: event.certificatesEnabled
   };
 }
 
@@ -348,6 +350,84 @@ publicRouter.get('/seals/:code/qr', attendanceLimiter, ah(async (req, res) => {
   res.send(png);
 }));
 
+// --- Certificates of attendance ---
+// An attendee issues their own once the event's last day is over. clientId is
+// the same proof of ownership as everywhere else. Issuing again with nothing
+// changed returns the same code; signing another day afterwards produces a
+// new one, and the earlier one stays valid for what it said.
+publicRouter.post('/events/:slug/certificate', attendanceLimiter, ah(async (req, res) => {
+  const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
+  if (!event || event.deletedAt) return res.json({ ok: false, error: 'Unknown event' });
+
+  const clientId = String(req.body.clientId || '');
+  const attendee = clientId
+    ? await prisma.attendance.findUnique({ where: { eventId_clientId: { eventId: event.id, clientId } } })
+    : null;
+  if (!attendee) return res.json({ ok: false, error: 'NOT_FOUND', message: 'Open this page on the device you signed in on, or use your personal pass link.' });
+  if (attendee.status === 'RETIRED') return res.json({ ok: false, error: 'RETIRED', message: 'This entry has been retired, so no certificate can be issued.' });
+  if (!event.certificatesEnabled) return res.json({ ok: false, error: 'DISABLED', message: 'The organiser has not enabled certificates for this event.' });
+
+  const { days, snapshot } = await loadCertificateSnapshot(event, attendee);
+  if (!certificateEligible(event, days)) {
+    return res.json({ ok: false, error: 'NOT_YET', message: 'Certificates open once the last day of the event has ended.' });
+  }
+  if (!snapshot.days.length) return res.json({ ok: false, error: 'NO_DAYS', message: 'There is no signed day on this entry to certify.' });
+
+  const digest = digestOf(snapshot);
+  let cert = await prisma.attendanceCertificate.findUnique({ where: { attendanceId_digest: { attendanceId: attendee.id, digest } } });
+  if (!cert) {
+    cert = await prisma.attendanceCertificate.create({
+      data: { id: newSealCode(), attendanceId: attendee.id, eventId: event.id, digest, snapshot }
+    });
+    await writeAudit({
+      actorId: null, action: 'CERTIFICATE_ISSUED', targetType: 'AttendanceCertificate', targetId: cert.id,
+      metadata: { digest, eventId: event.id, attendanceId: attendee.id, days: snapshot.days.length }, req
+    }).catch(() => {});
+  }
+  res.json({ ok: true, code: cert.id });
+}));
+
+// Public check of a certificate. Shows what the certificate itself says (name,
+// organisation, event, days) because the holder shares it on purpose, and
+// never phone, email, signatures or ids. Status is judged against the live
+// record: VALID, CHANGED (a listed day is no longer signed), WITHDRAWN (the
+// entry was retired) or TAMPERED (the stored certificate no longer matches
+// its own digest).
+publicRouter.get('/certificates/:code', attendanceLimiter, ah(async (req, res) => {
+  const code = String(req.params.code || '').toUpperCase();
+  if (!SEAL_CODE_PATTERN.test(code)) return res.json({ ok: false, error: 'NOT_FOUND' });
+  const cert = await prisma.attendanceCertificate.findUnique({ where: { id: code }, include: { event: true, attendance: true } });
+  if (!cert) return res.json({ ok: false, error: 'NOT_FOUND' });
+
+  const auditEntry = await prisma.auditLog.findFirst({ where: { action: 'CERTIFICATE_ISSUED', targetType: 'AttendanceCertificate', targetId: cert.id } });
+  const recordMatches = digestOf(cert.snapshot) === cert.digest;
+  const { snapshot: live } = await loadCertificateSnapshot(cert.event, cert.attendance);
+
+  let status = 'VALID';
+  if (!recordMatches) status = 'TAMPERED';
+  else if (cert.attendance.status === 'RETIRED') status = 'WITHDRAWN';
+  else if (!certificateStillHolds(cert.snapshot, live)) status = 'CHANGED';
+
+  res.json({
+    ok: true,
+    code: cert.id,
+    status,
+    issuedAt: cert.issuedAt,
+    auditTrailIntact: !!auditEntry && verifyChain([auditEntry])[0],
+    certificate: publicCertificateView(cert.snapshot)
+  });
+}));
+
+publicRouter.get('/certificates/:code/qr', attendanceLimiter, ah(async (req, res) => {
+  const code = String(req.params.code || '').toUpperCase();
+  if (!SEAL_CODE_PATTERN.test(code)) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const cert = await prisma.attendanceCertificate.findUnique({ where: { id: code }, select: { id: true } });
+  if (!cert) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const png = await QRCode.toBuffer(`${process.env.PUBLIC_APP_URL}/certificate.html?code=${code}`, { width: 240, margin: 1 });
+  res.set('Content-Type', 'image/png');
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.send(png);
+}));
 // Lets a visitor's own device recover exactly its own row(s) -- and nobody
 // else's -- after a reload, refresh, or revisit. clientIds are random
 // UUIDs generated client-side at submit time and never echoed back to any

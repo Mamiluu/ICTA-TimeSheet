@@ -1,0 +1,257 @@
+<!doctype html>
+<!--
+  Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+  Proprietary and confidential. See LICENSE in the repository root.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Certificate of attendance</title>
+<link rel="icon" href="assets/icta_logo_cropped.png">
+<style>
+  :root{
+    --ink:#1b1a18; --muted:#6a655b; --rule:#d9d2c3; --paper:#fffdf8;
+    --accent:#c8102e; --ok:#14683a; --warn:#9a5b00; --bad:#a4122a;
+    --page:#ebe7de;
+  }
+  @media (prefers-color-scheme: dark){ :root{ --page:#1d1c1a; } }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--page); color:var(--ink); font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; font-size:14px; line-height:1.5; }
+
+  .toolbar{ max-width:794px; margin:0 auto; padding:18px 16px 10px; display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+  .toolbar a, .toolbar button{ font:inherit; font-size:13px; color:#fff; background:#1b1a18; border:0; border-radius:6px; padding:9px 16px; cursor:pointer; text-decoration:none; }
+  .toolbar .quiet{ background:transparent; color:var(--ink); border:1px solid var(--rule); }
+  .toolbar :focus-visible, .lookup :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .banner{ max-width:794px; margin:0 auto 12px; padding:0 16px; }
+  .banner > div{ border-left:4px solid currentColor; background:var(--paper); padding:10px 14px; border-radius:0 6px 6px 0; font-size:13px; }
+  .banner .ok{ color:var(--ok); } .banner .warn{ color:var(--warn); } .banner .bad{ color:var(--bad); }
+  .banner b{ display:block; color:var(--ink); margin-bottom:2px; }
+  .banner span{ color:var(--muted); }
+
+  /* The certificate itself: A4 proportions, quiet serif, one accent colour. */
+  .cert{
+    position:relative; max-width:794px; margin:0 auto 40px; background:var(--paper);
+    padding:56px 64px 40px; box-shadow:0 10px 40px rgba(0,0,0,.18);
+    min-height:1000px; display:flex; flex-direction:column;
+  }
+  .cert::before{ content:""; position:absolute; inset:18px; border:1.5px solid var(--ink); pointer-events:none; }
+  .cert::after{ content:""; position:absolute; inset:24px; border:.5px solid var(--rule); pointer-events:none; }
+
+  .head{ display:flex; align-items:center; gap:14px; }
+  .head img{ width:46px; height:46px; object-fit:contain; }
+  .org{ font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); }
+  .org strong{ display:block; color:var(--ink); font-size:13px; letter-spacing:.12em; }
+  .redrule{ height:3px; width:64px; background:var(--accent); margin:26px 0 30px; }
+
+  .kicker{ font-size:12px; letter-spacing:.3em; text-transform:uppercase; color:var(--accent); font-weight:700; margin:0 0 20px; }
+  .lead{ font-family:Georgia, "Times New Roman", serif; font-style:italic; color:var(--muted); font-size:16px; margin:0 0 6px; }
+  .name{ font-family:Georgia, "Times New Roman", serif; font-size:42px; line-height:1.12; margin:0 0 6px; font-weight:400; word-break:break-word; }
+  .orgline{ color:var(--muted); font-size:14px; margin:0 0 26px; min-height:1.4em; }
+  .event{ font-family:Georgia, "Times New Roman", serif; font-size:24px; line-height:1.25; margin:4px 0 6px; }
+  .where{ color:var(--muted); font-size:13.5px; margin:0 0 30px; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  caption{ text-align:left; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); padding-bottom:8px; }
+  th{ text-align:left; font-weight:600; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); border-bottom:1.5px solid var(--ink); padding:6px 8px 6px 0; }
+  td{ padding:9px 8px 9px 0; border-bottom:1px solid var(--rule); vertical-align:top; }
+  td.d{ white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .count{ font-size:12.5px; color:var(--muted); margin:10px 0 0; }
+
+  .foot{ margin-top:auto; padding-top:34px; display:flex; gap:22px; align-items:flex-end; justify-content:space-between; }
+  .verify{ display:flex; gap:16px; align-items:center; }
+  .verify img{ width:104px; height:104px; display:block; image-rendering:pixelated; border:1px solid var(--rule); padding:3px; background:#fff; }
+  .code{ font-family:Consolas,"Courier New",monospace; font-size:17px; letter-spacing:.14em; font-weight:700; margin:2px 0 6px; }
+  .vtext{ font-size:11.5px; color:var(--muted); max-width:300px; line-height:1.5; }
+  .vtext b{ color:var(--ink); }
+  .stamp{ width:112px; height:112px; flex:none; transform:rotate(-8deg); opacity:.9; }
+  .issued{ font-size:11px; color:var(--muted); margin-top:18px; text-align:center; letter-spacing:.04em; }
+
+  .lookup{ max-width:480px; margin:60px auto; padding:0 16px; }
+  .lookup h1{ font-family:Georgia,serif; font-weight:400; font-size:26px; margin:0 0 6px; }
+  .lookup p{ color:var(--muted); margin:0 0 18px; }
+  .lookup form{ display:flex; gap:8px; flex-wrap:wrap; }
+  .lookup input{ flex:1 1 200px; font:inherit; font-family:Consolas,monospace; letter-spacing:.12em; text-transform:uppercase; padding:11px 12px; border:1px solid var(--ink); background:var(--paper); color:var(--ink); border-radius:6px; }
+  .lookup button{ font:inherit; padding:11px 18px; border:0; background:var(--ink); color:#fff; border-radius:6px; cursor:pointer; }
+  .msg{ max-width:794px; margin:30px auto; padding:0 16px; color:var(--muted); text-align:center; }
+
+  @media (max-width: 640px){
+    .cert{ padding:40px 28px 30px; min-height:0; }
+    .name{ font-size:32px; }
+    .foot{ flex-direction:column; align-items:flex-start; }
+    .stamp{ align-self:flex-end; margin-top:-80px; }
+  }
+
+  @page{ size:A4; margin:0; }
+  @media print{
+    body{ background:#fff; }
+    .toolbar{ display:none; }
+    .cert{ box-shadow:none; margin:0; max-width:none; width:210mm; min-height:297mm; padding:22mm 20mm 14mm; }
+    .cert::before{ inset:8mm; } .cert::after{ inset:10mm; }
+    .banner{ margin-bottom:0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar" id="toolbar" style="display:none;">
+  <a class="quiet" href="certificate.html">Verify another</a>
+  <button type="button" id="printBtn">Print or save as PDF</button>
+</div>
+
+<div class="banner" id="banner" aria-live="polite"></div>
+
+<main id="root">
+  <p class="msg" id="loading">Loading…</p>
+</main>
+
+<script>
+(function(){
+  var root = document.getElementById('root');
+  var banner = document.getElementById('banner');
+  var toolbar = document.getElementById('toolbar');
+
+  function el(tag, cls, text){
+    var n = document.createElement(tag);
+    if(cls) n.className = cls;
+    if(text != null) n.textContent = text;
+    return n;
+  }
+  function clear(n){ while(n.firstChild) n.removeChild(n.firstChild); }
+
+  function lookupForm(message){
+    clear(root); clear(banner); toolbar.style.display = 'none';
+    var box = el('div', 'lookup');
+    box.appendChild(el('h1', null, 'Verify a certificate of attendance'));
+    box.appendChild(el('p', null, message || 'Enter the code printed on the certificate, or scan its QR code, to check it against the attendance record.'));
+    var form = document.createElement('form');
+    var input = document.createElement('input');
+    input.type = 'text'; input.maxLength = 11; input.placeholder = 'Certificate code';
+    input.autocomplete = 'off'; input.spellcheck = false; input.setAttribute('aria-label', 'Certificate code');
+    var btn = el('button', null, 'Check'); btn.type = 'submit';
+    form.appendChild(input); form.appendChild(btn);
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      var code = input.value.replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+      if(code) location.href = 'certificate.html?code=' + encodeURIComponent(code);
+    });
+    box.appendChild(form);
+    root.appendChild(box);
+    input.focus();
+  }
+
+  var fmt = function(iso, tz, opts){ return new Intl.DateTimeFormat('en-GB', Object.assign({ timeZone: tz }, opts)).format(new Date(iso)); };
+
+  var METHOD = { DEVICE: 'Signed', PHONE: 'Checked in by phone number', DOOR: 'Scanned at the door' };
+
+  var STATUS = {
+    VALID:     { cls: 'ok',   title: 'Verified', body: 'This certificate matches the attendance record.' },
+    CHANGED:   { cls: 'warn', title: 'The record has changed', body: 'A day listed on this certificate is no longer signed on the attendance record. Treat it with caution and ask the organiser to confirm.' },
+    WITHDRAWN: { cls: 'bad',  title: 'No longer valid', body: 'The attendance entry behind this certificate was withdrawn by the organiser.' },
+    TAMPERED:  { cls: 'bad',  title: 'Does not match its own record', body: 'The stored certificate was altered after it was issued. Do not rely on it.' }
+  };
+
+  function stampSvg(ok){
+    var ns = 'http://www.w3.org/2000/svg';
+    var s = document.createElementNS(ns, 'svg');
+    s.setAttribute('viewBox', '0 0 120 120'); s.setAttribute('class', 'stamp'); s.setAttribute('aria-hidden', 'true');
+    var col = ok ? '#14683a' : '#a4122a';
+    function add(tag, attrs){ var n = document.createElementNS(ns, tag); Object.keys(attrs).forEach(function(k){ n.setAttribute(k, attrs[k]); }); s.appendChild(n); return n; }
+    add('circle', { cx: 60, cy: 60, r: 55, fill: 'none', stroke: col, 'stroke-width': 2.5 });
+    add('circle', { cx: 60, cy: 60, r: 48, fill: 'none', stroke: col, 'stroke-width': .8, 'stroke-dasharray': '2 3' });
+    var t = add('text', { x: 60, y: 56, 'text-anchor': 'middle', 'font-family': 'Georgia,serif', 'font-size': 15, 'font-weight': 700, fill: col, 'letter-spacing': 2 });
+    t.textContent = ok ? 'VERIFIED' : 'CHECK';
+    var t2 = add('text', { x: 60, y: 76, 'text-anchor': 'middle', 'font-family': 'Arial,sans-serif', 'font-size': 8.5, fill: col, 'letter-spacing': 1.5 });
+    t2.textContent = 'ATTENDANCE';
+    return s;
+  }
+
+  function showCertificate(d){
+    clear(root); clear(banner); toolbar.style.display = 'flex';
+    var c = d.certificate, tz = c.timezone;
+    var st = STATUS[d.status] || STATUS.CHANGED;
+    document.title = 'Certificate of attendance — ' + c.name;
+
+    var b = el('div', st.cls);
+    b.appendChild(el('b', null, st.title));
+    b.appendChild(el('span', null, st.body + (d.auditTrailIntact ? '' : ' The audit entry for its issue could not be confirmed.')));
+    banner.appendChild(b);
+
+    var sheet = el('article', 'cert');
+    sheet.setAttribute('aria-label', 'Certificate of attendance');
+
+    var head = el('div', 'head');
+    var logo = document.createElement('img'); logo.src = 'assets/icta_logo_cropped.png'; logo.alt = '';
+    var org = el('div', 'org'); org.appendChild(el('strong', null, 'ICT Authority')); org.appendChild(document.createTextNode('Attendance register'));
+    head.appendChild(logo); head.appendChild(org);
+    sheet.appendChild(head);
+    sheet.appendChild(el('div', 'redrule'));
+
+    sheet.appendChild(el('p', 'kicker', 'Certificate of attendance'));
+    sheet.appendChild(el('p', 'lead', 'This certifies that'));
+    sheet.appendChild(el('h1', 'name', c.name));
+    sheet.appendChild(el('p', 'orgline', c.organization || ''));
+    sheet.appendChild(el('p', 'lead', 'attended'));
+    sheet.appendChild(el('h2', 'event', c.eventName));
+
+    var first = c.days[0], last = c.days[c.days.length - 1];
+    var sameDay = fmt(first.startAt, tz, { day: 'numeric', month: 'long', year: 'numeric' }) === fmt(last.startAt, tz, { day: 'numeric', month: 'long', year: 'numeric' });
+    var range = sameDay
+      ? fmt(first.startAt, tz, { day: 'numeric', month: 'long', year: 'numeric' })
+      : fmt(first.startAt, tz, { day: 'numeric', month: 'long' }) + ' to ' + fmt(last.startAt, tz, { day: 'numeric', month: 'long', year: 'numeric' });
+    sheet.appendChild(el('p', 'where', c.county + ' County · ' + range));
+
+    var table = document.createElement('table');
+    table.appendChild(el('caption', null, 'Days attended'));
+    var thead = document.createElement('thead'); var hr = document.createElement('tr');
+    ['Day', 'Date', 'Hours', 'Recorded'].forEach(function(h){ hr.appendChild(el('th', null, h)); });
+    thead.appendChild(hr); table.appendChild(thead);
+    var tbody = document.createElement('tbody');
+    c.days.forEach(function(day){
+      var tr = document.createElement('tr');
+      tr.appendChild(el('td', 'd', String(day.position)));
+      tr.appendChild(el('td', 'd', fmt(day.startAt, tz, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })));
+      tr.appendChild(el('td', 'd', fmt(day.startAt, tz, { hour: '2-digit', minute: '2-digit', hour12: false }) + ' – ' + fmt(day.endAt, tz, { hour: '2-digit', minute: '2-digit', hour12: false })));
+      tr.appendChild(el('td', null, METHOD[day.method] || 'Signed'));
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    sheet.appendChild(table);
+    if(c.totalDays > 1) sheet.appendChild(el('p', 'count', c.days.length + ' of ' + c.totalDays + ' days attended.'));
+
+    var foot = el('div', 'foot');
+    var verify = el('div', 'verify');
+    var qr = document.createElement('img');
+    qr.src = '/api/certificates/' + encodeURIComponent(d.code) + '/qr'; qr.alt = 'QR code to verify this certificate'; qr.width = 104; qr.height = 104;
+    var vt = el('div');
+    vt.appendChild(el('div', 'code', d.code.slice(0, 5) + '-' + d.code.slice(5)));
+    var vtext = el('div', 'vtext');
+    vtext.appendChild(document.createTextNode('Check this certificate at '));
+    vtext.appendChild(el('b', null, location.host + '/certificate.html'));
+    vtext.appendChild(document.createTextNode(' with the code above, or scan the QR code. The check reads the live attendance record.'));
+    vt.appendChild(vtext);
+    verify.appendChild(qr); verify.appendChild(vt);
+    foot.appendChild(verify);
+    foot.appendChild(stampSvg(d.status === 'VALID'));
+    sheet.appendChild(foot);
+
+    sheet.appendChild(el('p', 'issued', 'Issued ' + fmt(d.issuedAt, 'Africa/Nairobi', { day: 'numeric', month: 'long', year: 'numeric' })));
+    root.appendChild(sheet);
+  }
+
+  document.getElementById('printBtn').addEventListener('click', function(){ window.print(); });
+
+  var code = (new URLSearchParams(location.search).get('code') || '').replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+  if(!code){ lookupForm(); return; }
+  fetch('/api/certificates/' + encodeURIComponent(code))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(d && d.ok) showCertificate(d);
+      else lookupForm('No certificate matches that code. Check it against the one printed on the certificate.');
+    })
+    .catch(function(){ clear(root); root.appendChild(el('p', 'msg', 'Could not reach the server. Try again in a moment.')); });
+})();
+</script>
+</body>
+</html>

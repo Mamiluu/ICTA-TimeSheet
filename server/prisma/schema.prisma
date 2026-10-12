@@ -140,6 +140,11 @@ model Event {
   attendance Attendance[]
   days       EventDay[]
   seals      SheetSeal[]
+  certificates AttendanceCertificate[]
+
+  // Whether attendees can issue a verifiable certificate of attendance for
+  // this event once its last day has ended.
+  certificatesEnabled Boolean @default(true)
 
   @@index([county])
   @@index([ownerId])
@@ -248,6 +253,7 @@ model Attendance {
   signatureRequestExpiresAt DateTime?
 
   daySignatures SessionSignature[]
+  certificates  AttendanceCertificate[]
 
   @@unique([eventId, clientId])
   @@unique([eventId, phoneNormalized])
@@ -289,4 +295,23 @@ model AuditLog {
 
   @@index([actorId, createdAt])
   @@index([targetType, targetId])
+}
+
+// A certificate of attendance an attendee issued for themselves. The id is the
+// short public code printed on it (same alphabet as sheet seals). The snapshot
+// holds only what the public verification page may show plus a hash of each
+// signature, and `digest` is its hash, so the stored record can be checked
+// against itself and against the live attendance data.
+model AttendanceCertificate {
+  id           String     @id
+  attendanceId String
+  attendance   Attendance @relation(fields: [attendanceId], references: [id], onDelete: Restrict)
+  eventId      String
+  event        Event      @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  digest       String
+  snapshot     Json
+  issuedAt     DateTime   @default(now())
+
+  @@unique([attendanceId, digest])
+  @@index([eventId])
 }

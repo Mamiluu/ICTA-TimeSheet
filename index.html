@@ -804,6 +804,12 @@
   })();
 </script>
 
+<div class="days-panel" id="certPanel" style="margin:16px auto 0;">
+  <div class="dp-title">Your certificate of attendance</div>
+  <div class="dp-sub">The event is over. You can get a certificate listing the days you attended. Anyone can check it is genuine by scanning its QR code.</div>
+  <button type="button" class="dp-btn" id="certBtn">Get my certificate</button>
+  <div class="rp-msg" id="certMsg" role="status" aria-live="polite"></div>
+</div>
 <div class="notice" id="noEventNotice" style="display:none;">
   <h2 id="noEventTitle">No event selected</h2>
   <p id="noEventBody">This link is missing an event. Ask your event organizer for the attendance link, or scan the QR code posted at the venue.</p>
@@ -2342,6 +2348,9 @@
           return;
         }
         if(data.expired){
+          state.meta = data.event || state.meta;
+          isAdmin = false;
+          renderCertificatePanel();
           showNotice('Sign-in closed', 'This event\'s sign-in link closed 5 days after the event date and is no longer accepting entries. Contact your event organizer if you still need to be added.', false);
           return;
         }
@@ -2574,8 +2583,39 @@
   var daysPanel = document.getElementById('daysPanel');
   var daysList = document.getElementById('daysList');
 
+  // --- Certificate of attendance ---
+  // Offered on the device that holds the person's own entry, once the last day
+  // of the event is over. Also shown under the "sign-in closed" notice, since
+  // that is where someone lands when they come back after the link has closed.
+  var certPanel = document.getElementById('certPanel');
+  var certMsg = document.getElementById('certMsg');
+  function eventHasEnded(){
+    var ends = eventDays.map(function(d){ return new Date(d.endAt).getTime(); });
+    if(!ends.length && state.meta && state.meta.endAt) ends = [new Date(state.meta.endAt).getTime()];
+    return ends.length > 0 && Date.now() > Math.max.apply(null, ends);
+  }
+  function renderCertificatePanel(){
+    if(!certPanel) return;
+    var own = state.rows.find(function(r){ return r.submitted && r.clientId; });
+    var show = !isAdmin && own && state.meta && state.meta.certificatesEnabled && eventHasEnded();
+    certPanel.style.display = show ? 'block' : 'none';
+  }
+  document.getElementById('certBtn').addEventListener('click', function(){
+    var own = state.rows.find(function(r){ return r.submitted && r.clientId; });
+    if(!own) return;
+    var btn = this; btn.disabled = true; certMsg.className = 'rp-msg'; certMsg.textContent = 'Preparing…';
+    fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/certificate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId: own.clientId })
+    }).then(function(res){ return res.json(); }).then(function(d){
+      btn.disabled = false;
+      if(d && d.ok){ certMsg.textContent = ''; window.open('certificate.html?code=' + encodeURIComponent(d.code), '_blank'); return; }
+      certMsg.className = 'rp-msg err';
+      certMsg.textContent = (d && d.message) || 'Could not prepare your certificate right now.';
+    }).catch(function(){ btn.disabled = false; certMsg.className = 'rp-msg err'; certMsg.textContent = 'No connection. Please try again.'; });
+  });
   function renderDaysPanel(){
     renderReturningPanel();
+    renderCertificatePanel();
     if(!daysPanel) return;
     var ownSubmitted = state.rows.find(function(r){ return r.submitted && r.clientId; });
     if(isAdmin || !ownSubmitted || eventDays.length < 2){ daysPanel.style.display = 'none'; return; }

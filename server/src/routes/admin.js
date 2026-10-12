@@ -33,6 +33,7 @@ function publicEvent(ev, count) {
     latitude: ev.latitude,
     longitude: ev.longitude,
     meetingLink: ev.meetingLink,
+    certificatesEnabled: ev.certificatesEnabled,
     county: ev.county,
     createdAt: ev.createdAt,
     // So the dashboard can show "closes in Xd Yh" / "Closed" per event
@@ -59,6 +60,8 @@ export function requireEventFields(body) {
   const locationType = body.locationType === 'VIRTUAL' ? 'VIRTUAL' : 'PHYSICAL';
   const address = locationType === 'PHYSICAL' ? String(body.address || '').trim() : null;
   const meetingLink = locationType === 'VIRTUAL' ? String(body.meetingLink || '').trim() : null;
+  // On unless the admin switches it off.
+  const certificatesEnabled = body.certificatesEnabled !== false;
   // Only trusted when the admin actually picked a geocoded suggestion
   // (see admin.html's address autocomplete) -- anything else (missing,
   // non-numeric, or a virtual event where neither applies) is left null
@@ -76,7 +79,7 @@ export function requireEventFields(body) {
   if (locationType === 'PHYSICAL' && !address) missing.push('address');
   if (locationType === 'VIRTUAL' && !meetingLink) missing.push('meeting link');
 
-  return { name, description, startAt, endAt, timezone, locationType, address, latitude, longitude, meetingLink, missing };
+  return { name, description, startAt, endAt, timezone, locationType, address, latitude, longitude, meetingLink, certificatesEnabled, missing };
 }
 
 export function validateEventFields(f) {
@@ -159,7 +162,7 @@ adminRouter.post('/events', ah(async (req, res) => {
     data: {
       slug: eventSlugId(f.name), name: f.name, description: f.description,
       startAt, endAt, timezone: f.timezone,
-      locationType: f.locationType, address: f.address, latitude: f.latitude, longitude: f.longitude, meetingLink: f.meetingLink,
+      locationType: f.locationType, address: f.address, latitude: f.latitude, longitude: f.longitude, meetingLink: f.meetingLink, certificatesEnabled: f.certificatesEnabled,
       county: req.user.county, ownerId: req.user.id,
       days: { create: days.map((d, i) => ({ position: i + 1, startAt: d.startAt, endAt: d.endAt })) }
     }
@@ -261,7 +264,7 @@ adminRouter.put('/events/:id', ah(async (req, res) => {
     }
     return tx.event.update({
       where: { id: event.id },
-      data: { ...after, latitude: f.latitude, longitude: f.longitude }
+      data: { ...after, latitude: f.latitude, longitude: f.longitude, certificatesEnabled: f.certificatesEnabled }
     });
   });
   await writeAudit({

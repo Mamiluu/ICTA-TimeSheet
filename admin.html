@@ -372,6 +372,10 @@
       <input type="text" id="venueTemplateName" placeholder="Name this venue, e.g. &quot;Mombasa County Hall&quot;">
     </div>
 
+    <label style="display:flex; align-items:flex-start; gap:8px; font-weight:normal; color:#444; margin:2px 0 14px;">
+      <input type="checkbox" id="newCertificates" checked style="margin:3px 0 0; width:auto;">
+      <span><strong>Offer attendance certificates</strong><br><span style="color:#777;font-size:12px;">After the last day, each attendee can get a certificate listing the days they attended. Anyone can verify it with its QR code.</span></span>
+    </label>
     <button class="primary" id="createBtn" disabled>Create event</button>
     <button id="cancelEditBtn">Cancel edit</button>
     <p class="error" id="createError" style="display:none;"></p>
@@ -1011,6 +1015,7 @@
     newEndDate.value = ''; newEndDateDisplay.value = ''; newEndTime.value = '17:00';
     newTimezone.value = 'Africa/Nairobi';
     newLocType = 'PHYSICAL'; applyLocType();
+    document.getElementById('newCertificates').checked = true;
     newAddress.value = ''; newMeetingLink.value = '';
     newLatitude.value = ''; newLongitude.value = '';
     venueTemplateSelect.value = '';
@@ -1057,6 +1062,7 @@
     newEndTime.value = daily ? endTimeText : pad2(endParts.hh) + ':' + pad2(endParts.mm);
     newTimezone.value = ev.timezone;
     newLocType = ev.locationType; applyLocType();
+    document.getElementById('newCertificates').checked = ev.certificatesEnabled !== false;
     newAddress.value = ev.address || '';
     newMeetingLink.value = ev.meetingLink || '';
     // No map/search UI sets these anymore, but an event geocoded back when
@@ -1093,7 +1099,8 @@
       address: newLocType === 'PHYSICAL' ? newAddress.value.trim() : '',
       latitude: newLocType === 'PHYSICAL' && newLatitude.value ? Number(newLatitude.value) : null,
       longitude: newLocType === 'PHYSICAL' && newLongitude.value ? Number(newLongitude.value) : null,
-      meetingLink: newLocType === 'VIRTUAL' ? newMeetingLink.value.trim() : ''
+      meetingLink: newLocType === 'VIRTUAL' ? newMeetingLink.value.trim() : '',
+      certificatesEnabled: document.getElementById('newCertificates').checked
     };
     if(usingDaily()) payload.days = buildDaysPayload().days;
 
