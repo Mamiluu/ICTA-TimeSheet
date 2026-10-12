@@ -4,13 +4,30 @@
   Proprietary and confidential. See LICENSE in the repository root.
   Unauthorized copying, modification, or distribution is prohibited.
 -->
+<html lang="en" class="fixed-layout">
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- The desktop layout is the only layout (see .fixed-layout in assets/shell.css). Phones and tablets lay the page out 1280px wide and shrink it to fit; pinch-zoom still works. -->
+<meta name="viewport" content="width=1280">
 <link rel="apple-touch-icon" href="assets/icta_logo_cropped.png">
 <link rel="icon" href="assets/icta_logo_cropped.png">
 <title>ICT Authority : Super Admin</title>
 <link rel="stylesheet" href="assets/theme.css">
 <link rel="stylesheet" href="assets/shell.css">
+<script>
+  // Scale factor for the fixed layout: 1 at 1280px and wider, smaller below that.
+  // On phones and tablets the viewport meta already lays the page out 1280px wide,
+  // so this stays at 1 there; it is what shrinks a narrow desktop window.
+  (function(){
+    var DESIGN_WIDTH = 1280, root = document.documentElement;
+    function fit(){
+      var w = root.clientWidth || window.innerWidth;
+      root.style.setProperty('--fit', w < DESIGN_WIDTH ? (w / DESIGN_WIDTH).toFixed(4) : '1');
+    }
+    fit();
+    window.addEventListener('resize', fit);
+    window.addEventListener('orientationchange', fit);
+  })();
+</script>
 <style>
   .badge-count{ margin-left:auto; font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:#262b36; color:#c9cfdb; font-variant-numeric:tabular-nums; }
   .nav-item.active .badge-count{ background:rgba(255,255,255,.14); color:#fff; }
@@ -31,7 +48,7 @@
   .list-note{ font-size:13px; color:var(--c-muted); margin:12px 2px 0; }
   .adm-list{ display:flex; flex-direction:column; gap:10px; margin-top:14px; }
   .adm-row{
-    display:grid; grid-template-columns:minmax(0,1fr) 220px 400px; gap:12px 20px; align-items:center;
+    display:grid; grid-template-columns:minmax(0,1fr) 190px 340px; gap:12px 20px; align-items:center;
     padding:14px 16px; border:1px solid var(--c-line); border-radius:var(--r-md); background:#fff;
     transition:border-color .15s ease, box-shadow .15s ease;
   }
@@ -46,18 +63,6 @@
   .adm-actions{ display:flex; gap:8px; align-items:center; flex-wrap:nowrap; justify-content:flex-end; }
   .adm-actions button{ margin:0; }
   .adm-actions .ev-menu{ left:auto; right:0; }
-  @media (max-width: 1180px){
-    .adm-row{ grid-template-columns:minmax(0,1fr) auto; }
-    .adm-state{ grid-column:1; grid-row:2; }
-    .adm-actions{ grid-column:2; grid-row:1 / span 2; flex-wrap:wrap; max-width:260px; }
-  }
-  @media (max-width: 820px){
-    .adm-row{ grid-template-columns:1fr; }
-    .adm-state, .adm-actions{ grid-column:auto; grid-row:auto; }
-    .adm-actions{ max-width:none; flex-wrap:wrap; }
-    .adm-actions{ justify-content:flex-start; }
-    .adm-actions .ev-menu{ left:0; right:auto; }
-  }
 
   /* County table with an inline bar so the biggest counties read at a glance */
   .county-cell{ display:flex; align-items:center; gap:10px; }
@@ -83,7 +88,6 @@
   .result-box.info{ background:var(--c-soft); border:1px solid var(--c-line); color:var(--c-text); }
 
   .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:0 16px; }
-  @media (max-width: 640px){ .form-grid{ grid-template-columns:1fr; } }
   .help{ font-size:13px; color:var(--c-muted); margin:0 0 16px; line-height:1.55; max-width:70ch; }
   .note{ font-size:13px; padding:11px 14px; border-radius:var(--r-md); margin-top:14px; }
   .note.ok{ background:var(--c-ok-wash); border:1px solid #b7e0c7; color:#084d27; }
