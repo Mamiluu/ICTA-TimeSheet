@@ -11,7 +11,9 @@ import { isValidTimeZone } from '../lib/timezone.js';
 import { ah } from '../lib/asyncHandler.js';
 import { resolveSchedule, dayClosesAt, REOPEN_DEFAULT_HOURS, REOPEN_MAX_HOURS } from '../lib/days.js';
 import { EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
-import { bucketByDay, countsByKey } from '../lib/analytics.js';
+import { bucketByDay, countsByKey, summarizeDays } from '../lib/analytics.js';
+import { doorStampDataUri, clockInZone } from '../lib/stamp.js';
+import { notifyDaySigned } from './public.js';
 import QRCode from 'qrcode';
 
 export const adminRouter = Router();
@@ -416,6 +418,61 @@ adminRouter.post('/events/:id/seal', ah(async (req, res) => {
     sealedAt: seal.createdAt,
     verifyUrl: `${process.env.PUBLIC_APP_URL}/verify.html?code=${code}`
   });
+}));
+
+// Counts only: how many signed each day, by how, and how many are missing.
+// Feeds the dashboard's day-by-day chart.
+adminRouter.get('/events/:id/days-summary', ah(async (req, res) => {
+  const event = await findOwnEvent(req);
+  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const [days, groups, registered] = await Promise.all([
+    prisma.eventDay.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } }),
+    prisma.sessionSignature.groupBy({
+      by: ['dayId', 'method'],
+      where: { day: { eventId: event.id }, attendance: { status: { not: 'RETIRED' } } },
+      _count: { _all: true }
+    }),
+    prisma.attendance.count({ where: { eventId: event.id, status: { not: 'RETIRED' } } })
+  ]);
+  res.json({ ok: true, registered, days: summarizeDays(days, groups, registered) });
+}));
+
+// Door check-in: the organiser scans an attendee's personal pass (their
+// clientId) and the day is recorded as method DOOR with a "scanned" stamp in
+// place of a drawn signature. Only the event's own admin can do this, and it
+// is audited. Idempotent per person per day.
+adminRouter.post('/events/:id/days/:dayId/door-checkin', ah(async (req, res) => {
+  const event = await findOwnEvent(req);
+  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const day = await prisma.eventDay.findFirst({ where: { id: req.params.dayId, eventId: event.id } });
+  if (!day) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+  const clientId = String(req.body.clientId || '').trim();
+  const attendee = clientId
+    ? await prisma.attendance.findUnique({ where: { eventId_clientId: { eventId: event.id, clientId } } })
+    : null;
+  if (!attendee) return res.json({ ok: false, error: 'NOT_FOUND', message: 'That pass does not belong to this event.' });
+  if (attendee.status === 'RETIRED') return res.json({ ok: false, error: 'RETIRED', message: `${attendee.name} has been retired from this event.` });
+
+  const who = { name: attendee.name, organization: attendee.organization };
+  const existing = await prisma.sessionSignature.findUnique({ where: { attendanceId_dayId: { attendanceId: attendee.id, dayId: day.id } } });
+  if (existing) return res.json({ ok: true, duplicate: true, ...who });
+
+  let sig;
+  try {
+    sig = await prisma.sessionSignature.create({
+      data: { attendanceId: attendee.id, dayId: day.id, method: 'DOOR', signature: doorStampDataUri(clockInZone(new Date(), event.timezone)) }
+    });
+  } catch (err) {
+    if (err?.code === 'P2002') return res.json({ ok: true, duplicate: true, ...who });
+    throw err;
+  }
+  await writeAudit({
+    actorId: req.user.id, action: 'DAY_CHECKIN_DOOR', targetType: 'Attendance', targetId: attendee.id,
+    metadata: { eventId: event.id, dayId: day.id, position: day.position }, req
+  });
+  notifyDaySigned(attendee, event, day, sig);
+  res.json({ ok: true, ...who });
 }));
 
 adminRouter.get('/audit', ah(async (req, res) => {

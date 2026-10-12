@@ -3,7 +3,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { bucketByDay, countsByKey } from '../src/lib/analytics.js';
+import { bucketByDay, countsByKey, summarizeDays } from '../src/lib/analytics.js';
 
 describe('bucketByDay', () => {
   test('always returns exactly `days` entries, zero-filled, even with no data', () => {
@@ -69,4 +69,21 @@ describe('countsByKey', () => {
     const result = countsByKey(groups, [true, false, null], 'photoVideoConsent');
     assert.deepEqual(result, { true: 5, false: 0, null: 3 });
   });
+});
+
+test('summarizeDays counts per day and by method, with missing as the remainder', () => {
+  const days = [{ id: 'd1', position: 1, startAt: 's1', endAt: 'e1' }, { id: 'd2', position: 2, startAt: 's2', endAt: 'e2' }];
+  const groups = [
+    { dayId: 'd1', method: 'DEVICE', _count: { _all: 8 } },
+    { dayId: 'd2', method: 'DEVICE', _count: { _all: 4 } },
+    { dayId: 'd2', method: 'PHONE', _count: { _all: 2 } },
+    { dayId: 'd2', method: 'DOOR', _count: { _all: 1 } }
+  ];
+  const out = summarizeDays(days, groups, 10);
+  assert.deepEqual(out.map((d) => [d.signed, d.byPhone, d.byDoor, d.missing]), [[8, 0, 0, 2], [7, 2, 1, 3]]);
+});
+
+test('summarizeDays never reports negative missing', () => {
+  const out = summarizeDays([{ id: 'd1', position: 1 }], [{ dayId: 'd1', method: 'DEVICE', _count: { _all: 5 } }], 3);
+  assert.equal(out[0].missing, 0);
 });

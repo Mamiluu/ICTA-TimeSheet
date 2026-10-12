@@ -50,3 +50,26 @@ export function countsByKey(groups, keys, keyField) {
   }
   return result;
 }
+
+// Per-day attendance for one event. `groups` is a Prisma groupBy of
+// SessionSignature by [dayId, method]; `registered` is how many people are on
+// the event. Counts only, never names. `missing` is people registered who have
+// not signed that day, which for a later day includes those who simply did not
+// come back.
+export function summarizeDays(days, groups, registered) {
+  return days.map((d) => {
+    const mine = groups.filter((g) => g.dayId === d.id);
+    const by = (m) => mine.filter((g) => g.method === m).reduce((n, g) => n + g._count._all, 0);
+    const signed = mine.reduce((n, g) => n + g._count._all, 0);
+    return {
+      id: d.id,
+      position: d.position,
+      startAt: d.startAt,
+      endAt: d.endAt,
+      signed,
+      byPhone: by('PHONE'),
+      byDoor: by('DOOR'),
+      missing: Math.max(0, registered - signed)
+    };
+  });
+}

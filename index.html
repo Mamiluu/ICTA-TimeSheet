@@ -2632,7 +2632,7 @@
       var sig = (row.daySigs || []).find(function(s){ return s.dayId === d.id; });
       if(sig){
         cell.className = 'day-strip-cell';
-        cell.title = 'Day ' + (i + 1) + ' signature' + (sig.method === 'PHONE' ? ' (checked in by phone number)' : '');
+        cell.title = 'Day ' + (i + 1) + ' signature' + (sig.method === 'PHONE' ? ' (checked in by phone number)' : sig.method === 'DOOR' ? ' (scanned at the door)' : '');
         if(sig.method === 'PHONE') cell.classList.add('day-strip-phone');
         cell.appendChild(dayLabel(d));
         var im = document.createElement('img');

@@ -188,7 +188,8 @@ model SessionSignature {
   // How this day's signature was authorised: DEVICE is the browser that made
   // the first sign-in; PHONE is a check-in from any device by matching the
   // registered phone number, which the admin sheet marks as less strongly
-  // verified.
+  // verified; DOOR is an organiser scanning the attendee's pass, stored with
+  // a generated 'scanned' stamp instead of a drawn signature.
   method              String    @default("DEVICE")
   signedAt            DateTime  @default(now())
 

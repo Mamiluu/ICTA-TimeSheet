@@ -532,7 +532,7 @@ publicRouter.post('/events/:slug/pass-qr', attendanceLimiter, ah(async (req, res
 }));
 // Emails the attendee a receipt naming the day just recorded. Fire-and-forget
 // like the first sign-in's receipt: the signature is already saved.
-async function notifyDaySigned(attendee, event, day, sig) {
+export async function notifyDaySigned(attendee, event, day, sig) {
   const dayCount = await prisma.eventDay.count({ where: { eventId: event.id } });
   sendConfirmationIfEmailed(attendee, event, day, dayCount, sig.signedAt);
 }
