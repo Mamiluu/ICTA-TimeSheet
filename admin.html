@@ -139,7 +139,7 @@
   body{ padding:0; display:block; }
   .app-shell{ display:flex; min-height:100vh; width:100%; }
   .sidenav{
-    position:sticky; top:0; align-self:flex-start; height:100vh; width:236px; flex:none;
+    position:fixed; top:0; left:0; z-index:30; height:100vh; width:236px;
     background:#15171c; color:#d7d9de; display:flex; flex-direction:column; padding:16px 12px; overflow-y:auto;
   }
   .side-brand{ display:flex; align-items:center; gap:10px; padding:2px 6px 14px; color:#fff; font-size:12.5px; line-height:1.3; }
@@ -160,9 +160,11 @@
   .nav-item:focus-visible, .side-logout:focus-visible, #navToggle:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
   .side-logout{ margin-top:auto; background:transparent; border:1px solid #3a3e48; color:#d7d9de; padding:9px; border-radius:7px; }
   .side-logout:hover{ background:#22252d; filter:none; }
-  .app-main{ flex:1; min-width:0; padding:24px 24px 60px; }
-  .view-title{ font-size:20px; margin:0 0 16px; max-width:900px; }
-  .view{ display:none; max-width:900px; }
+  .app-main{ flex:1; min-width:0; margin-left:236px; padding:24px 32px 60px; }
+  .view-title{ font-size:20px; margin:0 0 16px; max-width:1320px; }
+  .view{ display:none; max-width:1320px; }
+  .app-main .sheet.wide{ max-width:none; }
+  #eventsWrap{ overflow:visible; }
   .view.active{ display:block; }
   .dash-cta{ margin:0; display:flex; gap:8px; flex-wrap:wrap; }
   .profile-dl{ display:grid; grid-template-columns:90px 1fr; gap:8px 12px; margin:0 0 14px; font-size:13px; }
@@ -175,7 +177,7 @@
     .sidenav{ position:fixed; z-index:60; left:0; top:0; height:100vh; transform:translateX(-100%); transition:transform .2s ease; }
     .sidenav.open{ transform:none; }
     .nav-scrim.open{ display:block; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:50; }
-    .app-main{ padding:16px 12px 60px; width:100%; }
+    .app-main{ margin-left:0; padding:16px 12px 60px; width:100%; }
     .view-title{ display:none; }
     .sheet{ padding:20px 16px; }
   }
@@ -206,6 +208,61 @@
   .door-feed{ list-style:none; margin:0; padding:0; font-size:12.5px; max-height:240px; overflow:auto; }
   .door-feed li{ padding:6px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; gap:10px; }
   @media (max-width: 820px){ .day-bar-row{ grid-template-columns:54px 1fr; } .day-bar-meta{ grid-column:1 / -1; } }
+
+  /* --- Event cards --- */
+  .ev-toolbar{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .ev-toolbar input[type=search]{ flex:1 1 240px; min-width:0; font:inherit; font-size:13px; padding:9px 11px; border:1px solid #ccc; border-radius:6px; background:#fff; color:#1a1a1a; }
+  .ev-toolbar select{ width:auto; margin:0; padding:9px 10px; }
+  .ev-toolbar button{ margin:0; }
+  .ev-list{ display:flex; flex-direction:column; gap:12px; }
+  .ev-card{
+    display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"main side" "actions actions";
+    gap:12px 24px; padding:16px 18px; border:1px solid #e1e1e1; border-radius:8px; background:#fff;
+    transition:box-shadow .15s ease, border-color .15s ease;
+  }
+  .ev-card:hover{ border-color:#bdbdbd; box-shadow:0 2px 10px rgba(0,0,0,.07); }
+  .ev-main{ grid-area:main; min-width:0; }
+  .ev-title{
+    font-size:15px; line-height:1.35; margin:0 0 8px; font-weight:700;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .ev-meta-line{ display:flex; align-items:flex-start; gap:7px; font-size:12.5px; color:#555; margin-top:4px; line-height:1.4; }
+  .ev-meta-line .ico{ width:14px; height:14px; flex:none; margin-top:2px; fill:none; stroke:#888; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .ev-side{ grid-area:side; display:flex; flex-direction:column; align-items:flex-end; gap:8px; text-align:right; }
+  .ev-count{ display:flex; align-items:baseline; gap:6px; }
+  .ev-count strong{ font-size:26px; line-height:1; font-variant-numeric:tabular-nums; }
+  .ev-count span{ font-size:11.5px; color:#777; }
+  .ev-pills{ display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  .pill{ display:inline-block; font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; background:#f0f0f0; color:#555; white-space:nowrap; }
+  .pill.open{ background:#eafaf0; color:#0a6a32; }
+  .pill.closing-soon{ background:#fff4d6; color:#8a6000; }
+  .pill.closed{ background:#f0f0f0; color:#777; }
+  .pill.days{ background:#fdeef0; color:var(--accent); }
+  .ev-actions{ grid-area:actions; display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding-top:12px; border-top:1px solid #efefef; }
+  .ev-actions button, .ev-more summary{ margin:0; }
+  .ev-more{ position:relative; }
+  .ev-more summary{
+    list-style:none; cursor:pointer; font-size:12.5px; padding:7px 12px; border:1px solid #888; border-radius:5px; background:#fff; user-select:none;
+  }
+  .ev-more summary::-webkit-details-marker{ display:none; }
+  .ev-more summary::after{ content:" ▾"; font-size:10px; }
+  .ev-more[open] summary{ background:#f3f3f3; }
+  .ev-more summary:focus-visible, .ev-menu-item:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+  .ev-menu{
+    position:absolute; left:0; top:calc(100% + 4px); z-index:20; min-width:170px; padding:5px;
+    background:#fff; border:1px solid #d6d6d6; border-radius:8px; box-shadow:0 10px 28px rgba(0,0,0,.18);
+  }
+  .ev-menu-item{ display:block; width:100%; text-align:left; border:0; background:none; border-radius:5px; padding:8px 10px; font-size:13px; color:#1a1a1a; cursor:pointer; }
+  .ev-menu-item:hover{ background:#f3f3f3; filter:none; }
+  .ev-menu-item.danger{ color:var(--accent); }
+  .ev-menu-item.danger:hover{ background:#fdeef0; }
+  .ev-menu-sep{ height:1px; background:#eee; margin:4px 2px; }
+  .ev-count-note{ font-size:12px; color:#888; margin:12px 2px 0; }
+  @media (max-width: 640px){
+    .ev-card{ grid-template-columns:1fr; grid-template-areas:"main" "side" "actions"; }
+    .ev-side{ flex-direction:row; align-items:center; justify-content:space-between; text-align:left; }
+    .ev-menu{ left:auto; right:0; }
+  }
 
   #cancelEditBtn{ display:none; }
 
@@ -412,8 +469,16 @@
   <section class="view" data-view="events" data-title="Events">
   <div class="sheet wide">
     <h2 class="section">Your county's events</h2>
-    <button id="refreshEventsBtn">Refresh</button>
-    <div id="eventsWrap" style="margin-top:12px;"></div>
+    <div class="ev-toolbar">
+      <input type="search" id="eventSearch" placeholder="Search events or venues" aria-label="Search events">
+      <select id="eventFilter" aria-label="Filter events">
+        <option value="all">All events</option>
+        <option value="open">Sign-in open</option>
+        <option value="closed">Closed</option>
+      </select>
+      <button id="refreshEventsBtn" type="button">Refresh</button>
+    </div>
+    <div id="eventsWrap" style="margin-top:14px;"></div>
   </div>
 
   </section>
@@ -1169,6 +1234,150 @@
     return { text: text, cls: days > 0 ? 'open' : 'closing-soon' };
   }
 
+  // Events are shown as cards, not a table: a long event title and nine
+  // actions never fit one table row, and the buttons ran off the screen. The
+  // two actions people use most stay on the card; the rest live in "More".
+  var eventSearch = document.getElementById('eventSearch');
+  var eventFilter = document.getElementById('eventFilter');
+
+  function svgIcon(path){
+    var ns = 'http://www.w3.org/2000/svg';
+    var s = document.createElementNS(ns, 'svg');
+    s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('aria-hidden', 'true'); s.setAttribute('class', 'ico');
+    var p = document.createElementNS(ns, 'path'); p.setAttribute('d', path); s.appendChild(p);
+    return s;
+  }
+  var ICON_CAL = 'M3 8h18M7 3v4M17 3v4M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z';
+  var ICON_PIN = 'M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z';
+  var ICON_VIDEO = 'M15 10l5-3v10l-5-3M4 6h11a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z';
+
+  function metaLine(icon, text){
+    var d = document.createElement('div'); d.className = 'ev-meta-line';
+    d.appendChild(svgIcon(icon));
+    var t = document.createElement('span'); t.textContent = text; d.appendChild(t);
+    return d;
+  }
+  function menuItem(label, onClick, cls){
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'ev-menu-item' + (cls ? ' ' + cls : ''); b.textContent = label;
+    b.addEventListener('click', function(){
+      var d = b.closest('details'); if(d) d.removeAttribute('open');
+      onClick(b);
+    });
+    return b;
+  }
+
+  function buildEventCard(ev){
+    var url = attendeePageUrl() + '?event=' + encodeURIComponent(ev.slug);
+    // &kiosk=1 tells the server (see GET /events/:slug in public.js) to render
+    // this exact page as a plain attendee would see it, even in a browser that
+    // is still logged in as this admin. Use it whenever the *device*, not just
+    // the link, is handed to someone else (a laptop left out for walk-ins).
+    var kioskUrl = url + '&kiosk=1';
+    var status = formatLinkStatus(ev.linkClosesAt);
+
+    var card = document.createElement('article');
+    card.className = 'ev-card';
+
+    var main = document.createElement('div'); main.className = 'ev-main';
+    var title = document.createElement('h3'); title.className = 'ev-title'; title.textContent = ev.name; title.title = ev.name;
+    main.appendChild(title);
+    var when = clientFormatEventWhen(ev.startAt, ev.endAt, ev.timezone);
+    main.appendChild(metaLine(ICON_CAL, when));
+    if(ev.locationType === 'VIRTUAL'){
+      var vl = metaLine(ICON_VIDEO, 'Virtual event');
+      if(ev.meetingLink){
+        var join = document.createElement('a'); join.href = ev.meetingLink; join.target = '_blank'; join.rel = 'noopener'; join.textContent = 'Join link';
+        vl.appendChild(document.createTextNode(' · ')); vl.appendChild(join);
+      }
+      main.appendChild(vl);
+    } else if(ev.address){
+      main.appendChild(metaLine(ICON_PIN, ev.address));
+    }
+
+    var side = document.createElement('div'); side.className = 'ev-side';
+    var count = document.createElement('div'); count.className = 'ev-count';
+    var num = document.createElement('strong'); num.textContent = ev.count;
+    var lab = document.createElement('span'); lab.textContent = 'signed in';
+    count.appendChild(num); count.appendChild(lab);
+    side.appendChild(count);
+    var pills = document.createElement('div'); pills.className = 'ev-pills';
+    var pill = document.createElement('span'); pill.className = 'pill ' + status.cls; pill.textContent = status.text;
+    pills.appendChild(pill);
+    if(ev.days && ev.days.length > 1){
+      var dp = document.createElement('span'); dp.className = 'pill days'; dp.textContent = ev.days.length + ' days'; pills.appendChild(dp);
+    }
+    side.appendChild(pills);
+
+    var actions = document.createElement('div'); actions.className = 'ev-actions';
+    var openBtn = document.createElement('button');
+    openBtn.type = 'button'; openBtn.className = 'primary'; openBtn.textContent = 'Open sheet';
+    openBtn.addEventListener('click', function(){ window.open(url, '_blank'); });
+    var copyBtn = document.createElement('button');
+    copyBtn.type = 'button'; copyBtn.textContent = 'Copy link';
+    copyBtn.addEventListener('click', function(){
+      if(navigator.clipboard) navigator.clipboard.writeText(url);
+      copyBtn.textContent = 'Copied ✓';
+      setTimeout(function(){ copyBtn.textContent = 'Copy link'; }, 1400);
+    });
+    var editBtn = document.createElement('button');
+    editBtn.type = 'button'; editBtn.textContent = 'Edit';
+    editBtn.addEventListener('click', function(){ beginEditEvent(ev); });
+
+    var more = document.createElement('details'); more.className = 'ev-more';
+    var sum = document.createElement('summary'); sum.textContent = 'More'; sum.setAttribute('aria-label', 'More actions for ' + ev.name);
+    more.appendChild(sum);
+    var menu = document.createElement('div'); menu.className = 'ev-menu';
+    // Export and print are the only places personal data (name, phone, email,
+    // a drawn signature) leaves the sheet as a file or printout. Both go
+    // through the audited endpoint so there is a record of who took a copy.
+    menu.appendChild(menuItem('Kiosk link', function(){
+      if(navigator.clipboard) navigator.clipboard.writeText(kioskUrl);
+    }));
+    menu.appendChild(menuItem('Export CSV', function(b){ exportEventCsv(ev, b); }));
+    menu.appendChild(menuItem('Print sheet', function(b){ printEventSheet(ev, b); }));
+    menu.appendChild(menuItem('Seal & print', function(b){ sealEventDay(ev, b); }));
+    menu.appendChild(menuItem('Reopen a day', function(){ openReopenModal(ev); }));
+    var sep = document.createElement('div'); sep.className = 'ev-menu-sep'; menu.appendChild(sep);
+    menu.appendChild(menuItem('Delete event', function(b){ deleteEvent(ev, b); }, 'danger'));
+    more.appendChild(menu);
+
+    actions.appendChild(openBtn); actions.appendChild(copyBtn); actions.appendChild(editBtn); actions.appendChild(more);
+
+    card.appendChild(main); card.appendChild(side); card.appendChild(actions);
+    return card;
+  }
+
+  function renderEvents(){
+    var q = (eventSearch.value || '').trim().toLowerCase();
+    var f = eventFilter.value;
+    var shown = eventsCache.filter(function(ev){
+      if(q && (ev.name + ' ' + (ev.address || '')).toLowerCase().indexOf(q) === -1) return false;
+      var closed = new Date(ev.linkClosesAt).getTime() <= Date.now();
+      if(f === 'open' && closed) return false;
+      if(f === 'closed' && !closed) return false;
+      return true;
+    });
+    eventsWrap.textContent = '';
+    if(!eventsCache.length){ eventsWrap.innerHTML = '<p class="empty">No events created yet.</p>'; return; }
+    if(!shown.length){ eventsWrap.innerHTML = '<p class="empty">No events match.</p>'; return; }
+    var list = document.createElement('div'); list.className = 'ev-list';
+    shown.forEach(function(ev){ list.appendChild(buildEventCard(ev)); });
+    eventsWrap.appendChild(list);
+    var n = document.createElement('p'); n.className = 'ev-count-note';
+    n.textContent = shown.length === eventsCache.length ? shown.length + ' events' : shown.length + ' of ' + eventsCache.length + ' events';
+    eventsWrap.appendChild(n);
+  }
+  eventSearch.addEventListener('input', renderEvents);
+  eventFilter.addEventListener('change', renderEvents);
+  // One open "More" menu at a time, and a click anywhere else closes it.
+  document.addEventListener('click', function(e){
+    Array.prototype.forEach.call(document.querySelectorAll('.ev-more[open]'), function(d){ if(!d.contains(e.target)) d.removeAttribute('open'); });
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape') Array.prototype.forEach.call(document.querySelectorAll('.ev-more[open]'), function(d){ d.removeAttribute('open'); });
+  });
+
   function loadEvents(){
     eventsWrap.innerHTML = '<p class="empty">Loading…</p>';
     API.get('/api/admin/events').then(function(r){
@@ -1178,150 +1387,11 @@
       }
       eventsCache = r.data.events;
       populateEventSelects();
-      if(r.data.events.length === 0){
-        eventsWrap.innerHTML = '<p class="empty">No events created yet.</p>';
-        return;
-      }
-      var table = document.createElement('table');
-      table.innerHTML = '<thead><tr><th>Name</th><th>When</th><th>Where</th><th>Submitted</th><th>Sign-in link</th><th></th></tr></thead>';
-      var tbody = document.createElement('tbody');
-      r.data.events.forEach(function(ev){
-        var tr = document.createElement('tr');
-        var url = attendeePageUrl() + '?event=' + encodeURIComponent(ev.slug);
-        // &kiosk=1 tells the server (see GET /events/:slug in public.js) to
-        // render this exact page as a plain attendee would see it, even if
-        // opened in a browser that's still logged in as this admin. Use
-        // this link -- not the plain one above -- whenever the device
-        // itself (not just the link) is about to be handed to someone
-        // else, e.g. a laptop passed around at the venue for walk-ins to
-        // sign themselves in on.
-        var kioskUrl = url + '&kiosk=1';
-
-        var nameTd = document.createElement('td');
-        nameTd.textContent = ev.name;
-        var whenTd = document.createElement('td');
-        whenTd.textContent = clientFormatEventWhen(ev.startAt, ev.endAt, ev.timezone);
-        if(ev.days && ev.days.length > 1){
-          var daysBadge = document.createElement('span');
-          daysBadge.className = 'badge days';
-          daysBadge.textContent = ev.days.length + ' days';
-          whenTd.appendChild(document.createElement('br'));
-          whenTd.appendChild(daysBadge);
-        }
-        var whereTd = document.createElement('td');
-        if(ev.locationType === 'VIRTUAL'){
-          var virtualBadge = document.createElement('span');
-          virtualBadge.className = 'badge virtual';
-          virtualBadge.textContent = 'Virtual';
-          whereTd.appendChild(virtualBadge);
-          whereTd.appendChild(document.createTextNode(' '));
-          var joinLink = document.createElement('a');
-          joinLink.href = ev.meetingLink; joinLink.target = '_blank'; joinLink.rel = 'noopener';
-          joinLink.textContent = 'Join link';
-          whereTd.appendChild(joinLink);
-        } else {
-          whereTd.appendChild(document.createTextNode(ev.address || ''));
-        }
-        var countTd = document.createElement('td');
-        countTd.className = 'count';
-        countTd.textContent = ev.count;
-        var linkTd = document.createElement('td');
-        linkTd.className = 'link-status';
-        var linkStatus = formatLinkStatus(ev.linkClosesAt);
-        var linkStatusSpan = document.createElement('span');
-        linkStatusSpan.className = linkStatus.cls;
-        linkStatusSpan.textContent = linkStatus.text;
-        linkTd.appendChild(linkStatusSpan);
-        var actionsTd = document.createElement('td');
-        actionsTd.className = 'actions';
-
-        var openBtn = document.createElement('button');
-        openBtn.textContent = 'Open';
-        openBtn.addEventListener('click', function(){ window.open(url, '_blank'); });
-
-        var copyBtn = document.createElement('button');
-        copyBtn.textContent = 'Copy link';
-        copyBtn.addEventListener('click', function(){
-          if(navigator.clipboard) navigator.clipboard.writeText(url);
-        });
-
-        // Distinct from Copy link on purpose: this is the one to hand out
-        // whenever the *device* -- not just the URL -- is what's being
-        // handed to someone else, e.g. a laptop left on a table for
-        // walk-ins. It renders identically to the plain attendee view even
-        // though the browser itself is logged in as this admin.
-        var kioskBtn = document.createElement('button');
-        kioskBtn.textContent = 'Kiosk link';
-        kioskBtn.title = 'Copies a link that hides the roster even on this admin\'s own device — safe to hand to a walk-in attendee.';
-        kioskBtn.addEventListener('click', function(){
-          if(navigator.clipboard) navigator.clipboard.writeText(kioskUrl);
-        });
-
-        // Edits now happen in the same form used to create an event (see
-        // beginEditEvent) rather than rewriting this row's cells in place
-        // -- once the field set grew to ~8 fields (description, start/end
-        // date+time, timezone, physical/virtual + address or meeting
-        // link), a cramped inline table-row editor stopped being the
-        // right shape for it.
-        var editBtn = document.createElement('button');
-        editBtn.textContent = 'Edit';
-        editBtn.addEventListener('click', function(){ beginEditEvent(ev); });
-
-        // Export/print are the only place personal data (name, phone,
-        // email, a drawn signature) leaves the shared sheet as a file or
-        // printout -- both go through the audited endpoint below rather
-        // than reading the on-screen roster, so there's a record of who
-        // pulled the full attendee list and when.
-        var exportBtn = document.createElement('button');
-        exportBtn.textContent = 'Export CSV';
-        exportBtn.addEventListener('click', function(){ exportEventCsv(ev, exportBtn); });
-
-        var printBtn = document.createElement('button');
-        printBtn.textContent = 'Print';
-        printBtn.addEventListener('click', function(){ printEventSheet(ev, printBtn); });
-
-        var sealBtn = document.createElement('button');
-        sealBtn.textContent = 'Seal & print';
-        sealBtn.addEventListener('click', function(){ sealEventDay(ev, sealBtn); });
-
-        var reopenBtn = document.createElement('button');
-        reopenBtn.textContent = 'Reopen day';
-        reopenBtn.title = 'Reopen a closed day so people can still sign it';
-        reopenBtn.addEventListener('click', function(){ openReopenModal(ev); });
-
-        var deleteBtn = document.createElement('button');
-        deleteBtn.textContent = 'Delete';
-        deleteBtn.className = 'danger';
-        deleteBtn.addEventListener('click', function(){
-          deleteEvent(ev, deleteBtn);
-        });
-
-        actionsTd.appendChild(openBtn);
-        actionsTd.appendChild(copyBtn);
-        actionsTd.appendChild(kioskBtn);
-        actionsTd.appendChild(editBtn);
-        actionsTd.appendChild(exportBtn);
-        actionsTd.appendChild(printBtn);
-        actionsTd.appendChild(sealBtn);
-        actionsTd.appendChild(reopenBtn);
-        actionsTd.appendChild(deleteBtn);
-
-        tr.appendChild(nameTd);
-        tr.appendChild(whenTd);
-        tr.appendChild(whereTd);
-        tr.appendChild(countTd);
-        tr.appendChild(linkTd);
-        tr.appendChild(actionsTd);
-        tbody.appendChild(tr);
-      });
-      table.appendChild(tbody);
-      eventsWrap.innerHTML = '';
-      eventsWrap.appendChild(table);
+      renderEvents();
     }).catch(function(){
       eventsWrap.innerHTML = '<p class="empty">Network error — could not reach the backend.</p>';
     });
-  }
-  document.getElementById('refreshEventsBtn').addEventListener('click', loadEvents);
+  }  document.getElementById('refreshEventsBtn').addEventListener('click', loadEvents);
 
   // Both go through GET /api/admin/events/:id/attendance -- scoped to this
   // admin's own county and audited server-side -- rather than reading
