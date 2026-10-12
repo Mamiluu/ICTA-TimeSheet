@@ -487,6 +487,13 @@
   .days-panel .dp-btn{ font:inherit; padding:6px 12px; border:1px solid var(--ink); background:var(--paper); color:var(--ink); cursor:pointer; }
   .days-panel .rp-form, .days-panel .rp-confirm{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:6px; }
   .days-panel .rp-form input{ font:inherit; padding:6px 9px; border:1px solid var(--ink); background:var(--paper); color:var(--ink); min-width:190px; }
+  .pass-card{ display:flex; gap:16px; align-items:center; margin-top:12px; padding:12px 14px; max-width:480px; border:1px dashed var(--ink); background:var(--paper); }
+  .pass-card[hidden]{ display:none; }
+  .pass-card img{ flex:none; width:150px; height:150px; background:#fff; border:1px solid var(--ledger-line); padding:4px; image-rendering:pixelated; }
+  .pass-card .pass-text{ font-size:12.5px; line-height:1.5; }
+  .pass-card .pass-text p{ margin:4px 0 8px; opacity:.85; }
+  .pass-card .pass-text a{ color:var(--ink); font-weight:600; }
+  @media (max-width: 520px){ .pass-card{ flex-direction:column; align-items:flex-start; } }
   .days-panel .rp-msg{ margin-top:8px; font-size:12.5px; min-height:1em; }
   .days-panel .rp-msg.err{ color:#b00020; }
   .days-panel .dp-btn:disabled{ opacity:.5; cursor:default; }
@@ -888,8 +895,15 @@
     <div class="dp-title">Sign the other days</div>
     <div class="dp-sub">This event runs over several days. Your entry covers all of them, so sign each day while it is open.</div>
     <ul class="dp-list" id="daysList"></ul>
-    <button type="button" class="dp-btn" id="passQrBtn" style="margin-top:10px;">Show my pass QR</button>
-    <img id="passQrImg" alt="Your personal pass QR code" width="180" height="180" style="display:none;margin-top:8px;">
+    <button type="button" class="dp-btn" id="passQrBtn" style="margin-top:10px;" aria-expanded="false" aria-controls="passCard">Show my pass QR</button>
+    <div class="pass-card" id="passCard" hidden>
+      <img id="passQrImg" alt="Your personal pass QR code" width="150" height="150">
+      <div class="pass-text">
+        <strong>Your personal pass</strong>
+        <p>Scan it on another phone to carry on as you, or show it at the door. Keep it private: anyone who scans it can sign in as you.</p>
+        <a id="passQrSave" href="#" download="attendance-pass.png">Save QR image</a>
+      </div>
+    </div>
   </div>
 
   <div class="days-panel" id="returningPanel">
@@ -3137,22 +3151,46 @@
   }
 
   // Shows this attendee's own pass as a QR, to scan on another phone or show
-  // an organiser. Fetched by POST so the secret id never sits in a URL.
+  // an organiser. Fetched by POST so the secret id never sits in a URL, then
+  // turned into a data: image: the page's content security policy allows
+  // data: images but not blob: ones, so a blob URL shows as a broken image.
   var passQrBtn = document.getElementById('passQrBtn');
   var passQrImg = document.getElementById('passQrImg');
+  var passCard = document.getElementById('passCard');
+  var passQrSave = document.getElementById('passQrSave');
+  var passQrLoaded = false;
+  function setPassCard(open){
+    passCard.hidden = !open;
+    passQrBtn.textContent = open ? 'Hide pass QR' : 'Show my pass QR';
+    passQrBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
   if(passQrBtn) passQrBtn.addEventListener('click', function(){
     var own = state.rows.find(function(r){ return r.submitted && r.clientId; });
     if(!own) return;
-    if(passQrImg.style.display === 'block'){ passQrImg.style.display = 'none'; passQrBtn.textContent = 'Show my pass QR'; return; }
+    if(!passCard.hidden){ setPassCard(false); return; }
+    if(passQrLoaded){ setPassCard(true); return; }
+    passQrBtn.disabled = true; passQrBtn.textContent = 'Loading…';
     fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/pass-qr', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId: own.clientId })
-    }).then(function(res){ if(!res.ok) throw new Error(); return res.blob(); }).then(function(b){
-      passQrImg.src = URL.createObjectURL(b);
-      passQrImg.style.display = 'block';
-      passQrBtn.textContent = 'Hide pass QR';
-    }).catch(function(){ alert('Could not load your pass right now.'); });
+    }).then(function(res){ if(!res.ok) throw new Error('bad'); return res.blob(); }).then(function(b){
+      return new Promise(function(resolve, reject){
+        var fr = new FileReader();
+        fr.onload = function(){ resolve(fr.result); };
+        fr.onerror = reject;
+        fr.readAsDataURL(b);
+      });
+    }).then(function(dataUrl){
+      passQrImg.src = dataUrl;
+      passQrSave.href = dataUrl;
+      passQrLoaded = true;
+      passQrBtn.disabled = false;
+      setPassCard(true);
+    }).catch(function(){
+      passQrBtn.disabled = false;
+      setPassCard(false);
+      alert('Could not load your pass right now. Check your connection and try again.');
+    });
   });
-
   claimPass().then(function(){ ensureDraftRow(); render(); loadRemote(); });
   setInterval(loadRemote, POLL_INTERVAL_MS);
 
