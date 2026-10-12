@@ -135,6 +135,59 @@
   .badge.virtual{ background:#eef2fb; color:#2a5fd6; }
   .badge.physical{ background:#f4f4f4; color:#555; }
 
+  /* --- App shell: sidebar + one section at a time --- */
+  body{ padding:0; display:block; }
+  .app-shell{ display:flex; min-height:100vh; width:100%; }
+  .sidenav{
+    position:sticky; top:0; align-self:flex-start; height:100vh; width:236px; flex:none;
+    background:#15171c; color:#d7d9de; display:flex; flex-direction:column; padding:16px 12px; overflow-y:auto;
+  }
+  .side-brand{ display:flex; align-items:center; gap:10px; padding:2px 6px 14px; color:#fff; font-size:12.5px; line-height:1.3; }
+  .side-brand img{ background:#fff; border-radius:6px; padding:2px; }
+  .side-user{ display:flex; align-items:center; gap:10px; background:#1f222a; border-radius:8px; padding:9px 10px; margin-bottom:6px; }
+  .avatar{ flex:none; width:34px; height:34px; border-radius:50%; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; }
+  .who-email{ font-size:11.5px; color:#fff; word-break:break-all; }
+  .who-county{ font-size:11px; color:#9aa0ac; }
+  .nav-group{ font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:#7d8390; margin:16px 8px 6px; }
+  .nav-item{
+    display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:7px; margin-bottom:2px;
+    color:#d7d9de; text-decoration:none; font-size:13px; border-left:3px solid transparent;
+  }
+  .nav-item svg{ width:17px; height:17px; flex:none; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .nav-item:hover{ background:#22252d; color:#fff; }
+  .nav-item.active{ background:#2a1519; color:#fff; border-left-color:var(--accent); font-weight:700; }
+  .nav-item.active svg{ stroke:var(--accent); }
+  .nav-item:focus-visible, .side-logout:focus-visible, #navToggle:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
+  .side-logout{ margin-top:auto; background:transparent; border:1px solid #3a3e48; color:#d7d9de; padding:9px; border-radius:7px; }
+  .side-logout:hover{ background:#22252d; filter:none; }
+  .app-main{ flex:1; min-width:0; padding:24px 24px 60px; }
+  .view-title{ font-size:20px; margin:0 0 16px; max-width:900px; }
+  .view{ display:none; max-width:900px; }
+  .view.active{ display:block; }
+  .dash-cta{ margin:0; display:flex; gap:8px; flex-wrap:wrap; }
+  .profile-dl{ display:grid; grid-template-columns:90px 1fr; gap:8px 12px; margin:0 0 14px; font-size:13px; }
+  .profile-dl dt{ color:#666; } .profile-dl dd{ margin:0; word-break:break-all; }
+  .mobilebar, .nav-scrim{ display:none; }
+  @media (max-width: 820px){
+    .mobilebar{ display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:40; background:#15171c; color:#fff; padding:10px 14px; width:100%; }
+    #navToggle{ background:transparent; border:1px solid #3a3e48; color:#fff; font-size:18px; line-height:1; padding:6px 11px; border-radius:6px; }
+    .app-shell{ flex-wrap:wrap; }
+    .sidenav{ position:fixed; z-index:60; left:0; top:0; height:100vh; transform:translateX(-100%); transition:transform .2s ease; }
+    .sidenav.open{ transform:none; }
+    .nav-scrim.open{ display:block; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:50; }
+    .app-main{ padding:16px 12px 60px; width:100%; }
+    .view-title{ display:none; }
+    .sheet{ padding:20px 16px; }
+  }
+  @media (prefers-reduced-motion: reduce){ .sidenav{ transition:none; } }
+
+  .rm-backdrop{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:90; align-items:center; justify-content:center; padding:16px; }
+  .rm-backdrop.open{ display:flex; }
+  .rm-card{ background:#fff; color:#000; width:100%; max-width:400px; border-radius:8px; padding:22px 24px; box-shadow:0 14px 40px rgba(0,0,0,.35); }
+  .rm-card h3{ margin:0 0 6px; font-size:15px; }
+  .rm-help{ font-size:12px; color:#666; margin:0 0 14px; line-height:1.5; }
+  .rm-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:6px; }
+
   #cancelEditBtn{ display:none; }
 
   .schedule-box{ border:1px solid #e3e3e3; border-left:3px solid var(--accent); background:#fafafa; border-radius:6px; padding:10px 12px; margin:-2px 0 14px; }
@@ -173,15 +226,37 @@
   })();
 </script>
 
-<div class="topbar">
-  <div><strong id="brandTopbarTitle">ICT Authority : Event Admin</strong><span id="whoCounty" style="font-size:12.5px;color:#666;margin-left:8px;"></span></div>
-  <div class="who">
-    <span id="whoEmail"></span>
-    <button id="logoutBtn" style="margin-left:10px;">Log out</button>
+<div class="app-shell">
+  <div class="mobilebar">
+    <button type="button" id="navToggle" aria-label="Open menu" aria-expanded="false">&#9776;</button>
+    <strong id="viewTitleMobile">Dashboard</strong>
   </div>
-</div>
-
-<div id="adminContent" style="width:100%; max-width:900px;">
+  <div class="nav-scrim" id="navScrim"></div>
+  <aside class="sidenav" id="sidenav" aria-label="Admin menu">
+    <div class="side-brand">
+      <img src="assets/icta_logo_cropped.png" alt="" width="30" height="30">
+      <div><strong id="brandTopbarTitle">ICT Authority : Event Admin</strong></div>
+    </div>
+    <div class="side-user">
+      <span class="avatar" id="userAvatar">A</span>
+      <div><div class="who-email" id="whoEmail"></div><div class="who-county" id="whoCounty"></div></div>
+    </div>
+    <nav>
+      <div class="nav-group">Main</div>
+      <a class="nav-item" href="#dashboard" data-nav="dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></svg><span>Dashboard</span></a>
+      <a class="nav-item" href="#events" data-nav="events"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Events</span></a>
+      <div class="nav-group">Manage</div>
+      <a class="nav-item" href="#new" data-nav="new"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg><span>New event</span></a>
+      <div class="nav-group">Other</div>
+      <a class="nav-item" href="#activity" data-nav="activity"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>My activity</span></a>
+      <div class="nav-group">Settings</div>
+      <a class="nav-item" href="#profile" data-nav="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Profile</span></a>
+    </nav>
+    <button type="button" id="logoutBtn" class="side-logout">Log out</button>
+  </aside>
+  <main class="app-main" id="adminContent">
+    <h1 class="view-title" id="viewTitle">Dashboard</h1>
+  <section class="view" data-view="new" data-title="New event">
   <div class="sheet wide">
     <h2 class="section" id="formTitle">Create a new event</h2>
     <label for="newName">Event name</label>
@@ -292,26 +367,69 @@
     </div>
   </div>
 
+  </section>
+
+  <section class="view" data-view="dashboard" data-title="Dashboard">
   <div class="sheet wide">
     <h2 class="section">At a glance</h2>
     <div id="insightsWrap"><p class="empty">Loading…</p></div>
   </div>
 
+    <p class="dash-cta"><button class="primary" type="button" data-goto="new">+ New event</button> <button type="button" data-goto="events">View events</button></p>
+  </section>
+
+  <section class="view" data-view="events" data-title="Events">
   <div class="sheet wide">
     <h2 class="section">Your county's events</h2>
     <button id="refreshEventsBtn">Refresh</button>
     <div id="eventsWrap" style="margin-top:12px;"></div>
   </div>
 
+  </section>
+
+  <section class="view" data-view="activity" data-title="My activity">
   <div class="sheet wide">
     <h2 class="section">My activity</h2>
     <button id="refreshAuditBtn">Refresh</button>
     <div id="auditWrap" style="margin-top:12px;"></div>
   </div>
 
+  </section>
+
+  <section class="view" data-view="profile" data-title="Profile">
+  <div class="sheet wide">
+    <h2 class="section">Your account</h2>
+    <dl class="profile-dl">
+      <dt>Email</dt><dd id="profEmail"></dd>
+      <dt>County</dt><dd id="profCounty"></dd>
+      <dt>Role</dt><dd>County admin</dd>
+    </dl>
+    <p><a href="forgot-password.html">Change my password</a></p>
+  </div>
+  </section>
+
   <p class="footer-note">© 2026 Asya Hafidh. All rights reserved.</p>
+  </main>
 </div>
 
+<div class="rm-backdrop" id="reopenModal" role="dialog" aria-modal="true" aria-labelledby="rmTitle">
+  <div class="rm-card">
+    <h3 id="rmTitle">Reopen a day for signing</h3>
+    <p class="rm-help">Use this when people could not sign in time, for example if the network was down at the venue. The day closes again by itself, and the action is recorded in your activity log.</p>
+    <label for="rmDay">Day</label>
+    <select id="rmDay"></select>
+    <label for="rmHours">Keep it open for</label>
+    <select id="rmHours">
+      <option value="6">6 hours</option><option value="12">12 hours</option>
+      <option value="24" selected>24 hours</option><option value="48">48 hours</option><option value="72">72 hours</option>
+    </select>
+    <p class="error" id="rmError" style="display:none;"></p>
+    <div class="rm-actions">
+      <button type="button" id="rmCancel">Cancel</button>
+      <button type="button" class="primary" id="rmConfirm">Reopen day</button>
+    </div>
+  </div>
+</div>
 <script src="assets/api.js"></script>
 <script>
 (function(){
@@ -335,7 +453,10 @@
       if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return null; }
       if(r.data.user.role !== 'COUNTY_ADMIN'){ location.href = 'superadmin.html'; return null; }
       whoEmail.textContent = r.data.user.email;
-      whoCounty.textContent = '— ' + r.data.user.county;
+      whoCounty.textContent = r.data.user.county + ' county';
+      document.getElementById('userAvatar').textContent = (r.data.user.email || 'A').charAt(0).toUpperCase();
+      document.getElementById('profEmail').textContent = r.data.user.email;
+      document.getElementById('profCounty').textContent = r.data.user.county;
       return r.data.user;
     });
   }
@@ -786,6 +907,50 @@
 
   var editingEventId = null;
 
+  // --- Sidebar sections: one view at a time, addressable by #hash ---
+  var VIEWS = ['dashboard', 'events', 'new', 'activity', 'profile'];
+  var sidenav = document.getElementById('sidenav');
+  var navScrim = document.getElementById('navScrim');
+  var navToggle = document.getElementById('navToggle');
+  function closeNav(){
+    sidenav.classList.remove('open'); navScrim.classList.remove('open');
+    navToggle.setAttribute('aria-expanded', 'false');
+  }
+  function showView(name){
+    if(VIEWS.indexOf(name) === -1) name = 'dashboard';
+    var title = name;
+    Array.prototype.forEach.call(document.querySelectorAll('.view'), function(v){
+      var on = v.getAttribute('data-view') === name;
+      v.classList.toggle('active', on);
+      if(on) title = v.getAttribute('data-title') || name;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(n){
+      var on = n.getAttribute('data-nav') === name;
+      n.classList.toggle('active', on);
+      if(on) n.setAttribute('aria-current', 'page'); else n.removeAttribute('aria-current');
+    });
+    if(name === 'new' && editingEventId) title = 'Edit event';
+    document.getElementById('viewTitle').textContent = title;
+    document.getElementById('viewTitleMobile').textContent = title;
+    if(location.hash !== '#' + name){ try{ history.replaceState(null, '', '#' + name); }catch(e){ location.hash = name; } }
+    closeNav();
+    window.scrollTo(0, 0);
+  }
+  navToggle.addEventListener('click', function(){
+    var open = !sidenav.classList.contains('open');
+    sidenav.classList.toggle('open', open); navScrim.classList.toggle('open', open);
+    navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  navScrim.addEventListener('click', closeNav);
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeNav(); });
+  Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(n){
+    n.addEventListener('click', function(e){ e.preventDefault(); var v = n.getAttribute('data-nav'); if(v === 'new' && editingEventId) resetForm(); showView(v); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-goto]'), function(b){
+    b.addEventListener('click', function(){ showView(b.getAttribute('data-goto')); });
+  });
+  window.addEventListener('hashchange', function(){ showView(location.hash.replace('#', '')); });
+
   function resetForm(){
     editingEventId = null;
     formTitle.textContent = 'Create a new event';
@@ -852,10 +1017,10 @@
     createError.style.display = 'none';
     refreshSchedule();
     refreshCreateBtnState();
-    formTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showView('new');
   }
 
-  cancelEditBtn.addEventListener('click', resetForm);
+  cancelEditBtn.addEventListener('click', function(){ resetForm(); showView('events'); });
 
   createBtn.addEventListener('click', function(){
     createError.style.display = 'none';
@@ -883,6 +1048,7 @@
     if(usingDaily()) payload.days = buildDaysPayload().days;
 
     createBtn.disabled = true;
+    var wasEditing = !!editingEventId;
     var req = editingEventId ? API.put('/api/admin/events/' + editingEventId, payload) : API.post('/api/admin/events', payload);
     req.then(function(r){
       if(!r.data.ok){
@@ -905,6 +1071,7 @@
       }
       resetForm();
       loadEvents();
+      if(wasEditing) showView('events');
     }).catch(function(){
       refreshCreateBtnState();
       createError.textContent = 'Network error — could not reach the backend.';
@@ -1057,6 +1224,11 @@
         sealBtn.textContent = 'Seal & print';
         sealBtn.addEventListener('click', function(){ sealEventDay(ev, sealBtn); });
 
+        var reopenBtn = document.createElement('button');
+        reopenBtn.textContent = 'Reopen day';
+        reopenBtn.title = 'Reopen a closed day so people can still sign it';
+        reopenBtn.addEventListener('click', function(){ openReopenModal(ev); });
+
         var deleteBtn = document.createElement('button');
         deleteBtn.textContent = 'Delete';
         deleteBtn.className = 'danger';
@@ -1071,6 +1243,7 @@
         actionsTd.appendChild(exportBtn);
         actionsTd.appendChild(printBtn);
         actionsTd.appendChild(sealBtn);
+        actionsTd.appendChild(reopenBtn);
         actionsTd.appendChild(deleteBtn);
 
         tr.appendChild(nameTd);
@@ -1180,6 +1353,65 @@
       window.alert('Network error — could not reach the backend.');
     });
   }
+  // --- Reopen a closed day ---
+  // Mirrors the server window (30 min before start to 2 h after end, see
+  // lib/days.js) only to label each day; the server decides what is open.
+  var rmBackdrop = document.getElementById('reopenModal');
+  var rmDay = document.getElementById('rmDay');
+  var rmHours = document.getElementById('rmHours');
+  var rmError = document.getElementById('rmError');
+  var rmConfirm = document.getElementById('rmConfirm');
+  var rmEvent = null;
+
+  function dayStateLabel(d){
+    var now = Date.now();
+    var reopened = d.reopenedUntil && new Date(d.reopenedUntil).getTime() > now;
+    var opens = new Date(d.startAt).getTime() - 30 * 60000;
+    var closes = new Date(d.endAt).getTime() + 2 * 3600000;
+    if(reopened) return 'reopened';
+    if(now < opens) return 'not started';
+    if(now > closes) return 'closed';
+    return 'open';
+  }
+  function openReopenModal(ev){
+    rmEvent = ev;
+    rmError.style.display = 'none';
+    rmDay.textContent = '';
+    var days = ev.days || [];
+    if(!days.length){ window.alert('This event has no days to reopen.'); return; }
+    days.forEach(function(d){
+      var opt = document.createElement('option');
+      opt.value = d.id;
+      var st = dayStateLabel(d);
+      opt.textContent = 'Day ' + d.position + ' — ' + clientFormatEventWhen(d.startAt, d.endAt, ev.timezone).replace(/ [A-Z+0-9:]+$/, '') + ' (' + st + ')';
+      if(st === 'open' || st === 'reopened') opt.disabled = true;
+      rmDay.appendChild(opt);
+    });
+    var firstPick = Array.prototype.filter.call(rmDay.options, function(o){ return !o.disabled; })[0];
+    if(!firstPick){ window.alert('Every day of this event is already open for signing.'); return; }
+    rmDay.value = firstPick.value;
+    rmBackdrop.classList.add('open');
+    rmDay.focus();
+  }
+  function closeReopenModal(){ rmBackdrop.classList.remove('open'); rmEvent = null; }
+  document.getElementById('rmCancel').addEventListener('click', closeReopenModal);
+  rmBackdrop.addEventListener('click', function(e){ if(e.target === rmBackdrop) closeReopenModal(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && rmBackdrop.classList.contains('open')) closeReopenModal(); });
+  rmConfirm.addEventListener('click', function(){
+    if(!rmEvent) return;
+    rmConfirm.disabled = true;
+    API.post('/api/admin/events/' + rmEvent.id + '/days/' + rmDay.value + '/reopen', { hours: Number(rmHours.value) }).then(function(r){
+      rmConfirm.disabled = false;
+      if(!r.data.ok){ rmError.textContent = r.data.message || 'Could not reopen this day.'; rmError.style.display = ''; return; }
+      closeReopenModal();
+      loadEvents();
+      loadAudit();
+    }).catch(function(){
+      rmConfirm.disabled = false;
+      rmError.textContent = 'Network error — could not reach the backend.';
+      rmError.style.display = '';
+    });
+  });
   function deleteEvent(ev, deleteBtn){
     var warning = ev.count > 0
       ? 'Delete "' + ev.name + '"? It already has ' + ev.count + ' submitted attendance record(s) — they will remain on record but this event will no longer be listed. This cannot be undone.'
@@ -1282,6 +1514,7 @@
 
   requireSession().then(function(user){
     if(!user) return;
+    showView(location.hash.replace('#', ''));
     loadEvents();
     loadAudit();
     loadAnalytics();
