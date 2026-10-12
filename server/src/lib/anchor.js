@@ -1,10 +1,9 @@
-﻿// Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+// Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
 // Proprietary and confidential. See LICENSE in the repository root.
 
 import { prisma } from './prisma.js';
 import { hashToken } from './tokens.js';
-import { entryHashInput } from './audit.js';
-import { writeAudit } from './audit.js';
+import { entryHashInput, writeAudit } from './audit.js';
 import { sendChainAnchorEmail } from './mailer.js';
 import { logger } from './logger.js';
 
@@ -23,16 +22,18 @@ import { logger } from './logger.js';
 export function walkChain(entries) {
   const hashMismatches = [];
   const linkBreaks = [];
+  const mismatchAt = [];
+  const breakAt = [];
   let prev = null;
   let checked = 0;
-  for (const e of entries) {
-    if (e.hash == null) continue; // written before chaining existed
+  entries.forEach((e, i) => {
+    if (e.hash == null) return; // written before chaining existed
     checked += 1;
-    if (hashToken(entryHashInput(e)) !== e.hash) hashMismatches.push(e.id);
-    if (prev !== null && e.prevHash !== prev) linkBreaks.push(e.id);
+    if (hashToken(entryHashInput(e)) !== e.hash) { hashMismatches.push(e.id); mismatchAt.push(i); }
+    if (prev !== null && e.prevHash !== prev) { linkBreaks.push(e.id); breakAt.push(i); }
     prev = e.hash;
-  }
-  return { checked, hashMismatches, linkBreaks };
+  });
+  return { checked, hashMismatches, linkBreaks, mismatchAt, breakAt };
 }
 
 async function allChained() {
@@ -52,13 +53,16 @@ export async function checkAnchor(hash) {
   if (idx === -1) {
     return { found: false, message: 'No entry with that hash exists in the chain. Entries were removed or rewritten after that anchor was sent.' };
   }
-  const upTo = walkChain(entries.slice(0, idx + 1));
+  // One pass over the chain; the part up to the anchor is read off the same result.
   const whole = walkChain(entries);
+  const beforeOrAt = (i) => i <= idx;
   return {
     found: true,
     position: idx + 1,
     entriesSince: entries.length - idx - 1,
-    intactUpToAnchor: upTo.hashMismatches.length === 0,
+    // An entry removed from before the anchor shows as a link break, so both
+    // kinds of damage count against the part of the trail the anchor covers.
+    intactUpToAnchor: !whole.mismatchAt.some(beforeOrAt) && !whole.breakAt.some(beforeOrAt),
     hashMismatches: whole.hashMismatches.length,
     linkBreaks: whole.linkBreaks.length
   };
@@ -69,12 +73,17 @@ export async function checkAnchor(hash) {
 export async function sendAnchor({ actorId = null, req } = {}) {
   const head = await chainHead();
   if (!head) return { sent: 0, head: null };
-  await writeAudit({ actorId, action: 'CHAIN_ANCHORED', targetType: 'AuditLog', targetId: head.id, metadata: { headHash: head.hash, entries: head.count }, req });
   const admins = await prisma.user.findMany({ where: { role: 'SUPER_ADMIN', status: 'ACTIVE' }, select: { email: true } });
   let sent = 0;
   for (const a of admins) {
     try { await sendChainAnchorEmail(a.email, head); sent += 1; }
     catch (err) { logger.error('chain anchor email failed', { stack: err.stack }); }
+  }
+  // Recorded only once a copy has actually left the system; otherwise the
+  // trail would claim an anchor that nobody holds and the daily job would
+  // wait a full day before trying again.
+  if (sent > 0) {
+    await writeAudit({ actorId, action: 'CHAIN_ANCHORED', targetType: 'AuditLog', targetId: head.id, metadata: { headHash: head.hash, entries: head.count, sent }, req });
   }
   return { sent, head };
 }
@@ -87,14 +96,21 @@ export async function lastAnchorAt() {
 // Sends one anchor a day while the server is running. Checked hourly and on
 // start, based on the last recorded anchor, so a restart or a sleeping free
 // instance never doubles up or loses a day.
-const DAY_MS = 24 * 60 * 60 * 1000;
+// 23 hours, not 24: the check runs hourly, so this keeps the anchor close to
+// once a day instead of drifting later each day.
+const ANCHOR_EVERY_MS = 23 * 60 * 60 * 1000;
 export function startAnchorJob() {
+  let running = false;
   async function tick() {
+    if (running) return; // a slow send must not start a second run
+    running = true;
     try {
       const last = await lastAnchorAt();
-      if (!last || Date.now() - last.getTime() >= DAY_MS) await sendAnchor();
+      if (!last || Date.now() - last.getTime() >= ANCHOR_EVERY_MS) await sendAnchor();
     } catch (err) {
       logger.error('anchor job failed', { stack: err.stack });
+    } finally {
+      running = false;
     }
   }
   setTimeout(tick, 30 * 1000).unref();

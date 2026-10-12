@@ -294,8 +294,15 @@ superadminRouter.get('/anchor', ah(async (req, res) => {
 }));
 
 superadminRouter.post('/anchor', ah(async (req, res) => {
+  // Each anchor adds an audit row and an email per super admin, so a manual
+  // send is limited to once every 5 minutes.
+  const last = await lastAnchorAt();
+  if (last && Date.now() - last.getTime() < 5 * 60 * 1000) {
+    return res.json({ ok: false, error: 'TOO_SOON', message: 'An anchor was sent a moment ago. Wait a few minutes before sending another.' });
+  }
   const result = await sendAnchor({ actorId: req.user.id, req });
   if (!result.head) return res.json({ ok: false, error: 'EMPTY_CHAIN', message: 'There are no chained entries to anchor yet.' });
+  if (!result.sent) return res.json({ ok: false, error: 'NOT_DELIVERED', message: 'The email could not be sent to any super admin, so no anchor was recorded. Check the email settings and try again.' });
   res.json({ ok: true, sent: result.sent, head: result.head });
 }));
 

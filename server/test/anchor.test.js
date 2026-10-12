@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+// Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
 // Proprietary and confidential. See LICENSE in the repository root.
 
 import { test, describe } from 'node:test';
@@ -40,5 +40,16 @@ describe('walkChain', () => {
   test('entries written before chaining are skipped', () => {
     const c = [{ id: 'old', hash: null }, ...build(2)];
     assert.equal(walkChain(c).checked, 2);
+  });
+});
+
+describe('walkChain positions', () => {
+  test('reports where a break or mismatch sits, so a prefix can be judged', () => {
+    const c = build(5);
+    c.splice(1, 1); // remove e1: e2 now follows e0
+    c[3].metadata = { i: 99 }; // alter e4
+    const r = walkChain(c);
+    assert.deepEqual(r.breakAt, [1]);
+    assert.deepEqual(r.mismatchAt, [3]);
   });
 });

@@ -472,7 +472,7 @@
       if(!d.found){ anchorResult.textContent = '✕ ' + d.message; return; }
       var msg = d.intactUpToAnchor
         ? '✓ That entry is still in the trail (entry ' + d.position + ') and every entry up to it is intact. ' + d.entriesSince + ' newer entries have been added since.'
-        : '✕ That entry exists, but something before it was altered after the anchor was sent.';
+        : '✕ That entry exists, but something before it was altered or removed after the anchor was sent (or, rarely, two writes landed at the same instant). Ask a developer to look at the trail.';
       if(d.hashMismatches || d.linkBreaks) msg += ' Whole-trail scan: ' + d.hashMismatches + ' altered entr' + (d.hashMismatches === 1 ? 'y' : 'ies') + ', ' + d.linkBreaks + ' break(s) in the chain order.';
       anchorResult.textContent = msg;
     }).catch(function(){ anchorResult.textContent = 'Network error — could not reach the backend.'; });
