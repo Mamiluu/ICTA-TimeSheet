@@ -31,7 +31,7 @@
   .list-note{ font-size:13px; color:var(--c-muted); margin:12px 2px 0; }
   .adm-list{ display:flex; flex-direction:column; gap:10px; margin-top:14px; }
   .adm-row{
-    display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto; gap:12px 20px; align-items:center;
+    display:grid; grid-template-columns:minmax(0,1fr) 220px 400px; gap:12px 20px; align-items:center;
     padding:14px 16px; border:1px solid var(--c-line); border-radius:var(--r-md); background:#fff;
     transition:border-color .15s ease, box-shadow .15s ease;
   }
@@ -43,11 +43,18 @@
   .adm-email{ font-weight:700; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .adm-county{ font-size:13px; color:var(--c-muted); }
   .adm-state{ display:flex; flex-direction:column; align-items:flex-start; gap:5px; font-size:12.5px; color:var(--c-muted); }
-  .adm-actions{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+  .adm-actions{ display:flex; gap:8px; align-items:center; flex-wrap:nowrap; justify-content:flex-end; }
   .adm-actions button{ margin:0; }
   .adm-actions .ev-menu{ left:auto; right:0; }
+  @media (max-width: 1180px){
+    .adm-row{ grid-template-columns:minmax(0,1fr) auto; }
+    .adm-state{ grid-column:1; grid-row:2; }
+    .adm-actions{ grid-column:2; grid-row:1 / span 2; flex-wrap:wrap; max-width:260px; }
+  }
   @media (max-width: 820px){
     .adm-row{ grid-template-columns:1fr; }
+    .adm-state, .adm-actions{ grid-column:auto; grid-row:auto; }
+    .adm-actions{ max-width:none; flex-wrap:wrap; }
     .adm-actions{ justify-content:flex-start; }
     .adm-actions .ev-menu{ left:0; right:auto; }
   }

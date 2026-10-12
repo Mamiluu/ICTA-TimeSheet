@@ -50,12 +50,7 @@ body{ padding:0; display:block; }
 }
 @media (prefers-reduced-motion: reduce){ .sidenav{ transition:none; } }
 
-/* ==================================================================
-   Shared admin look (event admin and super admin). Scoped to .app-shell
-   so the login, activation and attendee pages that share theme.css are
-   untouched.
-   One set of tokens, one radius scale, one focus ring.
-   ================================================================== */
+/* Shared admin */
 body{ background:#f3f4f6; }
 .app-shell{
   --ui-font:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif;
