@@ -11,7 +11,16 @@ function build(n) {
   const out = [];
   let prev = null;
   for (let i = 0; i < n; i++) {
-    const e = { id: `e${i}`, actorId: null, action: 'X', targetType: null, targetId: null, metadata: { i }, createdAt: new Date(2026, 9, 1, 0, i), prevHash: prev };
+    const e = {
+      id: `e${i}`,
+      actorId: null,
+      action: 'X',
+      targetType: null,
+      targetId: null,
+      metadata: { i },
+      createdAt: new Date(2026, 9, 1, 0, i),
+      prevHash: prev
+    };
     e.hash = hashToken(entryHashInput(e));
     prev = e.hash;
     out.push(e);

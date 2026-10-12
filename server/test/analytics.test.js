@@ -72,7 +72,10 @@ describe('countsByKey', () => {
 });
 
 test('summarizeDays counts per day and by method, with missing as the remainder', () => {
-  const days = [{ id: 'd1', position: 1, startAt: 's1', endAt: 'e1' }, { id: 'd2', position: 2, startAt: 's2', endAt: 'e2' }];
+  const days = [
+    { id: 'd1', position: 1, startAt: 's1', endAt: 'e1' },
+    { id: 'd2', position: 2, startAt: 's2', endAt: 'e2' }
+  ];
   const groups = [
     { dayId: 'd1', method: 'DEVICE', _count: { _all: 8 } },
     { dayId: 'd2', method: 'DEVICE', _count: { _all: 4 } },
@@ -80,7 +83,13 @@ test('summarizeDays counts per day and by method, with missing as the remainder'
     { dayId: 'd2', method: 'DOOR', _count: { _all: 1 } }
   ];
   const out = summarizeDays(days, groups, 10);
-  assert.deepEqual(out.map((d) => [d.signed, d.byPhone, d.byDoor, d.missing]), [[8, 0, 0, 2], [7, 2, 1, 3]]);
+  assert.deepEqual(
+    out.map((d) => [d.signed, d.byPhone, d.byDoor, d.missing]),
+    [
+      [8, 0, 0, 2],
+      [7, 2, 1, 3]
+    ]
+  );
 });
 
 test('summarizeDays never reports negative missing', () => {

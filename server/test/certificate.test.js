@@ -8,7 +8,12 @@ import { digestOf } from '../src/lib/seal.js';
 
 const event = { id: 'e1', name: 'Digital Hubs Review', county: 'Makueni', timezone: 'Africa/Nairobi', certificatesEnabled: true };
 const attendee = { id: 'a1', name: 'Eric Chepkwony', organization: 'TDA', email: 'e@x.ke', phone: '0712345678' };
-const days = [1, 2, 3].map((n) => ({ id: `d${n}`, position: n, startAt: `2026-10-0${n + 1}T06:00:00Z`, endAt: `2026-10-0${n + 1}T14:00:00Z` }));
+const days = [1, 2, 3].map((n) => ({
+  id: `d${n}`,
+  position: n,
+  startAt: `2026-10-0${n + 1}T06:00:00Z`,
+  endAt: `2026-10-0${n + 1}T14:00:00Z`
+}));
 const sig = (dayId, extra = {}) => ({ dayId, signature: `img-${dayId}`, signedAt: '2026-10-02T07:00:00Z', method: 'DEVICE', ...extra });
 
 describe('certificateEligible', () => {
@@ -24,7 +29,10 @@ describe('certificateEligible', () => {
 describe('certificate snapshot', () => {
   test('lists only the days the person signed, in order, with signature hashes', () => {
     const s = assembleCertificateSnapshot(event, attendee, days, [sig('d3'), sig('d1')]);
-    assert.deepEqual(s.days.map((d) => d.position), [1, 3]);
+    assert.deepEqual(
+      s.days.map((d) => d.position),
+      [1, 3]
+    );
     assert.equal(s.totalDays, 3);
     assert.match(s.days[0].signatureSha256, /^[0-9a-f]{64}$/);
   });
@@ -51,7 +59,10 @@ describe('certificateStillHolds', () => {
   });
   test('fails when a listed day is gone or its signature changed', () => {
     assert.equal(certificateStillHolds(issued, assembleCertificateSnapshot(event, attendee, days, [sig('d1')])), false);
-    assert.equal(certificateStillHolds(issued, assembleCertificateSnapshot(event, attendee, days, [sig('d1'), sig('d2', { signature: 'forged' })])), false);
+    assert.equal(
+      certificateStillHolds(issued, assembleCertificateSnapshot(event, attendee, days, [sig('d1'), sig('d2', { signature: 'forged' })])),
+      false
+    );
   });
 });
 

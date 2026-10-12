@@ -41,10 +41,12 @@ describe('parseDaySchedule', () => {
   test('rejects empty, backwards, overlapping and oversized schedules', () => {
     assert.ok(parseDaySchedule([]).error);
     assert.ok(parseDaySchedule([{ startAt: '2026-10-02T10:00:00Z', endAt: '2026-10-02T09:00:00Z' }]).error);
-    assert.ok(parseDaySchedule([
-      { startAt: '2026-10-02T06:00:00Z', endAt: '2026-10-02T14:00:00Z' },
-      { startAt: '2026-10-02T13:00:00Z', endAt: '2026-10-02T15:00:00Z' }
-    ]).error);
+    assert.ok(
+      parseDaySchedule([
+        { startAt: '2026-10-02T06:00:00Z', endAt: '2026-10-02T14:00:00Z' },
+        { startAt: '2026-10-02T13:00:00Z', endAt: '2026-10-02T15:00:00Z' }
+      ]).error
+    );
     assert.ok(parseDaySchedule(Array.from({ length: 32 }, () => ({}))).error);
   });
 });

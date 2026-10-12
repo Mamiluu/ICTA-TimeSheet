@@ -50,7 +50,9 @@ describe('sheet seals', () => {
 
 describe('whole-event seals', () => {
   const day = (n, signedB) => ({
-    dayPosition: n, dayStartAt: `2026-10-0${n}T06:00:00.000Z`, dayEndAt: `2026-10-0${n}T14:00:00.000Z`,
+    dayPosition: n,
+    dayStartAt: `2026-10-0${n}T06:00:00.000Z`,
+    dayEndAt: `2026-10-0${n}T14:00:00.000Z`,
     rows: [
       { attendanceId: 'a1', signed: true, signatureSha256: 'aa' },
       { attendanceId: 'a2', signed: signedB, signatureSha256: signedB ? 'bb' : null }
@@ -62,7 +64,10 @@ describe('whole-event seals', () => {
     const snap = assembleEventSnapshot(event, [day(1, true), day(2, false)]);
     assert.deepEqual(summarizeSnapshot(snap), {
       scope: 'EVENT',
-      days: [{ position: 1, rowCount: 2, signedCount: 2 }, { position: 2, rowCount: 2, signedCount: 1 }]
+      days: [
+        { position: 1, rowCount: 2, signedCount: 2 },
+        { position: 2, rowCount: 2, signedCount: 1 }
+      ]
     });
   });
 
