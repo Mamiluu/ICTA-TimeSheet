@@ -136,6 +136,15 @@
   .badge.physical{ background:#f4f4f4; color:#555; }
 
   #cancelEditBtn{ display:none; }
+
+  .schedule-box{ border:1px solid #e3e3e3; border-left:3px solid var(--accent); background:#fafafa; border-radius:6px; padding:10px 12px; margin:-2px 0 14px; }
+  .schedule-head{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; }
+  .schedule-title{ font-weight:700; font-size:13px; }
+  .schedule-help{ font-size:12px; color:#666; margin:6px 0 8px; }
+  .schedule-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+  .schedule-chip{ font-size:11.5px; background:#fff; border:1px solid #ddd; border-radius:999px; padding:3px 10px; color:#333; white-space:nowrap; }
+  .schedule-chip b{ color:var(--accent); margin-right:4px; }
+  .badge.days{ background:#fdeef0; color:var(--accent); }
 </style>
 
 <div class="preloader" id="preloader" role="status" aria-live="polite" aria-label="Loading">
@@ -202,6 +211,22 @@
           <input type="time" id="newEndTime" value="17:00">
         </div>
       </div>
+    </div>
+
+    <!-- Appears only when the end date is after the start date. Each
+         day then gets its own signature column on the sheet; "Continuous"
+         keeps the old single-session behaviour (e.g. an overnight vigil). -->
+    <div id="scheduleBox" class="schedule-box" style="display:none;">
+      <div class="schedule-head">
+        <span class="schedule-title" id="scheduleTitle"></span>
+        <div class="loctype-toggle" id="scheduleModeToggle" style="margin:0;">
+          <button type="button" data-mode="DAILY" class="active">Daily sessions</button>
+          <button type="button" data-mode="CONTINUOUS">One continuous event</button>
+        </div>
+      </div>
+      <p class="schedule-help" id="scheduleHelp"></p>
+      <div class="schedule-chips" id="scheduleChips"></div>
+      <p class="error" id="scheduleError" style="display:none; margin:6px 0 0;"></p>
     </div>
 
     <label for="newTimezone">Time zone</label>
@@ -668,9 +693,87 @@
     return { y: +map.year, m: +map.month - 1, d: +map.day, hh: map.hour === '24' ? 0 : +map.hour, mm: +map.minute };
   }
 
+  // --- Multi-day schedule ---
+  // One session per calendar date between Starts and Ends, each running from
+  // the start time to the end time, in the event's own time zone. The server
+  // receives the explicit list, so it never has to guess at date math.
+  var MAX_EVENT_DAYS = 31;
+  var scheduleMode = 'DAILY';
+  var scheduleBox = document.getElementById('scheduleBox');
+  var scheduleTitle = document.getElementById('scheduleTitle');
+  var scheduleHelp = document.getElementById('scheduleHelp');
+  var scheduleChips = document.getElementById('scheduleChips');
+  var scheduleError = document.getElementById('scheduleError');
+  var scheduleModeToggle = document.getElementById('scheduleModeToggle');
+
+  function calendarSpan(){
+    var sp = parseIso(newStartDate.value), ep = parseIso(newEndDate.value);
+    if(!sp || !ep) return null;
+    var a = Date.UTC(sp.y, sp.m, sp.d), b = Date.UTC(ep.y, ep.m, ep.d);
+    return b < a ? null : Math.round((b - a) / 86400000) + 1;
+  }
+  function isMultiDaySpan(){ var n = calendarSpan(); return n !== null && n > 1; }
+  function usingDaily(){ return isMultiDaySpan() && scheduleMode === 'DAILY'; }
+
+  // The list sent to the server, or an { error } to show instead.
+  function buildDaysPayload(){
+    var n = calendarSpan();
+    var sp = parseIso(newStartDate.value);
+    var st = newStartTime.value.split(':'), et = newEndTime.value.split(':');
+    if(n > MAX_EVENT_DAYS) return { error: 'An event can run for at most ' + MAX_EVENT_DAYS + ' days.' };
+    if(+et[0] * 60 + +et[1] <= +st[0] * 60 + +st[1]) return { error: 'Each day must end after it starts. Change the end time, or choose "One continuous event".' };
+    var tz = newTimezone.value, out = [];
+    for(var i = 0; i < n; i++){
+      var d = new Date(Date.UTC(sp.y, sp.m, sp.d + i));
+      var y = d.getUTCFullYear(), m = d.getUTCMonth(), dd = d.getUTCDate();
+      out.push({ startAt: zonedTimeToUtcIso(y, m, dd, +st[0], +st[1], tz), endAt: zonedTimeToUtcIso(y, m, dd, +et[0], +et[1], tz) });
+    }
+    return { days: out };
+  }
+
+  function refreshSchedule(){
+    var multi = isMultiDaySpan();
+    scheduleBox.style.display = multi ? '' : 'none';
+    scheduleError.style.display = 'none';
+    if(!multi) return;
+    var n = calendarSpan();
+    scheduleTitle.textContent = n + '-day event';
+    Array.prototype.forEach.call(scheduleModeToggle.querySelectorAll('button'), function(b){
+      b.classList.toggle('active', b.getAttribute('data-mode') === scheduleMode);
+    });
+    scheduleChips.textContent = '';
+    if(scheduleMode === 'CONTINUOUS'){
+      scheduleHelp.textContent = 'Runs as one session from the start to the end. Attendees sign once.';
+      return;
+    }
+    scheduleHelp.textContent = 'Attendees sign once for each day. The printed sheet gets one signature column per day, and each day opens for signing on its own.';
+    var built = buildDaysPayload();
+    if(built.error){
+      scheduleError.textContent = built.error;
+      scheduleError.style.display = '';
+      return;
+    }
+    built.days.forEach(function(d, i){
+      var chip = document.createElement('span');
+      chip.className = 'schedule-chip';
+      var b = document.createElement('b'); b.textContent = 'Day ' + (i + 1);
+      chip.appendChild(b);
+      chip.appendChild(document.createTextNode(clientFormatEventWhen(d.startAt, d.endAt, newTimezone.value).replace(/ [A-Z+0-9:]+$/, '')));
+      scheduleChips.appendChild(chip);
+    });
+  }
+  Array.prototype.forEach.call(scheduleModeToggle.querySelectorAll('button'), function(btn){
+    btn.addEventListener('click', function(){ scheduleMode = btn.getAttribute('data-mode'); refreshSchedule(); refreshCreateBtnState(); });
+  });
+  [newStartDate, newEndDate, newStartTime, newEndTime, newTimezone].forEach(function(el){
+    el.addEventListener('input', function(){ refreshSchedule(); refreshCreateBtnState(); });
+    el.addEventListener('change', function(){ refreshSchedule(); refreshCreateBtnState(); });
+  });
+
   function newEventFieldsComplete(){
     var base = !!(newName.value.trim() && newStartDate.value.trim() && newStartTime.value && newEndDate.value.trim() && newEndTime.value && newTimezone.value);
     if(!base) return false;
+    if(usingDaily() && buildDaysPayload().error) return false;
     return newLocType === 'PHYSICAL' ? !!newAddress.value.trim() : !!newMeetingLink.value.trim();
   }
   function refreshCreateBtnState(){
@@ -701,6 +804,8 @@
     venueTemplateName.value = '';
     venueTemplateNameField.style.display = 'none';
     createError.style.display = 'none';
+    scheduleMode = 'DAILY';
+    refreshSchedule();
     refreshCreateBtnState();
   }
 
@@ -718,12 +823,23 @@
     newDescription.value = ev.description || '';
     var startParts = utcToZonedParts(ev.startAt, ev.timezone);
     var endParts = utcToZonedParts(ev.endAt, ev.timezone);
+    // A daily-sessions event shows its first day's hours as the daily
+    // start/end time; a single session shows its real start and end.
+    var daily = ev.days && ev.days.length > 1;
+    if(daily){
+      var lastDay = ev.days[ev.days.length - 1];
+      endParts = utcToZonedParts(lastDay.endAt, ev.timezone);
+      startParts = utcToZonedParts(ev.days[0].startAt, ev.timezone);
+      var firstEnd = utcToZonedParts(ev.days[0].endAt, ev.timezone);
+      var endTimeText = pad2(firstEnd.hh) + ':' + pad2(firstEnd.mm);
+    }
+    scheduleMode = daily ? 'DAILY' : 'CONTINUOUS';
     newStartDate.value = isoFromParts(startParts.y, startParts.m, startParts.d);
     newStartDateDisplay.value = formatDisplayParts(startParts.y, startParts.m, startParts.d);
     newStartTime.value = pad2(startParts.hh) + ':' + pad2(startParts.mm);
     newEndDate.value = isoFromParts(endParts.y, endParts.m, endParts.d);
     newEndDateDisplay.value = formatDisplayParts(endParts.y, endParts.m, endParts.d);
-    newEndTime.value = pad2(endParts.hh) + ':' + pad2(endParts.mm);
+    newEndTime.value = daily ? endTimeText : pad2(endParts.hh) + ':' + pad2(endParts.mm);
     newTimezone.value = ev.timezone;
     newLocType = ev.locationType; applyLocType();
     newAddress.value = ev.address || '';
@@ -734,6 +850,7 @@
     newLatitude.value = (ev.locationType === 'PHYSICAL' && ev.latitude != null) ? ev.latitude : '';
     newLongitude.value = (ev.locationType === 'PHYSICAL' && ev.longitude != null) ? ev.longitude : '';
     createError.style.display = 'none';
+    refreshSchedule();
     refreshCreateBtnState();
     formTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -763,6 +880,7 @@
       longitude: newLocType === 'PHYSICAL' && newLongitude.value ? Number(newLongitude.value) : null,
       meetingLink: newLocType === 'VIRTUAL' ? newMeetingLink.value.trim() : ''
     };
+    if(usingDaily()) payload.days = buildDaysPayload().days;
 
     createBtn.disabled = true;
     var req = editingEventId ? API.put('/api/admin/events/' + editingEventId, payload) : API.post('/api/admin/events', payload);
@@ -856,6 +974,13 @@
         nameTd.textContent = ev.name;
         var whenTd = document.createElement('td');
         whenTd.textContent = clientFormatEventWhen(ev.startAt, ev.endAt, ev.timezone);
+        if(ev.days && ev.days.length > 1){
+          var daysBadge = document.createElement('span');
+          daysBadge.className = 'badge days';
+          daysBadge.textContent = ev.days.length + ' days';
+          whenTd.appendChild(document.createElement('br'));
+          whenTd.appendChild(daysBadge);
+        }
         var whereTd = document.createElement('td');
         if(ev.locationType === 'VIRTUAL'){
           var virtualBadge = document.createElement('span');

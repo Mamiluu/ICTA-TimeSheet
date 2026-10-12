@@ -3,7 +3,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { dayIsOpen, dayOpensAt, dayClosesAt } from '../src/lib/days.js';
+import { dayIsOpen, dayOpensAt, dayClosesAt, parseDaySchedule, pickSigningDay } from '../src/lib/days.js';
 import { DAY_SIGN_OPENS_BEFORE_MS, DAY_SIGN_CLOSES_AFTER_MS } from '../src/lib/constants.js';
 
 const day = {
@@ -28,5 +28,37 @@ describe('day signing window', () => {
 
   test('is open during the day itself', () => {
     assert.equal(dayIsOpen(day, Date.parse('2026-10-05T08:00:00.000Z')), true);
+  });
+});
+
+const mk = (d) => ({ startAt: new Date(`2026-10-0${d}T06:00:00Z`), endAt: new Date(`2026-10-0${d}T14:00:00Z`) });
+
+describe('parseDaySchedule', () => {
+  test('accepts ordered, non-overlapping days', () => {
+    const r = parseDaySchedule([mk(2), mk(3), mk(4)].map((d) => ({ startAt: d.startAt.toISOString(), endAt: d.endAt.toISOString() })));
+    assert.equal(r.days.length, 3);
+  });
+  test('rejects empty, backwards, overlapping and oversized schedules', () => {
+    assert.ok(parseDaySchedule([]).error);
+    assert.ok(parseDaySchedule([{ startAt: '2026-10-02T10:00:00Z', endAt: '2026-10-02T09:00:00Z' }]).error);
+    assert.ok(parseDaySchedule([
+      { startAt: '2026-10-02T06:00:00Z', endAt: '2026-10-02T14:00:00Z' },
+      { startAt: '2026-10-02T13:00:00Z', endAt: '2026-10-02T15:00:00Z' }
+    ]).error);
+    assert.ok(parseDaySchedule(Array.from({ length: 32 }, () => ({}))).error);
+  });
+});
+
+describe('pickSigningDay', () => {
+  const days = [mk(2), mk(3), mk(4)];
+  test('picks the open day', () => {
+    assert.equal(pickSigningDay(days, Date.parse('2026-10-03T07:00:00Z')), days[1]);
+  });
+  test('before the event it is day 1, between days it is the latest started day', () => {
+    assert.equal(pickSigningDay(days, Date.parse('2026-09-30T07:00:00Z')), days[0]);
+    assert.equal(pickSigningDay(days, Date.parse('2026-10-03T20:00:00Z')), days[1]);
+  });
+  test('after the last day it is the last day', () => {
+    assert.equal(pickSigningDay(days, Date.parse('2026-10-08T07:00:00Z')), days[2]);
   });
 });

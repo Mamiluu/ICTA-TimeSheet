@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+﻿// Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
 // Proprietary and confidential. See LICENSE in the repository root.
 
 // Deliberately narrow in scope: this only exists so the sign-in page (a)
@@ -9,7 +9,7 @@
 // queue -- the Background Sync API this might otherwise reach for isn't
 // supported in Safari/iOS as of this writing, which is exactly the device
 // class a walk-in attendee is most likely holding.
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const SHELL_CACHE = 'icta-shell-' + CACHE_VERSION;
 const SHELL_URLS = ['index.html', 'assets/theme.css', 'assets/icta_logo_cropped.png', 'manifest.json'];
 

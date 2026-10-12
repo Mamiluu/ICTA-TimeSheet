@@ -14,7 +14,7 @@ import { writeAudit, verifyChain } from '../lib/audit.js';
 import { sendAttendanceConfirmationEmail } from '../lib/mailer.js';
 import { logger } from '../lib/logger.js';
 import { BRANDING } from '../lib/branding.js';
-import { dayIsOpen, dayOpensAt, dayClosesAt, ensureFirstDay } from '../lib/days.js';
+import { dayIsOpen, dayOpensAt, dayClosesAt, ensureFirstDay, pickSigningDay, anchorDayFor } from '../lib/days.js';
 import { SEAL_CODE_PATTERN, buildDaySnapshot, digestOf } from '../lib/seal.js';
 
 // Fire-and-forget, same discipline as writeAudit's own .catch(() => {})
@@ -403,7 +403,9 @@ publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, 
     return res.json({ ok: false, error: 'EVENT_FULL', message: 'This event has reached its maximum of ' + MAX_ATTENDANCE_PER_EVENT + ' attendees.' });
   }
 
-  const firstDay = await ensureFirstDay(event);
+  // A new person signs the day they actually arrived on, not always day 1.
+  await ensureFirstDay(event);
+  const signingDay = pickSigningDay(await prisma.eventDay.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } }));
   const signature = String(req.body.signature || '');
 
   try {
@@ -419,7 +421,7 @@ publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, 
         phoneNormalized,
         signature,
         photoVideoConsent: req.body.photoVideoConsent,
-        daySignatures: { create: { dayId: firstDay.id, signature } }
+        daySignatures: { create: { dayId: signingDay.id, signature } }
       }
     });
     sendConfirmationIfEmailed(row, event);
@@ -530,7 +532,7 @@ publicRouter.patch('/events/:slug/attendance/:clientId', attendanceLimiter, ah(a
     return res.json({ ok: false, error: 'MISSING_CONSENT', message: 'Please indicate whether you consent to being photographed/recorded before saving.' });
   }
   const emailNormalized = normalizeEmail(req.body.email);
-  const firstDay = await ensureFirstDay(event);
+  const firstDay = await anchorDayFor(existing.id, event);
   const signature = String(req.body.signature || '');
 
   try {
@@ -823,7 +825,7 @@ publicRouter.post('/signature-requests/:token', attendanceLimiter, ah(async (req
   if (result.count === 0) {
     return res.json({ ok: false, error: 'INVALID_TOKEN', message: 'This link has already been used.' });
   }
-  const firstDay = await ensureFirstDay(row.event);
+  const firstDay = await anchorDayFor(row.id, row.event);
   await prisma.sessionSignature.upsert({
     where: { attendanceId_dayId: { attendanceId: row.id, dayId: firstDay.id } },
     create: { attendanceId: row.id, dayId: firstDay.id, signature },

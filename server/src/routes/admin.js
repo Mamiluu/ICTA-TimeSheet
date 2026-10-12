@@ -9,6 +9,7 @@ import { newSealCode, digestOf, buildDaySnapshot } from '../lib/seal.js';
 import { eventSlugId, isValidMeetingLink } from '../lib/normalize.js';
 import { isValidTimeZone } from '../lib/timezone.js';
 import { ah } from '../lib/asyncHandler.js';
+import { parseDaySchedule } from '../lib/days.js';
 import { EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
 import { bucketByDay, countsByKey } from '../lib/analytics.js';
 import QRCode from 'qrcode';
@@ -92,6 +93,16 @@ export function validateEventFields(f) {
   return null;
 }
 
+// A body without `days` is the classic single-day event. With `days`, the
+// event's own startAt/endAt become the first day's start and the last day's
+// end, so every existing reader of those two columns keeps working.
+function resolveSchedule(body, f) {
+  if (body.days === undefined) return { days: [{ startAt: f.startAt, endAt: f.endAt }], startAt: f.startAt, endAt: f.endAt };
+  const parsed = parseDaySchedule(body.days);
+  if (parsed.error) return parsed;
+  return { days: parsed.days, startAt: parsed.days[0].startAt, endAt: parsed.days[parsed.days.length - 1].endAt };
+}
+
 adminRouter.get('/events', ah(async (req, res) => {
   const events = await prisma.event.findMany({
     // Each admin's dashboard lists only events they themselves created --
@@ -100,9 +111,12 @@ adminRouter.get('/events', ah(async (req, res) => {
     // mean they share each other's events.
     where: { county: req.user.county, ownerId: req.user.id, deletedAt: null },
     orderBy: { createdAt: 'desc' },
-    include: { _count: { select: { attendance: true } } }
+    include: {
+      _count: { select: { attendance: true } },
+      days: { orderBy: { position: 'asc' }, select: { position: true, startAt: true, endAt: true } }
+    }
   });
-  res.json({ ok: true, events: events.map((ev) => publicEvent(ev, ev._count.attendance)) });
+  res.json({ ok: true, events: events.map((ev) => ({ ...publicEvent(ev, ev._count.attendance), days: ev.days })) });
 }));
 
 // Aggregate-only: counts and day buckets, never a list of who's in them --
@@ -136,28 +150,31 @@ adminRouter.post('/events', ah(async (req, res) => {
   const f = requireEventFields(req.body);
   const err = validateEventFields(f);
   if (err) return res.status(400).json(err);
-  // The date picker already blocks past days client-side; this is the
-  // server-side backstop so the restriction can't be skipped by calling
-  // the API directly. Only enforced on create -- editing an event that
-  // already has a past start time (from before this check existed, or
+  // The date picker already blocks past days client-side; the check below
+  // is the server-side backstop so the restriction can't be skipped by
+  // calling the API directly. Only enforced on create -- editing an event
+  // that already has a past start time (from before this check existed, or
   // simply because it's already underway) must stay possible without
   // forcing its time to change.
-  if (f.startAt.getTime() < Date.now()) {
+  const sched = resolveSchedule(req.body, f);
+  if (sched.error) return res.status(400).json({ ok: false, error: 'INVALID_DAYS', message: sched.error });
+  const { days, startAt, endAt } = sched;
+  if (startAt.getTime() < Date.now()) {
     return res.status(400).json({ ok: false, error: 'PAST_DATE', message: 'Event start can\'t be in the past.' });
   }
 
   const event = await prisma.event.create({
     data: {
       slug: eventSlugId(f.name), name: f.name, description: f.description,
-      startAt: f.startAt, endAt: f.endAt, timezone: f.timezone,
+      startAt, endAt, timezone: f.timezone,
       locationType: f.locationType, address: f.address, latitude: f.latitude, longitude: f.longitude, meetingLink: f.meetingLink,
       county: req.user.county, ownerId: req.user.id,
-      days: { create: { position: 1, startAt: f.startAt, endAt: f.endAt } }
+      days: { create: days.map((d, i) => ({ position: i + 1, startAt: d.startAt, endAt: d.endAt })) }
     }
   });
   await writeAudit({
     actorId: req.user.id, action: 'EVENT_CREATE', targetType: 'Event', targetId: event.id,
-    metadata: { name: f.name, startAt: f.startAt, endAt: f.endAt, timezone: f.timezone, locationType: f.locationType, address: f.address, meetingLink: f.meetingLink },
+    metadata: { name: f.name, startAt, endAt, dayCount: days.length, timezone: f.timezone, locationType: f.locationType, address: f.address, meetingLink: f.meetingLink },
     req
   });
 
@@ -203,12 +220,34 @@ adminRouter.put('/events/:id', ah(async (req, res) => {
   const err = validateEventFields(f);
   if (err) return res.status(400).json(err);
 
+  const sched = resolveSchedule(req.body, f);
+  if (sched.error) return res.status(400).json({ ok: false, error: 'INVALID_DAYS', message: sched.error });
+
+  // Days are matched by position. A day that disappears from the schedule
+  // is only dropped if nobody signed it and no sheet was sealed for it --
+  // otherwise those signatures would be lost from the record.
+  const existingDays = await prisma.eventDay.findMany({
+    where: { eventId: event.id },
+    orderBy: { position: 'asc' },
+    include: { _count: { select: { signatures: true, seals: true } } }
+  });
+  const dropped = existingDays.filter((d) => d.position > sched.days.length);
+  const blocked = dropped.filter((d) => d._count.signatures > 0 || d._count.seals > 0);
+  if (blocked.length) {
+    const n = blocked.reduce((sum, d) => sum + d._count.signatures, 0);
+    return res.status(409).json({
+      ok: false,
+      error: 'DAYS_HAVE_SIGNATURES',
+      message: `Day ${blocked.map((d) => d.position).join(', ')} already has ${n} signature(s) or a sealed sheet, so it can't be removed. Keep those days in the schedule.`
+    });
+  }
+
   const before = {
     name: event.name, description: event.description, startAt: event.startAt, endAt: event.endAt,
     timezone: event.timezone, locationType: event.locationType, address: event.address, meetingLink: event.meetingLink
   };
   const after = {
-    name: f.name, description: f.description, startAt: f.startAt, endAt: f.endAt,
+    name: f.name, description: f.description, startAt: sched.startAt, endAt: sched.endAt,
     timezone: f.timezone, locationType: f.locationType, address: f.address, meetingLink: f.meetingLink
   };
   // latitude/longitude are a full replace too (kept out of the audit
@@ -217,14 +256,21 @@ adminRouter.put('/events/:id', ah(async (req, res) => {
   // update would leave a stale pin attached to whatever address used to
   // be here if this edit changed the address without re-picking a map
   // suggestion.
-  const updated = await prisma.event.update({
-    where: { id: event.id },
-    data: {
-      ...after,
-      latitude: f.latitude,
-      longitude: f.longitude,
-      days: { updateMany: { where: { position: 1 }, data: { startAt: f.startAt, endAt: f.endAt } } }
+  const have = new Set(existingDays.map((d) => d.position));
+  const updated = await prisma.$transaction(async (tx) => {
+    if (dropped.length) await tx.eventDay.deleteMany({ where: { id: { in: dropped.map((d) => d.id) } } });
+    for (const [i, d] of sched.days.entries()) {
+      const position = i + 1;
+      if (have.has(position)) {
+        await tx.eventDay.updateMany({ where: { eventId: event.id, position }, data: { startAt: d.startAt, endAt: d.endAt } });
+      } else {
+        await tx.eventDay.create({ data: { eventId: event.id, position, startAt: d.startAt, endAt: d.endAt } });
+      }
     }
+    return tx.event.update({
+      where: { id: event.id },
+      data: { ...after, latitude: f.latitude, longitude: f.longitude }
+    });
   });
   await writeAudit({
     actorId: req.user.id,

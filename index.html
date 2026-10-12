@@ -492,6 +492,8 @@
   .seal-block .seal-line{ overflow-wrap:anywhere; }
   .seal-block .seal-code{ font-family:ui-monospace, Consolas, monospace; letter-spacing:.12em; font-size:13px; margin:4px 0; }
   table.roster .day-strip{ display:flex; flex-wrap:wrap; justify-content:center; gap:4px; }
+  table.roster .day-strip-cell{ display:flex; flex-direction:column; align-items:center; }
+  table.roster .day-strip-date{ font-size:8.5px; color:var(--muted); line-height:1.2; }
   table.roster .day-strip-cell img{ max-height:24px; max-width:60px; display:block; }
   table.roster .day-strip-missing{ font-size:9px; color:var(--muted); align-self:center; }
 
@@ -2590,6 +2592,15 @@
     });
   }
 
+  // Short date caption (e.g. 02/10) so a printed multi-day sheet reads like
+  // a column header over each day's signature, in the event's own time zone.
+  function dayLabel(d){
+    var s = document.createElement('span');
+    s.className = 'day-strip-date';
+    s.textContent = new Intl.DateTimeFormat('en-GB', { timeZone: (state.meta && state.meta.timezone) || undefined, day: '2-digit', month: '2-digit' }).format(new Date(d.startAt));
+    return s;
+  }
+
   function buildDayStrip(row){
     var strip = document.createElement('div');
     strip.className = 'day-strip';
@@ -2599,13 +2610,15 @@
       if(sig){
         cell.className = 'day-strip-cell';
         cell.title = 'Day ' + (i + 1) + ' signature';
+        cell.appendChild(dayLabel(d));
         var im = document.createElement('img');
         im.src = sig.signature;
         im.alt = 'Day ' + (i + 1) + ' signature';
         cell.appendChild(im);
       } else {
         cell.className = 'day-strip-cell day-strip-missing';
-        cell.textContent = 'D' + (i + 1) + ' —';
+        cell.appendChild(dayLabel(d));
+        cell.appendChild(document.createTextNode('—'));
       }
       strip.appendChild(cell);
     });
