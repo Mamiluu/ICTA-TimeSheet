@@ -106,7 +106,13 @@ var AUDIT_ACTION_META = {
   ADMIN_ACTIVATION_LINK_VIEWED: { label: 'Viewed activation link', tone: 'neutral' },
   ADMIN_DISABLE: { label: 'Disabled admin', tone: 'danger' },
   ADMIN_REACTIVATE: { label: 'Reactivated admin', tone: 'positive' },
-  ADMIN_DELETE: { label: 'Deleted admin', tone: 'danger' }
+  ADMIN_DELETE: { label: 'Deleted admin', tone: 'danger' },
+  SHEET_SEALED: { label: 'Sealed sheet', tone: 'info' },
+  DAY_REOPENED: { label: 'Reopened a day', tone: 'warning' },
+  DAY_CHECKIN_BY_PHONE: { label: 'Phone check-in', tone: 'neutral' },
+  DAY_CHECKIN_DOOR: { label: 'Door check-in', tone: 'neutral' },
+  CERTIFICATE_ISSUED: { label: 'Certificate issued', tone: 'positive' },
+  CHAIN_ANCHORED: { label: 'Anchored audit trail', tone: 'info' }
 };
 
 var AUDIT_FIELD_LABELS = {
@@ -161,6 +167,19 @@ function auditSummary(e){
       return '“' + escapeHtml(m.name || '') + '”';
     case 'EVENT_ATTENDANCE_EXPORTED':
       return '“' + escapeHtml(m.name || '') + '” — ' + (m.rowCount != null ? m.rowCount : '?') + (m.rowCount === 1 ? ' record' : ' records');
+    case 'SHEET_SEALED': {
+      var sealDays = m.dayCount || 1;
+      return (sealDays > 1 ? 'All ' + sealDays + ' days' : 'The sheet') + (m.rowCount != null ? ' · ' + m.rowCount + (m.rowCount === 1 ? ' person' : ' people') : '');
+    }
+    case 'DAY_REOPENED':
+      return 'Day ' + (m.position || '?') + ' reopened for ' + (m.hours || '?') + ' hours';
+    case 'DAY_CHECKIN_BY_PHONE':
+    case 'DAY_CHECKIN_DOOR':
+      return 'Day ' + (m.position || '?');
+    case 'CERTIFICATE_ISSUED':
+      return (m.days || '?') + (m.days === 1 ? ' day' : ' days') + ' certified';
+    case 'CHAIN_ANCHORED':
+      return (m.entries != null ? m.entries : '?') + ' entries on record' + (m.sent != null ? ' · emailed to ' + m.sent : '');
     case 'ADMIN_CREATE':
       return escapeHtml(m.county || '');
     case 'ADMIN_DELETE':
