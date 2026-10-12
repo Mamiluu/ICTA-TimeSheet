@@ -5,11 +5,11 @@ import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { requireRole } from '../middleware/auth.js';
 import { writeAudit } from '../lib/audit.js';
-import { newSealCode, digestOf, buildDaySnapshot } from '../lib/seal.js';
+import { newSealCode, digestOf, buildDaySnapshot, buildEventSnapshot } from '../lib/seal.js';
 import { eventSlugId, isValidMeetingLink } from '../lib/normalize.js';
 import { isValidTimeZone } from '../lib/timezone.js';
 import { ah } from '../lib/asyncHandler.js';
-import { parseDaySchedule } from '../lib/days.js';
+import { resolveSchedule } from '../lib/days.js';
 import { EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
 import { bucketByDay, countsByKey } from '../lib/analytics.js';
 import QRCode from 'qrcode';
@@ -91,16 +91,6 @@ export function validateEventFields(f) {
     return { ok: false, error: 'INVALID_MEETING_LINK', message: 'Enter a valid meeting link (starting with http:// or https://).' };
   }
   return null;
-}
-
-// A body without `days` is the classic single-day event. With `days`, the
-// event's own startAt/endAt become the first day's start and the last day's
-// end, so every existing reader of those two columns keeps working.
-function resolveSchedule(body, f) {
-  if (body.days === undefined) return { days: [{ startAt: f.startAt, endAt: f.endAt }], startAt: f.startAt, endAt: f.endAt };
-  const parsed = parseDaySchedule(body.days);
-  if (parsed.error) return parsed;
-  return { days: parsed.days, startAt: parsed.days[0].startAt, endAt: parsed.days[parsed.days.length - 1].endAt };
 }
 
 adminRouter.get('/events', ah(async (req, res) => {
@@ -371,6 +361,40 @@ adminRouter.post('/events/:id/days/:dayId/seal', ah(async (req, res) => {
     ok: true,
     code,
     digest,
+    sealedAt: seal.createdAt,
+    verifyUrl: `${process.env.PUBLIC_APP_URL}/verify.html?code=${code}`
+  });
+}));
+
+// Seals every day of the event as one sheet with one code, the way the printed
+// multi-day sheet reads. The per-day route above stays for older callers.
+adminRouter.post('/events/:id/seal', ah(async (req, res) => {
+  const event = await findOwnEvent(req);
+  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+  const days = await prisma.eventDay.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } });
+  if (!days.length) return res.status(400).json({ ok: false, error: 'NO_DAYS', message: 'This event has no day to seal.' });
+
+  const snapshot = await buildEventSnapshot(event, days);
+  const digest = digestOf(snapshot);
+  const code = newSealCode();
+  const seal = await prisma.sheetSeal.create({
+    data: { id: code, eventId: event.id, dayId: null, digest, snapshot, sealedById: req.user.id }
+  });
+  await writeAudit({
+    actorId: req.user.id,
+    action: 'SHEET_SEALED',
+    targetType: 'SheetSeal',
+    targetId: code,
+    metadata: { digest, eventId: event.id, scope: 'EVENT', dayCount: days.length, rowCount: snapshot.days[0].rows.length },
+    req
+  });
+
+  res.json({
+    ok: true,
+    code,
+    digest,
+    dayCount: days.length,
     sealedAt: seal.createdAt,
     verifyUrl: `${process.env.PUBLIC_APP_URL}/verify.html?code=${code}`
   });

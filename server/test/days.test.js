@@ -3,7 +3,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { dayIsOpen, dayOpensAt, dayClosesAt, parseDaySchedule, pickSigningDay } from '../src/lib/days.js';
+import { dayIsOpen, dayOpensAt, dayClosesAt, parseDaySchedule, pickSigningDay, resolveSchedule } from '../src/lib/days.js';
 import { DAY_SIGN_OPENS_BEFORE_MS, DAY_SIGN_CLOSES_AFTER_MS } from '../src/lib/constants.js';
 
 const day = {
@@ -60,5 +60,29 @@ describe('pickSigningDay', () => {
   });
   test('after the last day it is the last day', () => {
     assert.equal(pickSigningDay(days, Date.parse('2026-10-08T07:00:00Z')), days[2]);
+  });
+});
+
+describe('single-day events', () => {
+  const f = { startAt: new Date('2026-10-05T06:00:00Z'), endAt: new Date('2026-10-05T10:00:00Z') };
+
+  test('a body with no days becomes exactly one day with the event times', () => {
+    const s = resolveSchedule({}, f);
+    assert.equal(s.days.length, 1);
+    assert.equal(s.startAt, f.startAt);
+    assert.equal(s.endAt, f.endAt);
+  });
+
+  test('an explicit one-day list behaves the same', () => {
+    const s = resolveSchedule({ days: [{ startAt: f.startAt.toISOString(), endAt: f.endAt.toISOString() }] }, f);
+    assert.equal(s.days.length, 1);
+    assert.equal(s.endAt.toISOString(), f.endAt.toISOString());
+  });
+
+  test('the only day is always the one picked for signing, before, during and after', () => {
+    const only = [{ startAt: f.startAt, endAt: f.endAt }];
+    for (const now of ['2026-10-01T00:00:00Z', '2026-10-05T07:00:00Z', '2026-10-20T00:00:00Z']) {
+      assert.equal(pickSigningDay(only, Date.parse(now)), only[0]);
+    }
   });
 });

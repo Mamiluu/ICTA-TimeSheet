@@ -869,6 +869,8 @@
     <div class="dp-title">Sign the other days</div>
     <div class="dp-sub">This event runs over several days. Your entry covers all of them, so sign each day while it is open.</div>
     <ul class="dp-list" id="daysList"></ul>
+    <button type="button" class="dp-btn" id="passQrBtn" style="margin-top:10px;">Show my pass QR</button>
+    <img id="passQrImg" alt="Your personal pass QR code" width="180" height="180" style="display:none;margin-top:8px;">
   </div>
 
   <div class="days-panel" id="returningPanel">
@@ -2460,7 +2462,7 @@
       .then(function(d){
         if(d && d.ok){
           var verifyUrl = window.location.origin + '/verify.html?code=' + sealCode;
-          document.getElementById('sealDay').textContent = 'Day ' + d.dayPosition + ' of ' + d.eventName;
+          document.getElementById('sealDay').textContent = (d.scope === 'EVENT' ? (d.dayCount > 1 ? 'All ' + d.dayCount + ' days of ' : '') : 'Day ' + d.dayPosition + ' of ') + d.eventName;
           document.getElementById('sealWhen').textContent = 'Sealed ' + new Date(d.sealedAt).toLocaleString();
           document.getElementById('sealCodeText').textContent = sealCode;
           document.getElementById('sealVerify').textContent = 'Verify at ' + verifyUrl;
@@ -2864,7 +2866,45 @@
   ensureDraftRow();
   render();
 
-  loadRemote();
+  // A personal-pass link from the receipt email (?pass=<id>) lets someone
+  // continue on a different phone: the id is the same proof of ownership the
+  // original browser holds, so presenting it re-attaches that entry here.
+  // It is removed from the address bar straight away.
+  function claimPass(){
+    var m = /(?:^|[?&])pass=([0-9A-Za-z-]{8,64})(?:&|$)/.exec(location.search);
+    if(!m) return Promise.resolve();
+    var passId = m[1];
+    try{ history.replaceState(null, '', location.pathname + location.search.replace(/([?&])pass=[^&]*&?/, '$1').replace(/[?&]$/, '')); }catch(e){}
+    return fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/my-attendance', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientIds: [passId] })
+    }).then(function(res){ return res.json(); }).then(function(d){
+      if(!d || !d.ok || !d.rows || !d.rows.length) return;
+      var rr = d.rows[0];
+      if(state.rows.some(function(r){ return r.id === rr.id; })) return;
+      state.rows = state.rows.filter(function(r){ return !r.submitted; });
+      state.rows.unshift(toLocalRow(rr, {}, {}));
+      save();
+    }).catch(function(){});
+  }
+
+  // Shows this attendee's own pass as a QR, to scan on another phone or show
+  // an organiser. Fetched by POST so the secret id never sits in a URL.
+  var passQrBtn = document.getElementById('passQrBtn');
+  var passQrImg = document.getElementById('passQrImg');
+  if(passQrBtn) passQrBtn.addEventListener('click', function(){
+    var own = state.rows.find(function(r){ return r.submitted && r.clientId; });
+    if(!own) return;
+    if(passQrImg.style.display === 'block'){ passQrImg.style.display = 'none'; passQrBtn.textContent = 'Show my pass QR'; return; }
+    fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/pass-qr', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId: own.clientId })
+    }).then(function(res){ if(!res.ok) throw new Error(); return res.blob(); }).then(function(b){
+      passQrImg.src = URL.createObjectURL(b);
+      passQrImg.style.display = 'block';
+      passQrBtn.textContent = 'Hide pass QR';
+    }).catch(function(){ alert('Could not load your pass right now.'); });
+  });
+
+  claimPass().then(function(){ ensureDraftRow(); render(); loadRemote(); });
   setInterval(loadRemote, POLL_INTERVAL_MS);
 
   // A fixed poll interval can't feel instant for someone actively

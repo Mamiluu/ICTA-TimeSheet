@@ -58,3 +58,42 @@ export async function buildDaySnapshot(event, day) {
     })
   };
 }
+
+// One seal for the whole event: every day's sheet in a single snapshot, so a
+// multi-day attendance sheet prints with one code, like the paper original.
+export function assembleEventSnapshot(event, daySnapshots) {
+  return {
+    scope: 'EVENT',
+    eventId: event.id,
+    eventName: event.name,
+    days: daySnapshots.map((d) => ({
+      dayPosition: d.dayPosition,
+      dayStartAt: d.dayStartAt,
+      dayEndAt: d.dayEndAt,
+      rows: d.rows
+    }))
+  };
+}
+
+export async function buildEventSnapshot(event, days) {
+  const ordered = [...days].sort((a, b) => a.position - b.position);
+  const snaps = [];
+  for (const day of ordered) snaps.push(await buildDaySnapshot(event, day));
+  return assembleEventSnapshot(event, snaps);
+}
+
+// What the public verify page may show about a stored snapshot: counts only.
+// Works for both the older one-day seals and whole-event seals.
+export function summarizeSnapshot(snapshot) {
+  const days = snapshot.scope === 'EVENT'
+    ? snapshot.days
+    : [{ dayPosition: snapshot.dayPosition, rows: snapshot.rows }];
+  return {
+    scope: snapshot.scope === 'EVENT' ? 'EVENT' : 'DAY',
+    days: days.map((d) => ({
+      position: d.dayPosition,
+      rowCount: d.rows.length,
+      signedCount: d.rows.filter((r) => r.signed).length
+    }))
+  };
+}

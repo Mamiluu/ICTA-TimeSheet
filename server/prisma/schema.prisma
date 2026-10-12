@@ -149,8 +149,9 @@ model SheetSeal {
   id         String    @id
   eventId    String
   event      Event     @relation(fields: [eventId], references: [id], onDelete: Restrict)
-  dayId      String
-  day        EventDay  @relation(fields: [dayId], references: [id], onDelete: Restrict)
+  // Null for a whole-event seal covering every day (snapshot.scope = EVENT).
+  dayId      String?
+  day        EventDay? @relation(fields: [dayId], references: [id], onDelete: Restrict)
   digest     String
   snapshot   Json
   sealedById String?

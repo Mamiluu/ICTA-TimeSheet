@@ -90,11 +90,13 @@
       var dl = document.createElement('dl');
       [
         ['Event', data.eventName],
-        ['Day', 'Day ' + data.dayPosition],
+        ['Covers', data.scope === 'EVENT' ? (data.dayCount > 1 ? 'All ' + data.dayCount + ' days' : 'The whole sheet') : 'Day ' + data.dayPosition],
         ['Sealed', new Date(data.sealedAt).toLocaleString()],
-        ['People listed', String(data.rowCount)],
-        ['Signed on this day', String(data.signedCount)]
-      ].forEach(function(pair){
+        ['People listed', String(data.rowCount)]
+      ].concat(data.scope === 'EVENT' && data.dayCount > 1
+        ? data.days.map(function(d){ return ['Day ' + d.position, d.signedCount + ' of ' + d.rowCount + ' signed']; })
+        : [['Signed', String(data.signedCount)]]
+      ).forEach(function(pair){
         var dt = document.createElement('dt'); dt.textContent = pair[0];
         var dd = document.createElement('dd'); dd.textContent = pair[1];
         dl.appendChild(dt); dl.appendChild(dd);

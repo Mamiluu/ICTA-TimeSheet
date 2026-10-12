@@ -3,7 +3,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { newSealCode, digestOf, SEAL_CODE_PATTERN } from '../src/lib/seal.js';
+import { newSealCode, digestOf, SEAL_CODE_PATTERN, assembleEventSnapshot, summarizeSnapshot } from '../src/lib/seal.js';
 
 const snapshot = {
   eventId: 'e1',
@@ -45,5 +45,35 @@ describe('sheet seals', () => {
     const altered = structuredClone(snapshot);
     altered.rows.pop();
     assert.notEqual(digestOf(altered), digestOf(snapshot));
+  });
+});
+
+describe('whole-event seals', () => {
+  const day = (n, signedB) => ({
+    dayPosition: n, dayStartAt: `2026-10-0${n}T06:00:00.000Z`, dayEndAt: `2026-10-0${n}T14:00:00.000Z`,
+    rows: [
+      { attendanceId: 'a1', signed: true, signatureSha256: 'aa' },
+      { attendanceId: 'a2', signed: signedB, signatureSha256: signedB ? 'bb' : null }
+    ]
+  });
+  const event = { id: 'e1', name: 'Workshop' };
+
+  test('summary reports per-day counts and no personal data', () => {
+    const snap = assembleEventSnapshot(event, [day(1, true), day(2, false)]);
+    assert.deepEqual(summarizeSnapshot(snap), {
+      scope: 'EVENT',
+      days: [{ position: 1, rowCount: 2, signedCount: 2 }, { position: 2, rowCount: 2, signedCount: 1 }]
+    });
+  });
+
+  test('altering one day changes the event digest', () => {
+    const a = digestOf(assembleEventSnapshot(event, [day(1, true), day(2, true)]));
+    const b = digestOf(assembleEventSnapshot(event, [day(1, true), day(2, false)]));
+    assert.notEqual(a, b);
+  });
+
+  test('older one-day snapshots still summarise', () => {
+    assert.equal(summarizeSnapshot(snapshot).scope, 'DAY');
+    assert.equal(summarizeSnapshot(snapshot).days[0].signedCount, 1);
   });
 });

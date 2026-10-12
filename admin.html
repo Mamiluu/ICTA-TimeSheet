@@ -1154,59 +1154,32 @@
     });
   }
 
-  // Sealing records a snapshot of one day's sheet. It is an organiser's
-  // statement at a point in time, so it asks for confirmation and is not
-  // undoable; the printed sheet then carries the code that the public
-  // verification page checks.
+  // Sealing records a snapshot of the whole sheet, every day at once, under
+  // one code. It is an organiser's statement at a point in time, so it asks
+  // for confirmation and is not undoable; the printed sheet then carries the
+  // code that the public verification page checks.
   function sealEventDay(ev, btn){
-    btn.disabled = true;
-    API.get('/api/admin/events/' + ev.id + '/attendance').then(function(r){
-      btn.disabled = false;
-      if(!r.data.ok){
-        window.alert(r.data.message || 'Could not load this event to seal it.');
-        return;
-      }
-      var days = r.data.days || [];
-      if(!days.length){
-        window.alert('This event has no day to seal.');
-        return;
-      }
-      var day = days[0];
-      if(days.length > 1){
-        var answer = window.prompt('Which day should be sealed? Enter a number from 1 to ' + days.length + '.', '1');
-        if(answer === null) return;
-        var n = parseInt(answer, 10);
-        if(!(n >= 1 && n <= days.length)){
-          window.alert('Please enter a day number from 1 to ' + days.length + '.');
-          return;
-        }
-        day = days[n - 1];
-      }
-      var dayLabel = 'Day ' + day.position + ' (' + new Date(day.startAt).toLocaleDateString() + ')';
-      if(!window.confirm('Seal ' + dayLabel + ' of "' + ev.name + '"? The seal records the sheet as it is right now. Later sign-ins or edits are allowed, and the verification page will show that the record changed after sealing.')) return;
+    var n = (ev.days && ev.days.length) || 1;
+    var scope = n > 1 ? 'all ' + n + ' days' : 'the sheet';
+    if(!window.confirm('Seal ' + scope + ' of "' + ev.name + '"? The seal records the sheet as it is right now. Later sign-ins or edits are allowed, and the verification page will show that the record changed after sealing.')) return;
 
-      btn.disabled = true;
-      API.post('/api/admin/events/' + ev.id + '/days/' + day.id + '/seal').then(function(sr){
-        btn.disabled = false;
-        if(!sr.data.ok){
-          window.alert(sr.data.message || 'Could not seal this day.');
-          return;
-        }
-        var code = sr.data.code;
-        var printNow = window.confirm('Sealed ' + dayLabel + '.\n\nSeal code: ' + code + '\nVerify at: ' + sr.data.verifyUrl + '\n\nPrint this day now with the seal code on it?');
-        if(printNow){
-          window.open(attendeePageUrl() + '?event=' + encodeURIComponent(ev.slug) + '&print=1&seal=' + encodeURIComponent(code), '_blank');
-        }
-      }).catch(function(){
-        btn.disabled = false;
-        window.alert('Network error — could not reach the backend.');
-      });
+    btn.disabled = true;
+    API.post('/api/admin/events/' + ev.id + '/seal').then(function(sr){
+      btn.disabled = false;
+      if(!sr.data.ok){
+        window.alert(sr.data.message || 'Could not seal this sheet.');
+        return;
+      }
+      var code = sr.data.code;
+      var printNow = window.confirm('Sealed ' + scope + '.\n\nSeal code: ' + code + '\nVerify at: ' + sr.data.verifyUrl + '\n\nPrint the sheet now with the seal code on it?');
+      if(printNow){
+        window.open(attendeePageUrl() + '?event=' + encodeURIComponent(ev.slug) + '&print=1&seal=' + encodeURIComponent(code), '_blank');
+      }
     }).catch(function(){
       btn.disabled = false;
       window.alert('Network error — could not reach the backend.');
     });
   }
-
   function deleteEvent(ev, deleteBtn){
     var warning = ev.count > 0
       ? 'Delete "' + ev.name + '"? It already has ' + ev.count + ' submitted attendance record(s) — they will remain on record but this event will no longer be listed. This cannot be undone.'

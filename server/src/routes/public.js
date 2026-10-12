@@ -16,7 +16,7 @@ import { logger } from '../lib/logger.js';
 import { BRANDING } from '../lib/branding.js';
 import { dayIsOpen, dayOpensAt, dayClosesAt, ensureFirstDay, pickSigningDay, anchorDayFor } from '../lib/days.js';
 import { maskName } from '../lib/mask.js';
-import { SEAL_CODE_PATTERN, buildDaySnapshot, digestOf } from '../lib/seal.js';
+import { SEAL_CODE_PATTERN, buildDaySnapshot, buildEventSnapshot, summarizeSnapshot, digestOf } from '../lib/seal.js';
 
 // Fire-and-forget, same discipline as writeAudit's own .catch(() => {})
 // below: a Brevo outage or a malformed address must never fail the
@@ -35,6 +35,7 @@ function sendConfirmationIfEmailed(row, event, day, dayCount, recordedAt) {
     endAt: day ? day.endAt : event.endAt,
     dayPosition: day ? day.position : undefined,
     dayCount,
+    passUrl: dayCount > 1 ? `${process.env.PUBLIC_APP_URL}/index.html?event=${encodeURIComponent(event.slug)}&pass=${encodeURIComponent(row.clientId)}` : undefined,
     timezone: event.timezone,
     locationType: event.locationType,
     address: event.address,
@@ -312,15 +313,23 @@ publicRouter.get('/seals/:code', attendanceLimiter, ah(async (req, res) => {
   const auditEntry = await prisma.auditLog.findFirst({
     where: { action: 'SHEET_SEALED', targetType: 'SheetSeal', targetId: seal.id }
   });
-  const live = await buildDaySnapshot(seal.event, seal.day);
+  // A whole-event seal has no single day; compare against every day as it is
+  // now, so a change on any day shows as "changed since sealed".
+  const live = seal.day
+    ? await buildDaySnapshot(seal.event, seal.day)
+    : await buildEventSnapshot(seal.event, await prisma.eventDay.findMany({ where: { eventId: seal.eventId } }));
+  const summary = summarizeSnapshot(seal.snapshot);
 
   res.json({
     ok: true,
     sealedAt: seal.createdAt,
     eventName: seal.event.name,
-    dayPosition: seal.day.position,
-    rowCount: seal.snapshot.rows.length,
-    signedCount: seal.snapshot.rows.filter((r) => r.signed).length,
+    scope: summary.scope,
+    days: summary.days,
+    dayCount: summary.days.length,
+    dayPosition: seal.day ? seal.day.position : null,
+    rowCount: summary.days[0].rowCount,
+    signedCount: summary.days.reduce((n, d) => n + d.signedCount, 0),
     recordMatchesSeal: digestOf(seal.snapshot) === seal.digest,
     auditTrailIntact: !!auditEntry && verifyChain([auditEntry])[0],
     changedSinceSealed: digestOf(live) !== seal.digest
@@ -506,6 +515,21 @@ publicRouter.post('/events/:slug/days/:dayId/signatures', attendanceLimiter, ah(
   }
 }));
 
+// Renders the QR for an attendee's own pass link. POST so the secret id never
+// lands in a URL, an access log or a referrer. Whoever holds the clientId
+// already holds the pass, so this reveals nothing new.
+publicRouter.post('/events/:slug/pass-qr', attendanceLimiter, ah(async (req, res) => {
+  const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
+  if (!event || event.deletedAt) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const clientId = String(req.body.clientId || '');
+  const row = clientId ? await prisma.attendance.findUnique({ where: { eventId_clientId: { eventId: event.id, clientId } }, select: { id: true } }) : null;
+  if (!row) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const url = `${process.env.PUBLIC_APP_URL}/index.html?event=${encodeURIComponent(event.slug)}&pass=${encodeURIComponent(clientId)}`;
+  const png = await QRCode.toBuffer(url, { width: 220, margin: 1 });
+  res.set('Content-Type', 'image/png');
+  res.set('Cache-Control', 'no-store');
+  res.send(png);
+}));
 // Emails the attendee a receipt naming the day just recorded. Fire-and-forget
 // like the first sign-in's receipt: the signature is already saved.
 async function notifyDaySigned(attendee, event, day, sig) {

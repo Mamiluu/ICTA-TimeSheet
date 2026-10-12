@@ -123,7 +123,7 @@ export async function sendAttendanceConfirmationEmail(toEmail, details) {
   const {
     name, eventName, eventDescription, startAt, endAt, timezone,
     locationType, address, meetingLink, county, recordId, recordedAt,
-    dayPosition, dayCount
+    dayPosition, dayCount, passUrl
   } = details;
   // Set only for a multi-day event: the receipt then names the day it covers
   // and shows that day's own hours instead of the whole date range.
@@ -202,6 +202,7 @@ export async function sendAttendanceConfirmationEmail(toEmail, details) {
       </div>
     </div>
 
+    ${passUrl && dayCount > 1 ? `<p style="margin:18px 8px 0;font-size:12px;line-height:1.6;color:#555;">Signing the next day on a different phone? <a href="${escapeHtml(passUrl)}" style="color:${BRAND.accent};font-weight:700;">Open your personal pass</a> on that phone. Keep this email private: anyone with the link can sign in as you.</p>` : ''}
     <p style="margin:18px 8px 0;font-size:11px;line-height:1.6;color:#888;">Didn't check in for this event? No action is needed — you can ignore this email. Spotted a typo in your entry? Return to the device and browser you signed in on and tap Edit next to your row; this record can't be edited from email.</p>
     <p style="margin:14px 8px 0;font-size:11px;color:#999;">© 2026 Asya Hafidh. All rights reserved.</p>
   </div>

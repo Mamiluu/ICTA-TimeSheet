@@ -36,6 +36,16 @@ export function parseDaySchedule(input) {
   return { days };
 }
 
+// A body without `days` is the classic single-day event. With `days`, the
+// event's own startAt/endAt become the first day's start and the last day's
+// end, so every existing reader of those two columns keeps working.
+export function resolveSchedule(body, f) {
+  if (body.days === undefined) return { days: [{ startAt: f.startAt, endAt: f.endAt }], startAt: f.startAt, endAt: f.endAt };
+  const parsed = parseDaySchedule(body.days);
+  if (parsed.error) return parsed;
+  return { days: parsed.days, startAt: parsed.days[0].startAt, endAt: parsed.days[parsed.days.length - 1].endAt };
+}
+
 // Which day a brand-new sign-in belongs to. The day whose window is open wins
 // (the later one if two windows overlap); before the event starts it is the
 // first day; between or after days it is the day that most recently started,
