@@ -238,3 +238,6 @@ body{ background:#f3f4f6; }
 .app-main .pill.closing-soon{ background:var(--c-warn-wash); color:var(--c-warn); }
 .app-main .pill.closed{ background:#eef0f3; color:var(--c-muted); }
 .app-main .pill.days{ background:var(--c-accent-wash); color:var(--c-accent-dark); }
+.app-main .pill.active{ background:var(--c-ok-wash); color:var(--c-ok); }
+.app-main .pill.pending{ background:var(--c-warn-wash); color:var(--c-warn); }
+.app-main .pill.disabled{ background:var(--c-accent-wash); color:var(--c-accent-dark); }

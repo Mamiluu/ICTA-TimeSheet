@@ -28,6 +28,7 @@
   .meter-line span:last-child{ color:var(--c-muted); }
 
   /* Admin rows */
+  .list-note{ font-size:13px; color:var(--c-muted); margin:12px 2px 0; }
   .adm-list{ display:flex; flex-direction:column; gap:10px; margin-top:14px; }
   .adm-row{
     display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto; gap:12px 20px; align-items:center;
@@ -487,7 +488,7 @@
     var list = el('div', 'adm-list');
     shown.forEach(function(a){ list.appendChild(buildAdminRow(a)); });
     adminsWrap.appendChild(list);
-    adminsWrap.appendChild(el('p', 'ev-count-note', shown.length === adminsCache.length ? shown.length + ' admins' : shown.length + ' of ' + adminsCache.length + ' admins'));
+    adminsWrap.appendChild(el('p', 'list-note', shown.length === adminsCache.length ? shown.length + ' admins' : shown.length + ' of ' + adminsCache.length + ' admins'));
   }
   adminSearch.addEventListener('input', renderAdmins);
   adminFilter.addEventListener('change', renderAdmins);
