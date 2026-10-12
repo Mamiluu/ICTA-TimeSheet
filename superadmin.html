@@ -5,17 +5,81 @@
   Unauthorized copying, modification, or distribution is prohibited.
 -->
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="apple-touch-icon" href="assets/icta_logo_cropped.png">
 <link rel="icon" href="assets/icta_logo_cropped.png">
 <title>ICT Authority : Super Admin</title>
 <link rel="stylesheet" href="assets/theme.css">
+<link rel="stylesheet" href="assets/shell.css">
 <style>
-  .topbar{ width:100%; max-width:900px; display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
-  .topbar .who{ font-size:12.5px; color:#666; }
-  .cap-indicator{ font-size:13px; font-weight:600; margin-bottom:12px; }
-  .cap-indicator.full{ color:var(--accent); }
-  .audit-back{ margin-bottom:12px; }
-  .audit-meta{ font-size:12px; color:#666; margin-bottom:2px; }
+  .badge-count{ margin-left:auto; font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:#262b36; color:#c9cfdb; font-variant-numeric:tabular-nums; }
+  .nav-item.active .badge-count{ background:rgba(255,255,255,.14); color:#fff; }
+
+  .toolbar-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .toolbar-row input[type=search]{ flex:1 1 240px; min-width:0; }
+  .toolbar-row select{ width:auto; min-width:150px; margin:0; }
+  .toolbar-row .spacer{ flex:1; }
+
+  /* Slot meter: how many of the pilot's county-admin places are taken */
+  .meter{ height:8px; border-radius:999px; background:#eceef2; overflow:hidden; }
+  .meter > span{ display:block; height:100%; background:var(--c-ok); border-radius:999px; transition:width .3s ease; }
+  .meter.full > span{ background:var(--c-accent); }
+  .meter-line{ display:flex; justify-content:space-between; font-size:13px; margin-bottom:8px; }
+  .meter-line span:last-child{ color:var(--c-muted); }
+
+  /* Admin rows */
+  .adm-list{ display:flex; flex-direction:column; gap:10px; margin-top:14px; }
+  .adm-row{
+    display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto; gap:12px 20px; align-items:center;
+    padding:14px 16px; border:1px solid var(--c-line); border-radius:var(--r-md); background:#fff;
+    transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .adm-row:hover{ border-color:var(--c-line-strong); box-shadow:0 3px 12px rgba(20,24,34,.07); }
+  .adm-who{ display:flex; align-items:center; gap:12px; min-width:0; }
+  .adm-avatar{ flex:none; width:38px; height:38px; border-radius:50%; background:#eef0f4; color:#434a5a; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; }
+  .adm-row.is-pending .adm-avatar{ background:var(--c-warn-wash); color:var(--c-warn); }
+  .adm-row.is-disabled .adm-avatar{ background:#f1f1f3; color:#9aa1af; }
+  .adm-email{ font-weight:700; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .adm-county{ font-size:13px; color:var(--c-muted); }
+  .adm-state{ display:flex; flex-direction:column; align-items:flex-start; gap:5px; font-size:12.5px; color:var(--c-muted); }
+  .adm-actions{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+  .adm-actions button{ margin:0; }
+  .adm-actions .ev-menu{ left:auto; right:0; }
+  @media (max-width: 820px){
+    .adm-row{ grid-template-columns:1fr; }
+    .adm-actions{ justify-content:flex-start; }
+    .adm-actions .ev-menu{ left:0; right:auto; }
+  }
+
+  /* County table with an inline bar so the biggest counties read at a glance */
+  .county-cell{ display:flex; align-items:center; gap:10px; }
+  .county-bar{ flex:1; height:8px; border-radius:999px; background:#eceef2; overflow:hidden; min-width:60px; }
+  .county-bar > span{ display:block; height:100%; background:var(--c-accent); opacity:.75; border-radius:999px; }
+  .app-main table.county-table td.num, .app-main table.county-table th.num{ text-align:right; font-variant-numeric:tabular-nums; }
+
+  /* Audit */
+  .filter-chip{ display:inline-flex; align-items:center; gap:8px; font-size:12.5px; padding:5px 6px 5px 12px; border-radius:999px; background:var(--c-accent-wash); color:var(--c-accent-dark); font-weight:600; }
+  .filter-chip button{ margin:0; border:0; background:rgba(0,0,0,.08); color:inherit; width:20px; height:20px; padding:0; border-radius:50%; font-size:12px; line-height:1; }
+  .pager{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:14px; font-size:13px; color:var(--c-muted); flex-wrap:wrap; }
+  .pager .nav{ display:flex; gap:8px; }
+  .pager button{ margin:0; }
+
+  /* Integrity */
+  .tile-row{ display:flex; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
+  .anchor-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start; }
+  .anchor-row input{ flex:1; min-width:240px; font-family:Consolas, "Courier New", monospace; margin-bottom:0; }
+  .result-box{ margin:14px 0 0; padding:12px 14px; border-radius:var(--r-md); font-size:13.5px; line-height:1.5; display:none; }
+  .result-box.show{ display:block; }
+  .result-box.ok{ background:var(--c-ok-wash); border:1px solid #b7e0c7; color:#084d27; }
+  .result-box.bad{ background:var(--c-accent-wash); border:1px solid #f3b9c3; color:#7a0a1e; }
+  .result-box.info{ background:var(--c-soft); border:1px solid var(--c-line); color:var(--c-text); }
+
+  .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:0 16px; }
+  @media (max-width: 640px){ .form-grid{ grid-template-columns:1fr; } }
+  .help{ font-size:13px; color:var(--c-muted); margin:0 0 16px; line-height:1.55; max-width:70ch; }
+  .note{ font-size:13px; padding:11px 14px; border-radius:var(--r-md); margin-top:14px; }
+  .note.ok{ background:var(--c-ok-wash); border:1px solid #b7e0c7; color:#084d27; }
+  .note.err{ background:var(--c-accent-wash); border:1px solid #f3b9c3; color:#7a0a1e; }
 </style>
 
 <div class="preloader" id="preloader" role="status" aria-live="polite" aria-label="Loading">
@@ -44,64 +108,150 @@
   })();
 </script>
 
-<div class="topbar">
-  <div><strong id="brandTopbarTitle">ICT Authority : Super Admin</strong></div>
-  <div class="who">
-    <span id="whoEmail"></span>
-    <button id="logoutBtn" style="margin-left:10px;">Log out</button>
+<div class="app-shell">
+  <div class="mobilebar">
+    <button type="button" id="navToggle" aria-label="Open menu" aria-expanded="false">&#9776;</button>
+    <strong id="viewTitleMobile">Overview</strong>
   </div>
-</div>
+  <div class="nav-scrim" id="navScrim"></div>
 
-<div class="sheet wide" id="createPanel">
-  <h2 class="section">Create a county admin</h2>
-  <div class="cap-indicator" id="capIndicator"></div>
-  <div class="row">
-    <div>
-      <label for="newEmail">Admin email (Gmail)</label>
-      <input type="email" id="newEmail" placeholder="admin@example.com">
+  <aside class="sidenav" id="sidenav" aria-label="Super admin menu">
+    <div class="side-brand">
+      <img src="assets/icta_logo_cropped.png" alt="" width="30" height="30">
+      <div><strong id="brandTopbarTitle">ICT Authority : Super Admin</strong></div>
     </div>
-    <div>
-      <label for="newCounty">County</label>
-      <select id="newCounty"><option value="">Select a county…</option></select>
+    <div class="side-user">
+      <span class="avatar" id="userAvatar">S</span>
+      <div><div class="who-email" id="whoEmail"></div><div class="who-county">Super admin</div></div>
     </div>
-  </div>
-  <button class="primary" id="createBtn">Create admin &amp; send activation email</button>
-  <p class="error" id="createError" style="display:none;"></p>
-  <p class="notice ok" id="createSuccess" style="display:none;"></p>
-</div>
+    <nav>
+      <div class="nav-group">Main</div>
+      <a class="nav-item" href="#overview" data-nav="overview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></svg><span>Overview</span></a>
+      <a class="nav-item" href="#admins" data-nav="admins"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>County admins</span><span class="badge-count" id="adminCountBadge" hidden></span></a>
+      <div class="nav-group">Manage</div>
+      <a class="nav-item" href="#add" data-nav="add"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 8v8M8 12h8"/></svg><span>Add admin</span></a>
+      <div class="nav-group">Security</div>
+      <a class="nav-item" href="#audit" data-nav="audit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Audit trail</span></a>
+      <a class="nav-item" href="#integrity" data-nav="integrity"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8.3-8 9-4.8-.7-8-4.5-8-9V6l8-3zM9 12l2 2 4-4"/></svg><span>Integrity</span></a>
+      <div class="nav-group">Settings</div>
+      <a class="nav-item" href="#profile" data-nav="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Profile</span></a>
+    </nav>
+    <button type="button" id="logoutBtn" class="side-logout">Log out</button>
+  </aside>
 
-<div class="sheet wide" id="insightsPanel">
-  <h2 class="section">Platform insights</h2>
-  <div id="insightsWrap"><p class="empty">Loading…</p></div>
-</div>
+  <main class="app-main" id="adminContent">
+    <h1 class="view-title" id="viewTitle">Overview</h1>
 
-<div class="sheet wide" id="anchorPanel">
-  <h2 class="section">Audit trail integrity</h2>
-  <p class="sub" style="margin-bottom:10px;">Every day the latest entry of the tamper-evident audit trail is emailed to each super admin. That email is a copy nobody can change from inside the system. Paste a hash from one of those emails to check that nothing up to that point was altered or removed.</p>
-  <div id="anchorStatus" class="empty">Loading…</div>
-  <div style="display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 14px;">
-    <button id="anchorSendBtn" class="primary" type="button">Send an anchor email now</button>
-  </div>
-  <label for="anchorHash">Check an anchor</label>
-  <div style="display:flex; gap:8px; flex-wrap:wrap;">
-    <input type="text" id="anchorHash" placeholder="Paste the 64-character hash" autocomplete="off" spellcheck="false" style="flex:1; min-width:240px; margin-bottom:0; font-family:Consolas,monospace;">
-    <button id="anchorCheckBtn" type="button">Check</button>
-  </div>
-  <p id="anchorResult" role="status" aria-live="polite" style="margin:12px 0 0; font-size:13px;"></p>
-</div>
-<div class="sheet wide" id="listPanel">
-  <h2 class="section">County admins</h2>
-  <button id="refreshBtn">Refresh</button>
-  <div id="adminsWrap" style="margin-top:12px;"></div>
-</div>
+    <!-- Overview -->
+    <section class="view" data-view="overview" data-title="Overview">
+      <div class="sheet wide">
+        <h2 class="section">Platform at a glance</h2>
+        <div id="insightsWrap"><p class="empty">Loading…</p></div>
+      </div>
+      <div class="sheet wide" id="countyPanel" style="display:none;">
+        <h2 class="section">By county</h2>
+        <div id="countyWrap"></div>
+      </div>
+    </section>
 
-<div class="sheet wide" id="auditPanel" style="display:none;">
-  <button class="audit-back" id="auditBackBtn">&larr; Back to admin list</button>
-  <h2 class="section" id="auditTitle">Audit trail</h2>
-  <div id="auditWrap"></div>
-</div>
+    <!-- County admins -->
+    <section class="view" data-view="admins" data-title="County admins">
+      <div class="sheet wide">
+        <h2 class="section">County admins</h2>
+        <div class="toolbar-row">
+          <input type="search" id="adminSearch" placeholder="Search by email or county" aria-label="Search admins">
+          <select id="adminFilter" aria-label="Filter by status">
+            <option value="all">All statuses</option>
+            <option value="ACTIVE">Active</option>
+            <option value="PENDING">Pending</option>
+            <option value="DISABLED">Disabled</option>
+          </select>
+          <button type="button" id="refreshBtn">Refresh</button>
+          <button type="button" class="primary" data-goto="add">+ Add admin</button>
+        </div>
+        <div id="adminsWrap"></div>
+      </div>
+    </section>
 
-<p class="footer-note">© 2026 Asya Hafidh. All rights reserved.</p>
+    <!-- Add admin -->
+    <section class="view" data-view="add" data-title="Add admin">
+      <div class="sheet wide">
+        <h2 class="section">Create a county admin</h2>
+        <p class="help">The new admin gets an email with a one-time link to set their own password. Each county can have its own admin, up to the pilot's limit.</p>
+        <div id="capMeter" style="max-width:520px; margin-bottom:20px;">
+          <div class="meter-line"><span><strong id="capText">—</strong> admin places used</span><span id="capLeft"></span></div>
+          <div class="meter" id="capBar"><span style="width:0%"></span></div>
+        </div>
+        <div class="form-grid" style="max-width:760px;">
+          <div>
+            <label for="newEmail">Admin email (Gmail)</label>
+            <input type="email" id="newEmail" placeholder="admin@example.com" autocomplete="off">
+          </div>
+          <div>
+            <label for="newCounty">County</label>
+            <select id="newCounty"><option value="">Select a county…</option></select>
+          </div>
+        </div>
+        <button class="primary" id="createBtn">Create admin &amp; send activation email</button>
+        <p class="note err" id="createError" style="display:none;"></p>
+        <p class="note ok" id="createSuccess" style="display:none;"></p>
+      </div>
+    </section>
+
+    <!-- Audit trail -->
+    <section class="view" data-view="audit" data-title="Audit trail">
+      <div class="sheet wide">
+        <h2 class="section" id="auditTitle">Audit trail</h2>
+        <div class="toolbar-row">
+          <select id="auditCounty" aria-label="Filter by county"><option value="">All counties</option></select>
+          <span id="auditChipSlot"></span>
+          <span class="spacer"></span>
+          <button type="button" id="auditRefreshBtn">Refresh</button>
+        </div>
+        <div id="auditWrap" style="margin-top:14px;"><p class="empty">Loading…</p></div>
+        <div class="pager" id="auditPager" style="display:none;">
+          <span id="auditPageInfo"></span>
+          <div class="nav">
+            <button type="button" id="auditPrev">&larr; Newer</button>
+            <button type="button" id="auditNext">Older &rarr;</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Integrity -->
+    <section class="view" data-view="integrity" data-title="Integrity">
+      <div class="sheet wide">
+        <h2 class="section">Audit trail integrity</h2>
+        <p class="help">Every day the latest entry of the tamper-evident audit trail is emailed to each super admin. That email is a copy nobody can change from inside the system. Paste a hash from one of those emails to check that nothing up to that point was altered or removed.</p>
+        <div class="tile-row" id="anchorTiles"></div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:22px;">
+          <button id="anchorSendBtn" class="primary" type="button">Send an anchor email now</button>
+        </div>
+        <label for="anchorHash">Check an anchor</label>
+        <div class="anchor-row">
+          <input type="text" id="anchorHash" placeholder="Paste the 64-character hash" autocomplete="off" spellcheck="false">
+          <button id="anchorCheckBtn" type="button">Check</button>
+        </div>
+        <div class="result-box" id="anchorResult" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- Profile -->
+    <section class="view" data-view="profile" data-title="Profile">
+      <div class="sheet wide">
+        <h2 class="section">Your account</h2>
+        <dl class="profile-dl">
+          <dt>Email</dt><dd id="profEmail"></dd>
+          <dt>Role</dt><dd>Super admin</dd>
+        </dl>
+        <p><a href="forgot-password.html">Change my password</a></p>
+      </div>
+    </section>
+
+    <p class="footer-note">© 2026 Asya Hafidh. All rights reserved.</p>
+  </main>
+</div>
 
 <script src="assets/api.js"></script>
 <script>
@@ -109,23 +259,99 @@
   applyTopbarBranding('Super Admin');
 
   var whoEmail = document.getElementById('whoEmail');
-  var logoutBtn = document.getElementById('logoutBtn');
-  var listPanel = document.getElementById('listPanel');
-  var createPanel = document.getElementById('createPanel');
-  var auditPanel = document.getElementById('auditPanel');
+  var VIEWS = ['overview', 'admins', 'add', 'audit', 'integrity', 'profile'];
+  var currentView = null;
+
+  // --- Sidebar sections: one view at a time, addressable by #hash ---
+  var sidenav = document.getElementById('sidenav');
+  var navScrim = document.getElementById('navScrim');
+  var navToggle = document.getElementById('navToggle');
+  function closeNav(){
+    sidenav.classList.remove('open'); navScrim.classList.remove('open');
+    navToggle.setAttribute('aria-expanded', 'false');
+  }
+  function showView(name){
+    if(VIEWS.indexOf(name) === -1) name = 'overview';
+    var title = name;
+    Array.prototype.forEach.call(document.querySelectorAll('.view'), function(v){
+      var on = v.getAttribute('data-view') === name;
+      v.classList.toggle('active', on);
+      if(on) title = v.getAttribute('data-title') || name;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(n){
+      var on = n.getAttribute('data-nav') === name;
+      n.classList.toggle('active', on);
+      if(on) n.setAttribute('aria-current', 'page'); else n.removeAttribute('aria-current');
+    });
+    document.getElementById('viewTitle').textContent = title;
+    document.getElementById('viewTitleMobile').textContent = title;
+    if(location.hash !== '#' + name){ try{ history.replaceState(null, '', '#' + name); }catch(e){ location.hash = name; } }
+    closeNav();
+    window.scrollTo(0, 0);
+    var changed = currentView !== name;
+    currentView = name;
+    if(changed && name === 'audit') loadAudit();
+    if(changed && name === 'integrity') showAnchorStatus();
+  }
+  navToggle.addEventListener('click', function(){
+    var open = !sidenav.classList.contains('open');
+    sidenav.classList.toggle('open', open); navScrim.classList.toggle('open', open);
+    navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  navScrim.addEventListener('click', closeNav);
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeNav(); });
+  Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(n){
+    n.addEventListener('click', function(e){
+      e.preventDefault();
+      var v = n.getAttribute('data-nav');
+      if(v === 'audit' && currentView !== 'audit') clearAuditAdminFilter(true);
+      showView(v);
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-goto]'), function(b){
+    b.addEventListener('click', function(){ showView(b.getAttribute('data-goto')); });
+  });
+  window.addEventListener('hashchange', function(){ showView(location.hash.replace('#', '')); });
 
   function requireSession(){
     return API.get('/api/auth/me').then(function(r){
       if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return null; }
       if(r.data.user.role !== 'SUPER_ADMIN'){ location.href = 'admin.html'; return null; }
       whoEmail.textContent = r.data.user.email;
+      whoEmail.title = r.data.user.email;
+      document.getElementById('userAvatar').textContent = (r.data.user.email || 'S').charAt(0).toUpperCase();
+      document.getElementById('profEmail').textContent = r.data.user.email;
       return r.data.user;
     });
   }
 
-  logoutBtn.addEventListener('click', function(){
+  document.getElementById('logoutBtn').addEventListener('click', function(){
     API.post('/api/auth/logout').then(function(){ location.href = 'login.html'; });
   });
+
+  function el(tag, cls, text){
+    var n = document.createElement(tag);
+    if(cls) n.className = cls;
+    if(text != null) n.textContent = text;
+    return n;
+  }
+  function fmt(dt){ return dt ? new Date(dt).toLocaleString() : 'Never'; }
+  function pct(n, total){ return total > 0 ? Math.round((n / total) * 100) : 0; }
+
+  // --- Admin places: shared by the sidebar badge, the overview tile and the add form ---
+  var slots = { active: 0, cap: 0 };
+  function renderSlots(){
+    var full = slots.cap > 0 && slots.active >= slots.cap;
+    document.getElementById('capText').textContent = slots.active + ' / ' + slots.cap;
+    document.getElementById('capLeft').textContent = full ? 'No places left' : (slots.cap - slots.active) + ' left';
+    var bar = document.getElementById('capBar');
+    bar.className = 'meter' + (full ? ' full' : '');
+    bar.firstChild.style.width = pct(slots.active, slots.cap) + '%';
+    document.getElementById('createBtn').disabled = full;
+    var badge = document.getElementById('adminCountBadge');
+    badge.hidden = !slots.cap;
+    badge.textContent = slots.active + '/' + slots.cap;
+  }
 
   // --- Create admin ---
   var newEmail = document.getElementById('newEmail');
@@ -133,16 +359,17 @@
   var createBtn = document.getElementById('createBtn');
   var createError = document.getElementById('createError');
   var createSuccess = document.getElementById('createSuccess');
-  var capIndicator = document.getElementById('capIndicator');
 
   var countiesLoaded = false;
   function populateCounties(counties){
     if(countiesLoaded) return;
     countiesLoaded = true;
+    var auditCounty = document.getElementById('auditCounty');
     counties.forEach(function(c){
-      var opt = document.createElement('option');
-      opt.value = c; opt.textContent = c;
+      var opt = el('option', null, c); opt.value = c;
       newCounty.appendChild(opt);
+      var opt2 = el('option', null, c); opt2.value = c;
+      auditCounty.appendChild(opt2);
     });
   }
 
@@ -188,87 +415,102 @@
 
   // --- Admin list ---
   var adminsWrap = document.getElementById('adminsWrap');
+  var adminsCache = [];
+  var adminSearch = document.getElementById('adminSearch');
+  var adminFilter = document.getElementById('adminFilter');
+  var PILL = { ACTIVE: ['active', 'Active'], PENDING: ['pending', 'Pending activation'], DISABLED: ['disabled', 'Disabled'] };
 
-  function statusBadge(status){
-    var cls = status === 'ACTIVE' ? 'active' : status === 'PENDING' ? 'pending' : 'disabled';
-    return '<span class="badge ' + cls + '">' + status + '</span>';
+  function menuItem(label, onClick, cls){
+    var b = el('button', 'ev-menu-item' + (cls ? ' ' + cls : ''), label);
+    b.type = 'button';
+    b.addEventListener('click', function(){
+      var d = b.closest('details'); if(d) d.removeAttribute('open');
+      onClick(b);
+    });
+    return b;
   }
 
-  function fmt(dt){ return dt ? new Date(dt).toLocaleString() : '—'; }
+  function buildAdminRow(a){
+    var row = el('article', 'adm-row is-' + a.status.toLowerCase());
+
+    var who = el('div', 'adm-who');
+    who.appendChild(el('span', 'adm-avatar', (a.email || '?').charAt(0).toUpperCase()));
+    var text = el('div'); text.style.minWidth = '0';
+    var em = el('div', 'adm-email', a.email); em.title = a.email;
+    text.appendChild(em);
+    text.appendChild(el('div', 'adm-county', a.county + ' County'));
+    who.appendChild(text);
+
+    var state = el('div', 'adm-state');
+    var p = PILL[a.status] || ['', a.status];
+    state.appendChild(el('span', 'pill ' + p[0], p[1]));
+    state.appendChild(el('span', null, a.lastLoginAt ? 'Last login ' + fmt(a.lastLoginAt) : 'Has not logged in yet'));
+
+    var actions = el('div', 'adm-actions');
+    var auditBtn = el('button', null, 'Audit trail'); auditBtn.type = 'button';
+    auditBtn.addEventListener('click', function(){ openAuditFor(a.id, a.email); });
+    actions.appendChild(auditBtn);
+
+    if(a.status === 'PENDING'){
+      var copyBtn = el('button', 'primary', 'Copy activation link'); copyBtn.type = 'button';
+      copyBtn.addEventListener('click', function(){ copyActivationLink(a.id, copyBtn); });
+      actions.appendChild(copyBtn);
+    } else if(a.status === 'DISABLED'){
+      var reBtn = el('button', 'primary', 'Reactivate'); reBtn.type = 'button';
+      reBtn.addEventListener('click', function(){ setAdminStatus(a.id, 'reactivate', reBtn); });
+      actions.appendChild(reBtn);
+    }
+
+    var more = el('details', 'ev-more');
+    var sum = el('summary', null, 'More'); sum.setAttribute('aria-label', 'More actions for ' + a.email);
+    more.appendChild(sum);
+    var menu = el('div', 'ev-menu');
+    if(a.status === 'ACTIVE') menu.appendChild(menuItem('Disable admin', function(b){ setAdminStatus(a.id, 'disable', b); }, 'danger'));
+    if(a.status !== 'ACTIVE') menu.appendChild(menuItem('Delete admin', function(b){ deleteAdmin(a.id, a.email, b); }, 'danger'));
+    more.appendChild(menu);
+    actions.appendChild(more);
+
+    row.appendChild(who); row.appendChild(state); row.appendChild(actions);
+    return row;
+  }
+
+  function renderAdmins(){
+    var q = (adminSearch.value || '').trim().toLowerCase();
+    var f = adminFilter.value;
+    var shown = adminsCache.filter(function(a){
+      if(f !== 'all' && a.status !== f) return false;
+      return !q || (a.email + ' ' + a.county).toLowerCase().indexOf(q) !== -1;
+    });
+    adminsWrap.textContent = '';
+    if(!adminsCache.length){ adminsWrap.appendChild(el('p', 'empty', 'No county admins created yet.')); return; }
+    if(!shown.length){ adminsWrap.appendChild(el('p', 'empty', 'No admins match.')); return; }
+    var list = el('div', 'adm-list');
+    shown.forEach(function(a){ list.appendChild(buildAdminRow(a)); });
+    adminsWrap.appendChild(list);
+    adminsWrap.appendChild(el('p', 'ev-count-note', shown.length === adminsCache.length ? shown.length + ' admins' : shown.length + ' of ' + adminsCache.length + ' admins'));
+  }
+  adminSearch.addEventListener('input', renderAdmins);
+  adminFilter.addEventListener('change', renderAdmins);
+  document.addEventListener('click', function(e){
+    Array.prototype.forEach.call(document.querySelectorAll('.ev-more[open]'), function(d){ if(!d.contains(e.target)) d.removeAttribute('open'); });
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape') Array.prototype.forEach.call(document.querySelectorAll('.ev-more[open]'), function(d){ d.removeAttribute('open'); });
+  });
 
   function loadAdmins(){
     adminsWrap.innerHTML = '<p class="empty">Loading…</p>';
-    API.get('/api/superadmin/admins').then(function(r){
+    return API.get('/api/superadmin/admins').then(function(r){
       if(r.status !== 200 || !r.data.ok){
         adminsWrap.innerHTML = '<p class="empty">Could not load admins.</p>';
         return;
       }
       populateCounties(r.data.counties);
-      capIndicator.textContent = r.data.activeCount + ' / ' + r.data.cap + ' active county admin slots used';
-      capIndicator.className = 'cap-indicator' + (r.data.activeCount >= r.data.cap ? ' full' : '');
-      createBtn.disabled = r.data.activeCount >= r.data.cap;
-
-      if(r.data.admins.length === 0){
-        adminsWrap.innerHTML = '<p class="empty">No county admins created yet.</p>';
-        return;
-      }
-
-      var table = document.createElement('table');
-      table.innerHTML = '<thead><tr><th>Email</th><th>County</th><th>Status</th><th>Last login</th><th></th></tr></thead>';
-      var tbody = document.createElement('tbody');
-
-      r.data.admins.forEach(function(a){
-        var tr = document.createElement('tr');
-        tr.innerHTML =
-          '<td>' + escapeHtml(a.email) + '</td>' +
-          '<td>' + escapeHtml(a.county) + '</td>' +
-          '<td>' + statusBadge(a.status) + '</td>' +
-          '<td>' + fmt(a.lastLoginAt) + '</td>';
-
-        var actionsTd = document.createElement('td');
-        actionsTd.className = 'actions';
-
-        var auditBtn = document.createElement('button');
-        auditBtn.textContent = 'Audit trail';
-        auditBtn.addEventListener('click', function(){ showAudit(a.id, a.email); });
-        actionsTd.appendChild(auditBtn);
-
-        if(a.status === 'PENDING'){
-          var copyLinkBtn = document.createElement('button');
-          copyLinkBtn.textContent = 'Copy activation link';
-          copyLinkBtn.addEventListener('click', function(){ copyActivationLink(a.id, copyLinkBtn); });
-          actionsTd.appendChild(copyLinkBtn);
-        }
-
-        if(a.status === 'ACTIVE'){
-          var disableBtn = document.createElement('button');
-          disableBtn.textContent = 'Disable';
-          disableBtn.className = 'danger';
-          disableBtn.addEventListener('click', function(){ setAdminStatus(a.id, 'disable', disableBtn); });
-          actionsTd.appendChild(disableBtn);
-        } else if(a.status === 'DISABLED'){
-          var reactivateBtn = document.createElement('button');
-          reactivateBtn.textContent = 'Reactivate';
-          reactivateBtn.className = 'secondary';
-          reactivateBtn.addEventListener('click', function(){ setAdminStatus(a.id, 'reactivate', reactivateBtn); });
-          actionsTd.appendChild(reactivateBtn);
-        }
-
-        if(a.status !== 'ACTIVE'){
-          var deleteBtn = document.createElement('button');
-          deleteBtn.textContent = 'Delete';
-          deleteBtn.className = 'danger';
-          deleteBtn.addEventListener('click', function(){ deleteAdmin(a.id, a.email, deleteBtn); });
-          actionsTd.appendChild(deleteBtn);
-        }
-
-        tr.appendChild(actionsTd);
-        tbody.appendChild(tr);
-      });
-
-      table.appendChild(tbody);
-      adminsWrap.innerHTML = '';
-      adminsWrap.appendChild(table);
+      slots.active = r.data.activeCount; slots.cap = r.data.cap;
+      renderSlots();
+      adminsCache = r.data.admins;
+      renderAdmins();
+      loadAnalytics();
     }).catch(function(){
       adminsWrap.innerHTML = '<p class="empty">Network error — could not reach the backend.</p>';
     });
@@ -305,7 +547,7 @@
         return;
       }
       navigator.clipboard.writeText(r.data.url).then(function(){
-        btn.textContent = 'Copied!';
+        btn.textContent = 'Copied ✓';
         setTimeout(function(){ btn.textContent = originalText; }, 2000);
       }).catch(function(){
         window.prompt('Copy this activation link:', r.data.url);
@@ -344,8 +586,6 @@
   // list -- see the matching comment on GET /api/superadmin/analytics.
   var insightsWrap = document.getElementById('insightsWrap');
 
-  function pct(n, total){ return total > 0 ? Math.round((n / total) * 100) : 0; }
-
   function renderSparkbar(trend){
     var max = Math.max.apply(null, [1].concat(trend.map(function(t){ return t.count; })));
     var bars = trend.map(function(t){
@@ -355,7 +595,7 @@
     }).join('');
     var first = trend[0] ? trend[0].date : '';
     var last = trend[trend.length - 1] ? trend[trend.length - 1].date : '';
-    return '<div class="sparkbar">' + bars + '</div><div class="sparkbar-caption"><span>' + escapeHtml(first) + '</span><span>' + escapeHtml(last) + '</span></div>';
+    return '<div class="spark-title">Sign-ins, last 30 days</div><div class="sparkbar">' + bars + '</div><div class="sparkbar-caption"><span>' + escapeHtml(first) + '</span><span>' + escapeHtml(last) + '</span></div>';
   }
 
   function loadAnalytics(){
@@ -368,33 +608,45 @@
       var consentTotal = d.byConsent['true'] + d.byConsent['false'] + d.byConsent['null'];
       var consentRate = pct(d.byConsent['true'], d.byConsent['true'] + d.byConsent['false']);
 
-      var html = '<div class="stat-grid">'
+      insightsWrap.innerHTML = '<div class="stat-grid">'
         + '<div class="stat-tile"><div class="stat-label">Events</div><div class="stat-value">' + d.totalEvents + '</div></div>'
         + '<div class="stat-tile"><div class="stat-label">Attendance</div><div class="stat-value">' + d.totalAttendance + '</div>'
           + '<div class="stat-sub">' + d.byStatus.ACTIVE + ' active · ' + d.byStatus.FLAGGED_FOR_REMOVAL + ' flagged · ' + d.byStatus.RETIRED + ' retired</div></div>'
         + '<div class="stat-tile"><div class="stat-label">Photo/video consent</div><div class="stat-value">' + consentRate + '%</div>'
           + '<div class="stat-sub">of ' + consentTotal + ' with an explicit answer on record</div></div>'
+        + '<div class="stat-tile"><div class="stat-label">County admins</div><div class="stat-value">' + slots.active + '<span style="font-size:16px;color:var(--c-muted);font-weight:400;"> / ' + slots.cap + '</span></div>'
+          + '<div class="stat-sub">active places used</div></div>'
         + '</div>'
-        + '<h2 class="section" style="border:none;padding-bottom:0;">Sign-ins, last 30 days</h2>'
         + renderSparkbar(d.trend);
 
+      var panel = document.getElementById('countyPanel');
+      var wrap = document.getElementById('countyWrap');
       if(d.byCounty.length){
-        html += '<h2 class="section">By county</h2><table class="county-table"><thead><tr><th>County</th><th class="num">Events</th><th class="num">Attendance</th></tr></thead><tbody>'
-          + d.byCounty.map(function(c){
-              return '<tr><td>' + escapeHtml(c.county) + '</td><td class="num">' + c.events + '</td><td class="num">' + c.attendance + '</td></tr>';
+        var max = Math.max.apply(null, d.byCounty.map(function(c){ return c.attendance; }).concat([1]));
+        var rows = d.byCounty.slice().sort(function(a, b){ return b.attendance - a.attendance; });
+        wrap.innerHTML = '<table class="county-table"><thead><tr><th>County</th><th class="num">Events</th><th class="num">Attendance</th><th style="width:30%"></th></tr></thead><tbody>'
+          + rows.map(function(c){
+              return '<tr><td>' + escapeHtml(c.county) + '</td><td class="num">' + c.events + '</td><td class="num">' + c.attendance + '</td>'
+                + '<td><div class="county-cell"><div class="county-bar"><span style="width:' + pct(c.attendance, max) + '%"></span></div></div></td></tr>';
             }).join('')
           + '</tbody></table>';
+        panel.style.display = '';
+      } else {
+        panel.style.display = 'none';
       }
-
-      insightsWrap.innerHTML = html;
     }).catch(function(){
       insightsWrap.innerHTML = '<p class="empty">Network error — could not reach the backend.</p>';
     });
   }
 
-  // --- Audit trail drill-down ---
+  // --- Audit trail: the whole platform, or one admin's own activity ---
   var auditWrap = document.getElementById('auditWrap');
   var auditTitle = document.getElementById('auditTitle');
+  var auditCounty = document.getElementById('auditCounty');
+  var auditPager = document.getElementById('auditPager');
+  var AUDIT_PAGE_SIZE = 25;
+  var auditPage = 1;
+  var auditAdmin = null; // { id, email } while looking at one admin
 
   function renderEntries(entries){
     if(entries.length === 0){
@@ -408,7 +660,7 @@
       var tr = document.createElement('tr');
       var actor = e.actor ? (e.actor.email + ' (' + e.actor.role + (e.actor.county ? ', ' + e.actor.county : '') + ')')
         : e.actorEmail ? (e.actorEmail + ' (' + e.actorRole + (e.actorCounty ? ', ' + e.actorCounty : '') + ') [deleted]')
-        : (e.actorId || 'unknown');
+        : (e.actorId ? e.actorId : 'Public visitor');
       var when = new Date(e.createdAt);
       var rel = auditRelativeTime(when);
       var f = formatAuditEntry(e);
@@ -424,61 +676,116 @@
     auditWrap.appendChild(table);
   }
 
-  function showAudit(adminId, email){
-    listPanel.style.display = 'none';
-    createPanel.style.display = 'none';
-    auditPanel.style.display = '';
-    auditTitle.textContent = 'Audit trail — ' + email;
+  function renderAuditChip(){
+    var slot = document.getElementById('auditChipSlot');
+    slot.textContent = '';
+    auditCounty.style.display = auditAdmin ? 'none' : '';
+    if(!auditAdmin){ auditTitle.textContent = 'Audit trail'; return; }
+    auditTitle.textContent = 'Audit trail — ' + auditAdmin.email;
+    var chip = el('span', 'filter-chip', auditAdmin.email);
+    var x = el('button', null, '✕'); x.type = 'button'; x.setAttribute('aria-label', 'Show all activity');
+    x.addEventListener('click', function(){ clearAuditAdminFilter(false); loadAudit(); });
+    chip.appendChild(x);
+    slot.appendChild(chip);
+  }
+
+  function clearAuditAdminFilter(silent){
+    if(!auditAdmin) return;
+    auditAdmin = null; auditPage = 1;
+    renderAuditChip();
+  }
+
+  function loadAudit(){
+    renderAuditChip();
     auditWrap.innerHTML = '<p class="empty">Loading…</p>';
-    API.get('/api/superadmin/admins/' + adminId + '/audit').then(function(r){
+    var url = auditAdmin
+      ? '/api/superadmin/admins/' + encodeURIComponent(auditAdmin.id) + '/audit'
+      : '/api/superadmin/audit';
+    var qs = '?page=' + auditPage + '&pageSize=' + AUDIT_PAGE_SIZE;
+    if(!auditAdmin && auditCounty.value) qs += '&county=' + encodeURIComponent(auditCounty.value);
+    API.get(url + qs).then(function(r){
       if(r.status !== 200 || !r.data.ok){
-        auditWrap.innerHTML = '<p class="empty">Could not load audit trail.</p>';
+        auditWrap.innerHTML = '<p class="empty">Could not load the audit trail.</p>';
+        auditPager.style.display = 'none';
         return;
       }
       renderEntries(r.data.entries);
+      var total = r.data.total, pages = Math.max(1, Math.ceil(total / AUDIT_PAGE_SIZE));
+      var from = total ? (auditPage - 1) * AUDIT_PAGE_SIZE + 1 : 0;
+      var to = Math.min(total, auditPage * AUDIT_PAGE_SIZE);
+      document.getElementById('auditPageInfo').textContent = total ? 'Showing ' + from + '–' + to + ' of ' + total + ' entries' : '';
+      document.getElementById('auditPrev').disabled = auditPage <= 1;
+      document.getElementById('auditNext').disabled = auditPage >= pages;
+      auditPager.style.display = total > AUDIT_PAGE_SIZE ? '' : 'none';
+    }).catch(function(){
+      auditWrap.innerHTML = '<p class="empty">Network error — could not reach the backend.</p>';
     });
   }
 
-  document.getElementById('auditBackBtn').addEventListener('click', function(){
-    auditPanel.style.display = 'none';
-    listPanel.style.display = '';
-    createPanel.style.display = '';
-  });
+  function openAuditFor(adminId, email){
+    auditAdmin = { id: adminId, email: email };
+    auditPage = 1;
+    currentView = null; // force a fresh load when the view opens
+    showView('audit');
+  }
+
+  auditCounty.addEventListener('change', function(){ auditPage = 1; loadAudit(); });
+  document.getElementById('auditRefreshBtn').addEventListener('click', loadAudit);
+  document.getElementById('auditPrev').addEventListener('click', function(){ if(auditPage > 1){ auditPage -= 1; loadAudit(); } });
+  document.getElementById('auditNext').addEventListener('click', function(){ auditPage += 1; loadAudit(); });
 
   // --- Audit chain anchors ---
-  var anchorStatus = document.getElementById('anchorStatus');
   var anchorResult = document.getElementById('anchorResult');
+  function say(kind, text){
+    anchorResult.className = 'result-box show ' + kind;
+    anchorResult.textContent = text;
+  }
+  function anchorTile(label, value, sub){
+    var t = el('div', 'stat-tile'); t.style.minWidth = '220px';
+    t.appendChild(el('div', 'stat-label', label));
+    t.appendChild(el('div', 'stat-value', value));
+    if(sub) t.appendChild(el('div', 'stat-sub', sub));
+    return t;
+  }
   function showAnchorStatus(){
+    var tiles = document.getElementById('anchorTiles');
     API.get('/api/superadmin/anchor').then(function(r){
-      if(!r.data.ok){ anchorStatus.textContent = 'Could not load the anchor status.'; return; }
-      if(!r.data.head){ anchorStatus.textContent = 'No chained audit entries yet.'; return; }
-      anchorStatus.textContent = r.data.head.count + ' entries on record. ' + (r.data.lastAnchorAt ? 'Last anchor emailed ' + new Date(r.data.lastAnchorAt).toLocaleString() + '.' : 'No anchor has been emailed yet.');
-    }).catch(function(){ anchorStatus.textContent = 'Network error — could not reach the backend.'; });
+      tiles.textContent = '';
+      if(!r.data.ok){ tiles.appendChild(el('p', 'empty', 'Could not load the anchor status.')); return; }
+      if(!r.data.head){ tiles.appendChild(el('p', 'empty', 'No chained audit entries yet.')); return; }
+      tiles.appendChild(anchorTile('Entries on record', String(r.data.head.count), 'in the tamper-evident trail'));
+      tiles.appendChild(anchorTile('Last anchor emailed', r.data.lastAnchorAt ? new Date(r.data.lastAnchorAt).toLocaleDateString() : 'Never',
+        r.data.lastAnchorAt ? new Date(r.data.lastAnchorAt).toLocaleTimeString() : 'Send one now to start'));
+    }).catch(function(){ tiles.textContent = ''; tiles.appendChild(el('p', 'empty', 'Network error — could not reach the backend.')); });
   }
   document.getElementById('anchorSendBtn').addEventListener('click', function(){
-    var btn = this; btn.disabled = true; anchorResult.textContent = '';
+    var btn = this; btn.disabled = true; anchorResult.className = 'result-box';
     API.post('/api/superadmin/anchor').then(function(r){
       btn.disabled = false;
-      anchorResult.textContent = r.data.ok ? 'Anchor recorded and emailed to ' + r.data.sent + ' super admin(s).' : (r.data.message || 'Could not send the anchor.');
+      if(r.data.ok) say('ok', 'Anchor recorded and emailed to ' + r.data.sent + ' super admin' + (r.data.sent === 1 ? '' : 's') + '.');
+      else say('bad', r.data.message || 'Could not send the anchor.');
       showAnchorStatus();
-    }).catch(function(){ btn.disabled = false; anchorResult.textContent = 'Network error — could not reach the backend.'; });
+    }).catch(function(){ btn.disabled = false; say('bad', 'Network error — could not reach the backend.'); });
   });
   document.getElementById('anchorCheckBtn').addEventListener('click', function(){
     var hash = document.getElementById('anchorHash').value.trim();
-    anchorResult.textContent = 'Checking…';
+    say('info', 'Checking…');
     API.post('/api/superadmin/anchor/check', { hash: hash }).then(function(r){
       var d = r.data;
-      if(!d.ok){ anchorResult.textContent = d.message || 'Could not check that hash.'; return; }
-      if(!d.found){ anchorResult.textContent = '✕ ' + d.message; return; }
+      if(!d.ok){ say('bad', d.message || 'Could not check that hash.'); return; }
+      if(!d.found){ say('bad', '✕ ' + d.message); return; }
       var msg = d.intactUpToAnchor
         ? '✓ That entry is still in the trail (entry ' + d.position + ') and every entry up to it is intact. ' + d.entriesSince + ' newer entries have been added since.'
         : '✕ That entry exists, but something before it was altered or removed after the anchor was sent (or, rarely, two writes landed at the same instant). Ask a developer to look at the trail.';
       if(d.hashMismatches || d.linkBreaks) msg += ' Whole-trail scan: ' + d.hashMismatches + ' altered entr' + (d.hashMismatches === 1 ? 'y' : 'ies') + ', ' + d.linkBreaks + ' break(s) in the chain order.';
-      anchorResult.textContent = msg;
-    }).catch(function(){ anchorResult.textContent = 'Network error — could not reach the backend.'; });
+      say(d.intactUpToAnchor ? 'ok' : 'bad', msg);
+    }).catch(function(){ say('bad', 'Network error — could not reach the backend.'); });
   });
+
   requireSession().then(function(user){
-    if(user){ loadAdmins(); loadAnalytics(); showAnchorStatus(); }
+    if(!user) return;
+    showView(location.hash.replace('#', ''));
+    loadAdmins();
   });
 })();
 </script>
