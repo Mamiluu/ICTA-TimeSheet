@@ -308,7 +308,7 @@ function attendanceRow(r) {
     statusReason: r.statusReason,
     statusAt: r.statusAt,
     photoVideoConsent: r.photoVideoConsent,
-    signedDays: (r.daySignatures || []).map((s) => ({ dayId: s.dayId, signedAt: s.signedAt }))
+    signedDays: (r.daySignatures || []).map((s) => ({ dayId: s.dayId, signedAt: s.signedAt, method: s.method }))
   };
 }
 
@@ -321,7 +321,7 @@ adminRouter.get('/events/:id/attendance', ah(async (req, res) => {
     prisma.attendance.findMany({
       where: { eventId: event.id },
       orderBy: { createdAt: 'asc' },
-      include: { daySignatures: { select: { dayId: true, signedAt: true } } }
+      include: { daySignatures: { select: { dayId: true, signedAt: true, method: true } } }
     }),
     prisma.eventDay.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } })
   ]);

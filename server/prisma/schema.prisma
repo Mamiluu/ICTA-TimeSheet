@@ -182,6 +182,11 @@ model SessionSignature {
   day                 EventDay  @relation(fields: [dayId], references: [id], onDelete: Restrict)
   signature           String
   isImportedSignature Boolean   @default(false)
+  // How this day's signature was authorised: DEVICE is the browser that made
+  // the first sign-in; PHONE is a check-in from any device by matching the
+  // registered phone number, which the admin sheet marks as less strongly
+  // verified.
+  method              String    @default("DEVICE")
   signedAt            DateTime  @default(now())
 
   @@unique([attendanceId, dayId])

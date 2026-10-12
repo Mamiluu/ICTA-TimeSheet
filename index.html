@@ -485,6 +485,10 @@
   .days-panel .dp-row{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:8px 0; border-top:1px solid var(--ledger-line); }
   .days-panel .dp-state{ font-size:12px; opacity:.8; }
   .days-panel .dp-btn{ font:inherit; padding:6px 12px; border:1px solid var(--ink); background:var(--paper); color:var(--ink); cursor:pointer; }
+  .days-panel .rp-form, .days-panel .rp-confirm{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:6px; }
+  .days-panel .rp-form input{ font:inherit; padding:6px 9px; border:1px solid var(--ink); background:var(--paper); color:var(--ink); min-width:190px; }
+  .days-panel .rp-msg{ margin-top:8px; font-size:12.5px; min-height:1em; }
+  .days-panel .rp-msg.err{ color:#b00020; }
   .days-panel .dp-btn:disabled{ opacity:.5; cursor:default; }
   .seal-block{ display:none; gap:14px; align-items:center; margin-top:14px; padding-top:12px; border-top:1px solid var(--ink); font-size:11.5px; color:var(--ink); }
   .seal-block img{ width:96px; height:96px; flex:none; }
@@ -493,6 +497,7 @@
   .seal-block .seal-code{ font-family:ui-monospace, Consolas, monospace; letter-spacing:.12em; font-size:13px; margin:4px 0; }
   table.roster .day-strip{ display:flex; flex-wrap:wrap; justify-content:center; gap:4px; }
   table.roster .day-strip-cell{ display:flex; flex-direction:column; align-items:center; }
+  table.roster .day-strip-phone .day-strip-date::after{ content:' \260E'; }
   table.roster .day-strip-date{ font-size:8.5px; color:var(--muted); line-height:1.2; }
   table.roster .day-strip-cell img{ max-height:24px; max-width:60px; display:block; }
   table.roster .day-strip-missing{ font-size:9px; color:var(--muted); align-self:center; }
@@ -864,6 +869,21 @@
     <div class="dp-title">Sign the other days</div>
     <div class="dp-sub">This event runs over several days. Your entry covers all of them, so sign each day while it is open.</div>
     <ul class="dp-list" id="daysList"></ul>
+  </div>
+
+  <div class="days-panel" id="returningPanel">
+    <div class="dp-title">Registered on another day or device?</div>
+    <div class="dp-sub" id="returningSub">Enter the phone number you registered with to sign today.</div>
+    <div class="rp-form" id="rpForm">
+      <input type="tel" id="rpPhone" placeholder="e.g. 0712 345 678" autocomplete="tel" inputmode="tel">
+      <button type="button" class="dp-btn" id="rpFindBtn">Find my entry</button>
+    </div>
+    <div class="rp-confirm" id="rpConfirm" style="display:none;">
+      <span id="rpConfirmText"></span>
+      <button type="button" class="dp-btn" id="rpYesBtn">Yes, sign now</button>
+      <button type="button" class="dp-btn" id="rpNoBtn">Not me</button>
+    </div>
+    <div class="rp-msg" id="rpMsg" role="status" aria-live="polite"></div>
   </div>
 
  
@@ -2553,6 +2573,7 @@
   var daysList = document.getElementById('daysList');
 
   function renderDaysPanel(){
+    renderReturningPanel();
     if(!daysPanel) return;
     var ownSubmitted = state.rows.find(function(r){ return r.submitted && r.clientId; });
     if(isAdmin || !ownSubmitted || eventDays.length < 2){ daysPanel.style.display = 'none'; return; }
@@ -2609,7 +2630,8 @@
       var sig = (row.daySigs || []).find(function(s){ return s.dayId === d.id; });
       if(sig){
         cell.className = 'day-strip-cell';
-        cell.title = 'Day ' + (i + 1) + ' signature';
+        cell.title = 'Day ' + (i + 1) + ' signature' + (sig.method === 'PHONE' ? ' (checked in by phone number)' : '');
+        if(sig.method === 'PHONE') cell.classList.add('day-strip-phone');
         cell.appendChild(dayLabel(d));
         var im = document.createElement('img');
         im.src = sig.signature;
@@ -2636,11 +2658,91 @@
     }, 0);
   }
 
+  // --- Registered on another day or device: sign by phone number ---
+  // Shown to a visitor whose browser has no entry of its own, on a
+  // multi-day event with a day currently open. Two steps: look the number up
+  // (the server answers with a masked name only), then sign.
+  var phoneTarget = null;
+  var returningPanel = document.getElementById('returningPanel');
+  var rpPhone = document.getElementById('rpPhone');
+  var rpMsg = document.getElementById('rpMsg');
+  var rpForm = document.getElementById('rpForm');
+  var rpConfirm = document.getElementById('rpConfirm');
+
+  function openDayNow(){
+    var open = eventDays.filter(function(d){ return d.open; });
+    return open.length ? open[open.length - 1] : null;
+  }
+  function rpSay(text, isErr){
+    rpMsg.textContent = text || '';
+    rpMsg.className = 'rp-msg' + (isErr ? ' err' : '');
+  }
+  function rpReset(){
+    phoneTarget = null;
+    rpForm.style.display = 'flex';
+    rpConfirm.style.display = 'none';
+  }
+  function renderReturningPanel(){
+    if(!returningPanel) return;
+    var ownSubmitted = state.rows.find(function(r){ return r.submitted && r.clientId; });
+    var day = openDayNow();
+    if(isAdmin || ownSubmitted || eventDays.length < 2 || !day){
+      if(phoneTarget === null) returningPanel.style.display = 'none';
+      return;
+    }
+    returningPanel.style.display = 'block';
+    var n = eventDays.indexOf(day) + 1;
+    document.getElementById('returningSub').textContent = 'Day ' + n + ' is open. If you already registered on an earlier day, or on another phone, enter that phone number to sign today.';
+  }
+
+  document.getElementById('rpFindBtn').addEventListener('click', function(){
+    var day = openDayNow();
+    if(!day){ rpSay('Signing is not open right now.', true); return; }
+    var phone = rpPhone.value.trim();
+    if(!phone){ rpSay('Enter your phone number first.', true); return; }
+    var btn = this; btn.disabled = true; rpSay('Looking…');
+    fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/days/' + encodeURIComponent(day.id) + '/lookup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: phone })
+    }).then(function(res){ return res.json(); }).then(function(data){
+      btn.disabled = false;
+      if(!data || !data.ok){ rpSay((data && data.message) || 'Could not check that number right now.', true); return; }
+      if(data.alreadySigned){ rpSay('You have already signed for today, ' + data.maskedName + '. Thank you.'); return; }
+      phoneTarget = { dayId: day.id, phone: phone, position: eventDays.indexOf(day) + 1 };
+      document.getElementById('rpConfirmText').textContent = 'Is this you: ' + data.maskedName + '?';
+      rpForm.style.display = 'none';
+      rpConfirm.style.display = 'flex';
+      rpSay('');
+    }).catch(function(){ btn.disabled = false; rpSay('No connection. Please try again.', true); });
+  });
+  document.getElementById('rpNoBtn').addEventListener('click', function(){ rpReset(); rpSay('Check the number and try again, or ask the organiser to help.'); });
+  document.getElementById('rpYesBtn').addEventListener('click', function(){
+    if(!phoneTarget) return;
+    dayTarget = phoneTarget.dayId;
+    openDaySignature(phoneTarget.dayId);
+  });
+
+  function savePhoneCheckIn(){
+    var target = phoneTarget;
+    fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/days/' + encodeURIComponent(target.dayId) + '/check-in', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: target.phone, signature: canvas.toDataURL('image/png') })
+    }).then(function(res){ return res.json(); }).then(function(data){
+      if(data && data.ok){
+        closeSignatureModal();
+        rpReset();
+        rpPhone.value = '';
+        rpSay('Day ' + target.position + ' recorded. A receipt has been sent to the email you registered with.');
+        return;
+      }
+      alert((data && data.message) || 'This could not be recorded right now.');
+    }).catch(function(){ alert('No connection. Please try again when you are back online.'); });
+  }
   function saveDaySignature(){
     if(!hasInk){
       alert('Please draw your signature before saving — the box is currently empty.');
       return;
     }
+    if(phoneTarget && phoneTarget.dayId === dayTarget){ savePhoneCheckIn(); return; }
     var own = state.rows.find(function(r){ return r.submitted && r.clientId; });
     if(!own){ closeSignatureModal(); return; }
     var dayId = dayTarget;

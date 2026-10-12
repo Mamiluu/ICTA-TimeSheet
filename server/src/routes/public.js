@@ -6,7 +6,7 @@ import { Prisma } from '@prisma/client';
 import QRCode from 'qrcode';
 import { prisma } from '../lib/prisma.js';
 import { normalizePhone, normalizeEmail, isValidEmailShape } from '../lib/normalize.js';
-import { attendanceLimiter } from '../middleware/rateLimit.js';
+import { attendanceLimiter, checkInLimiter } from '../middleware/rateLimit.js';
 import { ah } from '../lib/asyncHandler.js';
 import { MAX_ATTENDANCE_PER_EVENT, SIGNATURE_REQUEST_TTL_MS, EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
 import { randomToken, hashToken } from '../lib/tokens.js';
@@ -15,6 +15,7 @@ import { sendAttendanceConfirmationEmail } from '../lib/mailer.js';
 import { logger } from '../lib/logger.js';
 import { BRANDING } from '../lib/branding.js';
 import { dayIsOpen, dayOpensAt, dayClosesAt, ensureFirstDay, pickSigningDay, anchorDayFor } from '../lib/days.js';
+import { maskName } from '../lib/mask.js';
 import { SEAL_CODE_PATTERN, buildDaySnapshot, digestOf } from '../lib/seal.js';
 
 // Fire-and-forget, same discipline as writeAudit's own .catch(() => {})
@@ -22,21 +23,25 @@ import { SEAL_CODE_PATTERN, buildDaySnapshot, digestOf } from '../lib/seal.js';
 // attendee's actual sign-in, which already succeeded by the time this
 // runs. Every county's events flow through this one route, so this is the
 // only place this needs wiring up, not per-admin config.
-function sendConfirmationIfEmailed(row, event) {
+// day (an EventDay plus the event's total day count) is passed for a
+// multi-day event so the receipt says which day was recorded.
+function sendConfirmationIfEmailed(row, event, day, dayCount, recordedAt) {
   if (!row.email || !isValidEmailShape(row.email)) return;
   sendAttendanceConfirmationEmail(row.email, {
     name: row.name,
     eventName: event.name,
     eventDescription: event.description,
-    startAt: event.startAt,
-    endAt: event.endAt,
+    startAt: day ? day.startAt : event.startAt,
+    endAt: day ? day.endAt : event.endAt,
+    dayPosition: day ? day.position : undefined,
+    dayCount,
     timezone: event.timezone,
     locationType: event.locationType,
     address: event.address,
     meetingLink: event.meetingLink,
     county: event.county,
     recordId: row.id,
-    recordedAt: row.createdAt
+    recordedAt: recordedAt || row.createdAt
   }).catch((err) => logger.error('attendance confirmation email failed', { stack: err.stack }));
 }
 
@@ -88,7 +93,7 @@ function publicRow(r) {
     signature: r.signature,
     hasPendingSignatureRequest: !!r.signatureRequestTokenHash,
     signedDayIds: (r.daySignatures || []).map((s) => s.dayId),
-    daySignatures: (r.daySignatures || []).map((s) => ({ dayId: s.dayId, signature: s.signature })),
+    daySignatures: (r.daySignatures || []).map((s) => ({ dayId: s.dayId, signature: s.signature, method: s.method })),
     status: r.status,
     statusReason: r.statusReason,
     statusAt: r.statusAt,
@@ -221,7 +226,7 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
       ? prisma.attendance.findMany({
           where: { eventId: event.id },
           orderBy: { createdAt: 'asc' },
-          include: { daySignatures: { select: { dayId: true, signature: true } } }
+          include: { daySignatures: { select: { dayId: true, signature: true, method: true } } }
         })
       : Promise.resolve([]),
     prisma.eventDay.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } })
@@ -350,7 +355,7 @@ publicRouter.post('/events/:slug/my-attendance', attendanceLimiter, ah(async (re
 
   const rows = await prisma.attendance.findMany({
     where: { eventId: event.id, clientId: { in: clientIds } },
-    include: { daySignatures: { select: { dayId: true, signature: true } } }
+    include: { daySignatures: { select: { dayId: true, signature: true, method: true } } }
   });
   res.json({ ok: true, rows: rows.map(ownRow) });
 }));
@@ -424,7 +429,8 @@ publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, 
         daySignatures: { create: { dayId: signingDay.id, signature } }
       }
     });
-    sendConfirmationIfEmailed(row, event);
+    const dayCount = await prisma.eventDay.count({ where: { eventId: event.id } });
+    sendConfirmationIfEmailed(row, event, signingDay, dayCount);
     return res.json({ ok: true, id: row.id });
   } catch (err) {
     // One phone/email = one attendee per event, enforced by the DB unique
@@ -490,11 +496,86 @@ publicRouter.post('/events/:slug/days/:dayId/signatures', attendanceLimiter, ah(
     const sig = await prisma.sessionSignature.create({
       data: { attendanceId: attendee.id, dayId: day.id, signature: String(req.body.signature) }
     });
+    notifyDaySigned(attendee, event, day, sig);
     return res.json({ ok: true, id: sig.id });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       return res.json({ ok: true, duplicate: true });
     }
+    throw err;
+  }
+}));
+
+// Emails the attendee a receipt naming the day just recorded. Fire-and-forget
+// like the first sign-in's receipt: the signature is already saved.
+async function notifyDaySigned(attendee, event, day, sig) {
+  const dayCount = await prisma.eventDay.count({ where: { eventId: event.id } });
+  sendConfirmationIfEmailed(attendee, event, day, dayCount, sig.signedAt);
+}
+
+// Looks a registered attendee up by phone for a later day, for someone whose
+// device doesn't hold their first sign-in. Answers with a masked name only,
+// never anything else about the row, so a stranger who types someone else's
+// number learns nothing useful. A miss and a retired row look the same.
+async function findForPhoneCheckIn(req) {
+  const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
+  if (!event || event.deletedAt) return { error: { ok: false, error: 'Unknown event' } };
+  if (isLinkExpired(event)) return { error: { ok: false, error: 'LINK_EXPIRED', message: 'Sign-in for this event has closed.' } };
+
+  const day = await prisma.eventDay.findFirst({ where: { id: req.params.dayId, eventId: event.id } });
+  if (!day) return { error: { ok: false, error: 'UNKNOWN_DAY', message: 'That day is not part of this event.' } };
+  if (!dayIsOpen(day)) {
+    return { error: { ok: false, error: 'DAY_NOT_OPEN', message: 'Signing for this day is not open right now.', opensAt: dayOpensAt(day), closesAt: dayClosesAt(day) } };
+  }
+
+  const phoneNormalized = normalizePhone(String(req.body.phone || ''));
+  if (!phoneNormalized) return { error: { ok: false, error: 'INVALID_PHONE', message: 'Enter a valid Kenyan phone number.' } };
+
+  const attendee = await prisma.attendance.findUnique({ where: { eventId_phoneNormalized: { eventId: event.id, phoneNormalized } } });
+  if (!attendee || attendee.status === 'RETIRED') {
+    return { error: { ok: false, error: 'NOT_REGISTERED', message: 'We could not find that number on this event. Use the number you registered with on the first day.' } };
+  }
+  return { event, day, attendee };
+}
+
+publicRouter.post('/events/:slug/days/:dayId/lookup', checkInLimiter, ah(async (req, res) => {
+  const found = await findForPhoneCheckIn(req);
+  if (found.error) return res.json(found.error);
+  const already = await prisma.sessionSignature.findUnique({
+    where: { attendanceId_dayId: { attendanceId: found.attendee.id, dayId: found.day.id } }
+  });
+  res.json({ ok: true, maskedName: maskName(found.attendee.name), alreadySigned: !!already });
+}));
+
+// Signs a day from any device by registered phone number. Weaker proof than
+// the device-bound route above, so the signature is stored with method PHONE,
+// the admin sheet marks it, and the audit trail records it.
+publicRouter.post('/events/:slug/days/:dayId/check-in', checkInLimiter, ah(async (req, res) => {
+  const found = await findForPhoneCheckIn(req);
+  if (found.error) return res.json(found.error);
+  const { event, day, attendee } = found;
+  if (isBlankSignature(req.body.signature)) {
+    return res.json({ ok: false, error: 'MISSING_SIGNATURE', message: 'A signature is required — please draw it before submitting.' });
+  }
+  const existing = await prisma.sessionSignature.findUnique({
+    where: { attendanceId_dayId: { attendanceId: attendee.id, dayId: day.id } }
+  });
+  if (existing) return res.json({ ok: true, id: existing.id, duplicate: true });
+
+  try {
+    const sig = await prisma.sessionSignature.create({
+      data: { attendanceId: attendee.id, dayId: day.id, signature: String(req.body.signature), method: 'PHONE' }
+    });
+    await writeAudit({
+      actorId: null, action: 'DAY_CHECKIN_BY_PHONE', targetType: 'Attendance', targetId: attendee.id,
+      metadata: { eventId: event.id, dayId: day.id, position: day.position }, req
+    }).catch(() => {});
+    notifyDaySigned(attendee, event, day, sig);
+    // Deliberately no clientId in the response: that id is the proof of
+    // ownership for editing the row, and a phone number alone must not hand it out.
+    return res.json({ ok: true, id: sig.id });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') return res.json({ ok: true, duplicate: true });
     throw err;
   }
 }));

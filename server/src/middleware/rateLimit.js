@@ -30,3 +30,13 @@ export const attendanceLimiter = rateLimit({
   legacyHeaders: false,
   message: { ok: false, error: 'TOO_MANY_REQUESTS' }
 });
+
+// Phone-number check-in for later days is a guessable-credential route, so it
+// gets a much tighter per-IP cap than ordinary sign-in.
+export const checkInLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: 'TOO_MANY_ATTEMPTS', message: 'Too many attempts. Please wait a few minutes and try again, or ask the organiser to help.' }
+});

@@ -1,0 +1,1 @@
+ALTER TABLE "SessionSignature" ADD COLUMN "method" TEXT NOT NULL DEFAULT 'DEVICE';

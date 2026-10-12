@@ -122,8 +122,12 @@ function formatRecordedAt(date) {
 export async function sendAttendanceConfirmationEmail(toEmail, details) {
   const {
     name, eventName, eventDescription, startAt, endAt, timezone,
-    locationType, address, meetingLink, county, recordId, recordedAt
+    locationType, address, meetingLink, county, recordId, recordedAt,
+    dayPosition, dayCount
   } = details;
+  // Set only for a multi-day event: the receipt then names the day it covers
+  // and shows that day's own hours instead of the whole date range.
+  const dayTag = dayCount > 1 && dayPosition ? `Day ${dayPosition} of ${dayCount}` : '';
 
   const refCode = `ICTA-${String(recordId || '').replace(/-/g, '').slice(0, 8).toUpperCase()}`;
   devLogLink(`attendance confirmation for ${toEmail}`, `${refCode} — ${eventName}`);
@@ -174,9 +178,9 @@ export async function sendAttendanceConfirmationEmail(toEmail, details) {
             <td style="text-align:right;font:700 10px/1 'Courier New',monospace;letter-spacing:.05em;color:#9a9a9a;">REF ${refCode}</td>
           </tr>
         </table>
-        <p style="margin:20px 0 4px;font:700 11px/1 'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;letter-spacing:.1em;color:${BRAND.accent};text-transform:uppercase;">&#10003; Attendance recorded</p>
+        <p style="margin:20px 0 4px;font:700 11px/1 'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;letter-spacing:.1em;color:${BRAND.accent};text-transform:uppercase;">&#10003; ${dayTag ? escapeHtml(dayTag) + ' attendance' : 'Attendance'} recorded</p>
         <h1 style="margin:6px 0 10px;font-size:21px;color:#1a1a1a;">Hi ${escapeHtml(name) || 'there'},</h1>
-        <p style="margin:0;font-size:13.5px;line-height:1.55;color:#555;">Your sign-in has been received and stored on the official attendance sheet for the event below.</p>
+        <p style="margin:0;font-size:13.5px;line-height:1.55;color:#555;">Your ${dayTag ? escapeHtml(dayTag.toLowerCase()) + ' ' : ''}sign-in has been received and stored on the official attendance sheet for the event below.</p>
       </div>
 
       <div style="padding:0 30px;">
@@ -203,5 +207,5 @@ export async function sendAttendanceConfirmationEmail(toEmail, details) {
   </div>
 </body></html>`;
 
-  await sendViaBrevo({ to: toEmail, subject: `You're on record — ${eventName}`, html });
+  await sendViaBrevo({ to: toEmail, subject: `You're on record — ${eventName}${dayTag ? ' (' + dayTag + ')' : ''}`, html });
 }
