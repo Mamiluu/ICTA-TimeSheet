@@ -256,3 +256,16 @@ html.fixed-layout{ --fit:1; }
 html.fixed-layout .app-shell{ zoom:var(--fit); min-height:calc(100vh / var(--fit)); }
 html.fixed-layout .sidenav{ height:calc(100vh / var(--fit)); }
 html.fixed-layout .mobilebar, html.fixed-layout .nav-scrim{ display:none !important; }
+
+/* Page size control (see assets/fit-layout.js) */
+.view-size{ display:flex; align-items:center; gap:6px; margin:10px 2px 0; padding:6px 8px; border:1px solid #242934; border-radius:var(--r-md); background:#171a20; }
+.view-size-label{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:#78808f; margin-right:auto; font-weight:700; }
+.view-size button{ margin:0; min-width:34px; padding:5px 8px; font-family:var(--ui-font); font-size:12px; font-weight:700; border-radius:7px; border:1px solid #2f3541; background:#1d2129; color:#c9cfdb; cursor:pointer; filter:none; }
+.view-size button:hover{ background:#262b36; color:#fff; border-color:#3a4150; }
+.view-size button.auto{ min-width:48px; }
+.view-size button:focus-visible{ outline:none; box-shadow:0 0 0 2px #14161b, 0 0 0 4px #ff6b82; }
+/* A larger-than-fit size must be scrollable, so the sideways clip is lifted then */
+html.fixed-layout.manual-scale, html.fixed-layout.manual-scale body{ overflow-x:auto; }
+
+/* theme.css stacks .row below 480px; a fixed-layout page keeps its rows side by side at every size. */
+html.fixed-layout .row{ flex-direction:row; gap:12px; }

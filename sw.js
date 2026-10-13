@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+﻿// Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
 // Proprietary and confidential. See LICENSE in the repository root.
 
 // Deliberately narrow in scope: this only exists so the sign-in page (a)
@@ -9,7 +9,7 @@
 // queue -- the Background Sync API this might otherwise reach for isn't
 // supported in Safari/iOS as of this writing, which is exactly the device
 // class a walk-in attendee is most likely holding.
-const CACHE_VERSION = 'v25';
+const CACHE_VERSION = 'v27';
 const SHELL_CACHE = 'icta-shell-' + CACHE_VERSION;
 // admin.html and its scripts are here so the door scanner can open with no signal.
 // Nothing under /api/ is ever cached, so what the page shows is still live data
@@ -20,6 +20,7 @@ const SHELL_URLS = [
   'assets/theme.css',
   'assets/shell.css',
   'assets/api.js',
+  'assets/fit-layout.js',
   'assets/icta_logo_cropped.png',
   'manifest.json'
 ];

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+  Proprietary and confidential. See LICENSE in the repository root.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My events</title>
+<link rel="icon" href="assets/icta_logo_cropped.png">
+<style>
+  :root{
+    --ink:#1b1a18; --muted:#6a655b; --rule:#d9d2c3; --paper:#fffdf8; --page:#ebe7de;
+    --accent:#c8102e; --ok:#14683a; --ok-wash:#e6f4ec; --warn:#8a5a00; --warn-wash:#fff1cf; --off:#8a1a2b; --off-wash:#fdecef;
+  }
+  @media (prefers-color-scheme: dark){ :root{ --page:#1d1c1a; } }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--page); color:var(--ink); font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; font-size:14px; line-height:1.5; }
+  main{ max-width:760px; margin:0 auto; padding:28px 16px 60px; }
+
+  .head{ display:flex; align-items:center; gap:14px; margin-bottom:6px; }
+  .head img{ width:44px; height:44px; object-fit:contain; background:#fff; border-radius:8px; padding:3px; }
+  .head .org{ font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); }
+  .head .org strong{ display:block; color:var(--ink); font-size:13px; letter-spacing:.12em; }
+  h1{ font-family:Georgia, "Times New Roman", serif; font-weight:400; font-size:30px; margin:18px 0 4px; }
+  .lede{ color:var(--muted); margin:0 0 22px; max-width:60ch; }
+
+  h2{ font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:26px 0 10px; font-weight:700; }
+  .card{
+    position:relative; background:var(--paper); border:1px solid var(--rule); border-radius:12px; padding:16px 18px 14px 22px; margin-bottom:12px;
+    box-shadow:0 1px 2px rgba(0,0,0,.05);
+  }
+  .card::before{ content:""; position:absolute; left:0; top:12px; bottom:12px; width:4px; border-radius:0 4px 4px 0; background:var(--rule); }
+  .card.s-ATTENDED::before{ background:var(--ok); } .card.s-PARTIAL::before, .card.s-IN_PROGRESS::before{ background:var(--warn); }
+  .card.s-WITHDRAWN::before, .card.s-MISSED::before{ background:var(--off); } .card.s-UPCOMING::before{ background:#7d8798; }
+
+  .top{ display:flex; gap:12px; justify-content:space-between; align-items:flex-start; }
+  .name{ font-family:Georgia, "Times New Roman", serif; font-size:19px; line-height:1.3; margin:0; word-break:break-word; }
+  .meta{ color:var(--muted); font-size:13px; margin:3px 0 0; }
+  .pill{ flex:none; font-size:11.5px; font-weight:700; padding:3px 11px; border-radius:999px; white-space:nowrap; background:#eef0f3; color:var(--muted); }
+  .pill.ATTENDED{ background:var(--ok-wash); color:var(--ok); } .pill.PARTIAL, .pill.IN_PROGRESS{ background:var(--warn-wash); color:var(--warn); }
+  .pill.WITHDRAWN, .pill.MISSED{ background:var(--off-wash); color:var(--off); }
+
+  .days{ display:flex; align-items:center; gap:6px; margin:12px 0 2px; flex-wrap:wrap; }
+  .dot{ width:12px; height:12px; border-radius:50%; border:2px solid var(--ok); background:transparent; }
+  .dot.on{ background:var(--ok); }
+  .days span.txt{ font-size:12.5px; color:var(--muted); margin-left:6px; }
+
+  .actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; align-items:center; }
+  .actions a, .actions button{
+    font:inherit; font-size:13px; font-weight:700; padding:8px 14px; border-radius:8px; cursor:pointer; text-decoration:none;
+    border:1px solid var(--rule); background:#fff; color:var(--ink);
+  }
+  .actions .primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .actions button:disabled{ opacity:.55; cursor:not-allowed; }
+  .actions a:focus-visible, .actions button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .note{ font-size:12.5px; color:var(--muted); }
+  .err{ font-size:12.5px; color:#a4122a; }
+
+  .empty{ background:var(--paper); border:1px dashed var(--rule); border-radius:12px; padding:34px 22px; text-align:center; color:var(--muted); }
+  .empty b{ display:block; color:var(--ink); font-size:16px; margin-bottom:6px; }
+  .stale{ font-size:12.5px; color:var(--muted); margin-top:18px; }
+  .foot{ margin-top:34px; font-size:12px; color:var(--muted); }
+  .foot a{ color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <div class="head">
+    <img src="assets/icta_logo_cropped.png" alt="">
+    <div class="org"><strong>ICT Authority</strong>Attendance register</div>
+  </div>
+  <h1>My events</h1>
+  <p class="lede">Every event you have signed in to on this device, with how far along it is and your certificate once the event is over. This list is built from this browser only: nothing is stored about you elsewhere.</p>
+  <div id="root"><p class="note">Looking for your events…</p></div>
+  <p class="foot"><a href="privacy.html">Privacy policy</a> · © 2026 Asya Hafidh. All rights reserved.</p>
+</main>
+
+<script>
+(function(){
+  var root = document.getElementById('root');
+  var PREFIX = 'icta_attendance_sheet_v1:';
+
+  function el(tag, cls, text){
+    var n = document.createElement(tag);
+    if(cls) n.className = cls;
+    if(text != null) n.textContent = text;
+    return n;
+  }
+  function fmt(iso, tz, opts){ return new Intl.DateTimeFormat('en-GB', Object.assign({ timeZone: tz }, opts)).format(new Date(iso)); }
+
+  // Each event's sheet keeps its own entry in this browser; the one marked
+  // submitted holds the pass id that proves it is yours.
+  function localPasses(){
+    var passes = [], seen = {};
+    try{
+      for(var i = 0; i < localStorage.length; i++){
+        var key = localStorage.key(i);
+        if(!key || key.indexOf(PREFIX) !== 0) continue;
+        var slug = key.slice(PREFIX.length);
+        var state = JSON.parse(localStorage.getItem(key) || 'null');
+        var rows = state && Array.isArray(state.rows) ? state.rows : [];
+        var own = rows.filter(function(r){ return r && r.submitted && r.clientId; })[0];
+        if(slug && own && !seen[slug]){ seen[slug] = true; passes.push({ slug: slug, clientId: own.clientId }); }
+      }
+    }catch(e){}
+    return passes;
+  }
+
+  var LABEL = { ATTENDED: 'Attended', PARTIAL: 'Partly attended', MISSED: 'Not signed', IN_PROGRESS: 'Happening now', UPCOMING: 'Upcoming', WITHDRAWN: 'Entry withdrawn' };
+
+  function card(e, clientIdBySlug){
+    var c = el('article', 'card s-' + e.status);
+    var top = el('div', 'top');
+    var left = el('div');
+    left.appendChild(el('h3', 'name', e.name));
+    var tz = e.timezone;
+    var sameDay = fmt(e.startAt, tz, { day: 'numeric', month: 'short', year: 'numeric' }) === fmt(e.endAt, tz, { day: 'numeric', month: 'short', year: 'numeric' });
+    var when = sameDay ? fmt(e.startAt, tz, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+      : fmt(e.startAt, tz, { day: 'numeric', month: 'short' }) + ' to ' + fmt(e.endAt, tz, { day: 'numeric', month: 'short', year: 'numeric' });
+    left.appendChild(el('p', 'meta', e.county + ' County · ' + when));
+    top.appendChild(left);
+    top.appendChild(el('span', 'pill ' + e.status, LABEL[e.status] || e.status));
+    c.appendChild(top);
+
+    if(e.totalDays > 0 && e.status !== 'WITHDRAWN'){
+      var days = el('div', 'days');
+      days.setAttribute('role', 'img');
+      days.setAttribute('aria-label', e.daysSigned + ' of ' + e.totalDays + ' days signed');
+      for(var i = 0; i < Math.min(e.totalDays, 31); i++) days.appendChild(el('span', 'dot' + (i < e.daysSigned ? ' on' : '')));
+      days.appendChild(el('span', 'txt', e.daysSigned + ' of ' + e.totalDays + (e.totalDays === 1 ? ' day signed' : ' days signed')));
+      c.appendChild(days);
+    }
+
+    var actions = el('div', 'actions');
+    var open = el('a', null, e.status === 'IN_PROGRESS' || e.status === 'UPCOMING' ? 'Open sheet & pass' : 'Open sheet');
+    open.href = 'index.html?event=' + encodeURIComponent(e.slug);
+    actions.appendChild(open);
+
+    var msg = el('span', 'err');
+    if(e.certificateCode){
+      var view = el('a', 'primary', 'View certificate');
+      view.href = 'certificate.html?code=' + encodeURIComponent(e.certificateCode);
+      view.target = '_blank'; view.rel = 'noopener';
+      actions.appendChild(view);
+    } else if(e.certificateReady && e.certificatesEnabled){
+      var get = el('button', 'primary', 'Get my certificate'); get.type = 'button';
+      get.addEventListener('click', function(){
+        get.disabled = true; msg.textContent = '';
+        fetch('/api/events/' + encodeURIComponent(e.slug) + '/certificate', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId: clientIdBySlug[e.slug] })
+        }).then(function(r){ return r.json(); }).then(function(d){
+          get.disabled = false;
+          if(d && d.ok){ e.certificateCode = d.code; window.open('certificate.html?code=' + encodeURIComponent(d.code), '_blank'); load(); return; }
+          msg.textContent = (d && d.message) || 'Could not prepare your certificate right now.';
+        }).catch(function(){ get.disabled = false; msg.textContent = 'No connection. Please try again.'; });
+      });
+      actions.appendChild(get);
+    } else if(e.status === 'ATTENDED' || e.status === 'PARTIAL'){
+      actions.appendChild(el('span', 'note', e.certificatesEnabled ? 'Certificate not available yet.' : 'The organiser did not offer certificates.'));
+    }
+    actions.appendChild(msg);
+    c.appendChild(actions);
+    return c;
+  }
+
+  function section(title, list, clientIdBySlug){
+    if(!list.length) return;
+    root.appendChild(el('h2', null, title));
+    list.forEach(function(e){ root.appendChild(card(e, clientIdBySlug)); });
+  }
+
+  function load(){
+    var passes = localPasses();
+    var bySlug = {};
+    passes.forEach(function(p){ bySlug[p.slug] = p.clientId; });
+    root.textContent = '';
+    if(!passes.length){
+      var empty = el('div', 'empty');
+      empty.appendChild(el('b', null, 'No events on this device yet'));
+      empty.appendChild(document.createTextNode('When you sign in to an event from this browser, it will appear here.'));
+      root.appendChild(empty);
+      return;
+    }
+    root.appendChild(el('p', 'note', 'Looking up ' + passes.length + (passes.length === 1 ? ' event…' : ' events…')));
+    fetch('/api/wallet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ passes: passes }) })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        root.textContent = '';
+        if(!d || !d.ok){ root.appendChild(el('p', 'err', 'Could not load your events right now. Try again in a moment.')); return; }
+        var live = d.events.filter(function(e){ return e.status === 'IN_PROGRESS'; });
+        var upcoming = d.events.filter(function(e){ return e.status === 'UPCOMING'; });
+        var past = d.events.filter(function(e){ return e.status !== 'IN_PROGRESS' && e.status !== 'UPCOMING'; });
+        if(!d.events.length){
+          var empty = el('div', 'empty');
+          empty.appendChild(el('b', null, 'Nothing found'));
+          empty.appendChild(document.createTextNode('The events saved on this device are no longer on record.'));
+          root.appendChild(empty);
+          return;
+        }
+        section('Happening now', live, bySlug);
+        section('Upcoming', upcoming, bySlug);
+        section('Past events', past, bySlug);
+        var missing = passes.length - d.events.length;
+        if(missing > 0) root.appendChild(el('p', 'stale', missing + (missing === 1 ? ' saved event is' : ' saved events are') + ' no longer on record and is not shown.'));
+      })
+      .catch(function(){ root.textContent = ''; root.appendChild(el('p', 'err', 'Could not reach the server. Check your connection and try again.')); });
+  }
+  load();
+})();
+</script>
+</body>
+</html>

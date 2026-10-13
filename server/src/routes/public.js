@@ -16,6 +16,7 @@ import { logger } from '../lib/logger.js';
 import { BRANDING } from '../lib/branding.js';
 import { dayIsOpen, dayOpensAt, dayClosesAt, ensureFirstDay, pickSigningDay, anchorDayFor } from '../lib/days.js';
 import { maskName } from '../lib/mask.js';
+import { walletEntry } from '../lib/wallet.js';
 import { certificateEligible, loadCertificateSnapshot, certificateStillHolds, publicCertificateView } from '../lib/certificate.js';
 import { newSealCode, SEAL_CODE_PATTERN, buildDaySnapshot, buildEventSnapshot, summarizeSnapshot, digestOf } from '../lib/seal.js';
 
@@ -350,6 +351,40 @@ publicRouter.get('/seals/:code/qr', attendanceLimiter, ah(async (req, res) => {
   res.send(png);
 }));
 
+// --- "My events on this device" ---
+// The attendee page keeps each pass id in the browser that signed in. This
+// route takes the ones a browser holds and answers for each: how far along the
+// event is, how many days were signed, and the certificate if there is one.
+// Presenting a pass id is the proof of being on that event (the same proof as
+// everywhere else), so an unknown or stale pair is simply left out, and the
+// answer never contains phone, email or signatures.
+const MAX_WALLET_PASSES = 50;
+publicRouter.post(
+  '/wallet',
+  attendanceLimiter,
+  ah(async (req, res) => {
+    const passes = Array.isArray(req.body.passes) ? req.body.passes.slice(0, MAX_WALLET_PASSES) : [];
+    const events = [];
+    for (const pass of passes) {
+      const slug = String(pass?.slug || '');
+      const clientId = String(pass?.clientId || '');
+      if (!slug || !clientId) continue;
+      const event = await prisma.event.findUnique({ where: { slug } });
+      if (!event || event.deletedAt) continue;
+      const attendee = await prisma.attendance.findUnique({ where: { eventId_clientId: { eventId: event.id, clientId } } });
+      if (!attendee) continue;
+      const [days, signedCount, certificate] = await Promise.all([
+        prisma.eventDay.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } }),
+        prisma.sessionSignature.count({ where: { attendanceId: attendee.id } }),
+        prisma.attendanceCertificate.findFirst({ where: { attendanceId: attendee.id }, orderBy: { issuedAt: 'desc' }, select: { id: true } })
+      ]);
+      const certificateReady = attendee.status !== 'RETIRED' && signedCount > 0 && certificateEligible(event, days);
+      events.push(walletEntry({ event, attendee, days, signedCount, certificate, certificateReady }));
+    }
+    events.sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
+    res.json({ ok: true, events });
+  })
+);
 // --- Certificates of attendance ---
 // An attendee issues their own once the event's last day is over. clientId is
 // the same proof of ownership as everywhere else. Issuing again with nothing

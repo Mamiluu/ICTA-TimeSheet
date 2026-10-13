@@ -13,54 +13,9 @@
 <title>ICT Authority : Super Admin</title>
 <link rel="stylesheet" href="assets/theme.css">
 <link rel="stylesheet" href="assets/shell.css">
-<script>
-  // Scale factor for the fixed layout. By default it is "auto": 1 at 1280px and
-  // wider, smaller below that, so a narrow window shows the same layout shrunk.
-  // (Phones and tablets already lay the page out 1280px wide through the viewport
-  // meta, so auto stays at 1 there.) The A- / A+ buttons in the sidebar override it
-  // for any viewer that cannot be detected as narrow; the choice is remembered.
-  (function(){
-    var DESIGN_WIDTH = 1280, MIN = 0.2, MAX = 1.6, KEY = 'icta_superadmin_scale';
-    var root = document.documentElement, manual = null;
-    try{ var saved = parseFloat(localStorage.getItem(KEY)); if(saved > 0) manual = saved; }catch(e){}
-    function auto(){
-      var w = root.clientWidth || window.innerWidth;
-      return w < DESIGN_WIDTH ? w / DESIGN_WIDTH : 1;
-    }
-    function current(){ return Math.min(MAX, Math.max(MIN, manual != null ? manual : auto())); }
-    function paint(){
-      var z = current();
-      root.style.setProperty('--fit', z.toFixed(4));
-      root.classList.toggle('manual-scale', manual != null);
-      var label = document.getElementById('sizeAuto');
-      if(label){
-        label.textContent = manual != null ? Math.round(z * 100) + '%' : 'Auto';
-        label.title = manual != null ? 'Back to automatic sizing' : 'Sized automatically to fit the screen';
-      }
-    }
-    function remember(){ try{ if(manual == null) localStorage.removeItem(KEY); else localStorage.setItem(KEY, String(manual)); }catch(e){} }
-    window.pageScale = {
-      smaller: function(){ manual = Math.max(MIN, current() * 0.85); remember(); paint(); },
-      larger: function(){ manual = Math.min(MAX, current() * 1.15); remember(); paint(); },
-      auto: function(){ manual = null; remember(); paint(); },
-      refresh: paint
-    };
-    paint();
-    window.addEventListener('resize', paint);
-    window.addEventListener('orientationchange', paint);
-    document.addEventListener('DOMContentLoaded', paint);
-  })();
-</script>
+<script src="assets/fit-layout.js"></script>
 <style>
-  /* Page size control (see the scale script in <head>) */
-  .view-size{ display:flex; align-items:center; gap:6px; margin:10px 2px 0; padding:6px 8px; border:1px solid #242934; border-radius:var(--r-md); background:#171a20; }
-  .view-size-label{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:#78808f; margin-right:auto; font-weight:700; }
-  .view-size button{ margin:0; min-width:34px; padding:5px 8px; font-family:var(--ui-font); font-size:12px; font-weight:700; border-radius:7px; border:1px solid #2f3541; background:#1d2129; color:#c9cfdb; cursor:pointer; filter:none; }
-  .view-size button:hover{ background:#262b36; color:#fff; border-color:#3a4150; }
-  .view-size button.auto{ min-width:48px; }
-  .view-size button:focus-visible{ outline:none; box-shadow:0 0 0 2px #14161b, 0 0 0 4px #ff6b82; }
-  /* A larger-than-fit size must be scrollable, so the sideways clip is lifted then */
-  html.fixed-layout.manual-scale, html.fixed-layout.manual-scale body{ overflow-x:auto; }  .badge-count{ margin-left:auto; font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:#262b36; color:#c9cfdb; font-variant-numeric:tabular-nums; }
+  .badge-count{ margin-left:auto; font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:#262b36; color:#c9cfdb; font-variant-numeric:tabular-nums; }
   .nav-item.active .badge-count{ background:rgba(255,255,255,.14); color:#fff; }
 
   .toolbar-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
@@ -831,10 +786,6 @@
     }).catch(function(){ say('bad', 'Network error — could not reach the backend.'); });
   });
 
-  document.getElementById('sizeDown').addEventListener('click', function(){ window.pageScale.smaller(); });
-  document.getElementById('sizeUp').addEventListener('click', function(){ window.pageScale.larger(); });
-  document.getElementById('sizeAuto').addEventListener('click', function(){ window.pageScale.auto(); });
-  window.pageScale.refresh();
   requireSession().then(function(user){
     if(!user) return;
     showView(location.hash.replace('#', ''));
