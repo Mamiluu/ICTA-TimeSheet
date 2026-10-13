@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+// Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
 // Proprietary and confidential. See LICENSE in the repository root.
 
 // Deliberately narrow in scope: this only exists so the sign-in page (a)
@@ -9,9 +9,20 @@
 // queue -- the Background Sync API this might otherwise reach for isn't
 // supported in Safari/iOS as of this writing, which is exactly the device
 // class a walk-in attendee is most likely holding.
-const CACHE_VERSION = 'v24';
+const CACHE_VERSION = 'v25';
 const SHELL_CACHE = 'icta-shell-' + CACHE_VERSION;
-const SHELL_URLS = ['index.html', 'assets/theme.css', 'assets/icta_logo_cropped.png', 'manifest.json'];
+// admin.html and its scripts are here so the door scanner can open with no signal.
+// Nothing under /api/ is ever cached, so what the page shows is still live data
+// whenever there is a connection.
+const SHELL_URLS = [
+  'index.html',
+  'admin.html',
+  'assets/theme.css',
+  'assets/shell.css',
+  'assets/api.js',
+  'assets/icta_logo_cropped.png',
+  'manifest.json'
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -40,7 +51,7 @@ self.addEventListener('fetch', (event) => {
 
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match('index.html'))
+      fetch(event.request).catch(() => caches.match(event.request, { ignoreSearch: true }).then((cached) => cached || caches.match('index.html')))
     );
     return;
   }

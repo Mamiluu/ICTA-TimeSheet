@@ -114,7 +114,8 @@ var AUDIT_ACTION_META = {
   CERTIFICATE_ISSUED: { label: 'Certificate issued', tone: 'positive' },
   CHAIN_ANCHORED: { label: 'Anchored audit trail', tone: 'info' },
   CLAIM_PACK_GENERATED: { label: 'Generated claim pack', tone: 'info' },
-  CLAIM_PACK_APPROVED: { label: 'Approved claim pack', tone: 'positive' }
+  CLAIM_PACK_APPROVED: { label: 'Approved claim pack', tone: 'positive' },
+  DOOR_ROSTER_DOWNLOADED: { label: 'Saved guest list offline', tone: 'info' }
 };
 
 var AUDIT_FIELD_LABELS = {
@@ -184,6 +185,8 @@ function auditSummary(e){
       return '“' + escapeHtml(m.name || '') + '” — ' + (m.rowCount != null ? m.rowCount : '?') + (m.rowCount === 1 ? ' person' : ' people');
     case 'CLAIM_PACK_APPROVED':
       return 'Sealed ' + escapeHtml(m.sealCode || '') + ' · ' + (m.people != null ? m.people : '?') + ' people · ' + (m.review || 0) + (m.review === 1 ? ' item' : ' items') + ' reviewed' + (m.note ? ' — “' + escapeHtml(m.note) + '”' : '');
+    case 'DOOR_ROSTER_DOWNLOADED':
+      return 'Guest list saved for offline door scanning — ' + (m.rowCount != null ? m.rowCount : '?') + (m.rowCount === 1 ? ' person' : ' people');
     case 'CHAIN_ANCHORED':
       return (m.entries != null ? m.entries : '?') + ' entries on record' + (m.sent != null ? ' · emailed to ' + m.sent : '');
     case 'ADMIN_CREATE':

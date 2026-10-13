@@ -146,6 +146,19 @@
   .rm-help{ font-size:12px; color:#666; margin:0 0 14px; line-height:1.5; }
   .rm-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:6px; }
 
+  .door-status{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:10px 12px; margin:0 0 14px; border:1px solid #e3e3e3; border-radius:9px; background:#fafafa; }
+  .door-status .spacer{ flex:1; }
+  .door-status button{ margin:0; font-size:12.5px; padding:7px 12px; }
+  .door-roster-info{ font-size:12.5px; color:#666; }
+  .net-pill{ font-size:12px; font-weight:700; padding:4px 11px; border-radius:999px; white-space:nowrap; }
+  .net-pill::before{ content:""; display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:7px; background:currentColor; }
+  .net-pill.online{ background:#e8f6ee; color:#0b6b36; }
+  .net-pill.offline{ background:#fff3d4; color:#8a5a00; }
+  .door-queue{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:10px 14px; margin:0 0 14px; border-radius:9px; background:#fff3d4; border:1px solid #ecd48a; color:#5c3d00; font-size:13px; font-weight:600; }
+  .door-queue button{ margin:0; font-size:12.5px; padding:6px 12px; }
+  .door-issues{ list-style:none; margin:0 0 14px; padding:0; }
+  .door-issues li{ display:flex; gap:10px; align-items:flex-start; justify-content:space-between; padding:9px 12px; margin-bottom:6px; border-radius:9px; background:#fdecef; border:1px solid #f3b9c3; color:#7a0a1e; font-size:13px; }
+  .door-issues button{ margin:0; font-size:11.5px; padding:3px 9px; flex:none; }
   .day-bars{ display:flex; flex-direction:column; gap:10px; margin-top:10px; }
   .day-bar-row{ display:grid; grid-template-columns:70px 1fr 120px; gap:10px; align-items:center; font-size:12.5px; }
   .day-bar-track{ height:18px; background:#eee; border-radius:4px; overflow:hidden; display:flex; }
@@ -456,7 +469,19 @@
   <section class="view" data-view="door" data-title="Door scan">
   <div class="sheet wide">
     <h2 class="section">Scan attendee passes</h2>
-    <p class="rm-help">Attendees get a personal pass QR after signing in (on screen and by email). Scan it here to record their day without them signing again. Each scan is recorded as a door check-in on the sheet.</p>
+    <p class="rm-help">Attendees get a personal pass QR after signing in (on screen and by email). Scan it here to record their day without them signing again. Each scan is recorded as a door check-in on the sheet. No signal at the venue? Tap <strong>Prepare for offline</strong> while you are connected: scans are saved on this device and sent as soon as it is back online.</p>
+    <div class="door-status" id="doorStatus">
+      <span class="net-pill online" id="doorNet">Online</span>
+      <span class="door-roster-info" id="doorRosterInfo"></span>
+      <span class="spacer"></span>
+      <button type="button" id="doorPrepBtn">Prepare for offline</button>
+      <button type="button" id="doorClearBtn" title="Remove the saved guest list from this device">Clear offline data</button>
+    </div>
+    <div class="door-queue" id="doorQueue" hidden>
+      <span id="doorQueueText"></span>
+      <button type="button" class="primary" id="doorSyncBtn">Sync now</button>
+    </div>
+    <ul class="door-issues" id="doorIssues" hidden></ul>
     <div class="row">
       <div><label for="doorEvent">Event</label><select id="doorEvent"></select></div>
       <div><label for="doorDay">Day</label><select id="doorDay"></select></div>
@@ -533,20 +558,39 @@
   var logoutBtn = document.getElementById('logoutBtn');
 
   logoutBtn.addEventListener('click', function(){
-    API.post('/api/auth/logout').then(function(){ location.href = 'login.html'; });
+    var waiting = 0;
+    try{ waiting = (JSON.parse(localStorage.getItem('icta_door_queue_v1') || '[]') || []).length; }catch(e){}
+    if(waiting && !window.confirm(waiting + ' door scan' + (waiting === 1 ? ' has' : 's have') + ' not been sent yet and will be lost if you log out. Log out anyway?')) return;
+    API.post('/api/auth/logout').then(function(){
+      try{ ['icta_door_roster_v1', 'icta_door_queue_v1', 'icta_door_issues_v1', 'icta_admin_user_v1', 'icta_admin_events_v1'].forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
+      location.href = 'login.html';
+    });
   });
 
+  // Who is signed in is remembered on this device (name and county only, no
+  // secrets) so that, with no signal, the page can still open to the door
+  // scanner. Anything that talks to the server still needs the real session.
+  var USER_KEY = 'icta_admin_user_v1';
+  function showUser(user){
+    whoEmail.textContent = user.email;
+    whoCounty.textContent = user.county + ' county';
+    whoEmail.title = user.email;
+    document.getElementById('userAvatar').textContent = (user.email || 'A').charAt(0).toUpperCase();
+    document.getElementById('profEmail').textContent = user.email;
+    document.getElementById('profCounty').textContent = user.county;
+  }
   function requireSession(){
     return API.get('/api/auth/me').then(function(r){
       if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return null; }
       if(r.data.user.role !== 'COUNTY_ADMIN'){ location.href = 'superadmin.html'; return null; }
-      whoEmail.textContent = r.data.user.email;
-      whoCounty.textContent = r.data.user.county + ' county';
-      whoEmail.title = r.data.user.email;
-      document.getElementById('userAvatar').textContent = (r.data.user.email || 'A').charAt(0).toUpperCase();
-      document.getElementById('profEmail').textContent = r.data.user.email;
-      document.getElementById('profCounty').textContent = r.data.user.county;
+      showUser(r.data.user);
+      try{ localStorage.setItem(USER_KEY, JSON.stringify({ email: r.data.user.email, county: r.data.user.county, role: r.data.user.role })); }catch(e){}
       return r.data.user;
+    }).catch(function(){
+      var cached = null;
+      try{ cached = JSON.parse(localStorage.getItem(USER_KEY) || 'null'); }catch(e){}
+      if(cached && cached.role === 'COUNTY_ADMIN'){ showUser(cached); return cached; } // offline: carry on with the door scanner
+      return null;
     });
   }
 
@@ -1360,9 +1404,14 @@
         return;
       }
       eventsCache = r.data.events;
+      try{ localStorage.setItem('icta_admin_events_v1', JSON.stringify(r.data.events)); }catch(e){}
       populateEventSelects();
       renderEvents();
     }).catch(function(){
+      // No signal: show the events last seen on this device so the door scanner still has its event list.
+      var cached = null;
+      try{ cached = JSON.parse(localStorage.getItem('icta_admin_events_v1') || 'null'); }catch(e){}
+      if(cached && cached.length){ eventsCache = cached; populateEventSelects(); renderEvents(); return; }
       eventsWrap.innerHTML = '<p class="empty">Network error — could not reach the backend.</p>';
     });
   }  document.getElementById('refreshEventsBtn').addEventListener('click', loadEvents);
@@ -1678,19 +1727,54 @@
   }
   dayChartEvent.addEventListener('change', loadDayChart);
 
-  // --- Door scan ---
+  // --- Door scan, with or without signal ---
+  // Scans are sent to the server as they happen. If there is no signal, or the
+  // server cannot be reached, they are kept on this device and sent later with
+  // the time they were really made. A pass is identified by a one-way
+  // fingerprint of its id, so the secret id itself is never stored here.
   var doorResult = document.getElementById('doorResult');
   var doorFeed = document.getElementById('doorFeed');
   var doorVideo = document.getElementById('doorVideo');
   var doorCam = document.getElementById('doorCam');
   var doorStream = null, doorTimer = null, doorLast = { code: '', at: 0 };
 
+  var ROSTER_KEY = 'icta_door_roster_v1', QUEUE_KEY = 'icta_door_queue_v1', ISSUES_KEY = 'icta_door_issues_v1';
+  var ROSTER_MAX_AGE_MS = 48 * 3600000;
+  // These answers mean the server looked at the scan and said no, so retrying
+  // would never help. Anything else (no connection, a gateway error) is kept.
+  var FINAL_ERRORS = ['NOT_FOUND', 'RETIRED', 'UNKNOWN_DAY', 'SCAN_TOO_OLD'];
+
+  function readJson(key, fallback){ try{ var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }catch(e){ return fallback; } }
+  function writeJson(key, value){ try{ localStorage.setItem(key, JSON.stringify(value)); return true; }catch(e){ return false; } }
+  function newId(){ return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'q' + Date.now() + Math.random().toString(36).slice(2); }
+  function sha256Hex(text){
+    if(!(window.crypto && crypto.subtle)) return Promise.reject(new Error('NO_CRYPTO'));
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)).then(function(buf){
+      return Array.prototype.map.call(new Uint8Array(buf), function(b){ return ('0' + b.toString(16)).slice(-2); }).join('');
+    });
+  }
+  function clock(date){ return (date || new Date()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+
+  function rosterFor(eventId){
+    var all = readJson(ROSTER_KEY, {});
+    var r = all[eventId];
+    if(!r || Date.now() - new Date(r.savedAt).getTime() > ROSTER_MAX_AGE_MS) return null;
+    return r;
+  }
+  function saveRoster(eventId, roster){ var all = readJson(ROSTER_KEY, {}); all[eventId] = roster; writeJson(ROSTER_KEY, all); }
+  function markSignedLocally(eventId, hash, dayId){
+    var all = readJson(ROSTER_KEY, {}), r = all[eventId];
+    if(r && r.people[hash] && r.people[hash].signed.indexOf(dayId) === -1){ r.people[hash].signed.push(dayId); writeJson(ROSTER_KEY, all); }
+  }
+  function queue(){ return readJson(QUEUE_KEY, []); }
+  function issues(){ return readJson(ISSUES_KEY, []); }
+
   function fillDoorDays(){
     var ev = findCachedEvent(doorEvent.value);
     doorDay.textContent = '';
     if(!ev) return;
     var now = Date.now(), pick = null;
-    (ev.days || []).forEach(function(d, i){
+    (ev.days || []).forEach(function(d){
       var o = document.createElement('option');
       o.value = d.id;
       o.textContent = 'Day ' + d.position + ' — ' + clientFormatEventWhen(d.startAt, d.endAt, ev.timezone).replace(/ [A-Z+0-9:]+$/, '');
@@ -1700,6 +1784,7 @@
       if(open || now >= new Date(d.startAt).getTime()) pick = d.id;
     });
     doorDay.value = pick || (ev.days && ev.days[0] && ev.days[0].id) || '';
+    renderDoorStatus();
   }
   doorEvent.addEventListener('change', fillDoorDays);
 
@@ -1722,25 +1807,159 @@
     if(m) return m[1];
     return /^[0-9A-Za-z-]{8,64}$/.test(t) ? t : '';
   }
+
+  // --- Status strip: connection, guest list, waiting scans, problems ---
+  var doorNet = document.getElementById('doorNet');
+  function renderDoorStatus(){
+    var on = navigator.onLine !== false;
+    doorNet.className = 'net-pill ' + (on ? 'online' : 'offline');
+    doorNet.textContent = on ? 'Online' : 'Offline';
+    var info = document.getElementById('doorRosterInfo');
+    var r = doorEvent.value ? rosterFor(doorEvent.value) : null;
+    var count = r ? Object.keys(r.people).length : 0;
+    info.textContent = r
+      ? 'Guest list saved at ' + clock(new Date(r.savedAt)) + ' · ' + count + (count === 1 ? ' person' : ' people') + ' · works without signal'
+      : 'Not prepared for offline yet';
+    var q = queue(), qBox = document.getElementById('doorQueue');
+    qBox.hidden = q.length === 0;
+    document.getElementById('doorQueueText').textContent = q.length + (q.length === 1 ? ' scan' : ' scans') + ' waiting to sync' + (on ? '' : ' — will send when you are back online');
+    var iss = issues(), list = document.getElementById('doorIssues');
+    list.hidden = iss.length === 0;
+    list.textContent = '';
+    iss.forEach(function(it, i){
+      var li = document.createElement('li');
+      var t = document.createElement('span'); t.textContent = it.text;
+      var x = document.createElement('button'); x.type = 'button'; x.textContent = 'Dismiss';
+      x.addEventListener('click', function(){ var cur = issues(); cur.splice(i, 1); writeJson(ISSUES_KEY, cur); renderDoorStatus(); });
+      li.appendChild(t); li.appendChild(x); list.appendChild(li);
+    });
+  }
+  window.addEventListener('online', function(){ renderDoorStatus(); syncQueue(); });
+  window.addEventListener('offline', renderDoorStatus);
+
+  document.getElementById('doorPrepBtn').addEventListener('click', function(){
+    var btn = this, id = doorEvent.value;
+    if(!id){ doorSay('err', 'Choose an event first.'); return; }
+    if(navigator.onLine === false){ doorSay('warn', 'You need a connection to download the guest list. Do this before you head to the venue.'); return; }
+    btn.disabled = true; btn.textContent = 'Downloading…';
+    API.get('/api/admin/events/' + encodeURIComponent(id) + '/door-roster').then(function(r){
+      btn.disabled = false; btn.textContent = 'Prepare for offline';
+      if(!r.data.ok){ doorSay('err', r.data.message || 'Could not download the guest list.'); return; }
+      var people = {};
+      r.data.people.forEach(function(p){ people[p.h] = { name: p.name, org: p.organization, signed: p.signedDayIds || [] }; });
+      saveRoster(id, { savedAt: r.data.savedAt, days: r.data.days, people: people });
+      renderDoorStatus();
+      doorSay('ok', 'Ready for offline: ' + r.data.people.length + ' people saved on this device. Keep this page open, or reopen it from the same browser.');
+    }).catch(function(){ btn.disabled = false; btn.textContent = 'Prepare for offline'; doorSay('err', 'Could not reach the server to download the guest list.'); });
+  });
+  document.getElementById('doorClearBtn').addEventListener('click', function(){
+    var waiting = queue().length;
+    var msg = waiting ? waiting + ' scan' + (waiting === 1 ? ' has' : 's have') + ' not synced yet and will be lost. Clear the saved guest list and waiting scans from this device?' : 'Remove the saved guest list from this device?';
+    if(!window.confirm(msg)) return;
+    try{ localStorage.removeItem(ROSTER_KEY); localStorage.removeItem(QUEUE_KEY); localStorage.removeItem(ISSUES_KEY); }catch(e){}
+    renderDoorStatus();
+  });
+
+  // --- Sending waiting scans ---
+  var syncing = false;
+  function syncQueue(){
+    if(syncing || navigator.onLine === false) return Promise.resolve();
+    var q = queue();
+    if(!q.length) return Promise.resolve();
+    syncing = true;
+    var byEvent = {};
+    q.forEach(function(s){ (byEvent[s.eventId] = byEvent[s.eventId] || []).push(s); });
+    var done = 0, problems = 0, stop = false;
+    var chain = Promise.resolve();
+    Object.keys(byEvent).forEach(function(eventId){
+      chain = chain.then(function(){
+        if(stop) return;
+        var batch = byEvent[eventId].slice(0, 200);
+        return API.post('/api/admin/events/' + encodeURIComponent(eventId) + '/door-checkins', {
+          scans: batch.map(function(s){ return { dayId: s.dayId, idHash: s.idHash, scannedAt: s.scannedAt }; })
+        }).then(function(r){
+          if(r.status === 401 || r.status === 403){ stop = true; doorSay('warn', 'Your session has ended, so waiting scans could not be sent. Log in again, then press Sync now.'); return; }
+          if(!r.data || !r.data.ok || !Array.isArray(r.data.results)){ stop = true; return; } // the server was unreachable: try again later
+          var remaining = queue(), iss = issues();
+          r.data.results.forEach(function(res, i){
+            var scan = batch[i];
+            if(res.ok || FINAL_ERRORS.indexOf(res.error) !== -1){
+              remaining = remaining.filter(function(x){ return x.id !== scan.id; });
+              if(res.ok){ done += 1; markSignedLocally(scan.eventId, scan.idHash, scan.dayId); }
+              else { problems += 1; iss.push({ text: (scan.name || 'A scanned pass') + ' (' + new Date(scan.scannedAt).toLocaleString() + '): ' + (res.message || 'could not be recorded.'), at: Date.now() }); }
+            }
+          });
+          writeJson(QUEUE_KEY, remaining); writeJson(ISSUES_KEY, iss);
+        });
+      });
+    });
+    return chain.catch(function(){ /* offline again: leave everything queued */ }).then(function(){
+      syncing = false;
+      renderDoorStatus();
+      if(done) { doorSay('ok', 'Synced ' + done + (done === 1 ? ' scan' : ' scans') + ' to the sheet.' + (problems ? ' ' + problems + ' could not be recorded: see below.' : '')); loadDayChart(); }
+      else if(problems) doorSay('err', problems + (problems === 1 ? ' scan' : ' scans') + ' could not be recorded: see below.');
+    });
+  }
+  document.getElementById('doorSyncBtn').addEventListener('click', function(){
+    if(navigator.onLine === false){ doorSay('warn', 'Still offline. Waiting scans will be sent automatically when the connection returns.'); return; }
+    syncQueue();
+  });
+  setInterval(function(){ if(queue().length) syncQueue(); }, 15000);
+
+  // --- A scan ---
+  function queueScan(eventId, dayId, hash, person){
+    var q = queue();
+    q.push({ id: newId(), eventId: eventId, dayId: dayId, idHash: hash, scannedAt: new Date().toISOString(), name: person ? person.name : null });
+    if(!writeJson(QUEUE_KEY, q)){ doorSay('err', 'This device has no room to save the scan. Connect and try again.'); return; }
+    var who = person ? person.name + (person.org ? ' · ' + person.org : '') : null;
+    doorSay('warn', who
+      ? 'Saved offline: ' + who + '. It will be sent when you are back online.'
+      : 'Saved offline. This pass is not in the downloaded guest list, so its owner will be confirmed when it syncs.');
+    addFeed((who || 'Unconfirmed pass') + ' (offline)', clock());
+    if(navigator.vibrate) navigator.vibrate(120);
+    renderDoorStatus();
+  }
+
   function doorCheckIn(raw){
     var id = passIdFrom(raw);
     if(!id){ doorSay('err', 'That does not look like a pass.'); return; }
-    if(!doorEvent.value || !doorDay.value){ doorSay('err', 'Choose an event and a day first.'); return; }
+    var eventId = doorEvent.value, dayId = doorDay.value;
+    if(!eventId || !dayId){ doorSay('err', 'Choose an event and a day first.'); return; }
     var nowMs = Date.now();
     if(doorLast.code === id && nowMs - doorLast.at < 4000) return;
     doorLast = { code: id, at: nowMs };
-    API.post('/api/admin/events/' + doorEvent.value + '/days/' + doorDay.value + '/door-checkin', { clientId: id }).then(function(r){
-      var t = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      if(!r.data.ok){ doorSay('err', r.data.message || 'Could not check this pass in.'); return; }
-      var who = r.data.name + (r.data.organization ? ' · ' + r.data.organization : '');
-      if(r.data.duplicate){ doorSay('warn', who + ' was already checked in for this day.'); addFeed(who + ' (already in)', t); }
-      else {
-        doorSay('ok', 'Checked in: ' + who);
-        addFeed(who, t);
-        if(navigator.vibrate) navigator.vibrate(120);
-        loadDayChart();
+
+    sha256Hex(id).then(function(hash){
+      var roster = rosterFor(eventId);
+      var person = roster ? roster.people[hash] : null;
+      var already = person && person.signed.indexOf(dayId) !== -1;
+      var waiting = queue().some(function(s){ return s.idHash === hash && s.dayId === dayId && s.eventId === eventId; });
+      if(already || waiting){
+        var nm = person ? person.name : 'This pass';
+        doorSay('warn', nm + (waiting ? ' is already scanned for this day and waiting to sync.' : ' was already checked in for this day.'));
+        addFeed(nm + ' (already in)', clock());
+        return;
       }
-    }).catch(function(){ doorSay('err', 'Network error — could not reach the backend. Try again.'); });
+      if(navigator.onLine === false){ queueScan(eventId, dayId, hash, person); return; }
+
+      var scannedAt = new Date().toISOString();
+      return API.post('/api/admin/events/' + encodeURIComponent(eventId) + '/days/' + encodeURIComponent(dayId) + '/door-checkin', { idHash: hash, scannedAt: scannedAt }).then(function(r){
+        if(r.data && r.data.error === 'BAD_RESPONSE'){ queueScan(eventId, dayId, hash, person); return; } // server asleep or unreachable
+        var t = clock();
+        if(!r.data.ok){ doorSay('err', r.data.message || 'Could not check this pass in.'); return; }
+        var who = r.data.name + (r.data.organization ? ' · ' + r.data.organization : '');
+        markSignedLocally(eventId, hash, dayId);
+        if(r.data.duplicate){ doorSay('warn', who + ' was already checked in for this day.'); addFeed(who + ' (already in)', t); }
+        else {
+          doorSay('ok', 'Checked in: ' + who);
+          addFeed(who, t);
+          if(navigator.vibrate) navigator.vibrate(120);
+          loadDayChart();
+        }
+      }).catch(function(){ queueScan(eventId, dayId, hash, person); }); // no connection after all
+    }).catch(function(){
+      doorSay('err', 'This browser cannot check a pass here. Open the page over a secure (https) connection.');
+    });
   }
   document.getElementById('doorGoBtn').addEventListener('click', function(){
     var inp = document.getElementById('doorCode');
@@ -1781,6 +2000,12 @@
   });
   document.getElementById('doorStopBtn').addEventListener('click', stopDoorCamera);
   window.addEventListener('hashchange', function(){ if(location.hash !== '#door') stopDoorCamera(); });
+  renderDoorStatus();
+  // So the door scanner can be reopened with no signal (see sw.js).
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+  }
+
   requireSession().then(function(user){
     if(!user) return;
     showView(location.hash.replace('#', ''));

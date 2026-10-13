@@ -14,6 +14,7 @@ import { EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
 import { bucketByDay, countsByKey, summarizeDays } from '../lib/analytics.js';
 import { doorStampDataUri, clockInZone } from '../lib/stamp.js';
 import { loadClaimPackData } from '../lib/integrity.js';
+import { sanitizeScanTime, indexByIdHash, resolveAttendee, sha256Hex } from '../lib/doorsync.js';
 import { notifyDaySigned } from './public.js';
 import QRCode from 'qrcode';
 
@@ -510,43 +511,131 @@ adminRouter.get('/events/:id/days-summary', ah(async (req, res) => {
   res.json({ ok: true, registered, days: summarizeDays(days, groups, registered) });
 }));
 
-// Door check-in: the organiser scans an attendee's personal pass (their
-// clientId) and the day is recorded as method DOOR with a "scanned" stamp in
-// place of a drawn signature. Only the event's own admin can do this, and it
-// is audited. Idempotent per person per day.
-adminRouter.post('/events/:id/days/:dayId/door-checkin', ah(async (req, res) => {
-  const event = await findOwnEvent(req);
-  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
-  const day = await prisma.eventDay.findFirst({ where: { id: req.params.dayId, eventId: event.id } });
-  if (!day) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
-
-  const clientId = String(req.body.clientId || '').trim();
-  const attendee = clientId
-    ? await prisma.attendance.findUnique({ where: { eventId_clientId: { eventId: event.id, clientId } } })
-    : null;
-  if (!attendee) return res.json({ ok: false, error: 'NOT_FOUND', message: 'That pass does not belong to this event.' });
-  if (attendee.status === 'RETIRED') return res.json({ ok: false, error: 'RETIRED', message: `${attendee.name} has been retired from this event.` });
-
+// Door check-in: the organiser scans an attendee's personal pass and the day is
+// recorded as method DOOR with a "scanned" stamp in place of a drawn signature.
+// Only the event's own admin can do this, and every one is audited. Idempotent
+// per person per day. The scan time is the moment of the scan, which for a
+// phone that was offline is earlier than the moment it reached the server.
+async function doorCheckInOne({ event, day, attendee, scannedAt, req }) {
   const who = { name: attendee.name, organization: attendee.organization };
+  if (attendee.status === 'RETIRED') return { ok: false, error: 'RETIRED', message: `${attendee.name} has been retired from this event.` };
+
   const existing = await prisma.sessionSignature.findUnique({ where: { attendanceId_dayId: { attendanceId: attendee.id, dayId: day.id } } });
-  if (existing) return res.json({ ok: true, duplicate: true, ...who });
+  if (existing) return { ok: true, duplicate: true, ...who };
 
   let sig;
   try {
     sig = await prisma.sessionSignature.create({
-      data: { attendanceId: attendee.id, dayId: day.id, method: 'DOOR', signature: doorStampDataUri(clockInZone(new Date(), event.timezone)) }
+      data: {
+        attendanceId: attendee.id,
+        dayId: day.id,
+        method: 'DOOR',
+        signedAt: scannedAt,
+        signature: doorStampDataUri(clockInZone(scannedAt, event.timezone))
+      }
     });
   } catch (err) {
-    if (err?.code === 'P2002') return res.json({ ok: true, duplicate: true, ...who });
+    if (err?.code === 'P2002') return { ok: true, duplicate: true, ...who };
     throw err;
   }
   await writeAudit({
-    actorId: req.user.id, action: 'DAY_CHECKIN_DOOR', targetType: 'Attendance', targetId: attendee.id,
-    metadata: { eventId: event.id, dayId: day.id, position: day.position }, req
+    actorId: req.user.id,
+    action: 'DAY_CHECKIN_DOOR',
+    targetType: 'Attendance',
+    targetId: attendee.id,
+    metadata: { eventId: event.id, dayId: day.id, position: day.position, scannedAt, offline: Date.now() - scannedAt.getTime() > 60 * 1000 },
+    req
   });
   notifyDaySigned(attendee, event, day, sig);
-  res.json({ ok: true, ...who });
-}));
+  return { ok: true, ...who };
+}
+
+adminRouter.post(
+  '/events/:id/days/:dayId/door-checkin',
+  ah(async (req, res) => {
+    const event = await findOwnEvent(req);
+    if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+    const day = await prisma.eventDay.findFirst({ where: { id: req.params.dayId, eventId: event.id } });
+    if (!day) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+    const when = sanitizeScanTime(req.body.scannedAt);
+    if (!when.ok) return res.json({ ok: false, error: when.error, message: 'That scan is more than a week old and was not recorded.' });
+
+    const index = indexByIdHash(await prisma.attendance.findMany({ where: { eventId: event.id } }));
+    const attendee = resolveAttendee(index, { clientId: req.body.clientId, idHash: req.body.idHash });
+    if (!attendee) return res.json({ ok: false, error: 'NOT_FOUND', message: 'That pass does not belong to this event.' });
+
+    res.json(await doorCheckInOne({ event, day, attendee, scannedAt: when.at, req }));
+  })
+);
+
+// Syncs a queue of scans made while offline. Each scan is judged on its own and
+// answered in the same order, so one bad scan never blocks the rest.
+const MAX_BATCH_SCANS = 200;
+adminRouter.post(
+  '/events/:id/door-checkins',
+  ah(async (req, res) => {
+    const event = await findOwnEvent(req);
+    if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+    const scans = Array.isArray(req.body.scans) ? req.body.scans.slice(0, MAX_BATCH_SCANS) : [];
+
+    const [days, attendance] = await Promise.all([
+      prisma.eventDay.findMany({ where: { eventId: event.id } }),
+      prisma.attendance.findMany({ where: { eventId: event.id } })
+    ]);
+    const dayById = new Map(days.map((d) => [d.id, d]));
+    const index = indexByIdHash(attendance);
+
+    const results = [];
+    for (const scan of scans) {
+      const day = dayById.get(String(scan.dayId || ''));
+      const when = sanitizeScanTime(scan.scannedAt);
+      const attendee = resolveAttendee(index, { idHash: scan.idHash });
+      if (!day) results.push({ ok: false, error: 'UNKNOWN_DAY', message: 'That day is no longer part of this event.' });
+      else if (!when.ok) results.push({ ok: false, error: when.error, message: 'More than a week old, so it was not recorded.' });
+      else if (!attendee) results.push({ ok: false, error: 'NOT_FOUND', message: 'That pass does not belong to this event.' });
+      else results.push(await doorCheckInOne({ event, day, attendee, scannedAt: when.at, req }));
+    }
+    res.json({ ok: true, results });
+  })
+);
+
+// The guest list for scanning without signal: each person by the fingerprint of
+// their pass (never the pass itself), with the days they are already in for.
+// Admin only and audited, since names leave the server.
+adminRouter.get(
+  '/events/:id/door-roster',
+  ah(async (req, res) => {
+    const event = await findOwnEvent(req);
+    if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+    const [days, attendance] = await Promise.all([
+      prisma.eventDay.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } }),
+      prisma.attendance.findMany({
+        where: { eventId: event.id, status: { not: 'RETIRED' } },
+        include: { daySignatures: { select: { dayId: true } } }
+      })
+    ]);
+    await writeAudit({
+      actorId: req.user.id,
+      action: 'DOOR_ROSTER_DOWNLOADED',
+      targetType: 'Event',
+      targetId: event.id,
+      metadata: { name: event.name, rowCount: attendance.length },
+      req
+    });
+    res.json({
+      ok: true,
+      savedAt: new Date().toISOString(),
+      days: days.map((d) => ({ id: d.id, position: d.position, startAt: d.startAt, endAt: d.endAt })),
+      people: attendance.map((a) => ({
+        h: sha256Hex(a.clientId),
+        name: a.name,
+        organization: a.organization || '',
+        signedDayIds: a.daySignatures.map((s) => s.dayId)
+      }))
+    });
+  })
+);
 
 adminRouter.get('/audit', ah(async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
