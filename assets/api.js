@@ -198,6 +198,22 @@ function auditSummary(e){
   }
 }
 
+// Who did it, in words. An entry with no signed-in person behind it comes from
+// one of two places: the system itself (the daily audit anchor) or an attendee
+// acting on their own entry, who has no account (a certificate, a phone-number
+// check-in). Anything else without an actor is shown as not recorded rather
+// than guessed at.
+var AUDIT_SYSTEM_ACTIONS = ['CHAIN_ANCHORED'];
+var AUDIT_ATTENDEE_ACTIONS = ['CERTIFICATE_ISSUED', 'DAY_CHECKIN_BY_PHONE'];
+function auditActorLabel(e){
+  if(e.actor) return e.actor.email + ' (' + e.actor.role + (e.actor.county ? ', ' + e.actor.county : '') + ')';
+  if(e.actorEmail) return e.actorEmail + ' (' + e.actorRole + (e.actorCounty ? ', ' + e.actorCounty : '') + ') [deleted]';
+  if(e.actorId) return e.actorId;
+  if(AUDIT_SYSTEM_ACTIONS.indexOf(e.action) !== -1) return 'System (automatic)';
+  if(AUDIT_ATTENDEE_ACTIONS.indexOf(e.action) !== -1) return 'Attendee';
+  return 'Not recorded';
+}
+
 // A short, approximate hint alongside the exact timestamp every caller
 // already renders -- never the only time shown, since an official record
 // should say precisely when something happened, not just "a while ago".

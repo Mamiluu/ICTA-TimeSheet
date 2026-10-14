@@ -662,9 +662,7 @@
     var tbody = document.createElement('tbody');
     entries.forEach(function(e){
       var tr = document.createElement('tr');
-      var actor = e.actor ? (e.actor.email + ' (' + e.actor.role + (e.actor.county ? ', ' + e.actor.county : '') + ')')
-        : e.actorEmail ? (e.actorEmail + ' (' + e.actorRole + (e.actorCounty ? ', ' + e.actorCounty : '') + ') [deleted]')
-        : (e.actorId ? e.actorId : 'Public visitor');
+      var actor = auditActorLabel(e);
       var when = new Date(e.createdAt);
       var rel = auditRelativeTime(when);
       var f = formatAuditEntry(e);
