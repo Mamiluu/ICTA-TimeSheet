@@ -62,6 +62,9 @@ app.use('/api/superadmin', superadminRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api', publicRouter);
 
+// The front page. Without this the bare address answered NOT_FOUND, which is
+// what anyone opening the link without a page name saw first.
+app.get('/', (req, res) => res.sendFile(path.join(REPO_ROOT, 'home.html')));
 // REPO_ROOT also contains this server/ directory (with .env and source) --
 // block it explicitly before the static handler below, which would
 // otherwise happily serve anything else under REPO_ROOT by path.
