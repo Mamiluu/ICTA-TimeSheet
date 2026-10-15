@@ -6,6 +6,8 @@ import assert from 'node:assert/strict';
 import { sendActivationEmail, sendPasswordResetEmail } from '../src/lib/mailer.js';
 import { brandFromOrg, emailBrand } from '../src/lib/brand.js';
 
+process.env.PUBLIC_APP_URL = 'https://attend.example.org';
+
 // Captures what would be sent to Brevo instead of sending it.
 async function capture(run) {
   const real = globalThis.fetch;
