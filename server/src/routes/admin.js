@@ -106,7 +106,7 @@ adminRouter.get('/events', ah(async (req, res) => {
     // county is where the cap is enforced, not a shared workspace, so a
     // county with multiple admins (see per-county cap migration) doesn't
     // mean they share each other's events.
-    where: { county: req.user.county, ownerId: req.user.id, deletedAt: null },
+    where: { county: req.user.county, ownerId: req.user.id, departmentId: req.user.departmentId, deletedAt: null },
     orderBy: { createdAt: 'desc' },
     include: {
       _count: { select: { attendance: true } },
@@ -122,7 +122,7 @@ adminRouter.get('/events', ah(async (req, res) => {
 // without adding a second way to browse individual attendees.
 adminRouter.get('/analytics', ah(async (req, res) => {
   const events = await prisma.event.findMany({
-    where: { county: req.user.county, ownerId: req.user.id, deletedAt: null },
+    where: { county: req.user.county, ownerId: req.user.id, departmentId: req.user.departmentId, deletedAt: null },
     select: { id: true }
   });
   const eventIds = events.map((e) => e.id);
@@ -165,7 +165,7 @@ adminRouter.post('/events', ah(async (req, res) => {
       slug: eventSlugId(f.name), name: f.name, description: f.description,
       startAt, endAt, timezone: f.timezone,
       locationType: f.locationType, address: f.address, latitude: f.latitude, longitude: f.longitude, meetingLink: f.meetingLink, certificatesEnabled: f.certificatesEnabled,
-      county: req.user.county, ownerId: req.user.id,
+      county: req.user.county, ownerId: req.user.id, departmentId: req.user.departmentId,
       days: { create: days.map((d, i) => ({ position: i + 1, startAt: d.startAt, endAt: d.endAt })) }
     }
   });
