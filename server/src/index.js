@@ -15,6 +15,7 @@ import { platformRouter } from './routes/platform.js';
 import { adminRouter } from './routes/admin.js';
 import { publicRouter } from './routes/public.js';
 import { startAnchorJob } from './lib/anchor.js';
+import { bootstrapPlatformAdmin } from './lib/bootstrapPlatformAdmin.js';
 import { logger, requestLogger, logRequestError, newErrorRef } from './lib/logger.js';
 
 // The static frontend (index.html, admin.html, assets/, etc.) lives at the
@@ -93,4 +94,5 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
   logger.info('server listening', { port });
   startAnchorJob();
+  bootstrapPlatformAdmin().catch((err) => logger.error('platform admin bootstrap failed', { stack: err.stack }));
 });
