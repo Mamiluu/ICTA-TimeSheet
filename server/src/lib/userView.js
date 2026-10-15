@@ -4,12 +4,16 @@
 // What the browser is told about a signed-in account: who they are, their role,
 // and the department they belong to. Never a password hash or a token. Used by
 // login and /me so both always agree.
+import { accessOf } from './duty.js';
+
 export function publicUser(u) {
   return {
     id: u.id,
     email: u.email,
     role: u.role,
     county: u.county,
+    // Which kinds of event this account may use: ATTENDANCE, PAYMENT or BOTH.
+    access: accessOf(u),
     department: u.department ? { id: u.department.id, name: u.department.name } : null
   };
 }

@@ -18,6 +18,7 @@ import { dayIsOpen, dayOpensAt, dayClosesAt, ensureFirstDay, pickSigningDay, anc
 import { maskName } from '../lib/mask.js';
 import { walletEntry } from '../lib/wallet.js';
 import { certificateEligible, loadCertificateSnapshot, certificateStillHolds, publicCertificateView } from '../lib/certificate.js';
+import { canAccessKind, dayStatus } from '../lib/duty.js';
 import { newSealCode, SEAL_CODE_PATTERN, buildDaySnapshot, buildEventSnapshot, summarizeSnapshot, digestOf } from '../lib/seal.js';
 
 // Fire-and-forget, same discipline as writeAudit's own .catch(() => {})
@@ -143,7 +144,8 @@ function publicEventMeta(event) {
     latitude: event.latitude,
     longitude: event.longitude,
     meetingLink: event.meetingLink,
-    certificatesEnabled: event.certificatesEnabled
+    certificatesEnabled: event.certificatesEnabled,
+    kind: event.kind
   };
 }
 
@@ -165,7 +167,7 @@ function canManageEvent(user, event) {
   // admins (see the per-county cap migration, which lets Nairobi run up to
   // 3) -- without also checking ownerId here, any of that county's admins
   // could manage every other one's events, not just their own.
-  return user.role === 'COUNTY_ADMIN' && user.county === event.county && event.ownerId === user.id;
+  return user.role === 'COUNTY_ADMIN' && user.county === event.county && event.ownerId === user.id && canAccessKind(user, event.kind);
 }
 
 // Static, non-secret config -- letterhead text/contact details, not the
@@ -245,6 +247,7 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
       position: d.position,
       startAt: d.startAt,
       endAt: d.endAt,
+      place: d.place,
       opensAt: dayOpensAt(d),
       closesAt: dayClosesAt(d),
       open: dayIsOpen(d)
@@ -263,6 +266,19 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
     // plus the fixed public window, see linkClosesAt above), and never
     // sent once already expired (that branch returns above instead).
     linkClosesAt: linkClosesAt(event)
+  });
+}));
+
+// What a person on a payment sheet needs to sign: the engagement name and each
+// day with its date, place and whether signing is open. No names, no counts.
+publicRouter.get('/duty/:slug', ah(async (req, res) => {
+  const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
+  if (!event || event.deletedAt || event.kind !== 'DUTY_ROLL') return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const days = await prisma.eventDay.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } });
+  res.json({
+    ok: true,
+    event: { name: event.name, description: event.description, timezone: event.timezone },
+    days: days.map((d) => ({ id: d.id, position: d.position, startAt: d.startAt, endAt: d.endAt, place: d.place, open: dayIsOpen(d), status: dayStatus(d, false) }))
   });
 }));
 
@@ -488,6 +504,11 @@ publicRouter.post('/events/:slug/my-attendance', attendanceLimiter, ah(async (re
 publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, res) => {
   const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
   if (!event || event.deletedAt) return res.json({ ok: false, error: 'Unknown event' });
+  // A duty roll is a closed list: only people the organiser added can sign, so
+  // nobody can register themselves onto a payment sheet.
+  if (event.kind === 'DUTY_ROLL') {
+    return res.json({ ok: false, error: 'CLOSED_ROSTER', message: 'This is a payment sheet for a named list of people. Ask the organiser to add you.' });
+  }
   // Mirrors the GET route's cutoff: the client already hides the form once
   // GET reports expired, this is the backstop against calling the API
   // directly. Applied to every submitter, including the owning admin's own
