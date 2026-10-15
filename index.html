@@ -12,6 +12,7 @@
 <link rel="apple-touch-icon" href="assets/icta_logo_cropped.png">
 <link rel="icon" href="assets/icta_logo_cropped.png">
 <title>ICT Authority : Attendance Sheet</title>
+<script src="assets/brand.js"></script>
 <style>
   /* ---------------------------------------------------------------------
      Design language: the plain paper register. This replaces a physical
@@ -1096,20 +1097,30 @@
     var phoneEl = document.getElementById('brandPhoneLine');
     var siteEl = document.getElementById('brandWebsiteLink');
     if(orgEl && b.orgName) orgEl.textContent = b.orgName;
-    if(addrEl && b.addressLines && b.addressLines.length){
+    // An organisation with no address, phone or website of its own shows none, rather
+    // than keeping the first organisation's details that the page was written with.
+    if(addrEl && b.addressLines){
       addrEl.innerHTML = '';
       b.addressLines.forEach(function(line){
         addrEl.appendChild(document.createTextNode(line));
         addrEl.appendChild(document.createElement('br'));
       });
     }
-    if(phoneEl && b.phone){ phoneEl.textContent = 'Tel: ' + b.phone; phoneEl.appendChild(document.createElement('br')); }
-    if(siteEl && b.website){
-      siteEl.href = b.website;
-      siteEl.textContent = b.website.replace(/^https?:\/\//, '');
+    if(phoneEl){
+      phoneEl.textContent = b.phone ? 'Tel: ' + b.phone : '';
+      if(b.phone) phoneEl.appendChild(document.createElement('br'));
+    }
+    if(siteEl){
+      if(b.website){
+        siteEl.href = b.website;
+        siteEl.textContent = b.website.replace(/^https?:\/\//, '');
+        siteEl.style.display = '';
+      } else {
+        siteEl.style.display = 'none';
+      }
     }
   }
-  fetch(API_BASE + '/api/branding').then(function(res){ return res.json(); }).then(function(data){
+  fetch(API_BASE + '/api/branding' + location.search, { credentials: 'include' }).then(function(res){ return res.json(); }).then(function(data){
     if(data && data.ok) applyBranding(data);
   }).catch(function(){ /* keep the page's built-in defaults */ });
 

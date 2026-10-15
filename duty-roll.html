@@ -8,6 +8,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Payment sheet</title>
+<script src="assets/brand.js"></script>
 <link rel="icon" href="assets/icta_logo_cropped.png">
 <style>
   :root{ --ink:#1b1a18; --muted:#6a655b; --rule:#d9d2c3; --paper:#fffdf8; --page:#ebe7de; --accent:#c8102e; --ok:#14683a; --warn:#8a5a00; --bad:#9d1230; }
@@ -106,6 +107,7 @@
   .sheet-page .lh{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
   .sheet-page .lh img{ height:34px; }
   .sheet-page .lh strong{ font-size:15px; }
+  .sheet-page .lh .lhaddr{ margin-left:auto; font-size:9.5px; color:#333; text-align:right; max-width:50%; }
   .sheet-page h3{ text-align:center; margin:2px 0 6px; font-size:15px; letter-spacing:.06em; }
   .sheet-page table{ border:1px solid #000; }
   .sheet-page th, .sheet-page td{ border:1px solid #000; padding:3px 5px; font-size:10.5px; white-space:normal; color:#000; text-transform:none; letter-spacing:0; }
@@ -222,7 +224,7 @@
 (function(){
   var $ = function(id){ return document.getElementById(id); };
   var eventId = new URLSearchParams(location.search).get('event') || '';
-  var roll = null, orgName = 'ICT Authority';
+  var roll = null, orgName = 'ICT Authority', orgLogo = 'assets/icta_logo_cropped.png', orgAddress = [];
 
   function el(tag, cls, text){ var n = document.createElement(tag); if(cls) n.className = cls; if(text != null) n.textContent = text; return n; }
   function money(n){ return 'KES ' + Number(n || 0).toLocaleString('en-KE'); }
@@ -232,7 +234,10 @@
   function longDate(iso){ return fmt(iso, { day: 'numeric', month: 'long', year: 'numeric' }); }
   function say(id, text, cls){ var n = $(id); n.textContent = text || ''; n.className = 'msg' + (cls ? ' ' + cls : ''); }
 
-  API.get('/api/branding').then(function(r){ if(r.status === 200 && r.data && r.data.orgName) orgName = r.data.orgName; }).catch(function(){});
+  API.get('/api/branding').then(function(r){
+    if(r.status !== 200 || !r.data || !r.data.orgName) return;
+    orgName = r.data.orgName; orgLogo = r.data.logoUrl || orgLogo; orgAddress = r.data.addressLines || [];
+  }).catch(function(){});
 
   function requireSession(){
     return API.get('/api/auth/me').then(function(r){
@@ -476,8 +481,10 @@
     pages.forEach(function(chunk, pi){
       var last = pi === pages.length - 1;
       var pg = el('section', 'sheet-page');
-      var lh = el('div', 'lh'); var img = document.createElement('img'); img.src = 'assets/icta_logo_cropped.png'; img.alt = '';
-      lh.appendChild(img); lh.appendChild(el('strong', null, orgName)); pg.appendChild(lh);
+      var lh = el('div', 'lh'); var img = document.createElement('img'); img.src = orgLogo; img.alt = '';
+      lh.appendChild(img); lh.appendChild(el('strong', null, orgName));
+      if(orgAddress.length) lh.appendChild(el('span', 'lhaddr', orgAddress.join(' \u00b7 ')));
+      pg.appendChild(lh);
       pg.appendChild(el('h3', null, 'ATTENDANCE SHEET'));
 
       var hdr = document.createElement('table'); hdr.className = 'hdr';
