@@ -67,9 +67,7 @@
   var loginBtn = document.getElementById('loginBtn');
   var loginError = document.getElementById('loginError');
 
-  function redirectFor(role){
-    location.href = role === 'SUPER_ADMIN' ? 'superadmin.html' : 'admin.html';
-  }
+  function redirectFor(role){ location.href = homeFor(role); }
 
   // If already logged in, skip the form entirely.
   API.get('/api/auth/me').then(function(r){
@@ -88,7 +86,7 @@
     API.post('/api/auth/login', { email: e, password: p }).then(function(r){
       if(r.status === 200 && r.data.ok) return redirectFor(r.data.user.role);
       loginBtn.disabled = false;
-      if(r.status === 429){
+      if(r.status === 429 || r.data.error === 'DEPARTMENT_PAUSED'){
         loginError.textContent = r.data.message || 'Too many attempts. Try again later.';
       } else {
         loginError.textContent = 'Incorrect email or password.';

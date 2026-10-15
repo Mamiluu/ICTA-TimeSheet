@@ -47,6 +47,15 @@ var API = (function(){
   };
 })();
 
+// Where each kind of account lands after signing in, and where a page sends an
+// account that does not belong on it. One place, so the pages can never send a
+// role back and forth between two dashboards.
+function homeFor(role){
+  if(role === 'PLATFORM_ADMIN') return 'platform.html';
+  if(role === 'SUPER_ADMIN') return 'superadmin.html';
+  return 'admin.html';
+}
+
 // Every value rendered via string-concatenated innerHTML elsewhere on these
 // pages (event names, admin emails, audit metadata) originates from the
 // database, not a template -- always pass it through this first. Building

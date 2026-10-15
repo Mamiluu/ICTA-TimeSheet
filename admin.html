@@ -586,7 +586,7 @@
   function requireSession(){
     return API.get('/api/auth/me').then(function(r){
       if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return null; }
-      if(r.data.user.role !== 'COUNTY_ADMIN'){ location.href = 'superadmin.html'; return null; }
+      if(r.data.user.role !== 'COUNTY_ADMIN'){ location.href = homeFor(r.data.user.role); return null; }
       showUser(r.data.user);
       try{ localStorage.setItem(USER_KEY, JSON.stringify({ email: r.data.user.email, county: r.data.user.county, role: r.data.user.role })); }catch(e){}
       return r.data.user;

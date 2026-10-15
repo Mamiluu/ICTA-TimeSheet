@@ -320,7 +320,7 @@
   function requireSession(){
     return API.get('/api/auth/me').then(function(r){
       if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return null; }
-      if(r.data.user.role !== 'SUPER_ADMIN'){ location.href = 'admin.html'; return null; }
+      if(r.data.user.role !== 'SUPER_ADMIN'){ location.href = homeFor(r.data.user.role); return null; }
       whoEmail.textContent = r.data.user.email;
       whoEmail.title = r.data.user.email;
       document.getElementById('userAvatar').textContent = (r.data.user.email || 'S').charAt(0).toUpperCase();

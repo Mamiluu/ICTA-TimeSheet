@@ -1,0 +1,30 @@
+﻿<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+  Proprietary and confidential. See LICENSE in the repository root.
+-->
+<html lang="en">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/icta_logo_cropped.png">
+<title>Platform Admin</title>
+<link rel="stylesheet" href="assets/theme.css">
+<div class="sheet" style="margin-top:40px;">
+  <h1 class="title">Platform admin</h1>
+  <p class="sub" id="who">Checking your account…</p>
+  <p>You are signed in with the organisation's official account. The departments dashboard, where you create departments and the super admin of each one, is being added in stages.</p>
+  <button id="logoutBtn" type="button">Log out</button>
+</div>
+<script src="assets/api.js"></script>
+<script>
+(function(){
+  API.get('/api/auth/me').then(function(r){
+    if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return; }
+    if(r.data.user.role !== 'PLATFORM_ADMIN'){ location.href = homeFor(r.data.user.role); return; }
+    document.getElementById('who').textContent = 'Signed in as ' + r.data.user.email;
+  }).catch(function(){ document.getElementById('who').textContent = 'Could not reach the server.'; });
+  document.getElementById('logoutBtn').addEventListener('click', function(){
+    API.post('/api/auth/logout').then(function(){ location.href = 'login.html'; });
+  });
+})();
+</script>

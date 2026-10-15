@@ -12,6 +12,7 @@ import { writeAudit } from '../lib/audit.js';
 import { loginLimiter, forgotPasswordLimiter } from '../middleware/rateLimit.js';
 import { ah } from '../lib/asyncHandler.js';
 import { logger } from '../lib/logger.js';
+import { publicUser, departmentPaused } from '../lib/userView.js';
 
 export const authRouter = Router();
 
@@ -20,18 +21,23 @@ authRouter.post('/login', loginLimiter, ah(async (req, res) => {
   const password = String(req.body.password || '');
   if (!email || !password) return res.status(400).json({ ok: false, error: 'MISSING_FIELDS' });
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({ where: { email }, include: { department: true } });
   const validPassword = user && user.status === 'ACTIVE' && (await verifyPassword(password, user.passwordHash));
 
   if (!validPassword) {
     return res.status(401).json({ ok: false, error: 'INVALID_CREDENTIALS' });
   }
 
+  // Said only after the password is right, so it cannot be used to find out which emails exist.
+  if (departmentPaused(user)) {
+    return res.status(403).json({ ok: false, error: 'DEPARTMENT_PAUSED', message: "Your department's access has been paused. Please contact the platform administrator." });
+  }
+
   await createSession(res, user.id, req);
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await writeAudit({ actorId: user.id, action: 'LOGIN', req });
 
-  res.json({ ok: true, user: { id: user.id, email: user.email, role: user.role, county: user.county } });
+  res.json({ ok: true, user: publicUser(user) });
 }));
 
 authRouter.post('/logout', ah(async (req, res) => {
@@ -42,8 +48,7 @@ authRouter.post('/logout', ah(async (req, res) => {
 
 authRouter.get('/me', (req, res) => {
   if (!req.user) return res.status(401).json({ ok: false, error: 'NOT_AUTHENTICATED' });
-  const { id, email, role, county } = req.user;
-  res.json({ ok: true, user: { id, email, role, county } });
+  res.json({ ok: true, user: publicUser(req.user) });
 });
 
 authRouter.post('/activate/:token', ah(async (req, res) => {
