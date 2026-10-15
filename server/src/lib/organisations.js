@@ -27,6 +27,34 @@ export function cleanOrgName(raw) {
   return orgSlug(name) ? name : null;
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const DUE_SOON_DAYS = 7;
+
+// Where an organisation stands on its monthly payment, for the owner's console.
+// NOT_SET: no billing. PAID: covered beyond the next week. DUE_SOON: runs out within a
+// week. OVERDUE: the paid-until date has passed.
+export function billingState(paidUntil, now = Date.now()) {
+  if (!paidUntil) return { state: 'NOT_SET', days: null };
+  const diff = new Date(paidUntil).getTime() - now;
+  const days = Math.ceil(diff / DAY_MS);
+  if (diff < 0) return { state: 'OVERDUE', days: Math.abs(Math.floor(diff / DAY_MS)) };
+  if (days <= DUE_SOON_DAYS) return { state: 'DUE_SOON', days };
+  return { state: 'PAID', days };
+}
+
+// A payment covers whole months, counted from whichever is later: today, or the date the
+// last payment ran out (so paying early never loses days).
+export function extendPaidUntil(paidUntil, months, now = Date.now()) {
+  const start = Math.max(now, paidUntil ? new Date(paidUntil).getTime() : 0);
+  const d = new Date(start);
+  const day = d.getUTCDate();
+  d.setUTCDate(1);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  const lastOfMonth = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(day, lastOfMonth));
+  return d;
+}
+
 export function cleanShortName(raw) {
   const s = String(raw ?? '')
     .replace(/\s+/g, ' ')

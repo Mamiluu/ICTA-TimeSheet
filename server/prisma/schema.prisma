@@ -31,6 +31,10 @@ model Organisation {
   plan      String    @default("PILOT")
   createdAt DateTime  @default(now())
 
+  // Billing is kept by hand by the platform owner: the date until which the organisation
+  // has paid. Null means no billing is set up (ICT Authority during its pilot).
+  paidUntil DateTime?
+
   // How the organisation looks to its own people and attendees. All optional: an
   // empty value falls back to the platform default.
   displayName String?

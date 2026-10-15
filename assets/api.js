@@ -137,6 +137,11 @@ var AUDIT_ACTION_META = {
   SUPER_ADMIN_REACTIVATE: { label: 'Reactivated super admin', tone: 'positive' },
   SUPER_ADMIN_DELETE: { label: 'Deleted super admin', tone: 'danger' },
   ORG_CREATE: { label: 'Created organisation', tone: 'positive' },
+  ORG_PAYMENT_RECORDED: { label: 'Recorded payment', tone: 'positive' },
+  ORG_BILLING_OFF: { label: 'Turned billing off', tone: 'neutral' },
+  ORG_BRANDING_UPDATED: { label: 'Updated branding', tone: 'neutral' },
+  ORG_LOGO_UPDATED: { label: 'Changed logo', tone: 'neutral' },
+  ORG_LOGO_REMOVED: { label: 'Removed logo', tone: 'neutral' },
   ORG_SUSPEND: { label: 'Suspended organisation', tone: 'danger' },
   ORG_RESUME: { label: 'Resumed organisation', tone: 'positive' },
   ORG_ACTIVATION_LINK_VIEWED: { label: 'Viewed activation link', tone: 'neutral' },
@@ -259,6 +264,10 @@ function auditSummary(e){
     case 'ORG_CREATE':
     case 'ORG_RESUME':
       return escapeHtml(m.name || '');
+    case 'ORG_PAYMENT_RECORDED':
+      return escapeHtml(m.name || '') + ' — ' + (m.months || '?') + (m.months === 1 ? ' month' : ' months') + ', paid until ' + escapeHtml(m.paidUntil || '');
+    case 'ORG_BRANDING_UPDATED':
+      return escapeHtml((m.changed || []).join(', '));
     case 'ORG_SUSPEND':
       return escapeHtml(m.name || '') + (m.reason ? ' — “' + escapeHtml(m.reason) + '”' : '');
     case 'DEPARTMENT_CREATE':

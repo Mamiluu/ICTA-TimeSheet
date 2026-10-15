@@ -11,7 +11,7 @@ import { writeAudit } from '../lib/audit.js';
 import { isValidEmailShape } from '../lib/normalize.js';
 import { ah } from '../lib/asyncHandler.js';
 import { logger } from '../lib/logger.js';
-import { cleanOrgName, cleanShortName, isValidOrgSlug, orgSlug } from '../lib/organisations.js';
+import { cleanOrgName, cleanShortName, isValidOrgSlug, orgSlug, billingState, extendPaidUntil } from '../lib/organisations.js';
 import { brandFromOrg, emailBrand } from '../lib/brand.js';
 
 // The platform owner's console. It answers "who is using the platform and is it
@@ -55,6 +55,8 @@ ownerRouter.get('/organisations', ah(async (req, res) => {
         status: o.status,
         plan: o.plan,
         createdAt: o.createdAt,
+        paidUntil: o.paidUntil,
+        billing: billingState(o.paidUntil),
         departments: by(departments, o.id, (r) => r._count._all) || 0,
         orgAdmins: count('PLATFORM_ADMIN'),
         orgAdminsActive: count('PLATFORM_ADMIN', 'ACTIVE'),
@@ -103,6 +105,29 @@ ownerRouter.post('/organisations', ah(async (req, res) => {
   sendActivationEmail(admin.email, url, null, null, org.name, emailBrand(brandFromOrg(org))).catch((err) => logger.error('sendActivationEmail failed', { toEmail: admin.email, stack: err.stack }));
   await writeAudit({ actorId: req.user.id, action: 'ORG_CREATE', targetType: 'Organisation', targetId: org.id, metadata: { name: org.name, slug: org.slug }, req });
   res.json({ ok: true, organisation: { id: org.id, name: org.name, slug: org.slug }, activationUrl: url });
+}));
+
+// Records that an organisation has paid, for a number of whole months. Money itself is
+// not handled here; this only moves the date the organisation is covered until.
+ownerRouter.post('/organisations/:id/payment', ah(async (req, res) => {
+  const org = await prisma.organisation.findUnique({ where: { id: req.params.id } });
+  if (!org) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const months = Number(req.body.months === undefined ? 1 : req.body.months);
+  if (!Number.isInteger(months) || months < 1 || months > 24) return res.status(400).json({ ok: false, error: 'INVALID_MONTHS', message: 'Enter a whole number of months, from 1 to 24.' });
+  const note = String(req.body.note || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+  const paidUntil = extendPaidUntil(org.paidUntil, months);
+  await prisma.organisation.update({ where: { id: org.id }, data: { paidUntil } });
+  await writeAudit({ actorId: req.user.id, action: 'ORG_PAYMENT_RECORDED', targetType: 'Organisation', targetId: org.id, metadata: { name: org.name, months, paidUntil: paidUntil.toISOString().slice(0, 10), ...(note ? { note } : {}) }, req });
+  res.json({ ok: true, paidUntil, billing: billingState(paidUntil) });
+}));
+
+// Stops billing for an organisation (for example a pilot or a free arrangement).
+ownerRouter.post('/organisations/:id/billing-off', ah(async (req, res) => {
+  const org = await prisma.organisation.findUnique({ where: { id: req.params.id } });
+  if (!org) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  await prisma.organisation.update({ where: { id: org.id }, data: { paidUntil: null } });
+  await writeAudit({ actorId: req.user.id, action: 'ORG_BILLING_OFF', targetType: 'Organisation', targetId: org.id, metadata: { name: org.name }, req });
+  res.json({ ok: true });
 }));
 
 async function findOrg(req) {
