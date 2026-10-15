@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+  Proprietary and confidential. See LICENSE in the repository root.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Organisation</title>
+<script src="assets/brand.js"></script>
+<link rel="icon" href="assets/icta_logo_cropped.png">
+<style>
+  :root{ --ink:#1b1a18; --muted:#6a655b; --rule:#d9d2c3; --paper:#fffdf8; --page:#ebe7de; --accent:#c8102e; --ok:#14683a; --warn:#8a5a00; --bad:#9d1230; }
+  @media (prefers-color-scheme: dark){ :root{ --page:#1d1c1a; } }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--page); color:var(--ink); font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; font-size:14px; line-height:1.5; }
+  .wrap{ max-width:1120px; margin:0 auto; padding:22px 18px 60px; }
+  a{ color:var(--accent); }
+  .back{ color:var(--muted); text-decoration:none; font-size:13px; }
+  h1{ font-family:Georgia, "Times New Roman", serif; font-weight:400; font-size:30px; line-height:1.15; margin:8px 0 2px; }
+  .meta{ color:var(--muted); font-size:13px; }
+  .card{ background:var(--paper); border:1px solid var(--rule); border-radius:14px; padding:16px 18px; margin:14px 0; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+  h2{ font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0 0 12px; font-weight:700; }
+  .stats{ display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:12px; }
+  .stat{ background:#fff; border:1px solid var(--rule); border-radius:12px; padding:10px 14px; }
+  .stat .l{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+  .stat .v{ font-size:26px; font-family:Georgia, serif; }
+  .charts{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:18px; margin-top:16px; }
+  .chart .t{ font-size:12.5px; font-weight:700; margin-bottom:6px; }
+  .bars{ display:flex; align-items:flex-end; gap:4px; height:80px; }
+  .bars div{ flex:1; background:var(--accent); opacity:.75; border-radius:3px 3px 0 0; min-height:2px; }
+  .cap{ display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-top:4px; }
+  button{ font:inherit; font-weight:700; font-size:13.5px; padding:9px 14px; border-radius:9px; border:1px solid #bfb7a4; background:#fff; color:var(--ink); cursor:pointer; }
+  button.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.danger{ color:var(--bad); border-color:#e2b3bd; }
+  button:disabled{ opacity:.55; cursor:default; }
+  input, select{ font:inherit; font-size:14px; padding:9px 10px; border:1px solid #bfb7a4; border-radius:9px; background:#fff; color:var(--ink); width:100%; min-width:0; }
+  input:focus-visible, button:focus-visible, select:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  label{ display:block; font-size:12.5px; font-weight:700; margin:0 0 4px; }
+  .pill{ display:inline-block; font-size:12px; font-weight:700; padding:2px 10px; border-radius:999px; background:#eee9dc; color:var(--muted); }
+  .pill.ok{ background:#e0f1e6; color:var(--ok); } .pill.warn{ background:#fdf0d4; color:var(--warn); } .pill.bad{ background:#f6e1e5; color:var(--bad); }
+  .form{ display:grid; grid-template-columns:minmax(0,1fr) 160px auto; gap:10px 12px; align-items:end; }
+  .privacy{ background:#eef3ee; border:1px solid #cddccd; color:#2c4a35; border-radius:10px; padding:10px 12px; font-size:13px; margin-bottom:12px; }
+  .grant{ padding:9px 0; border-top:1px solid var(--rule); font-size:13px; }
+  .grant:first-of-type{ border-top:0; }
+  .msg{ margin:10px 0 0; font-size:13.5px; min-height:1.2em; } .msg.err{ color:var(--bad); } .msg.ok{ color:var(--ok); font-weight:700; }
+  .tabs{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .tabs button.on{ background:var(--ink); border-color:var(--ink); color:#fff; }
+  .tablewrap{ overflow-x:auto; }
+  table{ border-collapse:collapse; width:100%; font-size:13px; }
+  th, td{ padding:8px 9px; border-bottom:1px solid var(--rule); text-align:left; vertical-align:top; }
+  th{ font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:700; white-space:nowrap; }
+  td.num, th.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  .empty{ color:var(--muted); padding:6px 2px; }
+  [hidden]{ display:none !important; }
+  @media (max-width: 860px){ .stats{ grid-template-columns:1fr 1fr; } .charts{ grid-template-columns:1fr; } .form{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="owner.html">&larr; All organisations</a>
+  <h1 id="name">Loading…</h1>
+  <div class="meta" id="sub"></div>
+
+  <div class="card">
+    <h2>Usage</h2>
+    <div class="stats" id="stats"></div>
+    <div class="charts" id="charts"></div>
+    <p class="meta" style="margin:12px 0 0;">Counts only. Attendee names, phone numbers, signatures and event details are not shown here and cannot be.</p>
+  </div>
+
+  <div class="card" id="supportCard">
+    <h2>Support access</h2>
+    <div class="privacy">To look inside this organisation you must ask its administrator, who approves it for a set number of hours. You then see only their read-only overview pages: departments, administrators and the activity log. Never attendee records, and nothing can be changed. Everything you open is written to their own activity log.</div>
+    <div id="supportState"></div>
+    <div id="requestForm" hidden>
+      <div class="form">
+        <div><label for="reason">What do you need to look into?</label><input type="text" id="reason" maxlength="300" autocomplete="off" placeholder="e.g. Their super admin says a county admin cannot log in"></div>
+        <div><label for="hours">For how long</label><select id="hours"><option value="1">1 hour</option><option value="4" selected>4 hours</option><option value="8">8 hours</option><option value="24">24 hours</option></select></div>
+        <div><button type="button" class="primary" id="askBtn">Ask for access</button></div>
+      </div>
+      <p class="msg" id="askMsg" role="status" aria-live="polite"></p>
+    </div>
+    <div id="history" style="margin-top:12px;"></div>
+  </div>
+
+  <div class="card" id="viewCard" hidden>
+    <h2>Support view <span class="pill warn" id="viewUntil"></span></h2>
+    <div class="tabs" id="tabs">
+      <button type="button" data-tab="overview" class="on">Overview</button>
+      <button type="button" data-tab="departments">Departments</button>
+      <button type="button" data-tab="super-admins">Administrators</button>
+      <button type="button" data-tab="audit">Activity log</button>
+    </div>
+    <div id="viewBody"><p class="empty">Loading…</p></div>
+  </div>
+</div>
+
+<script src="assets/api.js"></script>
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var orgId = new URLSearchParams(location.search).get('id') || '';
+  var base = '/api/owner/organisations/' + encodeURIComponent(orgId);
+  function el(tag, cls, text){ var n = document.createElement(tag); if(cls) n.className = cls; if(text != null) n.textContent = text; return n; }
+  function say(id, text, cls){ var n = $(id); n.textContent = text || ''; n.className = 'msg' + (cls ? ' ' + cls : ''); }
+  function when(iso){ return iso ? new Date(iso).toLocaleString('en-GB') : ''; }
+  var activeGrant = null, tab = 'overview';
+
+  API.get('/api/auth/me').then(function(r){
+    if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return; }
+    if(r.data.user.role !== 'OWNER'){ location.href = homeFor(r.data.user.role); return; }
+    loadUsage(); loadSupport();
+  });
+
+  function stat(label, value){ var s = el('div', 'stat'); s.appendChild(el('div', 'l', label)); s.appendChild(el('div', 'v', String(value))); return s; }
+
+  function chart(title, weeks){
+    var box = el('div', 'chart'); box.appendChild(el('div', 't', title));
+    var max = Math.max.apply(null, [1].concat(weeks.map(function(w){ return w.count; })));
+    var bars = el('div', 'bars');
+    weeks.forEach(function(w){ var b = el('div'); b.style.height = Math.max(3, Math.round(w.count / max * 100)) + '%'; b.title = 'Week of ' + w.weekStart + ': ' + w.count; bars.appendChild(b); });
+    box.appendChild(bars);
+    var cap = el('div', 'cap'); cap.appendChild(el('span', null, weeks[0].weekStart)); cap.appendChild(el('span', null, 'this week')); box.appendChild(cap);
+    return box;
+  }
+
+  function loadUsage(){
+    API.get(base + '/usage').then(function(r){
+      if(r.status !== 200 || !r.data.ok){ $('name').textContent = 'Organisation not found'; return; }
+      var d = r.data, o = d.organisation;
+      $('name').textContent = o.name;
+      document.title = o.name + ' · Organisation';
+      var b = o.billing || { state: 'NOT_SET' };
+      var bill = b.state === 'NOT_SET' ? 'no billing set up' : (b.state === 'OVERDUE' ? 'payment overdue' : 'paid until ' + new Date(o.paidUntil).toLocaleDateString('en-GB'));
+      $('sub').textContent = o.slug + ' · ' + o.plan.toLowerCase() + ' plan · ' + (o.status === 'ACTIVE' ? 'active' : 'suspended') + ' · ' + bill;
+      var sum = function(a){ return a.reduce(function(n, w){ return n + w.count; }, 0); };
+      var st = $('stats'); st.textContent = '';
+      st.appendChild(stat('Accounts', d.accounts)); st.appendChild(stat('Active, 30 days', d.activeUsers30d));
+      st.appendChild(stat('Events, 12 weeks', sum(d.weeks.events))); st.appendChild(stat('Signatures, 12 weeks', sum(d.weeks.signatures)));
+      st.appendChild(stat('Signature data', d.signatureDataMb + ' MB'));
+      var ch = $('charts'); ch.textContent = '';
+      ch.appendChild(chart('Events created per week', d.weeks.events)); ch.appendChild(chart('Signatures per week', d.weeks.signatures)); ch.appendChild(chart('Logins per week', d.weeks.logins));
+    });
+  }
+
+  var STATE = { PENDING: ['warn', 'Waiting for their approval'], ACTIVE: ['ok', 'Active'], ENDED: ['', 'Ended'], DENIED: ['bad', 'Declined'], REVOKED: ['', 'Ended early'], LAPSED: ['', 'Not answered'] };
+
+  function loadSupport(){
+    API.get(base + '/support').then(function(r){
+      if(r.status !== 200 || !r.data.ok) return;
+      var open = r.data.open;
+      var box = $('supportState'); box.textContent = '';
+      activeGrant = open && open.state === 'ACTIVE' ? open : null;
+      $('requestForm').hidden = !!open;
+      if(open && open.state === 'PENDING'){
+        var p = el('p'); p.appendChild(el('span', 'pill warn', 'Waiting for their approval'));
+        p.appendChild(document.createTextNode(' You asked on ' + when(open.requestedAt) + ': “' + open.reason + '”. Their administrator sees the request on their Support access page.'));
+        box.appendChild(p);
+        var w = el('button', null, 'Withdraw the request'); w.type = 'button'; w.addEventListener('click', function(){ endGrant(open.id); }); box.appendChild(w);
+      } else if(open){
+        var a = el('p'); a.appendChild(el('span', 'pill ok', 'Approved'));
+        a.appendChild(document.createTextNode(' by ' + open.decidedBy + '. Runs until ' + when(open.expiresAt) + '.'));
+        box.appendChild(a);
+        var e = el('button', 'danger', 'End the session now'); e.type = 'button'; e.addEventListener('click', function(){ endGrant(open.id); }); box.appendChild(e);
+      }
+      var h = $('history'); h.textContent = '';
+      r.data.grants.forEach(function(g){
+        if(open && g.id === open.id) return;
+        var row = el('div', 'grant'); var s = STATE[g.state] || ['', g.state];
+        row.appendChild(el('span', 'pill ' + s[0], s[1]));
+        row.appendChild(document.createTextNode(' ' + when(g.requestedAt) + ' · ' + g.hours + ' h · “' + g.reason + '”' + (g.decidedBy ? ' · decided by ' + g.decidedBy : '')));
+        h.appendChild(row);
+      });
+      $('viewCard').hidden = !activeGrant;
+      if(activeGrant){ $('viewUntil').textContent = 'until ' + new Date(activeGrant.expiresAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); showTab(tab); }
+    });
+  }
+
+  function endGrant(id){
+    if(!window.confirm('End this support access now?')) return;
+    API.post(base + '/support/' + encodeURIComponent(id) + '/end').then(function(){ loadSupport(); });
+  }
+
+  $('askBtn').addEventListener('click', function(){
+    var btn = this; btn.disabled = true; say('askMsg', 'Sending…');
+    API.post(base + '/support', { reason: $('reason').value, hours: Number($('hours').value) }).then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ say('askMsg', r.data.message || 'Could not send the request.', 'err'); return; }
+      $('reason').value = ''; say('askMsg', ''); loadSupport();
+    }).catch(function(){ btn.disabled = false; say('askMsg', 'No connection. Please try again.', 'err'); });
+  });
+
+  // ---- The read-only support view ----
+  Array.prototype.forEach.call($('tabs').querySelectorAll('button'), function(b){
+    b.addEventListener('click', function(){ tab = b.getAttribute('data-tab'); showTab(tab); });
+  });
+
+  function table(headers, rows){
+    var wrap = el('div', 'tablewrap'); var t = document.createElement('table');
+    var tr = document.createElement('tr'); headers.forEach(function(h){ tr.appendChild(el('th', null, h)); });
+    var th = document.createElement('thead'); th.appendChild(tr); t.appendChild(th);
+    var tb = document.createElement('tbody');
+    rows.forEach(function(r){ var row = document.createElement('tr'); r.forEach(function(c){ row.appendChild(el('td', null, c == null ? '' : String(c))); }); tb.appendChild(row); });
+    t.appendChild(tb); wrap.appendChild(t); return wrap;
+  }
+
+  function showTab(name){
+    Array.prototype.forEach.call($('tabs').querySelectorAll('button'), function(b){ b.classList.toggle('on', b.getAttribute('data-tab') === name); });
+    var body = $('viewBody'); body.textContent = ''; body.appendChild(el('p', 'empty', 'Loading…'));
+    var url = '/api/owner/support/' + encodeURIComponent(orgId) + '/' + name + (name === 'audit' ? '?pageSize=25' : '');
+    API.get(url).then(function(r){
+      body.textContent = '';
+      if(r.status !== 200 || !r.data.ok){ body.appendChild(el('p', 'empty', r.data && r.data.message ? r.data.message : 'Could not load this page.')); return; }
+      var d = r.data;
+      if(name === 'overview'){
+        var st = el('div', 'stats');
+        st.appendChild(stat('Departments', d.totals.departments)); st.appendChild(stat('Super admins', d.totals.superAdmins)); st.appendChild(stat('County admins', d.totals.countyAdmins));
+        st.appendChild(stat('Events', d.totals.events)); st.appendChild(stat('Attendance', d.totals.attendance));
+        body.appendChild(st);
+      } else if(name === 'departments'){
+        body.appendChild(table(['Department', 'Status', 'Super admins', 'County admins', 'Events'], d.departments.map(function(x){ return [x.name, x.active ? 'Active' : 'Paused', x.superAdmins + ' (' + x.activeSuperAdmins + ' active)', x.countyAdmins, x.events]; })));
+      } else if(name === 'super-admins'){
+        body.appendChild(table(['Email', 'Department', 'Status', 'Last login'], d.admins.map(function(a){ return [a.email, a.department ? a.department.name : '', a.status, a.lastLoginAt ? when(a.lastLoginAt) : 'never']; })));
+      } else {
+        var wrap = el('div', 'tablewrap'); var t = document.createElement('table');
+        t.innerHTML = '<thead><tr><th>When</th><th>Who</th><th>Action</th><th>Detail</th></tr></thead>';
+        var tb = document.createElement('tbody');
+        d.entries.forEach(function(e){ var f = formatAuditEntry(e); var tr = document.createElement('tr'); tr.innerHTML = '<td>' + escapeHtml(when(e.createdAt)) + '</td><td>' + escapeHtml(auditActorLabel(e)) + '</td><td>' + f.badgeHtml + '</td><td>' + f.summaryHtml + '</td>'; tb.appendChild(tr); });
+        t.appendChild(tb); wrap.appendChild(t); body.appendChild(wrap);
+      }
+    }).catch(function(){ body.textContent = ''; body.appendChild(el('p', 'empty', 'No connection. Please try again.')); });
+  }
+})();
+</script>
+</body>
+</html>

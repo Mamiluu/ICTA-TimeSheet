@@ -173,6 +173,33 @@ async function main() {
   expect("B's signed-in pages still show B's name", (await B.orgAdmin.get('/branding')).data.orgName === bBefore.data.orgName);
   expect('the owner cannot be reached through the branding routes of an org admin', refused(await owner.get('/platform/branding')));
 
+  // Support access: the owner can look inside only with the organisation's own approval
+  expect('the owner console health and usage are not open to an org admin', refused(await A.orgAdmin.get('/owner/health')) && refused(await A.orgAdmin.get(`/owner/organisations/${A.org.id}/usage`)));
+  expect('support view is closed without an approval', (await owner.get(`/owner/support/${B.org.id}/departments`)).status === 403);
+  expect('support access needs a real reason', refused(await owner.post(`/owner/organisations/${B.org.id}/support`, { reason: 'help', hours: 4 })));
+  const ask = await owner.post(`/owner/organisations/${B.org.id}/support`, { reason: 'Fence check: a user cannot log in', hours: 2 });
+  expect('the owner can ask B for support access', ask.data.ok === true);
+  expect('a second request is refused while one is open', refused(await owner.post(`/owner/organisations/${B.org.id}/support`, { reason: 'Fence check: asking twice', hours: 2 })));
+  expect("A's admin does not see B's request", (await A.orgAdmin.get('/platform/support')).data.grants.every((g) => g.id !== ask.data.grant.id));
+  expect("A's admin cannot approve B's request", refused(await A.orgAdmin.post(`/platform/support/${ask.data.grant.id}/approve`)));
+  expect('asking does not open the view', (await owner.get(`/owner/support/${B.org.id}/departments`)).status === 403);
+  const bAsks = await B.orgAdmin.get('/platform/support');
+  expect("B's admin sees the request", bAsks.data.pending === 1);
+  expect('B approves', (await B.orgAdmin.post(`/platform/support/${ask.data.grant.id}/approve`)).data.ok === true);
+  const view = await owner.get(`/owner/support/${B.org.id}/departments`);
+  expect("the support view shows B's departments only", view.status === 200 && view.data.departments.every((d) => d.id !== A.dep.id) && view.data.departments.some((d) => d.id === B.dep.id));
+  expect("B's approval does not open A", (await owner.get(`/owner/support/${A.org.id}/departments`)).status === 403);
+  expect('the support view is read-only', (await owner.post(`/owner/support/${B.org.id}/departments`, { name: 'Planted' })).status === 403);
+  expect('support cannot change branding', (await owner.put(`/owner/support/${B.org.id}/branding`, { displayName: 'Hijacked' })).status === 403);
+  expect("support cannot reach the organisation's own support controls", (await owner.get(`/owner/support/${B.org.id}/support`)).status === 403);
+  expect('support cannot reach audit anchors', (await owner.get(`/owner/support/${B.org.id}/anchor`)).status === 403);
+  const bAudit = await B.orgAdmin.get('/platform/audit?pageSize=100');
+  expect('B can see in its own audit trail that support looked', bAudit.data.entries.some((e) => e.action === 'SUPPORT_VIEWED') && bAudit.data.entries.some((e) => e.action === 'SUPPORT_REQUESTED'));
+  const aAudit = await A.orgAdmin.get('/platform/audit?pageSize=100');
+  expect("A's audit trail holds none of B's support entries", aAudit.data.entries.every((e) => !String(e.action).startsWith('SUPPORT_')));
+  expect('B can revoke it', (await B.orgAdmin.post(`/platform/support/${ask.data.grant.id}/revoke`)).data.ok === true);
+  expect('the view closes straight away', (await owner.get(`/owner/support/${B.org.id}/departments`)).status === 403);
+
   // The owner sees counts only
   const list = await owner.get('/owner/organisations');
   const text = JSON.stringify(list.data);

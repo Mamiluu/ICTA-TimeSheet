@@ -148,6 +148,7 @@
       <div class="nav-group">Security</div>
       <a class="nav-item" href="#audit" data-nav="audit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Audit trail</span></a>
       <a class="nav-item" href="#integrity" data-nav="integrity"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3zM9 12l2 2 4-4"/></svg><span>Integrity</span></a>
+      <a class="nav-item" href="#support" data-nav="support"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13a8 8 0 0 1 16 0v4a2 2 0 0 1-2 2h-1v-6h3M4 13v4a2 2 0 0 0 2 2h1v-6H4M12 19v2"/></svg><span>Support access</span><span class="badge-count" id="supportBadge" hidden></span></a>
       <div class="nav-group">Settings</div>
       <a class="nav-item" href="#branding" data-nav="branding"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.2 0 2-.8 2-1.8 0-.6-.3-1-.6-1.4-.3-.4-.4-.7-.4-1.1 0-.9.7-1.7 1.7-1.7H17a4 4 0 0 0 4-4C21 6.5 17 3 12 3zM7.5 12a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM10 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM15 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg><span>Branding</span></a>
       <a class="nav-item" href="#profile" data-nav="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Profile</span></a>
@@ -271,6 +272,15 @@
       </div>
     </section>
 
+    <!-- Support access -->
+    <section class="view" data-view="support" data-title="Support access">
+      <div class="sheet wide">
+        <h2 class="section">Help from the platform team</h2>
+        <p class="help">If something is wrong and the platform team needs to look into it, they must ask you first. If you approve, they get a read-only view of your overview pages (departments, administrators and the activity log) for the hours they asked for. They never see attendee names, phone numbers, signatures or event records, and they cannot change anything. Every page they open is written to your Audit trail. You can end it at any moment.</p>
+        <div id="supportList"><p class="empty">Loading…</p></div>
+      </div>
+    </section>
+
     <!-- Branding -->
     <section class="view" data-view="branding" data-title="Branding">
       <div class="sheet wide">
@@ -337,7 +347,7 @@
   applyTopbarBranding('Platform Admin');
 
   var whoEmail = document.getElementById('whoEmail');
-  var VIEWS = ['overview', 'departments', 'admins', 'add', 'audit', 'integrity', 'branding', 'profile'];
+  var VIEWS = ['overview', 'departments', 'admins', 'add', 'audit', 'integrity', 'support', 'branding', 'profile'];
   var currentView = null;
 
   // --- Sidebar sections: one view at a time, addressable by #hash ---
@@ -371,6 +381,7 @@
     if(changed && name === 'audit') loadAudit();
     if(changed && name === 'integrity') showAnchorStatus();
     if(changed && name === 'branding') loadBranding();
+    if(changed && name === 'support') loadSupport();
   }
   navToggle.addEventListener('click', function(){
     var open = !sidenav.classList.contains('open');
@@ -863,6 +874,52 @@
     }).catch(function(){ say('bad', NET_ERR); });
   });
 
+  // --- Support access ---
+  var SUPPORT_STATE = { PENDING: ['pending', 'Waiting for you'], ACTIVE: ['active', 'Active'], ENDED: ['disabled', 'Ended'], DENIED: ['disabled', 'Declined'], REVOKED: ['disabled', 'Ended early'], LAPSED: ['disabled', 'Not answered'] };
+  function loadSupport(){
+    var box = $('supportList');
+    return API.get('/api/platform/support').then(function(r){
+      if(r.status !== 200 || !r.data.ok){ box.innerHTML = '<p class="empty">Could not load.</p>'; return; }
+      var badge = $('supportBadge'); badge.hidden = !r.data.pending; badge.textContent = String(r.data.pending);
+      box.textContent = '';
+      if(!r.data.grants.length){ box.appendChild(el('p', 'empty', 'The platform team has not asked for access.')); return; }
+      var list = el('div', 'adm-list');
+      r.data.grants.forEach(function(g){
+        var row = el('article', 'adm-row is-' + (g.state === 'PENDING' ? 'pending' : g.state === 'ACTIVE' ? 'active' : 'disabled'));
+        var who = el('div', 'adm-who'); var text = el('div'); text.style.minWidth = '0';
+        text.appendChild(el('div', 'adm-email', '\u201c' + g.reason + '\u201d'));
+        text.appendChild(el('div', 'adm-county', 'Asked by ' + g.requestedBy + ' · ' + new Date(g.requestedAt).toLocaleString('en-GB') + ' · ' + g.hours + (g.hours === 1 ? ' hour' : ' hours')));
+        who.appendChild(text);
+        var state = el('div', 'adm-state'); var s = SUPPORT_STATE[g.state] || ['', g.state];
+        state.appendChild(el('span', 'pill ' + s[0], s[1]));
+        if(g.state === 'ACTIVE') state.appendChild(el('span', null, 'Until ' + new Date(g.expiresAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })));
+        else if(g.decidedBy) state.appendChild(el('span', null, 'Decided by ' + g.decidedBy));
+        var acts = el('div', 'adm-actions');
+        if(g.state === 'PENDING'){
+          var ok = el('button', 'primary', 'Approve'); ok.type = 'button'; ok.addEventListener('click', function(){ decideSupport(g, 'approve', ok); });
+          var no = el('button', null, 'Decline'); no.type = 'button'; no.addEventListener('click', function(){ decideSupport(g, 'deny', no); });
+          acts.appendChild(ok); acts.appendChild(no);
+        } else if(g.state === 'ACTIVE'){
+          var end = el('button', null, 'End it now'); end.type = 'button'; end.addEventListener('click', function(){ decideSupport(g, 'revoke', end); });
+          acts.appendChild(end);
+        }
+        row.appendChild(who); row.appendChild(state); row.appendChild(acts); list.appendChild(row);
+      });
+      box.appendChild(list);
+    }).catch(function(){ box.innerHTML = '<p class="empty">' + NET_ERR + '</p>'; });
+  }
+  function decideSupport(g, action, btn){
+    var msg = action === 'approve' ? 'Let the platform team look at your overview pages (read-only) for ' + g.hours + (g.hours === 1 ? ' hour' : ' hours') + '?'
+      : action === 'deny' ? 'Decline this request?' : 'End the platform team\'s access now?';
+    if(!window.confirm(msg)) return;
+    btn.disabled = true;
+    API.post('/api/platform/support/' + encodeURIComponent(g.id) + '/' + action).then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ window.alert(r.data.message || 'That request is no longer open.'); }
+      loadSupport();
+    }).catch(function(){ btn.disabled = false; window.alert(NET_ERR); });
+  }
+
   // --- Branding ---
   var bEls = { name: $('bName'), addr: $('bAddress'), phone: $('bPhone'), site: $('bSite'), colour: $('bColour'), pick: $('bColourPick') };
   var currentBrand = null;
@@ -938,6 +995,7 @@
     if(!user) return;
     showView(location.hash.replace('#', ''));
     refreshAll();
+    loadSupport();
   });
 })();
 </script>

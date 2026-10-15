@@ -52,8 +52,15 @@
   .msg.ok{ color:var(--ok); font-weight:700; }
   .empty{ color:var(--muted); padding:6px 2px; }
   .privacy{ background:#eef3ee; border:1px solid #cddccd; color:#2c4a35; border-radius:10px; padding:10px 12px; font-size:13px; }
+  .health{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; }
+  .health .h{ background:#fff; border:1px solid var(--rule); border-radius:12px; padding:10px 14px; }
+  .health .h .l{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+  .health .h .v{ font-size:18px; font-weight:700; }
+  .health .h .s{ font-size:12px; color:var(--muted); }
+  .health .h.bad .v{ color:var(--bad); }
+  .health .h.ok .v{ color:var(--ok); }
   [hidden]{ display:none !important; }
-  @media (max-width: 860px){ .stats{ grid-template-columns:1fr 1fr; } .org{ grid-template-columns:1fr; } .acts{ justify-content:flex-start; } .form{ grid-template-columns:1fr 1fr; } }
+  @media (max-width: 860px){ .stats, .health{ grid-template-columns:1fr 1fr; } .org{ grid-template-columns:1fr; } .acts{ justify-content:flex-start; } .form{ grid-template-columns:1fr 1fr; } }
 </style>
 </head>
 <body>
@@ -66,6 +73,11 @@
   <p class="sub">Everyone who uses the platform, and whether it is healthy. You see counts and activity only. Names, phone numbers, signatures and event details stay inside each organisation.</p>
 
   <div class="stats" id="stats"></div>
+
+  <div class="card">
+    <h2>Platform health</h2>
+    <div class="health" id="health"><p class="empty">Checking…</p></div>
+  </div>
 
   <div class="card">
     <h2>Customers</h2>
@@ -142,7 +154,7 @@
     orgs.forEach(function(o){
       var row = el('div', 'org');
       var left = el('div');
-      var head = el('div', 'n', o.name + (o.shortName ? ' (' + o.shortName + ')' : ''));
+      var head = el('div', 'n'); var nameLink = el('a', null, o.name + (o.shortName ? ' (' + o.shortName + ')' : '')); nameLink.href = 'owner-org.html?id=' + encodeURIComponent(o.id); nameLink.style.color = 'inherit'; head.appendChild(nameLink);
       head.appendChild(document.createTextNode(' '));
       head.appendChild(el('span', 'pill ' + (o.status === 'ACTIVE' ? 'ok' : 'bad'), o.status === 'ACTIVE' ? 'Active' : 'Suspended'));
       left.appendChild(head);
@@ -174,7 +186,24 @@
     });
   }
 
+  function ago2(iso){ return iso ? ago(iso) : 'never'; }
+  function loadHealth(){
+    API.get('/api/owner/health').then(function(r){
+      var box = $('health'); box.textContent = '';
+      if(r.status !== 200 || !r.data.ok){ box.appendChild(el('p', 'empty', 'Could not read the platform health.')); return; }
+      var d = r.data;
+      function tile(label, value, sub, cls){ var t = el('div', 'h' + (cls ? ' ' + cls : '')); t.appendChild(el('div', 'l', label)); t.appendChild(el('div', 'v', value)); if(sub) t.appendChild(el('div', 's', sub)); return t; }
+      box.appendChild(tile('Database', d.database.ok ? 'Working' : 'Down', d.database.ms + ' ms to answer', d.database.ok ? 'ok' : 'bad'));
+      var f = d.emails24h;
+      box.appendChild(tile('Emails, 24 hours', f.sent + ' sent', f.failed ? f.failed + ' failed' + (f.recentFailures[0] ? ': ' + f.recentFailures[0].error : '') : 'none failed', f.failed ? 'bad' : 'ok'));
+      box.appendChild(tile('Audit anchor', d.lastAnchorAt ? ago(d.lastAnchorAt) : 'never sent', 'last copy emailed'));
+      var up = Math.round(d.uptimeSeconds / 3600 * 10) / 10;
+      box.appendChild(tile('Server', 'Up ' + (up < 1 ? Math.round(d.uptimeSeconds / 60) + ' min' : up + ' h'), (d.lastMigration ? 'Database version ' + d.lastMigration.name.slice(0, 14) : '') + ' · ' + d.node));
+    }).catch(function(){ $('health').innerHTML = '<p class="empty">No connection.</p>'; });
+  }
+
   function load(){
+    loadHealth();
     return API.get('/api/owner/organisations').then(function(r){
       if(r.status !== 200 || !r.data.ok){ $('list').innerHTML = '<p class="empty">Could not load organisations.</p>'; return; }
       render(r.data.organisations);
