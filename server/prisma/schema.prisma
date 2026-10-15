@@ -48,11 +48,48 @@ model Organisation {
   logoMime    String?
   logoVersion Int     @default(0)
   logo        OrganisationLogo?
+  supportAccesses SupportAccess[]
 
   departments  Department[]
   users        User[]
   events       Event[]
   auditEntries AuditLog[]
+}
+
+// The platform owner asking to look inside an organisation to help with a problem. It
+// only works if the organisation's own administrator approves it, for a limited time, and
+// the view is read-only and never includes attendee records. status is REQUESTED,
+// APPROVED, DENIED or REVOKED; whether an approval has run out is worked out from expiresAt.
+model SupportAccess {
+  id               String       @id @default(uuid())
+  organisationId   String
+  organisation     Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  requestedById    String
+  requestedByEmail String
+  reason           String
+  hours            Int
+  status           String       @default("REQUESTED")
+  decidedById      String?
+  decidedByEmail   String?
+  decidedAt        DateTime?
+  expiresAt        DateTime?
+  endedAt          DateTime?
+  createdAt        DateTime     @default(now())
+
+  @@index([organisationId, createdAt])
+}
+
+// One line per email the platform tried to send, so the owner can see whether delivery is
+// healthy. It records which kind and whether it worked, never who it was for.
+model EmailDelivery {
+  id               String   @id @default(uuid())
+  organisationSlug String?
+  kind             String
+  ok               Boolean
+  error            String?
+  createdAt        DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 model OrganisationLogo {
