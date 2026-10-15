@@ -116,13 +116,13 @@ authRouter.post('/forgot-password', forgotPasswordLimiter, ah(async (req, res) =
   // or the account is active -- prevents using this endpoint to enumerate
   // which emails have accounts in the system.
   if (email) {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { email }, include: { organisation: true } });
     if (user && user.status === 'ACTIVE') {
       const raw = await issueToken(user.id, 'PASSWORD_RESET');
       const resetUrl = `${process.env.PUBLIC_APP_URL}/reset-password.html?token=${encodeURIComponent(raw)}${user.organisationId ? '&org=' + encodeURIComponent(user.organisation.slug) : ''}`;
       (user.organisationId ? brandForOrgId(user.organisationId) : Promise.resolve(brandFromOrg(null)))
-    .then((brand) => sendPasswordResetEmail(user.email, resetUrl, emailBrand(brand)))
-    .catch((err) => logger.error('sendPasswordResetEmail failed', { stack: err.stack }));
+        .then((brand) => sendPasswordResetEmail(user.email, resetUrl, emailBrand(brand)))
+        .catch((err) => logger.error('sendPasswordResetEmail failed', { stack: err.stack }));
       writeAudit({ actorId: user.id, action: 'PASSWORD_RESET_REQUESTED', req }).catch(() => {});
     }
   }

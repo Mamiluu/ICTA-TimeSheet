@@ -50,7 +50,11 @@ function sendConfirmationIfEmailed(row, event, day, dayCount, recordedAt) {
     county: event.county,
     recordId: row.id,
     recordedAt: recordedAt || row.createdAt
-  }).catch((err) => logger.error('attendance confirmation email failed', { stack: err.stack }));
+        },
+        emailBrand(brand)
+      )
+    )
+    .catch((err) => logger.error('attendance confirmation email failed', { stack: err.stack }));
 }
 
 export const publicRouter = Router();
