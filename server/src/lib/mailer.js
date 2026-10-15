@@ -2,7 +2,7 @@
 // Proprietary and confidential. See LICENSE in the repository root.
 
 import { formatEventWhen } from './timezone.js';
-import { BRANDING } from './branding.js';
+import { brandFromOrg, emailBrand } from './brand.js';
 
 // Sent over Brevo's HTTPS API rather than SMTP. Render's free web services
 // block all outbound traffic on the SMTP ports (25/465/587) as an
@@ -13,7 +13,7 @@ import { BRANDING } from './branding.js';
 // every transactional-email API rides on.
 const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email';
 
-async function sendViaBrevo({ to, subject, html }) {
+async function sendViaBrevo({ to, subject, html, brand }) {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) throw new Error('BREVO_API_KEY is not configured');
 
@@ -25,7 +25,7 @@ async function sendViaBrevo({ to, subject, html }) {
       Accept: 'application/json'
     },
     body: JSON.stringify({
-      sender: { name: `${BRANDING.orgName} — ${BRANDING.productName}`, email: process.env.GMAIL_SENDER_ADDRESS },
+      sender: { name: `${brand.orgName} — ${brand.productName}`, email: process.env.GMAIL_SENDER_ADDRESS },
       to: [{ email: to }],
       subject,
       htmlContent: html
@@ -38,19 +38,17 @@ async function sendViaBrevo({ to, subject, html }) {
   }
 }
 
-// Kept separate from BRANDING (lib/branding.js) -- accent is a color
-// choice baked into these hand-built email templates, not org identity
-// text, so there's no env var for it; it's a code-level styling constant,
-// same footing as index.html's own --accent CSS variable.
-const BRAND = {
-  accent: '#c8102e'
-};
+// Who the email is from. Every message is sent in the look of the organisation it concerns;
+// one with no organisation in hand falls back to the platform default.
+function brandOf(given) {
+  return given || emailBrand(brandFromOrg(null));
+}
 
-function wrapHtml(bodyHtml) {
+function wrapHtml(brand, bodyHtml) {
   return `<!doctype html>
 <html><body style="margin:0;padding:24px;background:#e9e9e9;font-family:'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;">
   <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:4px;padding:28px 32px;box-shadow:0 4px 24px rgba(0,0,0,.15);">
-    <h1 style="font-size:16px;margin:0 0 16px;color:#1a1a1a;">${BRANDING.orgName} — ${BRANDING.productName}</h1>
+    <table role="presentation" style="margin:0 0 16px;"><tr><td style="padding-right:10px;"><img src="${brand.logoUrl}" alt="" height="34" style="display:block;height:34px;max-width:120px;"></td><td><h1 style="font-size:16px;margin:0;color:#1a1a1a;">${brand.orgName} — ${brand.productName}</h1></td></tr></table>
     ${bodyHtml}
     <p style="font-size:11px;color:#888;margin-top:28px;">© 2026 Asya Hafidh. All rights reserved.</p>
   </div>
@@ -67,9 +65,10 @@ function devLogLink(label, url) {
   }
 }
 
-export async function sendActivationEmail(toEmail, activateUrl, county, department = null, organisation = null) {
+export async function sendActivationEmail(toEmail, activateUrl, county, department = null, organisation = null, brandIn = null) {
+  const brand = brandOf(brandIn);
   devLogLink(`activation link for ${toEmail}`, activateUrl);
-  const html = wrapHtml(`
+  const html = wrapHtml(brand, `
     <p style="font-size:13.5px;color:#333;">An account has been created for you as ${
       organisation
         ? `the administrator of <strong>${organisation}</strong> on this platform`
@@ -78,21 +77,22 @@ export async function sendActivationEmail(toEmail, activateUrl, county, departme
           : `the <strong>${county}</strong> county admin`
     }.</p>
     <p style="font-size:13.5px;color:#333;">Click the button below to set your own password and activate your account. This link can only be used once and expires in 48 hours.</p>
-    <p style="margin:22px 0;"><a href="${activateUrl}" style="background:${BRAND.accent};color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Activate your account</a></p>
+    <p style="margin:22px 0;"><a href="${activateUrl}" style="background:${brand.accent};color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Activate your account</a></p>
     <p style="font-size:11.5px;color:#888;">If the button doesn't work, copy this link: ${activateUrl}</p>
   `);
-  await sendViaBrevo({ to: toEmail, subject: `Activate your ${BRANDING.orgName} admin account`, html });
+  await sendViaBrevo({ to: toEmail, subject: `Activate your ${brand.orgName} account`, html, brand });
 }
 
-export async function sendPasswordResetEmail(toEmail, resetUrl) {
+export async function sendPasswordResetEmail(toEmail, resetUrl, brandIn = null) {
+  const brand = brandOf(brandIn);
   devLogLink(`password reset link for ${toEmail}`, resetUrl);
-  const html = wrapHtml(`
+  const html = wrapHtml(brand, `
     <p style="font-size:13.5px;color:#333;">A password reset was requested for this account. Click below to set a new password. This link can only be used once and expires in 1 hour.</p>
-    <p style="margin:22px 0;"><a href="${resetUrl}" style="background:${BRAND.accent};color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Reset your password</a></p>
+    <p style="margin:22px 0;"><a href="${resetUrl}" style="background:${brand.accent};color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Reset your password</a></p>
     <p style="font-size:11.5px;color:#888;">If you didn't request this, you can safely ignore this email — your password will not change.</p>
     <p style="font-size:11.5px;color:#888;">If the button doesn't work, copy this link: ${resetUrl}</p>
   `);
-  await sendViaBrevo({ to: toEmail, subject: `Reset your ${BRANDING.orgName} admin password`, html });
+  await sendViaBrevo({ to: toEmail, subject: `Reset your ${brand.orgName} password`, html, brand });
 }
 
 // Attendee-facing, so unlike the two admin emails above this carries no
@@ -125,7 +125,8 @@ function formatRecordedAt(date) {
 // / circle) whose circles match the page background -- that reads as a
 // notch cut into the card edge without relying on negative margins or
 // absolute positioning, which don't survive Outlook's rendering engine.
-export async function sendAttendanceConfirmationEmail(toEmail, details) {
+export async function sendAttendanceConfirmationEmail(toEmail, details, brandIn = null) {
+  const brand = brandOf(brandIn);
   const {
     name, eventName, eventDescription, startAt, endAt, timezone,
     locationType, address, meetingLink, county, recordId, recordedAt,
@@ -160,7 +161,7 @@ export async function sendAttendanceConfirmationEmail(toEmail, details) {
     </tr>`;
 
   const whereHtml = locationType === 'VIRTUAL'
-    ? `<a href="${escapeHtml(meetingLink)}" style="color:${BRAND.accent};">${escapeHtml(meetingLink)}</a>`
+    ? `<a href="${escapeHtml(meetingLink)}" style="color:${brand.accent};">${escapeHtml(meetingLink)}</a>`
     : escapeHtml(address || '');
 
   const perforation = `
@@ -176,15 +177,15 @@ export async function sendAttendanceConfirmationEmail(toEmail, details) {
 <html><body style="margin:0;padding:24px;background:${pageBg};font-family:'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;">
   <div style="max-width:440px;margin:0 auto;">
     <div style="max-width:440px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.15);">
-      <div style="height:6px;background:${BRAND.accent};"></div>
+      <div style="height:6px;background:${brand.accent};"></div>
       <div style="padding:26px 30px 0;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr>
-            <td style="font:700 10px/1 'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;letter-spacing:.1em;color:#9a9a9a;text-transform:uppercase;">${BRANDING.orgName} · ${BRANDING.productName}</td>
+            <td style="font:700 10px/1 'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;letter-spacing:.1em;color:#9a9a9a;text-transform:uppercase;">${brand.orgName} · ${brand.productName}</td>
             <td style="text-align:right;font:700 10px/1 'Courier New',monospace;letter-spacing:.05em;color:#9a9a9a;">REF ${refCode}</td>
           </tr>
         </table>
-        <p style="margin:20px 0 4px;font:700 11px/1 'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;letter-spacing:.1em;color:${BRAND.accent};text-transform:uppercase;">&#10003; ${dayTag ? escapeHtml(dayTag) + ' attendance' : 'Attendance'} recorded</p>
+        <p style="margin:20px 0 4px;font:700 11px/1 'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;letter-spacing:.1em;color:${brand.accent};text-transform:uppercase;">&#10003; ${dayTag ? escapeHtml(dayTag) + ' attendance' : 'Attendance'} recorded</p>
         <h1 style="margin:6px 0 10px;font-size:21px;color:#1a1a1a;">Hi ${escapeHtml(name) || 'there'},</h1>
         <p style="margin:0;font-size:13.5px;line-height:1.55;color:#555;">Your ${dayTag ? escapeHtml(dayTag.toLowerCase()) + ' ' : ''}sign-in has been received and stored on the official attendance sheet for the event below.</p>
       </div>
@@ -208,7 +209,7 @@ export async function sendAttendanceConfirmationEmail(toEmail, details) {
       </div>
     </div>
 
-    ${passUrl && dayCount > 1 ? `<p style="margin:18px 8px 0;font-size:12px;line-height:1.6;color:#555;">Signing the next day on a different phone? <a href="${escapeHtml(passUrl)}" style="color:${BRAND.accent};font-weight:700;">Open your personal pass</a> on that phone. Keep this email private: anyone with the link can sign in as you.</p>` : ''}
+    ${passUrl && dayCount > 1 ? `<p style="margin:18px 8px 0;font-size:12px;line-height:1.6;color:#555;">Signing the next day on a different phone? <a href="${escapeHtml(passUrl)}" style="color:${brand.accent};font-weight:700;">Open your personal pass</a> on that phone. Keep this email private: anyone with the link can sign in as you.</p>` : ''}
     <p style="margin:18px 8px 0;font-size:11px;line-height:1.6;color:#888;">Didn't check in for this event? No action is needed — you can ignore this email. Spotted a typo in your entry? Return to the device and browser you signed in on and tap Edit next to your row; this record can't be edited from email.</p>
     <p style="margin:14px 8px 0;font-size:11px;color:#999;">© 2026 Asya Hafidh. All rights reserved.</p>
   </div>
@@ -221,9 +222,10 @@ export async function sendAttendanceConfirmationEmail(toEmail, details) {
 // inbox the application cannot edit: the hash below is the audit chain's
 // latest entry at send time, so a later check can show whether anything up to
 // it was changed or removed. There is nothing to click.
-export async function sendChainAnchorEmail(toEmail, head) {
+export async function sendChainAnchorEmail(toEmail, head, brandIn = null) {
+  const brand = brandOf(brandIn);
   devLogLink(`chain anchor for ${toEmail}`, head.hash);
-  const html = wrapHtml(`
+  const html = wrapHtml(brand, `
     <p style="font-size:13.5px;color:#333;">Daily record-integrity anchor. Keep this email: it is your independent copy of the audit trail's latest entry.</p>
     <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:13px;color:#1a1a1a;margin:14px 0;">
       <tr><td style="padding:3px 14px 3px 0;color:#888;">Entries on record</td><td><strong>${escapeHtml(head.count)}</strong></td></tr>
@@ -233,5 +235,5 @@ export async function sendChainAnchorEmail(toEmail, head) {
     <p style="font-family:'Courier New',monospace;font-size:12px;word-break:break-all;background:#f4f4f4;padding:10px;border-radius:4px;color:#1a1a1a;">${escapeHtml(head.hash)}</p>
     <p style="font-size:11.5px;color:#888;">To check it later, open the platform page, paste this hash into "Check an anchor" and the system will tell you whether that entry, and everything before it, is still intact.</p>
   `);
-  await sendViaBrevo({ to: toEmail, subject: `${BRANDING.orgName} audit anchor — ${head.count} entries`, html });
+  await sendViaBrevo({ to: toEmail, subject: `${brand.orgName} audit anchor — ${head.count} entries`, html, brand });
 }

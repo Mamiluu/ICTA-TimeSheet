@@ -13,7 +13,7 @@ import { randomToken, hashToken } from '../lib/tokens.js';
 import { writeAudit, verifyChain } from '../lib/audit.js';
 import { sendAttendanceConfirmationEmail } from '../lib/mailer.js';
 import { logger } from '../lib/logger.js';
-import { BRANDING } from '../lib/branding.js';
+import { resolveBrand, DEFAULT_ORG_SLUG, monogramSvg, brandFromOrg } from '../lib/brand.js';
 import { dayIsOpen, dayOpensAt, dayClosesAt, ensureFirstDay, pickSigningDay, anchorDayFor } from '../lib/days.js';
 import { maskName } from '../lib/mask.js';
 import { walletEntry } from '../lib/wallet.js';
@@ -170,13 +170,33 @@ function canManageEvent(user, event) {
   return user.role === 'COUNTY_ADMIN' && user.county === event.county && event.ownerId === user.id && canAccessKind(user, event.kind);
 }
 
-// Static, non-secret config -- letterhead text/contact details, not the
-// logo image itself (see the comment on lib/branding.js for why that part
-// isn't included). No auth guard: this is the same information already
-// printed on the sign-in page for anyone at the venue to read.
-publicRouter.get('/branding', (req, res) => {
-  res.json({ ok: true, ...BRANDING });
-});
+// How the page asking looks: the organisation's name, letterhead, accent colour and
+// logo address. Whose it is comes from the page (?org=, ?event=, ?code=) or the person
+// signed in. No auth guard: this is what is already printed on the sign-in page for
+// anyone at the venue to read.
+publicRouter.get('/branding', ah(async (req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.json({ ok: true, ...(await resolveBrand(req)) });
+}));
+
+// An organisation's logo: the image it uploaded, ICT Authority's own file when it
+// has not uploaded one, or a plain monogram in its accent colour. Public by nature.
+publicRouter.get('/org-logo/:slug', ah(async (req, res) => {
+  const slug = String(req.params.slug || '').toLowerCase().slice(0, 60);
+  const org = await prisma.organisation.findUnique({ where: { slug }, include: { logo: true } });
+  if (!org) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  res.set('X-Content-Type-Options', 'nosniff');
+  if (org.logo) {
+    res.set('Content-Type', org.logo.mime);
+    res.set('Cache-Control', 'public, max-age=86400');
+    return res.send(Buffer.from(org.logo.data));
+  }
+  if (org.slug === DEFAULT_ORG_SLUG) return res.redirect(302, '/assets/icta_logo_cropped.png');
+  res.set('Content-Type', 'image/svg+xml; charset=utf-8');
+  res.set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
+  res.set('Cache-Control', 'public, max-age=3600');
+  res.send(monogramSvg(brandFromOrg(org).orgName, org.accentColor));
+}));
 
 publicRouter.get('/events/:slug', ah(async (req, res) => {
   const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });

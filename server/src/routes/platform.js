@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
 // Proprietary and confidential. See LICENSE in the repository root.
 
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { requireRole } from '../middleware/auth.js';
@@ -14,6 +14,9 @@ import { ah } from '../lib/asyncHandler.js';
 import { logger } from '../lib/logger.js';
 import { pagedAudit } from '../lib/auditPage.js';
 import { bucketByDay } from '../lib/analytics.js';
+import { cleanBranding } from '../lib/brandInput.js';
+import { brandFromOrg, invalidateBrandCache } from '../lib/brand.js';
+import { detectImage, MAX_LOGO_BYTES } from '../lib/imageSniff.js';
 import { chainHead, lastAnchorAt, sendAnchor, checkAnchor } from '../lib/anchor.js';
 import { DEFAULT_DEPARTMENTS, MAX_SUPER_ADMINS_PER_DEPARTMENT, cleanDepartmentName, departmentSlug } from '../lib/departments.js';
 
@@ -334,4 +337,70 @@ platformRouter.post('/anchor/check', ah(async (req, res) => {
   const hash = String(req.body.hash || '').trim().toLowerCase();
   if (!/^[0-9a-f]{64}$/.test(hash)) return res.status(400).json({ ok: false, error: 'INVALID_HASH', message: 'Paste the full 64-character hash from the anchor email.' });
   res.json({ ok: true, ...(await checkAnchor(hash)) });
+}));
+
+// ---- How the organisation looks ---------------------------------------------
+
+async function loadOwnOrg(req) {
+  return prisma.organisation.findUnique({ where: { id: req.user.organisationId } });
+}
+
+platformRouter.get('/branding', ah(async (req, res) => {
+  const org = await loadOwnOrg(req);
+  res.json({
+    ok: true,
+    organisation: { name: org.name, slug: org.slug },
+    branding: { displayName: org.displayName, address: org.address, phone: org.phone, website: org.website, accentColor: org.accentColor, hasLogo: !!org.logoMime },
+    brand: brandFromOrg(org)
+  });
+}));
+
+platformRouter.put('/branding', ah(async (req, res) => {
+  const parsed = cleanBranding(req.body);
+  if (parsed.error) return res.status(400).json({ ok: false, error: 'INVALID_BRANDING', message: parsed.error });
+  const before = await loadOwnOrg(req);
+  const updated = await prisma.organisation.update({ where: { id: before.id }, data: parsed.value });
+  invalidateBrandCache();
+  const changed = Object.keys(parsed.value).filter((k) => (before[k] ?? null) !== parsed.value[k]);
+  if (changed.length) await writeAudit({ actorId: req.user.id, action: 'ORG_BRANDING_UPDATED', targetType: 'Organisation', targetId: before.id, metadata: { changed }, req });
+  res.json({ ok: true, brand: brandFromOrg(updated) });
+}));
+
+// A logo is sent as the raw image (not wrapped in JSON), up to 300 KB. What it really is
+// is decided from its bytes, and only PNG, JPEG and WebP are accepted: none of them can
+// carry a script.
+function refuseOversizedLogo(req, res, next) {
+  if (Number(req.headers['content-length'] || 0) > MAX_LOGO_BYTES) {
+    return res.status(413).json({ ok: false, error: 'TOO_LARGE', message: 'The logo must be 300 KB or smaller.' });
+  }
+  next();
+}
+const logoBody = express.raw({ type: ['image/png', 'image/jpeg', 'image/webp'], limit: MAX_LOGO_BYTES + 1024 });
+
+platformRouter.put('/branding/logo', refuseOversizedLogo, logoBody, ah(async (req, res) => {
+  const data = req.body;
+  if (!Buffer.isBuffer(data) || !data.length) return res.status(400).json({ ok: false, error: 'NO_IMAGE', message: 'Choose a PNG, JPEG or WebP image.' });
+  if (data.length > MAX_LOGO_BYTES) return res.status(413).json({ ok: false, error: 'TOO_LARGE', message: 'The logo must be 300 KB or smaller.' });
+  const mime = detectImage(data);
+  if (!mime) return res.status(400).json({ ok: false, error: 'UNSUPPORTED_IMAGE', message: 'That file is not a PNG, JPEG or WebP image.' });
+
+  const orgId = req.user.organisationId;
+  await prisma.$transaction([
+    prisma.organisationLogo.upsert({ where: { organisationId: orgId }, create: { organisationId: orgId, data, mime }, update: { data, mime } }),
+    prisma.organisation.update({ where: { id: orgId }, data: { logoMime: mime, logoVersion: { increment: 1 } } })
+  ]);
+  invalidateBrandCache();
+  await writeAudit({ actorId: req.user.id, action: 'ORG_LOGO_UPDATED', targetType: 'Organisation', targetId: orgId, metadata: { mime, bytes: data.length }, req });
+  res.json({ ok: true, brand: brandFromOrg(await loadOwnOrg(req)) });
+}));
+
+platformRouter.delete('/branding/logo', ah(async (req, res) => {
+  const orgId = req.user.organisationId;
+  await prisma.$transaction([
+    prisma.organisationLogo.deleteMany({ where: { organisationId: orgId } }),
+    prisma.organisation.update({ where: { id: orgId }, data: { logoMime: null, logoVersion: { increment: 1 } } })
+  ]);
+  invalidateBrandCache();
+  await writeAudit({ actorId: req.user.id, action: 'ORG_LOGO_REMOVED', targetType: 'Organisation', targetId: orgId, req });
+  res.json({ ok: true, brand: brandFromOrg(await loadOwnOrg(req)) });
 }));
