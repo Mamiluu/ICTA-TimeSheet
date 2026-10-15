@@ -8,7 +8,7 @@ import { writeAudit } from '../lib/audit.js';
 import { ah } from '../lib/asyncHandler.js';
 import { MAX_ATTENDANCE_PER_EVENT } from '../lib/constants.js';
 import { cleanPayee, buildPayCsv, MAX_RATE_PER_DAY, sheetIsOpen, approvalCheck, STAGE_LABEL } from '../lib/duty.js';
-import { loadRoll } from '../lib/dutyRoll.js';
+import { loadRoll, loadFindings, withoutHashes } from '../lib/dutyRoll.js';
 import { dayClosesAt } from '../lib/days.js';
 
 // A one-pixel transparent PNG. A person added to a duty roll has not signed
@@ -42,7 +42,7 @@ export function registerDutyRoutes(router, findOwnEvent) {
     if (!event) return;
     const print = req.query.print === '1';
     const [roll, approvals, openQueries] = await Promise.all([
-      loadRoll(event, { withSignatures: print }),
+      loadRoll(event, { withSignatures: print, withHashes: !print }),
       prisma.dutyApproval.findMany({ where: { eventId: event.id }, orderBy: { createdAt: 'asc' } }),
       prisma.dutyQuery.count({ where: { eventId: event.id, status: 'OPEN' } })
     ]);
@@ -64,12 +64,13 @@ export function registerDutyRoutes(router, findOwnEvent) {
         endAt: event.endAt
       },
       days: roll.days.map((d) => ({ id: d.id, position: d.position, startAt: d.startAt, endAt: d.endAt, place: d.place })),
-      rows: roll.rows,
+      rows: withoutHashes(roll.rows),
       totals: roll.totals,
       stage: event.dutyStage,
       stageLabel: STAGE_LABEL[event.dutyStage],
       approvals: approvals.map((a) => ({ step: a.step, by: a.byEmail, note: a.note, sealCode: a.sealCode, at: a.createdAt })),
       openQueries,
+      findings: print ? [] : await loadFindings(event, roll),
       maxRate: MAX_RATE_PER_DAY
     });
   }));

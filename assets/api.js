@@ -238,7 +238,7 @@ function auditSummary(e){
     case 'DUTY_ROLL_CERTIFIED':
     case 'DUTY_ROLL_VERIFIED':
     case 'DUTY_ROLL_RETURNED':
-      return '“' + escapeHtml(m.name || '') + '”' + (m.sealCode ? ' · seal ' + escapeHtml(m.sealCode) : '') + (m.note ? ' — “' + escapeHtml(m.note) + '”' : '');
+      return '“' + escapeHtml(m.name || '') + '”' + (m.sealCode ? ' · seal ' + escapeHtml(m.sealCode) : '') + (m.review ? ' · ' + m.review + (m.review === 1 ? ' item' : ' items') + ' reviewed' : '') + (m.note ? ' — “' + escapeHtml(m.note) + '”' : '');
     case 'DUTY_ROLL_REVIEWED':
     case 'DUTY_QUERY_RESOLVED':
       return '“' + escapeHtml(m.name || '') + '”' + (m.response ? ' — “' + escapeHtml(m.response) + '”' : '');

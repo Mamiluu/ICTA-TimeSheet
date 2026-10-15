@@ -147,6 +147,8 @@
       <a class="nav-item" href="#add" data-nav="add"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 8v8M8 12h8"/></svg><span>Add admin</span></a>
       <div class="nav-group">Security</div>
       <a class="nav-item" href="#audit" data-nav="audit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Audit trail</span></a>
+      <div class="nav-group">Payments</div>
+      <a class="nav-item" href="duty-review.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12l2 2 4-4M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3z"/></svg><span>Payment approvals</span></a>
       <div class="nav-group">Settings</div>
       <a class="nav-item" href="#profile" data-nav="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Profile</span></a>
     </nav>
@@ -213,6 +215,14 @@
             <option value="PAYMENT">Payment sheets only</option>
             <option value="BOTH">Both attendance and payment sheets</option>
           </select>
+          <div id="newRoleBox" hidden>
+            <label for="newPaymentRole">Their part in payment sheets</label>
+            <select id="newPaymentRole">
+              <option value="PREPARER">Prepares sheets</option>
+              <option value="AUTHORISER">Authorising officer: certifies sheets</option>
+              <option value="FINANCE">Finance: verifies sheets for payment</option>
+            </select>
+          </div>
           <p class="help" style="margin:-6px 0 14px;">Payment sheets hold payment details, so only give this access to people who need it. You can change it later.</p>
         </div>
         <button class="primary" id="createBtn">Create admin &amp; send activation email</button>
@@ -261,6 +271,14 @@
       <label class="access-opt"><input type="radio" name="accessOpt" value="ATTENDANCE"><div><strong>Attendance sheets</strong><span>Open sign-in sheets for events and trainings.</span></div></label>
       <label class="access-opt"><input type="radio" name="accessOpt" value="PAYMENT"><div><strong>Payment sheets</strong><span>Closed rosters whose attendance is used for payment.</span></div></label>
       <label class="access-opt"><input type="radio" name="accessOpt" value="BOTH"><div><strong>Both</strong><span>Everything above.</span></div></label>
+      <div id="accessRoleBox" hidden style="margin-top:6px;">
+        <label for="accessRole" style="display:block; font-weight:700; font-size:12.5px; margin-bottom:4px;">Their part in payment sheets</label>
+        <select id="accessRole">
+          <option value="PREPARER">Prepares sheets</option>
+          <option value="AUTHORISER">Authorising officer: certifies sheets</option>
+          <option value="FINANCE">Finance: verifies sheets for payment</option>
+        </select>
+      </div>
       <p class="note err" id="accessError" style="display:none;"></p>
       <div class="access-actions"><button type="button" id="accessCancel">Cancel</button><button type="button" class="primary" id="accessSave">Save</button></div>
     </dialog>
@@ -317,6 +335,7 @@
   document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeNav(); });
   Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(n){
     n.addEventListener('click', function(e){
+      if(!n.hasAttribute('data-nav')) return; // a link to another page
       e.preventDefault();
       var v = n.getAttribute('data-nav');
       if(v === 'audit' && currentView !== 'audit') clearAuditAdminFilter(true);
@@ -407,12 +426,12 @@
     }
 
     createBtn.disabled = true;
-    API.post('/api/superadmin/admins', { email: email, county: county, access: document.getElementById('newAccess').value }).then(function(r){
+    API.post('/api/superadmin/admins', { email: email, county: county, access: document.getElementById('newAccess').value, paymentRole: document.getElementById('newAccess').value === 'ATTENDANCE' ? 'PREPARER' : document.getElementById('newPaymentRole').value }).then(function(r){
       createBtn.disabled = false;
       if(r.status === 200 && r.data.ok){
         createSuccess.textContent = 'Admin created for ' + county + '. An activation email was sent to ' + email + '.';
         createSuccess.style.display = '';
-        newEmail.value = ''; newCounty.value = ''; document.getElementById('newAccess').value = 'ATTENDANCE';
+        newEmail.value = ''; newCounty.value = ''; document.getElementById('newAccess').value = 'ATTENDANCE'; document.getElementById('newPaymentRole').value = 'PREPARER'; document.getElementById('newRoleBox').hidden = true;
         loadAdmins();
         return;
       }
@@ -440,6 +459,7 @@
   var adminsCache = [];
   var adminSearch = document.getElementById('adminSearch');
   var adminFilter = document.getElementById('adminFilter');
+  var ROLE_LABEL = { PREPARER: 'prepares sheets', AUTHORISER: 'authorising officer', FINANCE: 'finance' };
   var ACCESS_LABEL = { ATTENDANCE: 'Attendance sheets', PAYMENT: 'Payment sheets', BOTH: 'Attendance and payment sheets' };
   var PILL = { ACTIVE: ['active', 'Active'], PENDING: ['pending', 'Pending activation'], DISABLED: ['disabled', 'Disabled'] };
 
@@ -461,7 +481,7 @@
     var text = el('div'); text.style.minWidth = '0';
     var em = el('div', 'adm-email', a.email); em.title = a.email;
     text.appendChild(em);
-    text.appendChild(el('div', 'adm-county', a.county + ' County · ' + (ACCESS_LABEL[a.access] || ACCESS_LABEL.ATTENDANCE)));
+    text.appendChild(el('div', 'adm-county', a.county + ' County · ' + (ACCESS_LABEL[a.access] || ACCESS_LABEL.ATTENDANCE) + (a.access && a.access !== 'ATTENDANCE' ? ' (' + (ROLE_LABEL[a.paymentRole] || ROLE_LABEL.PREPARER) + ')' : '')));
     who.appendChild(text);
 
     var state = el('div', 'adm-state');
@@ -611,11 +631,19 @@
   var accessTarget = null;
   function openAccessDialog(a){
     accessTarget = a;
+    document.getElementById('accessRole').value = a.paymentRole || 'PREPARER';
     document.getElementById('accessWho').textContent = a.email + ' · ' + a.county + ' County';
     document.getElementById('accessError').style.display = 'none';
     Array.prototype.forEach.call(document.querySelectorAll('input[name=accessOpt]'), function(r){ r.checked = r.value === (a.access || 'ATTENDANCE'); });
+    syncAccessRole();
     if(accessDialog.showModal) accessDialog.showModal(); else accessDialog.setAttribute('open', '');
   }
+  function syncAccessRole(){
+    var chosen = document.querySelector('input[name=accessOpt]:checked');
+    document.getElementById('accessRoleBox').hidden = !chosen || chosen.value === 'ATTENDANCE';
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('input[name=accessOpt]'), function(r){ r.addEventListener('change', syncAccessRole); });
+  document.getElementById('newAccess').addEventListener('change', function(){ document.getElementById('newRoleBox').hidden = this.value === 'ATTENDANCE'; });
   function closeAccessDialog(){ if(accessDialog.close) accessDialog.close(); else accessDialog.removeAttribute('open'); }
   document.getElementById('accessCancel').addEventListener('click', closeAccessDialog);
   document.getElementById('accessSave').addEventListener('click', function(){
@@ -623,7 +651,7 @@
     var err = document.getElementById('accessError');
     if(!chosen || !accessTarget) return;
     var btn = this; btn.disabled = true;
-    API.patch('/api/superadmin/admins/' + accessTarget.id + '/access', { access: chosen.value }).then(function(r){
+    API.patch('/api/superadmin/admins/' + accessTarget.id + '/access', { access: chosen.value, paymentRole: chosen.value === 'ATTENDANCE' ? 'PREPARER' : document.getElementById('accessRole').value }).then(function(r){
       btn.disabled = false;
       if(!r.data.ok){ err.textContent = r.data.message || 'Could not change access.'; err.style.display = ''; return; }
       closeAccessDialog();

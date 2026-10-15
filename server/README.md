@@ -80,6 +80,14 @@ A `render.yaml` blueprint at the repo root does most of this for you.
   person. People sign at `duty-sign.html` with the phone number they were registered with;
   the organiser manages the roll, prints the form and exports the schedule at
   `duty-roll.html`. Printing and exporting are audited.
+- Approving a payment sheet: the preparer submits it (which locks it), an authorising officer
+  certifies it (the record is sealed and given a code anyone can check on the verify page),
+  and finance verifies it. A county admin's `paymentRole` (PREPARER, AUTHORISER, FINANCE) says
+  which step they can take; a department super admin can take either. Whoever prepared a
+  sheet cannot certify or verify it, and whoever certified it cannot verify it. A reviewer can
+  send it back with a note, which reopens it. Reviewers work at `duty-review.html`; people on
+  a sheet can see their own days and question a day they were marked absent for at
+  `duty-sign.html`.
 - The 24-admin cap and one-admin-per-county rule (both per department) are
   enforced by Postgres
   itself (a trigger and a partial unique index), not just application

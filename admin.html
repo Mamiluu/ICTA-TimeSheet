@@ -313,6 +313,7 @@
       <a class="nav-item" href="#door" data-nav="door"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M4 12h16"/></svg><span>Door scan</span></a>
       <div class="nav-group">Other</div>
       <a class="nav-item" href="#activity" data-nav="activity"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>My activity</span></a>
+      <a class="nav-item" id="navReview" href="duty-review.html" style="display:none;"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12l2 2 4-4M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3z"/></svg><span>Payment approvals</span></a>
       <div class="nav-group">Settings</div>
       <a class="nav-item" href="#profile" data-nav="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Profile</span></a>
     </nav>
@@ -612,6 +613,9 @@
     document.getElementById('profEmail').textContent = user.email;
     document.getElementById('profCounty').textContent = user.county;
     if(user.access) applyAccess(user.access);
+    // Authorising officers and finance review payment sheets sent up from the department.
+    var reviewer = user.access && user.access !== 'ATTENDANCE' && (user.paymentRole === 'AUTHORISER' || user.paymentRole === 'FINANCE');
+    document.getElementById('navReview').style.display = reviewer ? '' : 'none';
   }
   function requireSession(){
     return API.get('/api/auth/me').then(function(r){
@@ -1187,7 +1191,7 @@
   navScrim.addEventListener('click', closeNav);
   document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeNav(); });
   Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(n){
-    n.addEventListener('click', function(e){ e.preventDefault(); var v = n.getAttribute('data-nav'); if(v === 'new' && editingEventId) resetForm(); showView(v); });
+    n.addEventListener('click', function(e){ if(!n.hasAttribute('data-nav')) return; e.preventDefault(); var v = n.getAttribute('data-nav'); if(v === 'new' && editingEventId) resetForm(); showView(v); });
   });
   Array.prototype.forEach.call(document.querySelectorAll('[data-goto]'), function(b){
     b.addEventListener('click', function(){ showView(b.getAttribute('data-goto')); });

@@ -5,7 +5,8 @@ import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { writeAudit } from '../lib/audit.js';
 import { ah } from '../lib/asyncHandler.js';
-import { loadRoll } from '../lib/dutyRoll.js';
+import { loadRoll, loadFindings, withoutHashes } from '../lib/dutyRoll.js';
+import { countFindings } from '../lib/dutyChecks.js';
 import { approvalCheck, canAccessKind, STAGE_LABEL } from '../lib/duty.js';
 import { sealWholeEvent } from './admin.js';
 
@@ -69,11 +70,12 @@ dutyReviewRouter.get('/sheets/:id', ah(async (req, res) => {
   const event = await findSheet(req);
   if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
   const [roll, approvals, openQueries] = await Promise.all([
-    loadRoll(event),
+    loadRoll(event, { withHashes: true }),
     prisma.dutyApproval.findMany({ where: { eventId: event.id }, orderBy: { createdAt: 'asc' } }),
     prisma.dutyQuery.count({ where: { eventId: event.id, status: 'OPEN' } })
   ]);
   // Names and phone numbers are on this page, so opening it is recorded like an export.
+  const findings = await loadFindings(event, roll);
   await writeAudit({ actorId: req.user.id, action: 'DUTY_ROLL_REVIEWED', targetType: 'Event', targetId: event.id, metadata: { name: event.name, rowCount: roll.rows.length }, req });
   res.json({
     ok: true,
@@ -89,8 +91,9 @@ dutyReviewRouter.get('/sheets/:id', ah(async (req, res) => {
     stage: event.dutyStage,
     stageLabel: STAGE_LABEL[event.dutyStage],
     days: roll.days.map((d) => ({ id: d.id, position: d.position, startAt: d.startAt, endAt: d.endAt, place: d.place })),
-    rows: roll.rows,
+    rows: withoutHashes(roll.rows),
     totals: roll.totals,
+    findings,
     approvals: approvals.map((a) => ({ step: a.step, by: a.byEmail, note: a.note, sealCode: a.sealCode, at: a.createdAt })),
     openQueries,
     ...flags(req.user, event, approvals)
@@ -107,6 +110,21 @@ async function act(req, res, step) {
   const note = String(req.body.note || '').replace(/\s+/g, ' ').trim().slice(0, 500);
   if (step === 'RETURN' && note.length < 5) {
     return res.status(400).json({ ok: false, error: 'NOTE_REQUIRED', message: 'Say what needs to be fixed, so the preparer knows.' });
+  }
+
+  // Whoever certifies or verifies has to say they have looked at anything the automatic
+  // checks flagged for review. What they were shown goes into the audit trail.
+  let seen = null;
+  if (step === 'CERTIFY' || step === 'VERIFY') {
+    const roll = await loadRoll(event, { withHashes: true });
+    seen = countFindings(await loadFindings(event, roll));
+    if (seen.review > 0 && req.body.acknowledge !== true) {
+      return res.status(400).json({
+        ok: false,
+        error: 'REVIEW_REQUIRED',
+        message: `Tick the box to confirm you have looked at the ${seen.review} item${seen.review === 1 ? '' : 's'} flagged for review.`
+      });
+    }
   }
 
   // Claim the step first so two people pressing the button together cannot both win.
@@ -132,7 +150,7 @@ async function act(req, res, step) {
       action: step === 'CERTIFY' ? 'DUTY_ROLL_CERTIFIED' : step === 'VERIFY' ? 'DUTY_ROLL_VERIFIED' : 'DUTY_ROLL_RETURNED',
       targetType: 'Event',
       targetId: event.id,
-      metadata: { name: event.name, ...(sealCode ? { sealCode } : {}), ...(note ? { note } : {}) },
+      metadata: { name: event.name, ...(sealCode ? { sealCode } : {}), ...(note ? { note } : {}), ...(seen ? { review: seen.review, notes: seen.notes, acknowledged: seen.review > 0 } : {}) },
       req
     });
     res.json({ ok: true, stage: to, sealCode });

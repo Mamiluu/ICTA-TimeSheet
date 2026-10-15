@@ -43,6 +43,13 @@
   .hint{ font-size:12.5px; color:var(--muted); margin:6px 0 0; }
   .done{ text-align:center; padding:10px 0 4px; }
   .done .tick{ width:54px; height:54px; border-radius:50%; background:#e0f1e6; color:var(--ok); display:flex; align-items:center; justify-content:center; margin:0 auto 10px; font-size:28px; }
+  .mine .d{ display:flex; justify-content:space-between; gap:10px; padding:9px 0; border-top:1px solid var(--rule); font-size:14px; align-items:flex-start; }
+  .mine .d:first-child{ border-top:0; }
+  .mine .d .w{ color:var(--muted); font-size:12.5px; }
+  .tag.signed{ background:#e0f1e6; color:var(--ok); }
+  .tag.absent{ background:#f6e1e5; color:#9d1230; }
+  button.small{ font-size:12.5px; padding:6px 10px; margin-top:6px; }
+  textarea{ width:100%; font:inherit; font-size:14px; padding:9px 10px; border:1px solid #bfb7a4; border-radius:10px; min-height:70px; margin-top:6px; }
   [hidden]{ display:none !important; }
   footer{ margin-top:22px; font-size:12px; color:var(--muted); text-align:center; }
 </style>
@@ -74,6 +81,19 @@
     <div class="row">
       <button type="button" class="primary" id="yesBtn">Yes, that's me</button>
       <button type="button" id="noBtn">Not me</button>
+    </div>
+  </div>
+
+  <div class="card mine" id="mineCard" hidden>
+    <h2>See my days</h2>
+    <label for="minePhone">Your registered phone number</label>
+    <input type="tel" id="minePhone" placeholder="e.g. 0712 345 678" autocomplete="tel" inputmode="tel">
+    <div class="row"><button type="button" id="mineBtn">Show my days</button></div>
+    <p class="msg" id="mineMsg" role="status" aria-live="polite"></p>
+    <div id="mineOut" hidden>
+      <p style="margin:4px 0 2px;"><strong id="mineName"></strong></p>
+      <p class="hint" style="margin:0 0 8px;" id="mineStage"></p>
+      <div id="mineDays"></div>
     </div>
   </div>
 
@@ -128,6 +148,7 @@
       li.appendChild(left); li.appendChild(tag); list.appendChild(li);
     });
     show('daysCard', true);
+    show('mineCard', true);
     var open = info.days.filter(function(d){ return d.open; });
     openDay = open.length ? open[open.length - 1] : null;
     show('findCard', !!openDay);
@@ -189,6 +210,64 @@
       $('doneTitle').textContent = 'Day ' + openDay.position + ' recorded';
       $('doneSub').textContent = dayLabel(openDay) + (openDay.place ? ' · ' + openDay.place : '') + '. You can close this page.';
     }).catch(function(){ btn.disabled = false; say('padMsg', 'No connection. Please try again when you have signal.', 'err'); });
+  });
+
+  // --- My days, and questioning a day ---
+  var minePhone = '';
+  function renderMine(d){
+    $('mineName').textContent = d.maskedName;
+    $('mineStage').textContent = 'This sheet: ' + d.stageLabel.toLowerCase() + '.';
+    var out = $('mineDays'); out.textContent = '';
+    var canQuery = d.stage === 'OPEN' || d.stage === 'SUBMITTED';
+    d.days.forEach(function(day){
+      var row = document.createElement('div'); row.className = 'd';
+      var left = document.createElement('div');
+      var a = document.createElement('div'); a.textContent = 'Day ' + day.position + (day.place ? ' · ' + day.place : '');
+      var b = document.createElement('div'); b.className = 'w'; b.textContent = fmt(day.startAt, { weekday: 'short', day: 'numeric', month: 'short' });
+      left.appendChild(a); left.appendChild(b);
+      var existing = d.queries.filter(function(q){ return q.dayId === day.id; })[0];
+      if(existing){
+        var q = document.createElement('div'); q.className = 'w';
+        q.textContent = existing.status === 'RESOLVED' ? 'Your question was answered: ' + existing.response : 'Your question is with the organiser.';
+        left.appendChild(q);
+      } else if(day.status === 'ABSENT' && canQuery){
+        var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'small'; btn.textContent = 'This is wrong';
+        var box = document.createElement('div'); box.hidden = true;
+        var ta = document.createElement('textarea'); ta.maxLength = 300; ta.placeholder = 'What happened on this day?';
+        var send = document.createElement('button'); send.type = 'button'; send.className = 'small primary'; send.textContent = 'Send to the organiser';
+        var note = document.createElement('p'); note.className = 'msg'; note.setAttribute('role', 'status');
+        box.appendChild(ta); box.appendChild(send); box.appendChild(note);
+        btn.addEventListener('click', function(){ box.hidden = !box.hidden; });
+        send.addEventListener('click', function(){
+          send.disabled = true; note.textContent = 'Sending…'; note.className = 'msg';
+          API.post('/api/duty/' + encodeURIComponent(slug) + '/query', { phone: minePhone, dayId: day.id, message: ta.value }).then(function(r){
+            send.disabled = false;
+            if(!r.data.ok){ note.textContent = r.data.message || 'Could not send that.'; note.className = 'msg err'; return; }
+            loadMine();
+          }).catch(function(){ send.disabled = false; note.textContent = 'No connection. Please try again.'; note.className = 'msg err'; });
+        });
+        left.appendChild(btn); left.appendChild(box);
+      }
+      var tag = document.createElement('span');
+      var s = day.status;
+      tag.className = 'tag' + (s === 'SIGNED' ? ' signed' : (s === 'ABSENT' ? ' absent' : (s === 'OPEN' ? ' open' : '')));
+      tag.textContent = s === 'SIGNED' ? 'Signed' : (s === 'ABSENT' ? 'No signature' : (s === 'OPEN' ? 'Open now' : 'Not yet'));
+      row.appendChild(left); row.appendChild(tag); out.appendChild(row);
+    });
+    $('mineOut').hidden = false;
+  }
+  function loadMine(){
+    var btn = $('mineBtn'); btn.disabled = true; say('mineMsg', 'Looking…');
+    API.post('/api/duty/' + encodeURIComponent(slug) + '/mine', { phone: minePhone }).then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ say('mineMsg', r.data.message || 'Could not check that number right now.', 'err'); $('mineOut').hidden = true; return; }
+      say('mineMsg', ''); renderMine(r.data);
+    }).catch(function(){ btn.disabled = false; say('mineMsg', 'No connection. Please try again.', 'err'); });
+  }
+  $('mineBtn').addEventListener('click', function(){
+    minePhone = $('minePhone').value.trim();
+    if(!minePhone){ say('mineMsg', 'Enter your phone number first.', 'err'); return; }
+    loadMine();
   });
 
   load();
