@@ -23,7 +23,8 @@ deployed service is the whole app.
    hand-written migration for the one-active-admin-per-county partial
    unique index and the 24-active-admin-cap trigger
    (`prisma/migrations/*_admin_constraints/migration.sql`).
-4. `npm run seed:platform -- <email>` — creates the `PLATFORM_ADMIN` account
+4. `npm run seed:platform -- <email>` — creates the `PLATFORM_ADMIN` account for ICT Authority
+   (set `ORG_SLUG` for another organisation)
    and prints a one-time activation link (open it to choose the password).
    Nobody sits above this account to invite it, so it is created here, once
    per environment. The platform admin then adds the departments and each
@@ -68,7 +69,18 @@ A `render.yaml` blueprint at the repo root does most of this for you.
   — disabling an admin or resetting a password deletes their session rows
   immediately, so access dies right away rather than riding out a token's
   expiry.
-- Roles: `PLATFORM_ADMIN` (departments and their super admins, organisation-wide
+- Organisations: the platform serves several organisations (ICT Authority is the first). Every
+  department, account, event and audit entry belongs to exactly one, and an organisation never
+  sees another's data. The platform owner (`OWNER`, created with `npm run seed:owner -- <email>`
+  or `OWNER_EMAIL` and `OWNER_PASSWORD`) has no organisation of their own; at `owner.html` they
+  add and suspend organisations and see counts and activity, never attendee records. Each new
+  organisation's first administrator is invited by email and then sets up their own departments.
+  `node scripts/tenant-fence-check.js` proves the separation: it builds two organisations through
+  the API, has every account of one try to reach the other's data, and fails on anything that
+  is not refused. Run it against a test database after any change that touches who can see what
+  (start the server with `LOGIN_RATE_LIMIT=100`).
+- Roles: `OWNER` (the platform operator), `PLATFORM_ADMIN` (shown as "Organisation admin"; an
+  organisation's own top account) (departments and their super admins, organisation-wide
   totals, audit trail and integrity checks; never attendee details) →
   `SUPER_ADMIN` (one department: its county admins, events and audit) →
   `COUNTY_ADMIN`. Pausing a department signs everyone in it out.
