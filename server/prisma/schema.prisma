@@ -31,10 +31,32 @@ model Organisation {
   plan      String    @default("PILOT")
   createdAt DateTime  @default(now())
 
+  // How the organisation looks to its own people and attendees. All optional: an
+  // empty value falls back to the platform default.
+  displayName String?
+  address     String?
+  phone       String?
+  website     String?
+  accentColor String?
+  // The logo's bytes live in OrganisationLogo, so an ordinary read of an
+  // organisation never drags an image along. logoVersion changes with each upload so
+  // browsers fetch the new one.
+  logoMime    String?
+  logoVersion Int     @default(0)
+  logo        OrganisationLogo?
+
   departments  Department[]
   users        User[]
   events       Event[]
   auditEntries AuditLog[]
+}
+
+model OrganisationLogo {
+  organisationId String       @id
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  data           Bytes
+  mime           String
+  updatedAt      DateTime     @updatedAt
 }
 
 enum AccessLevel {
