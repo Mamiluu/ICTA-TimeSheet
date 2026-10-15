@@ -90,6 +90,14 @@ A `render.yaml` blueprint at the repo root does most of this for you.
 - Billing: the owner records payments by hand (`paidUntil` on the organisation) at `owner.html`; the
   console shows paid, due soon or overdue, and the owner decides whether to suspend. Nothing is
   suspended automatically.
+- Owner console (`owner.html`, `owner-org.html`): platform health (database, emails sent and failed in the
+  last 24 hours, the audit anchor, the latest migration) and, per organisation, weekly events,
+  signatures and logins. Counts only. Email delivery is logged by kind and result, never by
+  address. Support access: the owner asks an organisation's administrator for a limited, read-only
+  look (1 to 24 hours, with a reason); nothing opens until they approve on their Support access page,
+  they can end it at any time, and the view covers only their departments, administrators, overview
+  and activity log, never attendee records and never a change. The request, the approval and every
+  page opened are written to the organisation's own audit trail.
 - Roles: `OWNER` (the platform operator), `PLATFORM_ADMIN` (shown as "Organisation admin"; an
   organisation's own top account) (departments and their super admins, organisation-wide
   totals, audit trail and integrity checks; never attendee details) →
