@@ -39,7 +39,8 @@ export function parseDaySchedule(input) {
     if (isNaN(startAt.getTime()) || isNaN(endAt.getTime())) return { error: `Day ${i + 1} has an invalid date or time.` };
     if (startAt.getTime() >= endAt.getTime()) return { error: `Day ${i + 1} must end after it starts.` };
     if (i > 0 && startAt.getTime() < days[i - 1].endAt.getTime()) return { error: `Day ${i + 1} overlaps the day before it.` };
-    days.push({ startAt, endAt });
+    const place = d.place ? String(d.place).replace(/\s+/g, ' ').trim().slice(0, 80) : '';
+    days.push({ startAt, endAt, place: place || null });
   }
   return { days };
 }

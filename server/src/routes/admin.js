@@ -16,6 +16,8 @@ import { doorStampDataUri, clockInZone } from '../lib/stamp.js';
 import { loadClaimPackData } from '../lib/integrity.js';
 import { sanitizeScanTime, indexByIdHash, resolveAttendee, sha256Hex } from '../lib/doorsync.js';
 import { notifyDaySigned } from './public.js';
+import { kindsFor, canAccessKind, cleanAuthority } from '../lib/duty.js';
+import { registerDutyRoutes } from './adminDuty.js';
 import QRCode from 'qrcode';
 
 export const adminRouter = Router();
@@ -36,6 +38,9 @@ function publicEvent(ev, count) {
     longitude: ev.longitude,
     meetingLink: ev.meetingLink,
     certificatesEnabled: ev.certificatesEnabled,
+    kind: ev.kind,
+    authorisedBy: ev.authorisedBy,
+    authorityRef: ev.authorityRef,
     county: ev.county,
     createdAt: ev.createdAt,
     // So the dashboard can show "closes in Xd Yh" / "Closed" per event
@@ -106,11 +111,11 @@ adminRouter.get('/events', ah(async (req, res) => {
     // county is where the cap is enforced, not a shared workspace, so a
     // county with multiple admins (see per-county cap migration) doesn't
     // mean they share each other's events.
-    where: { county: req.user.county, ownerId: req.user.id, departmentId: req.user.departmentId, deletedAt: null },
+    where: { county: req.user.county, ownerId: req.user.id, departmentId: req.user.departmentId, deletedAt: null, kind: { in: kindsFor(req.user) } },
     orderBy: { createdAt: 'desc' },
     include: {
       _count: { select: { attendance: true } },
-      days: { orderBy: { position: 'asc' }, select: { id: true, position: true, startAt: true, endAt: true, reopenedUntil: true } }
+      days: { orderBy: { position: 'asc' }, select: { id: true, position: true, startAt: true, endAt: true, reopenedUntil: true, place: true } }
     }
   });
   res.json({ ok: true, events: events.map((ev) => ({ ...publicEvent(ev, ev._count.attendance), days: ev.days })) });
@@ -122,7 +127,7 @@ adminRouter.get('/events', ah(async (req, res) => {
 // without adding a second way to browse individual attendees.
 adminRouter.get('/analytics', ah(async (req, res) => {
   const events = await prisma.event.findMany({
-    where: { county: req.user.county, ownerId: req.user.id, departmentId: req.user.departmentId, deletedAt: null },
+    where: { county: req.user.county, ownerId: req.user.id, departmentId: req.user.departmentId, deletedAt: null, kind: { in: kindsFor(req.user) } },
     select: { id: true }
   });
   const eventIds = events.map((e) => e.id);
@@ -156,6 +161,22 @@ adminRouter.post('/events', ah(async (req, res) => {
   const sched = resolveSchedule(req.body, f);
   if (sched.error) return res.status(400).json({ ok: false, error: 'INVALID_DAYS', message: sched.error });
   const { days, startAt, endAt } = sched;
+
+  // A payment sheet (duty roll) is only for accounts the super admin gave payment
+  // access, names who authorised the engagement, and gives every day a place.
+  const kind = req.body.kind === 'DUTY_ROLL' ? 'DUTY_ROLL' : 'ATTENDANCE';
+  if (!canAccessKind(req.user, kind)) {
+    return res.status(403).json({ ok: false, error: 'NO_ACCESS', message: kind === 'DUTY_ROLL' ? 'Your account does not have access to payment sheets.' : 'Your account does not have access to attendance sheets.' });
+  }
+  let authority = { authorisedBy: null, authorityRef: null };
+  if (kind === 'DUTY_ROLL') {
+    const a = cleanAuthority(req.body);
+    if (a.error) return res.status(400).json({ ok: false, error: 'AUTHORITY_REQUIRED', message: a.error });
+    authority = a.value;
+    if (req.body.days === undefined) return res.status(400).json({ ok: false, error: 'INVALID_DAYS', message: 'Add the days of the engagement.' });
+    const noPlace = days.findIndex((d) => !d.place);
+    if (noPlace !== -1) return res.status(400).json({ ok: false, error: 'PLACE_REQUIRED', message: `Say where the team works on day ${noPlace + 1}.` });
+  }
   if (startAt.getTime() < Date.now()) {
     return res.status(400).json({ ok: false, error: 'PAST_DATE', message: 'Event start can\'t be in the past.' });
   }
@@ -164,14 +185,15 @@ adminRouter.post('/events', ah(async (req, res) => {
     data: {
       slug: eventSlugId(f.name), name: f.name, description: f.description,
       startAt, endAt, timezone: f.timezone,
-      locationType: f.locationType, address: f.address, latitude: f.latitude, longitude: f.longitude, meetingLink: f.meetingLink, certificatesEnabled: f.certificatesEnabled,
+      locationType: f.locationType, address: f.address, latitude: f.latitude, longitude: f.longitude, meetingLink: f.meetingLink, certificatesEnabled: kind === 'DUTY_ROLL' ? false : f.certificatesEnabled,
+      kind, authorisedBy: authority.authorisedBy, authorityRef: authority.authorityRef,
       county: req.user.county, ownerId: req.user.id, departmentId: req.user.departmentId,
-      days: { create: days.map((d, i) => ({ position: i + 1, startAt: d.startAt, endAt: d.endAt })) }
+      days: { create: days.map((d, i) => ({ position: i + 1, startAt: d.startAt, endAt: d.endAt, place: d.place })) }
     }
   });
   await writeAudit({
     actorId: req.user.id, action: 'EVENT_CREATE', targetType: 'Event', targetId: event.id,
-    metadata: { name: f.name, startAt, endAt, dayCount: days.length, timezone: f.timezone, locationType: f.locationType, address: f.address, meetingLink: f.meetingLink },
+    metadata: { name: f.name, kind, ...(kind === 'DUTY_ROLL' ? { authorisedBy: authority.authorisedBy, authorityRef: authority.authorityRef } : {}), startAt, endAt, dayCount: days.length, timezone: f.timezone, locationType: f.locationType, address: f.address, meetingLink: f.meetingLink },
     req
   });
 
@@ -186,8 +208,12 @@ adminRouter.post('/events', ah(async (req, res) => {
 async function findOwnEvent(req) {
   const event = await prisma.event.findUnique({ where: { id: req.params.id } });
   if (!event || event.deletedAt || event.county !== req.user.county || event.ownerId !== req.user.id) return null;
+  // An account without access to this kind of event is told it does not exist.
+  if (!canAccessKind(req.user, event.kind)) return null;
   return event;
 }
+
+registerDutyRoutes(adminRouter, findOwnEvent);
 
 // Rendered entirely on this server (the `qrcode` package, a local library
 // with no network calls of its own) rather than by pointing an <img> at a
@@ -219,6 +245,14 @@ adminRouter.put('/events/:id', ah(async (req, res) => {
 
   const sched = resolveSchedule(req.body, f);
   if (sched.error) return res.status(400).json({ ok: false, error: 'INVALID_DAYS', message: sched.error });
+  let authority = null;
+  if (event.kind === 'DUTY_ROLL') {
+    const a = cleanAuthority(req.body);
+    if (a.error) return res.status(400).json({ ok: false, error: 'AUTHORITY_REQUIRED', message: a.error });
+    authority = a.value;
+    const noPlace = sched.days.findIndex((d) => !d.place);
+    if (noPlace !== -1) return res.status(400).json({ ok: false, error: 'PLACE_REQUIRED', message: `Say where the team works on day ${noPlace + 1}.` });
+  }
 
   // Days are matched by position. A day that disappears from the schedule
   // is only dropped if nobody signed it and no sheet was sealed for it --
@@ -259,14 +293,14 @@ adminRouter.put('/events/:id', ah(async (req, res) => {
     for (const [i, d] of sched.days.entries()) {
       const position = i + 1;
       if (have.has(position)) {
-        await tx.eventDay.updateMany({ where: { eventId: event.id, position }, data: { startAt: d.startAt, endAt: d.endAt } });
+        await tx.eventDay.updateMany({ where: { eventId: event.id, position }, data: { startAt: d.startAt, endAt: d.endAt, place: d.place } });
       } else {
-        await tx.eventDay.create({ data: { eventId: event.id, position, startAt: d.startAt, endAt: d.endAt } });
+        await tx.eventDay.create({ data: { eventId: event.id, position, startAt: d.startAt, endAt: d.endAt, place: d.place } });
       }
     }
     return tx.event.update({
       where: { id: event.id },
-      data: { ...after, latitude: f.latitude, longitude: f.longitude, certificatesEnabled: f.certificatesEnabled }
+      data: { ...after, latitude: f.latitude, longitude: f.longitude, certificatesEnabled: event.kind === 'DUTY_ROLL' ? false : f.certificatesEnabled, ...(authority || {}) }
     });
   });
   await writeAudit({
