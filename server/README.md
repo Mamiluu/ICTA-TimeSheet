@@ -1,8 +1,9 @@
 # ICT Authority Attendance — Backend
 
 Node.js + Express + Prisma/Postgres backend for the multi-tenant admin
-system: one super admin, up to 24 active county admins, event/attendance
-management, and per-admin audit trails. Also serves the static frontend
+system: one platform admin (the organisation's official account), a super
+admin for each department, up to 24 active county admins per department,
+event/attendance management, and per-admin audit trails. Also serves the static frontend
 (`../index.html`, `../admin.html`, etc.) from the repo root, so one
 deployed service is the whole app.
 
@@ -22,9 +23,11 @@ deployed service is the whole app.
    hand-written migration for the one-active-admin-per-county partial
    unique index and the 24-active-admin-cap trigger
    (`prisma/migrations/*_admin_constraints/migration.sql`).
-4. `npm run seed:superadmin -- <email> <password>` — creates the one
-   `SUPER_ADMIN` account directly (bypasses the activation-link flow,
-   since there's no admin above the super admin to send them an invite).
+4. `npm run seed:platform -- <email>` — creates the `PLATFORM_ADMIN` account
+   and prints a one-time activation link (open it to choose the password).
+   Nobody sits above this account to invite it, so it is created here, once
+   per environment. The platform admin then adds the departments and each
+   department's super admin from `platform.html`.
 5. `npm run dev`
 
 ## Deploying (Render + Neon)
@@ -49,9 +52,11 @@ A `render.yaml` blueprint at the repo root does most of this for you.
    `npx prisma migrate deploy` on every deploy, so schema migrations
    (including the 24-cap trigger and the per-county unique index) apply
    automatically — no separate manual step needed.
-4. After the first successful deploy, seed the super admin once via
-   Render's shell (Dashboard → service → **Shell** tab):
-   `npm run seed:superadmin -- <email> <password>`.
+4. After the first successful deploy, create the platform admin once via
+   Render's shell (Dashboard → the **icta-attendance** service → **Shell** tab):
+   `npm run seed:platform -- <email>`, then open the link it prints. The
+   migrations move the existing super admin, county admins and events into the
+   Innovation & Incubation department.
 5. Render's free tier spins down after 15 minutes idle and cold-starts in
    30-50s on the next request — fine for a pilot, but worth the paid
    Starter tier before real go-live so attendees never hit a cold start at
@@ -63,6 +68,11 @@ A `render.yaml` blueprint at the repo root does most of this for you.
   — disabling an admin or resetting a password deletes their session rows
   immediately, so access dies right away rather than riding out a token's
   expiry.
-- The 24-admin cap and one-admin-per-county rule are enforced by Postgres
+- Roles: `PLATFORM_ADMIN` (departments and their super admins, organisation-wide
+  totals, audit trail and integrity checks; never attendee details) →
+  `SUPER_ADMIN` (one department: its county admins, events and audit) →
+  `COUNTY_ADMIN`. Pausing a department signs everyone in it out.
+- The 24-admin cap and one-admin-per-county rule (both per department) are
+  enforced by Postgres
   itself (a trigger and a partial unique index), not just application
   code, so they hold even under concurrent requests.

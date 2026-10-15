@@ -577,7 +577,7 @@
   var USER_KEY = 'icta_admin_user_v1';
   function showUser(user){
     whoEmail.textContent = user.email;
-    whoCounty.textContent = user.county + ' county';
+    whoCounty.textContent = user.county + ' county' + (user.department ? ' · ' + user.department : '');
     whoEmail.title = user.email;
     document.getElementById('userAvatar').textContent = (user.email || 'A').charAt(0).toUpperCase();
     document.getElementById('profEmail').textContent = user.email;
@@ -588,7 +588,7 @@
       if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return null; }
       if(r.data.user.role !== 'COUNTY_ADMIN'){ location.href = homeFor(r.data.user.role); return null; }
       showUser(r.data.user);
-      try{ localStorage.setItem(USER_KEY, JSON.stringify({ email: r.data.user.email, county: r.data.user.county, role: r.data.user.role })); }catch(e){}
+      try{ localStorage.setItem(USER_KEY, JSON.stringify({ email: r.data.user.email, county: r.data.user.county, role: r.data.user.role, department: r.data.user.department ? r.data.user.department.name : null })); }catch(e){}
       return r.data.user;
     }).catch(function(){
       var cached = null;

@@ -120,7 +120,7 @@
     </div>
     <div class="side-user">
       <span class="avatar" id="userAvatar">S</span>
-      <div><div class="who-email" id="whoEmail"></div><div class="who-county">Super admin</div></div>
+      <div><div class="who-email" id="whoEmail"></div><div class="who-county" id="whoDept">Super admin</div></div>
     </div>
     <div class="view-size" role="group" aria-label="Page size">
       <span class="view-size-label">Size</span>
@@ -229,6 +229,7 @@
         <dl class="profile-dl">
           <dt>Email</dt><dd id="profEmail"></dd>
           <dt>Role</dt><dd>Super admin</dd>
+          <dt id="profDeptRow" hidden>Department</dt><dd id="profDept"></dd>
         </dl>
         <p><a href="forgot-password.html">Change my password</a></p>
       </div>
@@ -305,6 +306,13 @@
       whoEmail.title = r.data.user.email;
       document.getElementById('userAvatar').textContent = (r.data.user.email || 'S').charAt(0).toUpperCase();
       document.getElementById('profEmail').textContent = r.data.user.email;
+      var dept = r.data.user.department ? r.data.user.department.name : '';
+      if(dept){
+        document.getElementById('whoDept').textContent = dept;
+        document.getElementById('profDept').textContent = dept;
+        document.getElementById('profDeptRow').hidden = false;
+        document.title = 'ICT Authority : ' + dept;
+      }
       return r.data.user;
     });
   }
