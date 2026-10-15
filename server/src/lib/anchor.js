@@ -95,13 +95,16 @@ export async function lastAnchorAt() {
   return last ? last.createdAt : null;
 }
 
-// Sends one anchor a day while the server is running. Checked hourly and on
+// Sends one anchor a day while the server is running, when ANCHOR_DAILY=on. Checked hourly and on
 // start, based on the last recorded anchor, so a restart or a sleeping free
 // instance never doubles up or loses a day.
 // 23 hours, not 24: the check runs hourly, so this keeps the anchor close to
 // once a day instead of drifting later each day.
 const ANCHOR_EVERY_MS = 23 * 60 * 60 * 1000;
 export function startAnchorJob() {
+  // Off by default: the platform admin sends an anchor by hand from the Integrity page.
+  // Set ANCHOR_DAILY=on to bring the automatic daily send back.
+  if (String(process.env.ANCHOR_DAILY || '').toLowerCase() !== 'on') return;
   let running = false;
   async function tick() {
     if (running) return; // a slow send must not start a second run
