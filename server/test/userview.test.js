@@ -3,7 +3,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { publicUser, departmentPaused } from '../src/lib/userView.js';
+import { publicUser, departmentPaused, organisationSuspended } from '../src/lib/userView.js';
 
 const user = {
   id: 'u1',
@@ -24,7 +24,8 @@ describe('publicUser', () => {
       county: null,
       access: 'BOTH',
       paymentRole: null,
-      department: { id: 'd1', name: 'Finance & Accounting' }
+      department: { id: 'd1', name: 'Finance & Accounting' },
+      organisation: null
     });
     assert.doesNotMatch(JSON.stringify(v), /secret-hash|slug/);
   });
@@ -40,6 +41,12 @@ describe('publicUser', () => {
     assert.equal(publicUser({ ...user, role: 'COUNTY_ADMIN' }).paymentRole, 'PREPARER');
   });
 
+  test('carries the organisation, and the owner has none', () => {
+    const org = { id: 'o1', name: 'ICT Authority', shortName: 'ICTA', status: 'ACTIVE', slug: 'icta' };
+    assert.deepEqual(publicUser({ ...user, organisation: org }).organisation, { id: 'o1', name: 'ICT Authority', shortName: 'ICTA' });
+    assert.equal(publicUser({ ...user, role: 'OWNER', department: null }).organisation, null);
+  });
+
   test('an account with no department, such as the platform admin, has none', () => {
     assert.equal(publicUser({ ...user, role: 'PLATFORM_ADMIN', department: null }).department, null);
   });
@@ -50,5 +57,13 @@ describe('departmentPaused', () => {
     assert.equal(departmentPaused(user), false);
     assert.equal(departmentPaused({ ...user, department: { ...user.department, active: false } }), true);
     assert.equal(departmentPaused({ ...user, department: null }), false);
+  });
+});
+
+describe('organisationSuspended', () => {
+  test('only a suspended organisation locks its people out', () => {
+    assert.equal(organisationSuspended({ organisation: { status: 'ACTIVE' } }), false);
+    assert.equal(organisationSuspended({ organisation: { status: 'SUSPENDED' } }), true);
+    assert.equal(organisationSuspended({ organisation: null }), false);
   });
 });

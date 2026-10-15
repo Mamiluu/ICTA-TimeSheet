@@ -31,6 +31,14 @@ async function main() {
     process.exit(1);
   }
 
+  // The organisation this account heads (ORG_SLUG, ICT Authority by default).
+  const slug = String(process.env.ORG_SLUG || 'icta').trim().toLowerCase();
+  const org = await prisma.organisation.findUnique({ where: { slug } });
+  if (!org) {
+    console.error(`There is no organisation with the short address "${slug}".`);
+    process.exit(1);
+  }
+
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing && existing.role !== 'PLATFORM_ADMIN') {
     console.error(`${email} is already a ${existing.role}. Use a different email for the platform admin.`);
@@ -42,7 +50,7 @@ async function main() {
     const user = await prisma.user.upsert({
       where: { email },
       update: { passwordHash, status: 'ACTIVE' },
-      create: { email, passwordHash, role: 'PLATFORM_ADMIN', status: 'ACTIVE' }
+      create: { email, passwordHash, role: 'PLATFORM_ADMIN', status: 'ACTIVE', organisationId: org.id }
     });
     console.log(`Platform admin ready: ${user.email} (id ${user.id})`);
     return;
@@ -53,7 +61,7 @@ async function main() {
     return;
   }
 
-  const user = existing || (await prisma.user.create({ data: { email, role: 'PLATFORM_ADMIN', status: 'PENDING' } }));
+  const user = existing || (await prisma.user.create({ data: { email, role: 'PLATFORM_ADMIN', status: 'PENDING', organisationId: org.id } }));
   const raw = await issueToken(user.id, 'ACTIVATION');
   const base = process.env.PUBLIC_APP_URL || 'http://localhost:3000';
   console.log(`Platform admin created: ${user.email} (id ${user.id})`);

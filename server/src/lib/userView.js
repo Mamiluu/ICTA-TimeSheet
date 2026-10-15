@@ -16,7 +16,8 @@ export function publicUser(u) {
     access: accessOf(u),
     // For an account with payment access: prepares, certifies (authorising officer) or verifies (finance).
     paymentRole: u.role === 'COUNTY_ADMIN' ? u.paymentRole || 'PREPARER' : null,
-    department: u.department ? { id: u.department.id, name: u.department.name } : null
+    department: u.department ? { id: u.department.id, name: u.department.name } : null,
+    organisation: u.organisation ? { id: u.organisation.id, name: u.organisation.name, shortName: u.organisation.shortName } : null
   };
 }
 
@@ -24,4 +25,9 @@ export function publicUser(u) {
 // even though the account itself is still active.
 export function departmentPaused(u) {
   return !!(u.department && u.department.active === false);
+}
+
+// Likewise for an organisation the platform owner has suspended.
+export function organisationSuspended(u) {
+  return !!(u.organisation && u.organisation.status === 'SUSPENDED');
 }

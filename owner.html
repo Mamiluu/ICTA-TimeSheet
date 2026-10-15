@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+  Proprietary and confidential. See LICENSE in the repository root.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Platform owner</title>
+<link rel="icon" href="assets/icta_logo_cropped.png">
+<style>
+  :root{ --ink:#1b1a18; --muted:#6a655b; --rule:#d9d2c3; --paper:#fffdf8; --page:#ebe7de; --accent:#c8102e; --ok:#14683a; --warn:#8a5a00; --bad:#9d1230; }
+  @media (prefers-color-scheme: dark){ :root{ --page:#1d1c1a; } }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--page); color:var(--ink); font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; font-size:14px; line-height:1.5; }
+  .wrap{ max-width:1120px; margin:0 auto; padding:22px 18px 60px; }
+  .top{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:6px; }
+  .top .who{ color:var(--muted); font-size:13px; margin-left:auto; }
+  h1{ font-family:Georgia, "Times New Roman", serif; font-weight:400; font-size:30px; line-height:1.15; margin:0; }
+  .sub{ color:var(--muted); margin:4px 0 16px; max-width:70ch; }
+  .card{ background:var(--paper); border:1px solid var(--rule); border-radius:14px; padding:16px 18px; margin:14px 0; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+  h2{ font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0 0 12px; font-weight:700; }
+  .stats{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; }
+  .stat{ background:var(--paper); border:1px solid var(--rule); border-radius:12px; padding:12px 14px; }
+  .stat .l{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+  .stat .v{ font-size:28px; font-family:Georgia, serif; }
+  .stat .s{ font-size:12px; color:var(--muted); }
+  button{ font:inherit; font-weight:700; font-size:13.5px; padding:9px 14px; border-radius:9px; border:1px solid #bfb7a4; background:#fff; color:var(--ink); cursor:pointer; }
+  button.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.danger{ color:var(--bad); border-color:#e2b3bd; }
+  button:disabled{ opacity:.55; cursor:default; }
+  input{ font:inherit; font-size:14px; padding:9px 10px; border:1px solid #bfb7a4; border-radius:9px; background:#fff; color:var(--ink); width:100%; min-width:0; }
+  input:focus-visible, button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  label{ display:block; font-size:12.5px; font-weight:700; margin:0 0 4px; }
+  .org{ display:grid; grid-template-columns:minmax(0,1fr) 300px auto; gap:10px 20px; align-items:center; padding:14px 2px; border-top:1px solid var(--rule); }
+  .org:first-of-type{ border-top:0; }
+  .org .n{ font-weight:700; font-size:15px; }
+  .org .m{ color:var(--muted); font-size:12.5px; }
+  .nums{ display:grid; grid-template-columns:repeat(3, 1fr); gap:4px 12px; font-size:12.5px; color:var(--muted); }
+  .nums b{ color:var(--ink); font-variant-numeric:tabular-nums; }
+  .pill{ display:inline-block; font-size:12px; font-weight:700; padding:2px 10px; border-radius:999px; background:#eee9dc; color:var(--muted); }
+  .pill.ok{ background:#e0f1e6; color:var(--ok); }
+  .pill.bad{ background:#f6e1e5; color:var(--bad); }
+  .acts{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+  .form{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px 12px; align-items:end; }
+  .help{ color:var(--muted); font-size:12.5px; margin:8px 0 0; }
+  .msg{ margin:10px 0 0; font-size:13.5px; min-height:1.2em; }
+  .msg.err{ color:var(--bad); }
+  .msg.ok{ color:var(--ok); font-weight:700; }
+  .empty{ color:var(--muted); padding:6px 2px; }
+  .privacy{ background:#eef3ee; border:1px solid #cddccd; color:#2c4a35; border-radius:10px; padding:10px 12px; font-size:13px; }
+  [hidden]{ display:none !important; }
+  @media (max-width: 860px){ .stats{ grid-template-columns:1fr 1fr; } .org{ grid-template-columns:1fr; } .acts{ justify-content:flex-start; } .form{ grid-template-columns:1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Organisations</h1>
+    <span class="who" id="who"></span>
+    <button type="button" id="logoutBtn">Log out</button>
+  </div>
+  <p class="sub">Everyone who uses the platform, and whether it is healthy. You see counts and activity only. Names, phone numbers, signatures and event details stay inside each organisation.</p>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="card">
+    <h2>Customers</h2>
+    <div id="list"><p class="empty">Loading…</p></div>
+  </div>
+
+  <div class="card">
+    <h2>Add an organisation</h2>
+    <div class="form">
+      <div><label for="oName">Organisation name</label><input type="text" id="oName" maxlength="100" autocomplete="off" placeholder="e.g. Kenya Power"></div>
+      <div><label for="oShort">Short name <span style="font-weight:400;color:var(--muted);">(optional)</span></label><input type="text" id="oShort" maxlength="20" autocomplete="off" placeholder="e.g. KPLC"></div>
+      <div><label for="oSlug">Short address</label><input type="text" id="oSlug" maxlength="40" autocomplete="off" placeholder="made from the name"></div>
+      <div><label for="oAdmin">First administrator's email</label><input type="email" id="oAdmin" autocomplete="off" placeholder="name@organisation.go.ke"></div>
+    </div>
+    <p class="help">They receive an email with a one-time link to set a password, and then set up their own departments and people. If the email does not arrive, use "Copy activation link" on the organisation.</p>
+    <div style="margin-top:12px;"><button type="button" class="primary" id="addBtn">Create organisation</button></div>
+    <p class="msg" id="addMsg" role="status" aria-live="polite"></p>
+  </div>
+</div>
+
+<script src="assets/api.js"></script>
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  function el(tag, cls, text){ var n = document.createElement(tag); if(cls) n.className = cls; if(text != null) n.textContent = text; return n; }
+  function say(id, text, cls){ var n = $(id); n.textContent = text || ''; n.className = 'msg' + (cls ? ' ' + cls : ''); }
+  function ago(iso){
+    if(!iso) return 'never';
+    var mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if(mins < 2) return 'just now'; if(mins < 60) return mins + ' minutes ago';
+    var h = Math.round(mins / 60); if(h < 24) return h + ' hours ago';
+    var d = Math.round(h / 24); return d + (d === 1 ? ' day ago' : ' days ago');
+  }
+  function plural(n, a, b){ return n + ' ' + (n === 1 ? a : (b || a + 's')); }
+
+  API.get('/api/auth/me').then(function(r){
+    if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return; }
+    if(r.data.user.role !== 'OWNER'){ location.href = homeFor(r.data.user.role); return; }
+    $('who').textContent = r.data.user.email;
+    load();
+  }).catch(function(){ $('list').innerHTML = '<p class="empty">No connection. Reload to try again.</p>'; });
+
+  $('logoutBtn').addEventListener('click', function(){ API.post('/api/auth/logout').then(function(){ location.href = 'login.html'; }); });
+
+  function stat(label, value, sub){
+    var s = el('div', 'stat'); s.appendChild(el('div', 'l', label)); s.appendChild(el('div', 'v', String(value))); if(sub) s.appendChild(el('div', 's', sub)); return s;
+  }
+
+  function render(orgs){
+    var stats = $('stats'); stats.textContent = '';
+    var active = orgs.filter(function(o){ return o.status === 'ACTIVE'; }).length;
+    var sum = function(k){ return orgs.reduce(function(n, o){ return n + (o[k] || 0); }, 0); };
+    stats.appendChild(stat('Organisations', orgs.length, active + ' active'));
+    stats.appendChild(stat('People with accounts', sum('orgAdmins') + sum('superAdmins') + sum('countyAdmins'), 'across all organisations'));
+    stats.appendChild(stat('Events', sum('events')));
+    stats.appendChild(stat('Attendance records', sum('attendance')));
+
+    var list = $('list'); list.textContent = '';
+    if(!orgs.length){ list.appendChild(el('p', 'empty', 'No organisations yet.')); return; }
+    orgs.forEach(function(o){
+      var row = el('div', 'org');
+      var left = el('div');
+      var head = el('div', 'n', o.name + (o.shortName ? ' (' + o.shortName + ')' : ''));
+      head.appendChild(document.createTextNode(' '));
+      head.appendChild(el('span', 'pill ' + (o.status === 'ACTIVE' ? 'ok' : 'bad'), o.status === 'ACTIVE' ? 'Active' : 'Suspended'));
+      left.appendChild(head);
+      left.appendChild(el('div', 'm', o.slug + ' · ' + o.plan.toLowerCase() + ' plan · added ' + new Date(o.createdAt).toLocaleDateString('en-GB')));
+      left.appendChild(el('div', 'm', 'Last activity ' + ago(o.lastActivityAt) + ' · last login ' + ago(o.lastLoginAt) + (o.orgAdminsActive === 0 ? ' · administrator has not activated yet' : '')));
+      row.appendChild(left);
+
+      var nums = el('div', 'nums');
+      [['Departments', o.departments], ['Super admins', o.superAdmins], ['County admins', o.countyAdmins], ['Events', o.events], ['Records', o.attendance]].forEach(function(p){
+        var c = el('div'); var b = el('b', null, String(p[1])); c.appendChild(b); c.appendChild(document.createTextNode(' ' + p[0].toLowerCase())); nums.appendChild(c);
+      });
+      row.appendChild(nums);
+
+      var acts = el('div', 'acts');
+      if(o.orgAdminsActive === 0){
+        var link = el('button', null, 'Copy activation link'); link.type = 'button';
+        link.addEventListener('click', function(){ copyLink(o, link); });
+        acts.appendChild(link);
+      }
+      var tog = el('button', o.status === 'ACTIVE' ? 'danger' : 'primary', o.status === 'ACTIVE' ? 'Suspend' : 'Resume'); tog.type = 'button';
+      tog.addEventListener('click', function(){ toggle(o, tog); });
+      acts.appendChild(tog);
+      row.appendChild(acts);
+      list.appendChild(row);
+    });
+  }
+
+  function load(){
+    return API.get('/api/owner/organisations').then(function(r){
+      if(r.status !== 200 || !r.data.ok){ $('list').innerHTML = '<p class="empty">Could not load organisations.</p>'; return; }
+      render(r.data.organisations);
+    }).catch(function(){ $('list').innerHTML = '<p class="empty">No connection. Reload to try again.</p>'; });
+  }
+
+  function copyLink(o, btn){
+    var old = btn.textContent; btn.disabled = true;
+    API.post('/api/owner/organisations/' + encodeURIComponent(o.id) + '/activation-link').then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ window.alert(r.data.message || 'Could not make a link.'); return; }
+      var done = function(){ btn.textContent = 'Copied ✓'; setTimeout(function(){ btn.textContent = old; }, 1800); };
+      if(navigator.clipboard) navigator.clipboard.writeText(r.data.url).then(done, function(){ window.prompt('Copy this activation link:', r.data.url); });
+      else window.prompt('Copy this activation link:', r.data.url);
+    }).catch(function(){ btn.disabled = false; window.alert('No connection. Please try again.'); });
+  }
+
+  function toggle(o, btn){
+    var suspend = o.status === 'ACTIVE';
+    var body = {};
+    if(suspend){
+      var why = window.prompt('Suspending ' + o.name + ' signs everyone in it out and stops them logging in. Nothing is deleted.\n\nWhy are you suspending it?');
+      if(!why) return; body.reason = why;
+    } else if(!window.confirm('Resume ' + o.name + '? Its people will be able to log in again.')) return;
+    btn.disabled = true;
+    API.post('/api/owner/organisations/' + encodeURIComponent(o.id) + '/' + (suspend ? 'suspend' : 'resume'), body).then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ window.alert(r.data.message || 'Could not change the status.'); return; }
+      load();
+    }).catch(function(){ btn.disabled = false; window.alert('No connection. Please try again.'); });
+  }
+
+  $('addBtn').addEventListener('click', function(){
+    var btn = this;
+    var body = { name: $('oName').value, shortName: $('oShort').value, slug: $('oSlug').value, adminEmail: $('oAdmin').value };
+    if(!body.name.trim() || !body.adminEmail.trim()){ say('addMsg', 'Enter the organisation name and the first administrator\'s email.', 'err'); return; }
+    btn.disabled = true; say('addMsg', 'Creating…');
+    API.post('/api/owner/organisations', body).then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ say('addMsg', r.data.message || 'Could not create the organisation.', 'err'); return; }
+      say('addMsg', r.data.organisation.name + ' was created. An invitation was sent to ' + body.adminEmail.trim() + '.', 'ok');
+      ['oName', 'oShort', 'oSlug', 'oAdmin'].forEach(function(id){ $(id).value = ''; });
+      load();
+    }).catch(function(){ btn.disabled = false; say('addMsg', 'No connection. Please try again.', 'err'); });
+  });
+})();
+</script>
+</body>
+</html>

@@ -18,7 +18,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
-    "seed:superadmin": "node scripts/seed-superadmin.js",
+    "seed:owner": "node scripts/seed-owner.js",
     "seed:platform": "node scripts/seed-platform-admin.js",
     "import:attendance": "node scripts/import-attendance.js"
   },

@@ -24,6 +24,32 @@ export async function bootstrapPlatformAdmin() {
     if (existing.role !== 'PLATFORM_ADMIN') logger.error('platform admin bootstrap skipped: that email already belongs to another role');
     return;
   }
-  await prisma.user.create({ data: { email, passwordHash: await hashPassword(password), role: 'PLATFORM_ADMIN', status: 'ACTIVE' } });
-  logger.info('platform admin created from environment', { email });
+  // The organisation this account heads. ICT Authority unless told otherwise.
+  const slug = String(process.env.PLATFORM_ADMIN_ORG || 'icta').trim().toLowerCase();
+  const org = await prisma.organisation.findUnique({ where: { slug } });
+  if (!org) {
+    logger.error('platform admin bootstrap skipped: no organisation with that short address', { slug });
+    return;
+  }
+  await prisma.user.create({ data: { email, passwordHash: await hashPassword(password), role: 'PLATFORM_ADMIN', status: 'ACTIVE', organisationId: org.id } });
+  logger.info('platform admin created from environment', { email, organisation: org.slug });
+}
+
+// The platform owner: the operator above every organisation. Created the same way,
+// from OWNER_EMAIL and OWNER_PASSWORD, and never changed once it exists.
+export async function bootstrapOwner() {
+  const email = String(process.env.OWNER_EMAIL || '').trim().toLowerCase();
+  const password = process.env.OWNER_PASSWORD;
+  if (!email || !password) return;
+  if (!isValidEmailShape(email) || !isPasswordAcceptable(password)) {
+    logger.error('owner bootstrap skipped: invalid email, or password not 10-200 characters');
+    return;
+  }
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    if (existing.role !== 'OWNER') logger.error('owner bootstrap skipped: that email already belongs to another role');
+    return;
+  }
+  await prisma.user.create({ data: { email, passwordHash: await hashPassword(password), role: 'OWNER', status: 'ACTIVE' } });
+  logger.info('owner created from environment', { email });
 }

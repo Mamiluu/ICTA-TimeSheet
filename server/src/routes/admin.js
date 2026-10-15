@@ -189,7 +189,7 @@ adminRouter.post('/events', ah(async (req, res) => {
       startAt, endAt, timezone: f.timezone,
       locationType: f.locationType, address: f.address, latitude: f.latitude, longitude: f.longitude, meetingLink: f.meetingLink, certificatesEnabled: kind === 'DUTY_ROLL' ? false : f.certificatesEnabled,
       kind, authorisedBy: authority.authorisedBy, authorityRef: authority.authorityRef,
-      county: req.user.county, ownerId: req.user.id, departmentId: req.user.departmentId,
+      county: req.user.county, ownerId: req.user.id, departmentId: req.user.departmentId, organisationId: req.user.organisationId,
       days: { create: days.map((d, i) => ({ position: i + 1, startAt: d.startAt, endAt: d.endAt, place: d.place })) }
     }
   });

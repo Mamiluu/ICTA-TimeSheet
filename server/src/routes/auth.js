@@ -12,7 +12,7 @@ import { writeAudit } from '../lib/audit.js';
 import { loginLimiter, forgotPasswordLimiter } from '../middleware/rateLimit.js';
 import { ah } from '../lib/asyncHandler.js';
 import { logger } from '../lib/logger.js';
-import { publicUser, departmentPaused } from '../lib/userView.js';
+import { publicUser, departmentPaused, organisationSuspended } from '../lib/userView.js';
 
 export const authRouter = Router();
 
@@ -21,7 +21,7 @@ authRouter.post('/login', loginLimiter, ah(async (req, res) => {
   const password = String(req.body.password || '');
   if (!email || !password) return res.status(400).json({ ok: false, error: 'MISSING_FIELDS' });
 
-  const user = await prisma.user.findUnique({ where: { email }, include: { department: true } });
+  const user = await prisma.user.findUnique({ where: { email }, include: { department: true, organisation: true } });
   const validPassword = user && user.status === 'ACTIVE' && (await verifyPassword(password, user.passwordHash));
 
   if (!validPassword) {
@@ -31,6 +31,10 @@ authRouter.post('/login', loginLimiter, ah(async (req, res) => {
   // Said only after the password is right, so it cannot be used to find out which emails exist.
   if (departmentPaused(user)) {
     return res.status(403).json({ ok: false, error: 'DEPARTMENT_PAUSED', message: "Your department's access has been paused. Please contact the platform administrator." });
+  }
+
+  if (organisationSuspended(user)) {
+    return res.status(403).json({ ok: false, error: 'ORGANISATION_SUSPENDED', message: "Your organisation's access has been suspended. Please contact the platform operator." });
   }
 
   await createSession(res, user.id, req);

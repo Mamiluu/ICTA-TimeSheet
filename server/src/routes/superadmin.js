@@ -133,7 +133,7 @@ superadminRouter.post('/admins', ah(async (req, res) => {
   try {
     admin = await prisma.user.create({
       // A county admin belongs to the department of the super admin who creates them.
-      data: { email, county, access, paymentRole, role: 'COUNTY_ADMIN', status: 'PENDING', createdById: req.user.id, departmentId: req.user.departmentId }
+      data: { email, county, access, paymentRole, role: 'COUNTY_ADMIN', status: 'PENDING', createdById: req.user.id, departmentId: req.user.departmentId, organisationId: req.user.organisationId }
     });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {

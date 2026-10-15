@@ -48,9 +48,11 @@ async function nextHash(entry) {
   return { prevHash, hash: hashToken(entryHashInput({ ...entry, prevHash })) };
 }
 
-export async function writeAudit({ actorId, action, targetType, targetId, metadata, req }) {
+// organisationId says whose record this is. It is taken from the person who acted;
+// pass it explicitly for something nobody signed in did (an attendee signing a day).
+export async function writeAudit({ actorId, action, targetType, targetId, metadata, req, organisationId }) {
   const actor = actorId
-    ? await prisma.user.findUnique({ where: { id: actorId }, select: { email: true, role: true, county: true } })
+    ? await prisma.user.findUnique({ where: { id: actorId }, select: { email: true, role: true, county: true, organisationId: true } })
     : null;
   const createdAt = new Date();
   const { prevHash, hash } = await nextHash({ actorId, action, targetType, targetId, metadata, createdAt });
@@ -60,6 +62,7 @@ export async function writeAudit({ actorId, action, targetType, targetId, metada
       actorEmail: actor ? actor.email : null,
       actorRole: actor ? actor.role : null,
       actorCounty: actor ? actor.county : null,
+      organisationId: organisationId !== undefined ? organisationId : actor ? actor.organisationId : null,
       action,
       targetType: targetType || null,
       targetId: targetId || null,

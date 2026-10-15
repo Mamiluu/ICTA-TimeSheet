@@ -50,9 +50,9 @@ function isUniqueViolation(err) {
   return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
 }
 
-async function findSuperAdmin(id) {
-  const u = await prisma.user.findUnique({ where: { id }, include: { department: true } });
-  return u && u.role === 'SUPER_ADMIN' ? u : null;
+// Only an account in the caller's own organisation can be found at all.
+async function findSuperAdmin(req) {
+  return prisma.user.findFirst({ where: { id: req.params.id, role: 'SUPER_ADMIN', organisationId: req.user.organisationId }, include: { department: true } });
 }
 
 // Organisation-wide rollup. Aggregate counts only, per department and overall --
@@ -60,9 +60,9 @@ async function findSuperAdmin(id) {
 platformRouter.get('/overview', ah(async (req, res) => {
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const [departments, events, accounts] = await Promise.all([
-    prisma.department.findMany({ orderBy: { name: 'asc' } }),
-    prisma.event.findMany({ where: { deletedAt: null }, select: { id: true, departmentId: true } }),
-    prisma.user.groupBy({ by: ['role', 'status'], where: { role: { in: ['SUPER_ADMIN', 'COUNTY_ADMIN'] } }, _count: { _all: true } })
+    prisma.department.findMany({ where: { organisationId: req.user.organisationId }, orderBy: { name: 'asc' } }),
+    prisma.event.findMany({ where: { organisationId: req.user.organisationId, deletedAt: null }, select: { id: true, departmentId: true } }),
+    prisma.user.groupBy({ by: ['role', 'status'], where: { organisationId: req.user.organisationId, role: { in: ['SUPER_ADMIN', 'COUNTY_ADMIN'] } }, _count: { _all: true } })
   ]);
   const ids = events.map((e) => e.id);
   const [perEvent, recent] = await Promise.all([
@@ -101,10 +101,11 @@ platformRouter.get('/overview', ah(async (req, res) => {
 // ---- Departments -----------------------------------------------------------
 
 platformRouter.get('/departments', ah(async (req, res) => {
+  const org = req.user.organisationId;
   const [departments, admins, events] = await Promise.all([
-    prisma.department.findMany({ orderBy: { name: 'asc' } }),
-    prisma.user.groupBy({ by: ['departmentId', 'role', 'status'], where: { departmentId: { not: null } }, _count: { _all: true } }),
-    prisma.event.groupBy({ by: ['departmentId'], where: { departmentId: { not: null }, deletedAt: null }, _count: { _all: true } })
+    prisma.department.findMany({ where: { organisationId: org }, orderBy: { name: 'asc' } }),
+    prisma.user.groupBy({ by: ['departmentId', 'role', 'status'], where: { organisationId: org, departmentId: { not: null } }, _count: { _all: true } }),
+    prisma.event.groupBy({ by: ['departmentId'], where: { organisationId: org, departmentId: { not: null }, deletedAt: null }, _count: { _all: true } })
   ]);
 
   const eventsBy = new Map(events.map((g) => [g.departmentId, g._count._all]));
@@ -133,7 +134,7 @@ platformRouter.post('/departments', ah(async (req, res) => {
 
   let dept;
   try {
-    dept = await prisma.department.create({ data: { name, slug: departmentSlug(name) } });
+    dept = await prisma.department.create({ data: { organisationId: req.user.organisationId, name, slug: departmentSlug(name) } });
   } catch (err) {
     if (isUniqueViolation(err)) return res.status(409).json({ ok: false, error: 'DEPARTMENT_EXISTS' });
     throw err;
@@ -144,12 +145,12 @@ platformRouter.post('/departments', ah(async (req, res) => {
 
 // Adds whichever of the standard departments are missing. Safe to repeat.
 platformRouter.post('/departments/seed-defaults', ah(async (req, res) => {
-  const existing = await prisma.department.findMany({ select: { name: true, slug: true } });
+  const existing = await prisma.department.findMany({ where: { organisationId: req.user.organisationId }, select: { name: true, slug: true } });
   const taken = new Set(existing.flatMap((d) => [d.name.toLowerCase(), d.slug]));
   const created = [];
   for (const name of DEFAULT_DEPARTMENTS) {
     if (taken.has(name.toLowerCase()) || taken.has(departmentSlug(name))) continue;
-    const dept = await prisma.department.create({ data: { name, slug: departmentSlug(name) } });
+    const dept = await prisma.department.create({ data: { organisationId: req.user.organisationId, name, slug: departmentSlug(name) } });
     created.push(dept.name);
   }
   if (created.length) {
@@ -162,7 +163,7 @@ platformRouter.post('/departments/seed-defaults', ah(async (req, res) => {
 // refuses sessions of a paused department, so everyone in it is signed out on
 // their next request, and the platform admin can resume at any time.
 platformRouter.patch('/departments/:id', ah(async (req, res) => {
-  const dept = await prisma.department.findUnique({ where: { id: req.params.id } });
+  const dept = await prisma.department.findFirst({ where: { id: req.params.id, organisationId: req.user.organisationId } });
   if (!dept) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
 
   const data = {};
@@ -198,7 +199,7 @@ platformRouter.patch('/departments/:id', ah(async (req, res) => {
 // ---- Department super admins ----------------------------------------------
 
 platformRouter.get('/super-admins', ah(async (req, res) => {
-  const where = { role: 'SUPER_ADMIN' };
+  const where = { role: 'SUPER_ADMIN', organisationId: req.user.organisationId };
   if (req.query.departmentId) where.departmentId = String(req.query.departmentId);
   const admins = await prisma.user.findMany({ where, include: { department: true }, orderBy: { createdAt: 'desc' } });
   res.json({ ok: true, admins: admins.map(publicSuperAdmin) });
@@ -208,7 +209,7 @@ platformRouter.post('/super-admins', ah(async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   if (!isValidEmailShape(email)) return res.status(400).json({ ok: false, error: 'INVALID_EMAIL' });
 
-  const dept = await prisma.department.findUnique({ where: { id: String(req.body.departmentId || '') } });
+  const dept = await prisma.department.findFirst({ where: { id: String(req.body.departmentId || ''), organisationId: req.user.organisationId } });
   if (!dept) return res.status(400).json({ ok: false, error: 'INVALID_DEPARTMENT' });
 
   const live = await prisma.user.count({ where: { role: 'SUPER_ADMIN', departmentId: dept.id, status: { not: 'DISABLED' } } });
@@ -219,7 +220,7 @@ platformRouter.post('/super-admins', ah(async (req, res) => {
   let admin;
   try {
     admin = await prisma.user.create({
-      data: { email, role: 'SUPER_ADMIN', status: 'PENDING', departmentId: dept.id, createdById: req.user.id },
+      data: { email, role: 'SUPER_ADMIN', status: 'PENDING', departmentId: dept.id, organisationId: req.user.organisationId, createdById: req.user.id },
       include: { department: true }
     });
   } catch (err) {
@@ -237,7 +238,7 @@ platformRouter.post('/super-admins', ah(async (req, res) => {
 
 // Same fallback as county admins: hand the link over directly when email is slow.
 platformRouter.post('/super-admins/:id/activation-link', ah(async (req, res) => {
-  const admin = await findSuperAdmin(req.params.id);
+  const admin = await findSuperAdmin(req);
   if (!admin) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
   if (admin.status !== 'PENDING') return res.status(409).json({ ok: false, error: 'NOT_PENDING' });
 
@@ -247,7 +248,7 @@ platformRouter.post('/super-admins/:id/activation-link', ah(async (req, res) => 
 }));
 
 platformRouter.post('/super-admins/:id/disable', ah(async (req, res) => {
-  const admin = await findSuperAdmin(req.params.id);
+  const admin = await findSuperAdmin(req);
   if (!admin) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
 
   await prisma.user.update({ where: { id: admin.id }, data: { status: 'DISABLED', disabledAt: new Date() } });
@@ -258,7 +259,7 @@ platformRouter.post('/super-admins/:id/disable', ah(async (req, res) => {
 
 // Always via a fresh activation link, never by restoring the old password.
 platformRouter.post('/super-admins/:id/reactivate', ah(async (req, res) => {
-  const admin = await findSuperAdmin(req.params.id);
+  const admin = await findSuperAdmin(req);
   if (!admin) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
   if (admin.status === 'ACTIVE') return res.status(409).json({ ok: false, error: 'ALREADY_ACTIVE' });
 
@@ -282,7 +283,7 @@ platformRouter.post('/super-admins/:id/reactivate', ah(async (req, res) => {
 
 // Only a disabled or never-activated account can be removed, mirroring county admins.
 platformRouter.delete('/super-admins/:id', ah(async (req, res) => {
-  const admin = await findSuperAdmin(req.params.id);
+  const admin = await findSuperAdmin(req);
   if (!admin) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
   if (admin.status === 'ACTIVE') return res.status(409).json({ ok: false, error: 'MUST_DISABLE_FIRST' });
 
@@ -304,7 +305,7 @@ platformRouter.delete('/super-admins/:id', ah(async (req, res) => {
 // ---- Organisation-wide audit trail and integrity ---------------------------
 
 platformRouter.get('/audit', ah((req, res) => {
-  const where = {};
+  const where = { organisationId: req.user.organisationId };
   if (req.query.departmentId) where.actor = { departmentId: String(req.query.departmentId) };
   return pagedAudit(where, req, res);
 }));

@@ -336,7 +336,7 @@ publicRouter.post('/duty/:slug/query', checkInLimiter, ah(async (req, res) => {
   if (already) return res.json({ ok: false, error: 'ALREADY_RAISED', message: 'You already have a question open for that day.' });
 
   const q = await prisma.dutyQuery.create({ data: { eventId: event.id, payeeId: attendee.dutyPayee.id, dayId: day.id, message } });
-  await writeAudit({ actorId: null, action: 'DUTY_QUERY_RAISED', targetType: 'Attendance', targetId: attendee.id, metadata: { eventId: event.id, position: day.position, queryId: q.id }, req }).catch(() => {});
+  await writeAudit({ actorId: null, action: 'DUTY_QUERY_RAISED', targetType: 'Attendance', targetId: attendee.id, metadata: { eventId: event.id, position: day.position, queryId: q.id }, req, organisationId: event.organisationId }).catch(() => {});
   res.json({ ok: true });
 }));
 
@@ -491,7 +491,7 @@ publicRouter.post('/events/:slug/certificate', attendanceLimiter, ah(async (req,
     });
     await writeAudit({
       actorId: null, action: 'CERTIFICATE_ISSUED', targetType: 'AttendanceCertificate', targetId: cert.id,
-      metadata: { digest, eventId: event.id, attendanceId: attendee.id, days: snapshot.days.length }, req
+      metadata: { digest, eventId: event.id, attendanceId: attendee.id, days: snapshot.days.length }, req, organisationId: event.organisationId
     }).catch(() => {});
   }
   res.json({ ok: true, code: cert.id });
@@ -791,7 +791,7 @@ publicRouter.post('/events/:slug/days/:dayId/check-in', checkInLimiter, ah(async
     });
     await writeAudit({
       actorId: null, action: 'DAY_CHECKIN_BY_PHONE', targetType: 'Attendance', targetId: attendee.id,
-      metadata: { eventId: event.id, dayId: day.id, position: day.position }, req
+      metadata: { eventId: event.id, dayId: day.id, position: day.position }, req, organisationId: event.organisationId
     }).catch(() => {});
     notifyDaySigned(attendee, event, day, sig);
     // Deliberately no clientId in the response: that id is the proof of

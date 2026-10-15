@@ -13,6 +13,30 @@ datasource db {
 // PLATFORM_ADMIN is the organisation's official top account: it creates the
 // departments and the SUPER_ADMIN of each one. A SUPER_ADMIN runs one
 // department and the COUNTY_ADMINs under it.
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+// A customer of the platform: ICT Authority is the first. Everything below it
+// (departments, accounts, events, the audit trail) belongs to exactly one
+// organisation and is never visible to another. The platform owner has no
+// organisation of their own.
+model Organisation {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  shortName String?
+  slug      String    @unique
+  status    OrgStatus @default(ACTIVE)
+  plan      String    @default("PILOT")
+  createdAt DateTime  @default(now())
+
+  departments  Department[]
+  users        User[]
+  events       Event[]
+  auditEntries AuditLog[]
+}
+
 enum AccessLevel {
   ATTENDANCE
   PAYMENT
@@ -101,6 +125,9 @@ model DutyPayee {
 }
 
 enum Role {
+  // The platform's operator: sees every organisation's counts and health, never attendee records.
+  OWNER
+  // An organisation's own top account (shown as "Organisation admin").
   PLATFORM_ADMIN
   SUPER_ADMIN
   COUNTY_ADMIN
@@ -141,6 +168,10 @@ model User {
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
 
+  // Null only for the platform owner.
+  organisationId String?
+  organisation   Organisation? @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
   // Which kinds of event this account may see and run. Existing accounts keep
   // attendance sheets only; a department super admin grants payment sheets (duty rolls).
   access       AccessLevel @default(ATTENDANCE)
@@ -164,6 +195,7 @@ model User {
   @@index([role, status])
   @@index([county])
   @@index([departmentId])
+  @@index([organisationId])
 }
 
 model AuthToken {
@@ -269,6 +301,10 @@ model Event {
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
 
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
+  @@index([organisationId])
   @@index([county])
   @@index([ownerId])
   @@index([departmentId])
@@ -401,6 +437,10 @@ model AuditLog {
   actorRole   Role?
   actorCounty String?
 
+  // The organisation the entry belongs to; null for the platform owner's own actions.
+  organisationId String?
+  organisation   Organisation? @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+
   action     String
   targetType String?
   targetId   String?
@@ -421,6 +461,7 @@ model AuditLog {
   hash     String?
 
   @@index([actorId, createdAt])
+  @@index([organisationId, createdAt])
   @@index([targetType, targetId])
 }
 
@@ -447,12 +488,19 @@ model AttendanceCertificate {
 // Internal Audit, ...). Created by the platform admin. A department is
 // disabled rather than deleted so its history stays attached to a name.
 model Department {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  slug      String   @unique
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id             String       @id @default(uuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Restrict)
+  name           String
+  slug           String
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
 
   users  User[]
   events Event[]
+
+  // The same department name can exist in two organisations.
+  @@unique([organisationId, name])
+  @@unique([organisationId, slug])
+  @@index([organisationId])
 }

@@ -13,10 +13,11 @@ import { authRouter } from './routes/auth.js';
 import { superadminRouter } from './routes/superadmin.js';
 import { platformRouter } from './routes/platform.js';
 import { dutyReviewRouter } from './routes/dutyReview.js';
+import { ownerRouter } from './routes/owner.js';
 import { adminRouter } from './routes/admin.js';
 import { publicRouter } from './routes/public.js';
 import { startAnchorJob } from './lib/anchor.js';
-import { bootstrapPlatformAdmin } from './lib/bootstrapPlatformAdmin.js';
+import { bootstrapPlatformAdmin, bootstrapOwner } from './lib/bootstrapPlatformAdmin.js';
 import { logger, requestLogger, logRequestError, newErrorRef } from './lib/logger.js';
 
 // The static frontend (index.html, admin.html, assets/, etc.) lives at the
@@ -62,6 +63,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authRouter);
 app.use('/api/superadmin', superadminRouter);
+app.use('/api/owner', ownerRouter);
 app.use('/api/platform', platformRouter);
 app.use('/api/duty-review', dutyReviewRouter);
 app.use('/api/admin', adminRouter);
@@ -96,5 +98,6 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
   logger.info('server listening', { port });
   startAnchorJob();
+  bootstrapOwner().catch((err) => logger.error('owner bootstrap failed', { stack: err.stack }));
   bootstrapPlatformAdmin().catch((err) => logger.error('platform admin bootstrap failed', { stack: err.stack }));
 });

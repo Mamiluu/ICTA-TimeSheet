@@ -86,7 +86,7 @@
     API.post('/api/auth/login', { email: e, password: p }).then(function(r){
       if(r.status === 200 && r.data.ok) return redirectFor(r.data.user.role);
       loginBtn.disabled = false;
-      if(r.status === 429 || r.data.error === 'DEPARTMENT_PAUSED'){
+      if(r.status === 429 || r.data.error === 'DEPARTMENT_PAUSED' || r.data.error === 'ORGANISATION_SUSPENDED'){
         loginError.textContent = r.data.message || 'Too many attempts. Try again later.';
       } else {
         loginError.textContent = 'Incorrect email or password.';

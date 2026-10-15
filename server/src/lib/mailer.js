@@ -67,11 +67,15 @@ function devLogLink(label, url) {
   }
 }
 
-export async function sendActivationEmail(toEmail, activateUrl, county, department = null) {
+export async function sendActivationEmail(toEmail, activateUrl, county, department = null, organisation = null) {
   devLogLink(`activation link for ${toEmail}`, activateUrl);
   const html = wrapHtml(`
     <p style="font-size:13.5px;color:#333;">An account has been created for you as ${
-      department ? `the super admin of <strong>${department}</strong>` : `the <strong>${county}</strong> county admin`
+      organisation
+        ? `the administrator of <strong>${organisation}</strong> on this platform`
+        : department
+          ? `the super admin of <strong>${department}</strong>`
+          : `the <strong>${county}</strong> county admin`
     }.</p>
     <p style="font-size:13.5px;color:#333;">Click the button below to set your own password and activate your account. This link can only be used once and expires in 48 hours.</p>
     <p style="margin:22px 0;"><a href="${activateUrl}" style="background:${BRAND.accent};color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Activate your account</a></p>

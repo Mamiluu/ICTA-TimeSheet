@@ -4,7 +4,7 @@
 import crypto from 'node:crypto';
 import { prisma } from './prisma.js';
 import { SESSION_TTL_MS, SESSION_COOKIE_NAME } from './constants.js';
-import { departmentPaused } from './userView.js';
+import { departmentPaused, organisationSuspended } from './userView.js';
 
 function randomSessionId() {
   return crypto.randomBytes(32).toString('base64url');
@@ -58,7 +58,7 @@ export async function loadSessionUser(req) {
   const id = req.cookies && req.cookies[SESSION_COOKIE_NAME];
   if (!id) return null;
 
-  const session = await prisma.session.findUnique({ where: { id }, include: { user: { include: { department: true } } } });
+  const session = await prisma.session.findUnique({ where: { id }, include: { user: { include: { department: true, organisation: true } } } });
   if (!session) return null;
   if (session.expiresAt < new Date()) {
     await prisma.session.delete({ where: { id } }).catch(() => {});
@@ -66,6 +66,7 @@ export async function loadSessionUser(req) {
   }
   if (session.user.status !== 'ACTIVE') return null;
   if (departmentPaused(session.user)) return null;
+  if (organisationSuspended(session.user)) return null;
 
   return session.user;
 }

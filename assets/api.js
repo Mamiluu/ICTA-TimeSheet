@@ -52,6 +52,7 @@ var API = (function(){
 // account that does not belong on it. One place, so the pages can never send a
 // role back and forth between two dashboards.
 function homeFor(role){
+  if(role === 'OWNER') return 'owner.html';
   if(role === 'PLATFORM_ADMIN') return 'platform.html';
   if(role === 'SUPER_ADMIN') return 'superadmin.html';
   return 'admin.html';
@@ -135,6 +136,10 @@ var AUDIT_ACTION_META = {
   SUPER_ADMIN_DISABLE: { label: 'Disabled super admin', tone: 'danger' },
   SUPER_ADMIN_REACTIVATE: { label: 'Reactivated super admin', tone: 'positive' },
   SUPER_ADMIN_DELETE: { label: 'Deleted super admin', tone: 'danger' },
+  ORG_CREATE: { label: 'Created organisation', tone: 'positive' },
+  ORG_SUSPEND: { label: 'Suspended organisation', tone: 'danger' },
+  ORG_RESUME: { label: 'Resumed organisation', tone: 'positive' },
+  ORG_ACTIVATION_LINK_VIEWED: { label: 'Viewed activation link', tone: 'neutral' },
   DEPARTMENT_CREATE: { label: 'Created department', tone: 'positive' },
   DEPARTMENT_SEED: { label: 'Added standard departments', tone: 'positive' },
   DEPARTMENT_RENAME: { label: 'Renamed department', tone: 'neutral' },
@@ -251,6 +256,11 @@ function auditSummary(e){
       return escapeHtml(m.department || '');
     case 'SUPER_ADMIN_DELETE':
       return escapeHtml(m.email || '') + (m.department ? ' (' + escapeHtml(m.department) + ')' : '');
+    case 'ORG_CREATE':
+    case 'ORG_RESUME':
+      return escapeHtml(m.name || '');
+    case 'ORG_SUSPEND':
+      return escapeHtml(m.name || '') + (m.reason ? ' — “' + escapeHtml(m.reason) + '”' : '');
     case 'DEPARTMENT_CREATE':
     case 'DEPARTMENT_PAUSE':
     case 'DEPARTMENT_RESUME':
@@ -270,7 +280,7 @@ function auditSummary(e){
 // check-in). Anything else without an actor is shown as not recorded rather
 // than guessed at.
 var AUDIT_SYSTEM_ACTIONS = ['CHAIN_ANCHORED'];
-var AUDIT_ROLE_LABEL = { PLATFORM_ADMIN: 'Platform admin', SUPER_ADMIN: 'Super admin', COUNTY_ADMIN: 'County admin' };
+var AUDIT_ROLE_LABEL = { OWNER: 'Platform owner', PLATFORM_ADMIN: 'Organisation admin', SUPER_ADMIN: 'Super admin', COUNTY_ADMIN: 'County admin' };
 var AUDIT_ATTENDEE_ACTIONS = ['CERTIFICATE_ISSUED', 'DAY_CHECKIN_BY_PHONE'];
 function auditActorLabel(e){
   if(e.actor) return e.actor.email + ' (' + (AUDIT_ROLE_LABEL[e.actor.role] || e.actor.role) + (e.actor.county ? ', ' + e.actor.county : '') + (e.actor.department ? ', ' + e.actor.department.name : '') + ')';
