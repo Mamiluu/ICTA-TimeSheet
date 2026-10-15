@@ -13,6 +13,7 @@ import { isValidEmailShape } from '../lib/normalize.js';
 import { ah } from '../lib/asyncHandler.js';
 import { logger } from '../lib/logger.js';
 import { pagedAudit } from '../lib/auditPage.js';
+import { bucketByDay } from '../lib/analytics.js';
 import { chainHead, lastAnchorAt, sendAnchor, checkAnchor } from '../lib/anchor.js';
 import { DEFAULT_DEPARTMENTS, MAX_SUPER_ADMINS_PER_DEPARTMENT, cleanDepartmentName, departmentSlug } from '../lib/departments.js';
 
@@ -53,6 +54,49 @@ async function findSuperAdmin(id) {
   const u = await prisma.user.findUnique({ where: { id }, include: { department: true } });
   return u && u.role === 'SUPER_ADMIN' ? u : null;
 }
+
+// Organisation-wide rollup. Aggregate counts only, per department and overall --
+// never a name, phone, email or signature of an attendee.
+platformRouter.get('/overview', ah(async (req, res) => {
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const [departments, events, accounts] = await Promise.all([
+    prisma.department.findMany({ orderBy: { name: 'asc' } }),
+    prisma.event.findMany({ where: { deletedAt: null }, select: { id: true, departmentId: true } }),
+    prisma.user.groupBy({ by: ['role', 'status'], where: { role: { in: ['SUPER_ADMIN', 'COUNTY_ADMIN'] } }, _count: { _all: true } })
+  ]);
+  const ids = events.map((e) => e.id);
+  const [perEvent, recent] = await Promise.all([
+    prisma.attendance.groupBy({ by: ['eventId'], where: { eventId: { in: ids } }, _count: { _all: true } }),
+    prisma.attendance.findMany({ where: { eventId: { in: ids }, createdAt: { gte: since } }, select: { createdAt: true } })
+  ]);
+
+  const attendanceOf = new Map(perEvent.map((g) => [g.eventId, g._count._all]));
+  const rows = new Map(departments.map((d) => [d.id, { id: d.id, name: d.name, active: d.active, events: 0, attendance: 0 }]));
+  for (const ev of events) {
+    const row = rows.get(ev.departmentId);
+    if (!row) continue;
+    row.events += 1;
+    row.attendance += attendanceOf.get(ev.id) || 0;
+  }
+  const n = (role, status) => accounts.filter((g) => g.role === role && (!status || g.status === status)).reduce((s, g) => s + g._count._all, 0);
+
+  res.json({
+    ok: true,
+    totals: {
+      departments: departments.length,
+      activeDepartments: departments.filter((d) => d.active).length,
+      events: events.length,
+      attendance: [...attendanceOf.values()].reduce((a, b) => a + b, 0),
+      superAdmins: n('SUPER_ADMIN'),
+      activeSuperAdmins: n('SUPER_ADMIN', 'ACTIVE'),
+      pendingSuperAdmins: n('SUPER_ADMIN', 'PENDING'),
+      countyAdmins: n('COUNTY_ADMIN'),
+      activeCountyAdmins: n('COUNTY_ADMIN', 'ACTIVE')
+    },
+    byDepartment: [...rows.values()].sort((a, b) => b.attendance - a.attendance || a.name.localeCompare(b.name)),
+    trend: bucketByDay(recent.map((r) => r.createdAt), 30)
+  });
+}));
 
 // ---- Departments -----------------------------------------------------------
 

@@ -1,30 +1,804 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <!--
   Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
   Proprietary and confidential. See LICENSE in the repository root.
+  Unauthorized copying, modification, or distribution is prohibited.
 -->
-<html lang="en">
+<html lang="en" class="fixed-layout">
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- The desktop layout is the only layout (see .fixed-layout in assets/shell.css). Phones and tablets lay the page out 1280px wide and shrink it to fit; pinch-zoom still works. -->
+<meta name="viewport" content="width=1280">
+<link rel="apple-touch-icon" href="assets/icta_logo_cropped.png">
 <link rel="icon" href="assets/icta_logo_cropped.png">
-<title>Platform Admin</title>
+<title>ICT Authority : Platform Admin</title>
 <link rel="stylesheet" href="assets/theme.css">
-<div class="sheet" style="margin-top:40px;">
-  <h1 class="title">Platform admin</h1>
-  <p class="sub" id="who">Checking your account…</p>
-  <p>You are signed in with the organisation's official account. The departments dashboard, where you create departments and the super admin of each one, is being added in stages.</p>
-  <button id="logoutBtn" type="button">Log out</button>
+<link rel="stylesheet" href="assets/shell.css">
+<script src="assets/fit-layout.js"></script>
+<style>
+  .badge-count{ margin-left:auto; font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:#262b36; color:#c9cfdb; font-variant-numeric:tabular-nums; }
+  .nav-item.active .badge-count{ background:rgba(255,255,255,.14); color:#fff; }
+
+  .toolbar-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .toolbar-row input[type=search]{ flex:1 1 240px; min-width:0; }
+  .toolbar-row select{ width:auto; min-width:170px; margin:0; }
+  .toolbar-row button{ margin:0; }
+  .toolbar-row .spacer{ flex:1; }
+
+  .list-note{ font-size:13px; color:var(--c-muted); margin:12px 2px 0; }
+  .adm-list{ display:flex; flex-direction:column; gap:10px; margin-top:14px; }
+  .adm-row{
+    display:grid; grid-template-columns:minmax(0,1fr) 210px 370px; gap:12px 20px; align-items:center;
+    padding:14px 16px; border:1px solid var(--c-line); border-radius:var(--r-md); background:#fff;
+    transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .adm-row:hover{ border-color:var(--c-line-strong); box-shadow:0 3px 12px rgba(20,24,34,.07); }
+  .adm-who{ display:flex; align-items:center; gap:12px; min-width:0; }
+  .adm-avatar{ flex:none; width:38px; height:38px; border-radius:50%; background:#eef0f4; color:#434a5a; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; }
+  .adm-row.is-pending .adm-avatar{ background:var(--c-warn-wash); color:var(--c-warn); }
+  .adm-row.is-disabled .adm-avatar, .adm-row.is-paused .adm-avatar{ background:#f1f1f3; color:#9aa1af; }
+  .adm-email{ font-weight:700; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .adm-county{ font-size:13px; color:var(--c-muted); }
+  .adm-state{ display:flex; flex-direction:column; align-items:flex-start; gap:5px; font-size:12.5px; color:var(--c-muted); }
+  .adm-actions{ display:flex; gap:8px; align-items:center; flex-wrap:nowrap; justify-content:flex-end; }
+  .adm-actions button{ margin:0; }
+  .adm-actions .ev-menu{ left:auto; right:0; }
+
+  .county-cell{ display:flex; align-items:center; gap:10px; }
+  .county-bar{ flex:1; height:8px; border-radius:999px; background:#eceef2; overflow:hidden; min-width:60px; }
+  .county-bar > span{ display:block; height:100%; background:var(--c-accent); opacity:.75; border-radius:999px; }
+  .app-main table.county-table td.num, .app-main table.county-table th.num{ text-align:right; font-variant-numeric:tabular-nums; }
+
+  .pager{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:14px; font-size:13px; color:var(--c-muted); flex-wrap:wrap; }
+  .pager .nav{ display:flex; gap:8px; }
+  .pager button{ margin:0; }
+
+  .tile-row{ display:flex; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
+  .anchor-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start; }
+  .anchor-row input{ flex:1; min-width:240px; font-family:Consolas, "Courier New", monospace; margin-bottom:0; }
+  .result-box{ margin:14px 0 0; padding:12px 14px; border-radius:var(--r-md); font-size:13.5px; line-height:1.5; display:none; }
+  .result-box.show{ display:block; }
+  .result-box.ok{ background:var(--c-ok-wash); border:1px solid #b7e0c7; color:#084d27; }
+  .result-box.bad{ background:var(--c-accent-wash); border:1px solid #f3b9c3; color:#7a0a1e; }
+  .result-box.info{ background:var(--c-soft); border:1px solid var(--c-line); color:var(--c-text); }
+
+  .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:0 16px; }
+  .help{ font-size:13px; color:var(--c-muted); margin:0 0 16px; line-height:1.55; max-width:70ch; }
+  .note{ font-size:13px; padding:11px 14px; border-radius:var(--r-md); margin-top:14px; }
+  .note.ok{ background:var(--c-ok-wash); border:1px solid #b7e0c7; color:#084d27; }
+  .note.err{ background:var(--c-accent-wash); border:1px solid #f3b9c3; color:#7a0a1e; }
+</style>
+
+<div class="preloader" id="preloader" role="status" aria-live="polite" aria-label="Loading">
+  <div class="preloader-mark">
+    <svg class="preloader-ring" viewBox="0 0 120 120" aria-hidden="true">
+      <circle class="preloader-ring-track" cx="60" cy="60" r="54"></circle>
+      <circle class="preloader-ring-draw" cx="60" cy="60" r="54"></circle>
+    </svg>
+    <img class="preloader-logo" src="assets/icta_logo_cropped.png" alt="">
+  </div>
+  <div class="preloader-caption">
+    <span class="preloader-org">ICT Authority</span>
+    <span class="preloader-title">Platform Admin</span>
+  </div>
 </div>
+<script>
+  (function(){
+    document.addEventListener('DOMContentLoaded', function(){
+      var pre = document.getElementById('preloader');
+      if(!pre) return;
+      setTimeout(function(){
+        pre.classList.add('preloader-hide');
+        setTimeout(function(){ pre.remove(); }, 500);
+      }, 2000);
+    });
+  })();
+</script>
+
+<div class="app-shell">
+  <div class="mobilebar">
+    <button type="button" id="navToggle" aria-label="Open menu" aria-expanded="false">&#9776;</button>
+    <strong id="viewTitleMobile">Overview</strong>
+  </div>
+  <div class="nav-scrim" id="navScrim"></div>
+
+  <aside class="sidenav" id="sidenav" aria-label="Platform admin menu">
+    <div class="side-brand">
+      <img src="assets/icta_logo_cropped.png" alt="" width="30" height="30">
+      <div><strong id="brandTopbarTitle">ICT Authority : Platform Admin</strong></div>
+    </div>
+    <div class="side-user">
+      <span class="avatar" id="userAvatar">P</span>
+      <div><div class="who-email" id="whoEmail"></div><div class="who-county">Platform admin</div></div>
+    </div>
+    <div class="view-size" role="group" aria-label="Page size">
+      <span class="view-size-label">Size</span>
+      <button type="button" id="sizeDown" aria-label="Make everything smaller" title="Smaller">A&minus;</button>
+      <button type="button" id="sizeAuto" class="auto" title="Sized automatically to fit the screen">Auto</button>
+      <button type="button" id="sizeUp" aria-label="Make everything larger" title="Larger">A+</button>
+    </div>
+    <nav>
+      <div class="nav-group">Main</div>
+      <a class="nav-item" href="#overview" data-nav="overview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></svg><span>Overview</span></a>
+      <a class="nav-item" href="#departments" data-nav="departments"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6M9 10h.01M15 10h.01"/></svg><span>Departments</span><span class="badge-count" id="deptCountBadge" hidden></span></a>
+      <a class="nav-item" href="#admins" data-nav="admins"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Super admins</span></a>
+      <div class="nav-group">Manage</div>
+      <a class="nav-item" href="#add" data-nav="add"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 8v8M8 12h8"/></svg><span>Add super admin</span></a>
+      <div class="nav-group">Security</div>
+      <a class="nav-item" href="#audit" data-nav="audit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Audit trail</span></a>
+      <a class="nav-item" href="#integrity" data-nav="integrity"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3zM9 12l2 2 4-4"/></svg><span>Integrity</span></a>
+      <div class="nav-group">Settings</div>
+      <a class="nav-item" href="#profile" data-nav="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Profile</span></a>
+    </nav>
+    <button type="button" id="logoutBtn" class="side-logout">Log out</button>
+  </aside>
+
+  <main class="app-main" id="adminContent">
+    <h1 class="view-title" id="viewTitle">Overview</h1>
+
+    <!-- Overview -->
+    <section class="view" data-view="overview" data-title="Overview">
+      <div class="sheet wide">
+        <h2 class="section">The whole organisation at a glance</h2>
+        <p class="help">Totals only. Names, phone numbers and signatures stay inside each department.</p>
+        <div id="insightsWrap"><p class="empty">Loading…</p></div>
+      </div>
+      <div class="sheet wide" id="deptPanel" style="display:none;">
+        <h2 class="section">By department</h2>
+        <div id="deptWrap"></div>
+      </div>
+    </section>
+
+    <!-- Departments -->
+    <section class="view" data-view="departments" data-title="Departments">
+      <div class="sheet wide">
+        <h2 class="section">Departments</h2>
+        <div class="toolbar-row">
+          <input type="search" id="deptSearch" placeholder="Search departments" aria-label="Search departments">
+          <button type="button" id="seedBtn">Add standard departments</button>
+          <button type="button" id="deptRefreshBtn">Refresh</button>
+        </div>
+        <div id="deptList"></div>
+      </div>
+      <div class="sheet wide">
+        <h2 class="section">New department</h2>
+        <div class="toolbar-row">
+          <input type="text" id="newDeptName" placeholder="e.g. Research &amp; Development" aria-label="Department name" maxlength="80" autocomplete="off" style="flex:1 1 320px; margin:0;">
+          <button type="button" class="primary" id="newDeptBtn">Create department</button>
+        </div>
+        <p class="note err" id="deptError" style="display:none;"></p>
+        <p class="note ok" id="deptOk" style="display:none;"></p>
+      </div>
+    </section>
+
+    <!-- Super admins -->
+    <section class="view" data-view="admins" data-title="Super admins">
+      <div class="sheet wide">
+        <h2 class="section">Department super admins</h2>
+        <div class="toolbar-row">
+          <input type="search" id="adminSearch" placeholder="Search by email or department" aria-label="Search super admins">
+          <select id="adminFilter" aria-label="Filter by status">
+            <option value="all">All statuses</option>
+            <option value="ACTIVE">Active</option>
+            <option value="PENDING">Pending</option>
+            <option value="DISABLED">Disabled</option>
+          </select>
+          <button type="button" id="refreshBtn">Refresh</button>
+          <button type="button" class="primary" data-goto="add">+ Add super admin</button>
+        </div>
+        <div id="adminsWrap"></div>
+      </div>
+    </section>
+
+    <!-- Add super admin -->
+    <section class="view" data-view="add" data-title="Add super admin">
+      <div class="sheet wide">
+        <h2 class="section">Appoint a department super admin</h2>
+        <p class="help">They get an email with a one-time link to set their own password. A super admin manages the county admins and events of their own department only. Each department can have up to three.</p>
+        <div class="form-grid" style="max-width:760px;">
+          <div>
+            <label for="newEmail">Their email</label>
+            <input type="email" id="newEmail" placeholder="name@example.com" autocomplete="off">
+          </div>
+          <div>
+            <label for="newDept">Department</label>
+            <select id="newDept"><option value="">Select a department…</option></select>
+          </div>
+        </div>
+        <button class="primary" id="createBtn">Create &amp; send activation email</button>
+        <p class="note err" id="createError" style="display:none;"></p>
+        <p class="note ok" id="createSuccess" style="display:none;"></p>
+      </div>
+    </section>
+
+    <!-- Audit trail -->
+    <section class="view" data-view="audit" data-title="Audit trail">
+      <div class="sheet wide">
+        <h2 class="section">Audit trail</h2>
+        <div class="toolbar-row">
+          <select id="auditDept" aria-label="Filter by department"><option value="">All departments</option></select>
+          <span class="spacer"></span>
+          <button type="button" id="auditRefreshBtn">Refresh</button>
+        </div>
+        <div id="auditWrap" style="margin-top:14px;"><p class="empty">Loading…</p></div>
+        <div class="pager" id="auditPager" style="display:none;">
+          <span id="auditPageInfo"></span>
+          <div class="nav">
+            <button type="button" id="auditPrev">&larr; Newer</button>
+            <button type="button" id="auditNext">Older &rarr;</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Integrity -->
+    <section class="view" data-view="integrity" data-title="Integrity">
+      <div class="sheet wide">
+        <h2 class="section">Audit trail integrity</h2>
+        <p class="help">Every day the latest entry of the tamper-evident audit trail, covering every department, is emailed to you. That email is a copy nobody can change from inside the system. Paste a hash from one of those emails to check that nothing up to that point was altered or removed.</p>
+        <div class="tile-row" id="anchorTiles"></div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:22px;">
+          <button id="anchorSendBtn" class="primary" type="button">Send an anchor email now</button>
+        </div>
+        <label for="anchorHash">Check an anchor</label>
+        <div class="anchor-row">
+          <input type="text" id="anchorHash" placeholder="Paste the 64-character hash" autocomplete="off" spellcheck="false">
+          <button id="anchorCheckBtn" type="button">Check</button>
+        </div>
+        <div class="result-box" id="anchorResult" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- Profile -->
+    <section class="view" data-view="profile" data-title="Profile">
+      <div class="sheet wide">
+        <h2 class="section">Your account</h2>
+        <dl class="profile-dl">
+          <dt>Email</dt><dd id="profEmail"></dd>
+          <dt>Role</dt><dd>Platform admin</dd>
+        </dl>
+        <p><a href="forgot-password.html">Change my password</a></p>
+      </div>
+    </section>
+
+    <p class="footer-note">© 2026 Asya Hafidh. All rights reserved.</p>
+  </main>
+</div>
+
 <script src="assets/api.js"></script>
 <script>
 (function(){
-  API.get('/api/auth/me').then(function(r){
-    if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return; }
-    if(r.data.user.role !== 'PLATFORM_ADMIN'){ location.href = homeFor(r.data.user.role); return; }
-    document.getElementById('who').textContent = 'Signed in as ' + r.data.user.email;
-  }).catch(function(){ document.getElementById('who').textContent = 'Could not reach the server.'; });
+  applyTopbarBranding('Platform Admin');
+
+  var whoEmail = document.getElementById('whoEmail');
+  var VIEWS = ['overview', 'departments', 'admins', 'add', 'audit', 'integrity', 'profile'];
+  var currentView = null;
+
+  // --- Sidebar sections: one view at a time, addressable by #hash ---
+  var sidenav = document.getElementById('sidenav');
+  var navScrim = document.getElementById('navScrim');
+  var navToggle = document.getElementById('navToggle');
+  function closeNav(){
+    sidenav.classList.remove('open'); navScrim.classList.remove('open');
+    navToggle.setAttribute('aria-expanded', 'false');
+  }
+  function showView(name){
+    if(VIEWS.indexOf(name) === -1) name = 'overview';
+    var title = name;
+    Array.prototype.forEach.call(document.querySelectorAll('.view'), function(v){
+      var on = v.getAttribute('data-view') === name;
+      v.classList.toggle('active', on);
+      if(on) title = v.getAttribute('data-title') || name;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(n){
+      var on = n.getAttribute('data-nav') === name;
+      n.classList.toggle('active', on);
+      if(on) n.setAttribute('aria-current', 'page'); else n.removeAttribute('aria-current');
+    });
+    document.getElementById('viewTitle').textContent = title;
+    document.getElementById('viewTitleMobile').textContent = title;
+    if(location.hash !== '#' + name){ try{ history.replaceState(null, '', '#' + name); }catch(e){ location.hash = name; } }
+    closeNav();
+    window.scrollTo(0, 0);
+    var changed = currentView !== name;
+    currentView = name;
+    if(changed && name === 'audit') loadAudit();
+    if(changed && name === 'integrity') showAnchorStatus();
+  }
+  navToggle.addEventListener('click', function(){
+    var open = !sidenav.classList.contains('open');
+    sidenav.classList.toggle('open', open); navScrim.classList.toggle('open', open);
+    navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  navScrim.addEventListener('click', closeNav);
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeNav(); });
+  Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function(n){
+    n.addEventListener('click', function(e){ e.preventDefault(); showView(n.getAttribute('data-nav')); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-goto]'), function(b){
+    b.addEventListener('click', function(){ showView(b.getAttribute('data-goto')); });
+  });
+  window.addEventListener('hashchange', function(){ showView(location.hash.replace('#', '')); });
+
+  function requireSession(){
+    return API.get('/api/auth/me').then(function(r){
+      if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return null; }
+      if(r.data.user.role !== 'PLATFORM_ADMIN'){ location.href = homeFor(r.data.user.role); return null; }
+      whoEmail.textContent = r.data.user.email;
+      whoEmail.title = r.data.user.email;
+      document.getElementById('userAvatar').textContent = (r.data.user.email || 'P').charAt(0).toUpperCase();
+      document.getElementById('profEmail').textContent = r.data.user.email;
+      return r.data.user;
+    });
+  }
+
   document.getElementById('logoutBtn').addEventListener('click', function(){
     API.post('/api/auth/logout').then(function(){ location.href = 'login.html'; });
+  });
+
+  function el(tag, cls, text){
+    var n = document.createElement(tag);
+    if(cls) n.className = cls;
+    if(text != null) n.textContent = text;
+    return n;
+  }
+  function fmt(dt){ return dt ? new Date(dt).toLocaleString() : 'Never'; }
+  function pct(n, total){ return total > 0 ? Math.round((n / total) * 100) : 0; }
+  function plural(n, one, many){ return n + ' ' + (n === 1 ? one : (many || one + 's')); }
+  var NET_ERR = 'Network error — could not reach the backend.';
+
+  function menuItem(label, onClick, cls){
+    var b = el('button', 'ev-menu-item' + (cls ? ' ' + cls : ''), label);
+    b.type = 'button';
+    b.addEventListener('click', function(){
+      var d = b.closest('details'); if(d) d.removeAttribute('open');
+      onClick(b);
+    });
+    return b;
+  }
+  document.addEventListener('click', function(e){
+    Array.prototype.forEach.call(document.querySelectorAll('.ev-more[open]'), function(d){ if(!d.contains(e.target)) d.removeAttribute('open'); });
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape') Array.prototype.forEach.call(document.querySelectorAll('.ev-more[open]'), function(d){ d.removeAttribute('open'); });
+  });
+
+  // --- Overview: aggregate numbers only ---
+  var insightsWrap = document.getElementById('insightsWrap');
+
+  function renderSparkbar(trend){
+    var max = Math.max.apply(null, [1].concat(trend.map(function(t){ return t.count; })));
+    var bars = trend.map(function(t){
+      var h = Math.round((t.count / max) * 100);
+      var label = t.date + ': ' + t.count + (t.count === 1 ? ' sign-in' : ' sign-ins');
+      return '<div class="bar" style="height:' + Math.max(h, 3) + '%" title="' + escapeHtml(label) + '"></div>';
+    }).join('');
+    var first = trend[0] ? trend[0].date : '';
+    var last = trend[trend.length - 1] ? trend[trend.length - 1].date : '';
+    return '<div class="spark-title">Sign-ins, last 30 days</div><div class="sparkbar">' + bars + '</div><div class="sparkbar-caption"><span>' + escapeHtml(first) + '</span><span>' + escapeHtml(last) + '</span></div>';
+  }
+
+  function loadOverview(){
+    return API.get('/api/platform/overview').then(function(r){
+      if(r.status !== 200 || !r.data.ok){ insightsWrap.innerHTML = '<p class="empty">Could not load the overview.</p>'; return; }
+      var t = r.data.totals;
+      insightsWrap.innerHTML = '<div class="stat-grid">'
+        + '<div class="stat-tile"><div class="stat-label">Departments</div><div class="stat-value">' + t.activeDepartments + '</div>'
+          + '<div class="stat-sub">' + (t.departments - t.activeDepartments ? (t.departments - t.activeDepartments) + ' paused · ' : '') + t.departments + ' in total</div></div>'
+        + '<div class="stat-tile"><div class="stat-label">Events</div><div class="stat-value">' + t.events + '</div></div>'
+        + '<div class="stat-tile"><div class="stat-label">Attendance</div><div class="stat-value">' + t.attendance + '</div></div>'
+        + '<div class="stat-tile"><div class="stat-label">Super admins</div><div class="stat-value">' + t.activeSuperAdmins + '</div>'
+          + '<div class="stat-sub">' + t.pendingSuperAdmins + ' awaiting activation</div></div>'
+        + '<div class="stat-tile"><div class="stat-label">County admins</div><div class="stat-value">' + t.activeCountyAdmins + '</div>'
+          + '<div class="stat-sub">active across all departments</div></div>'
+        + '</div>'
+        + renderSparkbar(r.data.trend);
+
+      var panel = document.getElementById('deptPanel');
+      var wrap = document.getElementById('deptWrap');
+      if(!r.data.byDepartment.length){ panel.style.display = 'none'; return; }
+      var max = Math.max.apply(null, r.data.byDepartment.map(function(d){ return d.attendance; }).concat([1]));
+      wrap.innerHTML = '<table class="county-table"><thead><tr><th>Department</th><th class="num">Events</th><th class="num">Attendance</th><th style="width:30%"></th></tr></thead><tbody>'
+        + r.data.byDepartment.map(function(d){
+            return '<tr><td>' + escapeHtml(d.name) + (d.active ? '' : ' <span class="pill disabled">Paused</span>') + '</td><td class="num">' + d.events + '</td><td class="num">' + d.attendance + '</td>'
+              + '<td><div class="county-cell"><div class="county-bar"><span style="width:' + pct(d.attendance, max) + '%"></span></div></div></td></tr>';
+          }).join('')
+        + '</tbody></table>';
+      panel.style.display = '';
+    }).catch(function(){ insightsWrap.innerHTML = '<p class="empty">' + NET_ERR + '</p>'; });
+  }
+
+  // --- Departments ---
+  var deptList = document.getElementById('deptList');
+  var deptSearch = document.getElementById('deptSearch');
+  var deptCache = [];
+  var maxSuper = 3;
+  var deptError = document.getElementById('deptError');
+  var deptOk = document.getElementById('deptOk');
+
+  function showDeptMsg(kind, text){
+    deptError.style.display = 'none'; deptOk.style.display = 'none';
+    var n = kind === 'ok' ? deptOk : deptError;
+    n.textContent = text; n.style.display = '';
+  }
+  var DEPT_ERRORS = {
+    INVALID_NAME: 'Use a name between 3 and 80 characters.',
+    DEPARTMENT_EXISTS: 'A department with that name already exists.'
+  };
+
+  function buildDeptRow(d){
+    var row = el('article', 'adm-row ' + (d.active ? 'is-active' : 'is-paused'));
+    var who = el('div', 'adm-who');
+    who.appendChild(el('span', 'adm-avatar', d.name.charAt(0).toUpperCase()));
+    var text = el('div'); text.style.minWidth = '0';
+    var nm = el('div', 'adm-email', d.name); nm.title = d.name;
+    text.appendChild(nm);
+    text.appendChild(el('div', 'adm-county', plural(d.events, 'event') + ' · ' + plural(d.countyAdmins, 'county admin')));
+    who.appendChild(text);
+
+    var state = el('div', 'adm-state');
+    state.appendChild(el('span', 'pill ' + (d.active ? 'active' : 'disabled'), d.active ? 'Active' : 'Paused'));
+    state.appendChild(el('span', null, d.superAdmins ? plural(d.superAdmins, 'super admin') + ' (' + d.activeSuperAdmins + ' active)' : 'No super admin yet'));
+
+    var actions = el('div', 'adm-actions');
+    var addBtn = el('button', d.superAdmins ? null : 'primary', 'Add super admin'); addBtn.type = 'button';
+    addBtn.addEventListener('click', function(){ document.getElementById('newDept').value = d.id; showView('add'); });
+    actions.appendChild(addBtn);
+    var viewBtn = el('button', null, 'Audit trail'); viewBtn.type = 'button';
+    viewBtn.addEventListener('click', function(){ document.getElementById('auditDept').value = d.id; auditPage = 1; currentView = null; showView('audit'); });
+    actions.appendChild(viewBtn);
+
+    var more = el('details', 'ev-more');
+    var sum = el('summary', null, 'More'); sum.setAttribute('aria-label', 'More actions for ' + d.name);
+    more.appendChild(sum);
+    var menu = el('div', 'ev-menu');
+    menu.appendChild(menuItem('Rename', function(){ renameDept(d); }));
+    menu.appendChild(menuItem(d.active ? 'Pause department' : 'Resume department', function(b){ setDeptActive(d, !d.active, b); }, d.active ? 'danger' : ''));
+    more.appendChild(menu);
+    actions.appendChild(more);
+
+    row.appendChild(who); row.appendChild(state); row.appendChild(actions);
+    return row;
+  }
+
+  function renderDepts(){
+    var q = (deptSearch.value || '').trim().toLowerCase();
+    var shown = deptCache.filter(function(d){ return !q || d.name.toLowerCase().indexOf(q) !== -1; });
+    deptList.textContent = '';
+    if(!deptCache.length){ deptList.appendChild(el('p', 'empty', 'No departments yet. Use “Add standard departments” or create one below.')); return; }
+    if(!shown.length){ deptList.appendChild(el('p', 'empty', 'No departments match.')); return; }
+    var list = el('div', 'adm-list');
+    shown.forEach(function(d){ list.appendChild(buildDeptRow(d)); });
+    deptList.appendChild(list);
+    deptList.appendChild(el('p', 'list-note', shown.length === deptCache.length ? plural(shown.length, 'department') : shown.length + ' of ' + deptCache.length + ' departments'));
+  }
+  deptSearch.addEventListener('input', renderDepts);
+
+  function fillDeptSelects(){
+    var newDept = document.getElementById('newDept');
+    var auditDept = document.getElementById('auditDept');
+    var keepNew = newDept.value, keepAudit = auditDept.value;
+    newDept.length = 1; auditDept.length = 1;
+    deptCache.forEach(function(d){
+      var o1 = el('option', null, d.name + (d.active ? '' : ' (paused)')); o1.value = d.id; newDept.appendChild(o1);
+      var o2 = el('option', null, d.name); o2.value = d.id; auditDept.appendChild(o2);
+    });
+    newDept.value = keepNew; auditDept.value = keepAudit;
+    var badge = document.getElementById('deptCountBadge');
+    badge.hidden = !deptCache.length; badge.textContent = String(deptCache.length);
+  }
+
+  function loadDepts(){
+    deptList.innerHTML = '<p class="empty">Loading…</p>';
+    return API.get('/api/platform/departments').then(function(r){
+      if(r.status !== 200 || !r.data.ok){ deptList.innerHTML = '<p class="empty">Could not load departments.</p>'; return; }
+      deptCache = r.data.departments; maxSuper = r.data.maxSuperAdmins || 3;
+      renderDepts(); fillDeptSelects();
+    }).catch(function(){ deptList.innerHTML = '<p class="empty">' + NET_ERR + '</p>'; });
+  }
+
+  function refreshAll(){ return Promise.all([loadDepts(), loadAdmins(), loadOverview()]); }
+
+  document.getElementById('newDeptBtn').addEventListener('click', function(){
+    var input = document.getElementById('newDeptName');
+    var btn = this;
+    if(!input.value.trim()){ showDeptMsg('err', 'Enter a department name.'); return; }
+    btn.disabled = true;
+    API.post('/api/platform/departments', { name: input.value }).then(function(r){
+      btn.disabled = false;
+      if(r.data.ok){ showDeptMsg('ok', r.data.department.name + ' was created. Now appoint its super admin.'); input.value = ''; refreshAll(); return; }
+      showDeptMsg('err', DEPT_ERRORS[r.data.error] || r.data.message || 'Could not create the department.');
+    }).catch(function(){ btn.disabled = false; showDeptMsg('err', NET_ERR); });
+  });
+  document.getElementById('newDeptName').addEventListener('keydown', function(e){ if(e.key === 'Enter') document.getElementById('newDeptBtn').click(); });
+
+  document.getElementById('seedBtn').addEventListener('click', function(){
+    var btn = this; btn.disabled = true;
+    API.post('/api/platform/departments/seed-defaults').then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ window.alert(r.data.message || 'Could not add the departments.'); return; }
+      window.alert(r.data.created.length ? 'Added ' + plural(r.data.created.length, 'department') + ':\n' + r.data.created.join('\n') : 'All the standard departments already exist.');
+      refreshAll();
+    }).catch(function(){ btn.disabled = false; window.alert(NET_ERR); });
+  });
+
+  function renameDept(d){
+    var name = window.prompt('New name for this department:', d.name);
+    if(name == null || name.trim() === '' || name.trim() === d.name) return;
+    API.patch('/api/platform/departments/' + d.id, { name: name }).then(function(r){
+      if(!r.data.ok){ window.alert(DEPT_ERRORS[r.data.error] || r.data.message || 'Could not rename the department.'); return; }
+      refreshAll();
+    }).catch(function(){ window.alert(NET_ERR); });
+  }
+
+  function setDeptActive(d, active, btn){
+    var msg = active
+      ? 'Resume ' + d.name + '? Its people will be able to log in again.'
+      : 'Pause ' + d.name + '? Everyone in it is signed out and cannot log in until you resume it. Nothing is deleted.';
+    if(!window.confirm(msg)) return;
+    btn.disabled = true;
+    API.patch('/api/platform/departments/' + d.id, { active: active }).then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ window.alert(r.data.message || 'Could not update the department.'); return; }
+      refreshAll();
+    }).catch(function(){ btn.disabled = false; window.alert(NET_ERR); });
+  }
+
+  // --- Super admins ---
+  var adminsWrap = document.getElementById('adminsWrap');
+  var adminsCache = [];
+  var adminSearch = document.getElementById('adminSearch');
+  var adminFilter = document.getElementById('adminFilter');
+  var PILL = { ACTIVE: ['active', 'Active'], PENDING: ['pending', 'Pending activation'], DISABLED: ['disabled', 'Disabled'] };
+
+  function buildAdminRow(a){
+    var row = el('article', 'adm-row is-' + a.status.toLowerCase());
+    var who = el('div', 'adm-who');
+    who.appendChild(el('span', 'adm-avatar', (a.email || '?').charAt(0).toUpperCase()));
+    var text = el('div'); text.style.minWidth = '0';
+    var em = el('div', 'adm-email', a.email); em.title = a.email;
+    text.appendChild(em);
+    text.appendChild(el('div', 'adm-county', a.department ? a.department.name : 'No department'));
+    who.appendChild(text);
+
+    var state = el('div', 'adm-state');
+    var p = PILL[a.status] || ['', a.status];
+    state.appendChild(el('span', 'pill ' + p[0], p[1]));
+    state.appendChild(el('span', null, a.lastLoginAt ? 'Last login ' + fmt(a.lastLoginAt) : 'Has not logged in yet'));
+
+    var actions = el('div', 'adm-actions');
+    if(a.status === 'PENDING'){
+      var copyBtn = el('button', 'primary', 'Copy activation link'); copyBtn.type = 'button';
+      copyBtn.addEventListener('click', function(){ copyActivationLink(a.id, copyBtn); });
+      actions.appendChild(copyBtn);
+    } else if(a.status === 'DISABLED'){
+      var reBtn = el('button', 'primary', 'Reactivate'); reBtn.type = 'button';
+      reBtn.addEventListener('click', function(){ setAdminStatus(a.id, 'reactivate', reBtn); });
+      actions.appendChild(reBtn);
+    }
+    var more = el('details', 'ev-more');
+    var sum = el('summary', null, 'More'); sum.setAttribute('aria-label', 'More actions for ' + a.email);
+    more.appendChild(sum);
+    var menu = el('div', 'ev-menu');
+    if(a.status === 'ACTIVE') menu.appendChild(menuItem('Disable super admin', function(b){ setAdminStatus(a.id, 'disable', b); }, 'danger'));
+    if(a.status !== 'ACTIVE') menu.appendChild(menuItem('Delete super admin', function(b){ deleteAdmin(a.id, a.email, b); }, 'danger'));
+    more.appendChild(menu);
+    if(menu.childNodes.length) actions.appendChild(more);
+
+    row.appendChild(who); row.appendChild(state); row.appendChild(actions);
+    return row;
+  }
+
+  function renderAdmins(){
+    var q = (adminSearch.value || '').trim().toLowerCase();
+    var f = adminFilter.value;
+    var shown = adminsCache.filter(function(a){
+      if(f !== 'all' && a.status !== f) return false;
+      return !q || (a.email + ' ' + (a.department ? a.department.name : '')).toLowerCase().indexOf(q) !== -1;
+    });
+    adminsWrap.textContent = '';
+    if(!adminsCache.length){ adminsWrap.appendChild(el('p', 'empty', 'No super admins appointed yet.')); return; }
+    if(!shown.length){ adminsWrap.appendChild(el('p', 'empty', 'No super admins match.')); return; }
+    var list = el('div', 'adm-list');
+    shown.forEach(function(a){ list.appendChild(buildAdminRow(a)); });
+    adminsWrap.appendChild(list);
+    adminsWrap.appendChild(el('p', 'list-note', shown.length === adminsCache.length ? plural(shown.length, 'super admin') : shown.length + ' of ' + adminsCache.length + ' super admins'));
+  }
+  adminSearch.addEventListener('input', renderAdmins);
+  adminFilter.addEventListener('change', renderAdmins);
+
+  function loadAdmins(){
+    adminsWrap.innerHTML = '<p class="empty">Loading…</p>';
+    return API.get('/api/platform/super-admins').then(function(r){
+      if(r.status !== 200 || !r.data.ok){ adminsWrap.innerHTML = '<p class="empty">Could not load super admins.</p>'; return; }
+      adminsCache = r.data.admins;
+      renderAdmins();
+    }).catch(function(){ adminsWrap.innerHTML = '<p class="empty">' + NET_ERR + '</p>'; });
+  }
+  document.getElementById('refreshBtn').addEventListener('click', loadAdmins);
+  document.getElementById('deptRefreshBtn').addEventListener('click', loadDepts);
+
+  function setAdminStatus(id, action, btn){
+    if(!window.confirm('Are you sure you want to ' + action + ' this super admin?')) return;
+    btn.disabled = true;
+    API.post('/api/platform/super-admins/' + id + '/' + action).then(function(r){
+      if(!r.data.ok){
+        btn.disabled = false;
+        window.alert(r.data.error === 'SUPER_ADMIN_CAP_REACHED'
+          ? 'That department already has ' + r.data.cap + ' super admins. Delete or keep one disabled first.'
+          : (r.data.message || 'Could not update the super admin.'));
+        return;
+      }
+      refreshAll();
+    }).catch(function(){ btn.disabled = false; window.alert(NET_ERR); });
+  }
+
+  function copyActivationLink(id, btn){
+    var originalText = btn.textContent;
+    btn.disabled = true;
+    API.post('/api/platform/super-admins/' + id + '/activation-link').then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ window.alert(r.data.message || 'Could not generate an activation link.'); return; }
+      navigator.clipboard.writeText(r.data.url).then(function(){
+        btn.textContent = 'Copied ✓';
+        setTimeout(function(){ btn.textContent = originalText; }, 2000);
+      }).catch(function(){ window.prompt('Copy this activation link:', r.data.url); });
+    }).catch(function(){ btn.disabled = false; window.alert(NET_ERR); });
+  }
+
+  function deleteAdmin(id, email, btn){
+    if(!window.confirm('Permanently delete ' + email + '? This cannot be undone and frees up the email to be reused.')) return;
+    btn.disabled = true;
+    API.del('/api/platform/super-admins/' + id).then(function(r){
+      if(!r.data.ok){
+        btn.disabled = false;
+        window.alert(r.data.error === 'MUST_DISABLE_FIRST' ? 'Disable this super admin before deleting.'
+          : r.data.error === 'HAS_ACTIVITY' ? 'Cannot delete this account due to a data constraint. Keep it disabled instead.'
+          : (r.data.message || 'Could not delete the super admin.'));
+        return;
+      }
+      refreshAll();
+    }).catch(function(){ btn.disabled = false; window.alert(NET_ERR); });
+  }
+
+  // --- Appoint a super admin ---
+  var newEmail = document.getElementById('newEmail');
+  var newDept = document.getElementById('newDept');
+  var createBtn = document.getElementById('createBtn');
+  var createError = document.getElementById('createError');
+  var createSuccess = document.getElementById('createSuccess');
+
+  createBtn.addEventListener('click', function(){
+    var email = newEmail.value.trim().toLowerCase();
+    createError.style.display = 'none'; createSuccess.style.display = 'none';
+    if(!email || !newDept.value){ createError.textContent = 'Enter an email and choose a department.'; createError.style.display = ''; return; }
+    var deptName = newDept.options[newDept.selectedIndex].text;
+    createBtn.disabled = true;
+    API.post('/api/platform/super-admins', { email: email, departmentId: newDept.value }).then(function(r){
+      createBtn.disabled = false;
+      if(r.status === 200 && r.data.ok){
+        createSuccess.textContent = 'Super admin created for ' + deptName + '. An activation email was sent to ' + email + '. If it does not arrive, copy their activation link from the Super admins page.';
+        createSuccess.style.display = '';
+        newEmail.value = ''; newDept.value = '';
+        refreshAll();
+        return;
+      }
+      var E = {
+        SUPER_ADMIN_CAP_REACHED: 'That department already has ' + (r.data.cap || maxSuper) + ' super admins.',
+        EMAIL_IN_USE: 'That email address is already registered.',
+        INVALID_EMAIL: 'Enter a valid email address.',
+        INVALID_DEPARTMENT: 'Choose a department.'
+      };
+      createError.textContent = E[r.data.error] || r.data.message || 'Could not create the super admin.';
+      createError.style.display = '';
+    }).catch(function(){ createBtn.disabled = false; createError.textContent = NET_ERR; createError.style.display = ''; });
+  });
+
+  // --- Audit trail: the whole organisation, or one department ---
+  var auditWrap = document.getElementById('auditWrap');
+  var auditDept = document.getElementById('auditDept');
+  var auditPager = document.getElementById('auditPager');
+  var AUDIT_PAGE_SIZE = 25;
+  var auditPage = 1;
+
+  function renderEntries(entries){
+    if(entries.length === 0){ auditWrap.innerHTML = '<p class="empty">No activity recorded yet.</p>'; return; }
+    var table = document.createElement('table');
+    table.innerHTML = '<thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Detail</th></tr></thead>';
+    var tbody = document.createElement('tbody');
+    entries.forEach(function(e){
+      var tr = document.createElement('tr');
+      var when = new Date(e.createdAt);
+      var rel = auditRelativeTime(when);
+      var f = formatAuditEntry(e);
+      tr.innerHTML =
+        '<td>' + escapeHtml(when.toLocaleString()) + (rel ? '<div class="audit-relative">' + escapeHtml(rel) + '</div>' : '') + '</td>' +
+        '<td>' + escapeHtml(auditActorLabel(e)) + '</td>' +
+        '<td>' + f.badgeHtml + '</td>' +
+        '<td class="audit-detail">' + f.summaryHtml + f.rawHtml + '</td>';
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    auditWrap.innerHTML = '';
+    auditWrap.appendChild(table);
+  }
+
+  function loadAudit(){
+    auditWrap.innerHTML = '<p class="empty">Loading…</p>';
+    var qs = '?page=' + auditPage + '&pageSize=' + AUDIT_PAGE_SIZE;
+    if(auditDept.value) qs += '&departmentId=' + encodeURIComponent(auditDept.value);
+    API.get('/api/platform/audit' + qs).then(function(r){
+      if(r.status !== 200 || !r.data.ok){
+        auditWrap.innerHTML = '<p class="empty">Could not load the audit trail.</p>';
+        auditPager.style.display = 'none';
+        return;
+      }
+      renderEntries(r.data.entries);
+      var total = r.data.total, pages = Math.max(1, Math.ceil(total / AUDIT_PAGE_SIZE));
+      var from = total ? (auditPage - 1) * AUDIT_PAGE_SIZE + 1 : 0;
+      var to = Math.min(total, auditPage * AUDIT_PAGE_SIZE);
+      document.getElementById('auditPageInfo').textContent = total ? 'Showing ' + from + '–' + to + ' of ' + total + ' entries' : '';
+      document.getElementById('auditPrev').disabled = auditPage <= 1;
+      document.getElementById('auditNext').disabled = auditPage >= pages;
+      auditPager.style.display = total > AUDIT_PAGE_SIZE ? '' : 'none';
+    }).catch(function(){ auditWrap.innerHTML = '<p class="empty">' + NET_ERR + '</p>'; });
+  }
+  auditDept.addEventListener('change', function(){ auditPage = 1; loadAudit(); });
+  document.getElementById('auditRefreshBtn').addEventListener('click', loadAudit);
+  document.getElementById('auditPrev').addEventListener('click', function(){ if(auditPage > 1){ auditPage -= 1; loadAudit(); } });
+  document.getElementById('auditNext').addEventListener('click', function(){ auditPage += 1; loadAudit(); });
+
+  // --- Audit chain anchors ---
+  var anchorResult = document.getElementById('anchorResult');
+  function say(kind, text){
+    anchorResult.className = 'result-box show ' + kind;
+    anchorResult.textContent = text;
+  }
+  function anchorTile(label, value, sub){
+    var t = el('div', 'stat-tile'); t.style.minWidth = '220px';
+    t.appendChild(el('div', 'stat-label', label));
+    t.appendChild(el('div', 'stat-value', value));
+    if(sub) t.appendChild(el('div', 'stat-sub', sub));
+    return t;
+  }
+  function showAnchorStatus(){
+    var tiles = document.getElementById('anchorTiles');
+    API.get('/api/platform/anchor').then(function(r){
+      tiles.textContent = '';
+      if(!r.data.ok){ tiles.appendChild(el('p', 'empty', 'Could not load the anchor status.')); return; }
+      if(!r.data.head){ tiles.appendChild(el('p', 'empty', 'No chained audit entries yet.')); return; }
+      tiles.appendChild(anchorTile('Entries on record', String(r.data.head.count), 'in the tamper-evident trail'));
+      tiles.appendChild(anchorTile('Last anchor emailed', r.data.lastAnchorAt ? new Date(r.data.lastAnchorAt).toLocaleDateString() : 'Never',
+        r.data.lastAnchorAt ? new Date(r.data.lastAnchorAt).toLocaleTimeString() : 'Send one now to start'));
+    }).catch(function(){ tiles.textContent = ''; tiles.appendChild(el('p', 'empty', NET_ERR)); });
+  }
+  document.getElementById('anchorSendBtn').addEventListener('click', function(){
+    var btn = this; btn.disabled = true; anchorResult.className = 'result-box';
+    API.post('/api/platform/anchor').then(function(r){
+      btn.disabled = false;
+      if(r.data.ok) say('ok', 'Anchor recorded and emailed to ' + plural(r.data.sent, 'recipient') + '.');
+      else say('bad', r.data.message || 'Could not send the anchor.');
+      showAnchorStatus();
+    }).catch(function(){ btn.disabled = false; say('bad', NET_ERR); });
+  });
+  document.getElementById('anchorCheckBtn').addEventListener('click', function(){
+    var hash = document.getElementById('anchorHash').value.trim();
+    say('info', 'Checking…');
+    API.post('/api/platform/anchor/check', { hash: hash }).then(function(r){
+      var d = r.data;
+      if(!d.ok){ say('bad', d.message || 'Could not check that hash.'); return; }
+      if(!d.found){ say('bad', '✕ ' + d.message); return; }
+      var msg = d.intactUpToAnchor
+        ? '✓ That entry is still in the trail (entry ' + d.position + ') and every entry up to it is intact. ' + d.entriesSince + ' newer entries have been added since.'
+        : '✕ That entry exists, but something before it was altered or removed after the anchor was sent (or, rarely, two writes landed at the same instant). Ask a developer to look at the trail.';
+      if(d.hashMismatches || d.linkBreaks) msg += ' Whole-trail scan: ' + d.hashMismatches + ' altered entr' + (d.hashMismatches === 1 ? 'y' : 'ies') + ', ' + d.linkBreaks + ' break(s) in the chain order.';
+      say(d.intactUpToAnchor ? 'ok' : 'bad', msg);
+    }).catch(function(){ say('bad', NET_ERR); });
+  });
+
+  requireSession().then(function(user){
+    if(!user) return;
+    showView(location.hash.replace('#', ''));
+    refreshAll();
   });
 })();
 </script>

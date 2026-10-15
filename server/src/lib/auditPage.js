@@ -14,7 +14,7 @@ export async function pagedAudit(where, req, res) {
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * pageSize,
       take: pageSize,
-      include: { actor: { select: { email: true, role: true, county: true } } }
+      include: { actor: { select: { email: true, role: true, county: true, department: { select: { name: true } } } } }
     })
   ]);
 

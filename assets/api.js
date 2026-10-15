@@ -43,6 +43,7 @@ var API = (function(){
     get: function(path){ return request('GET', path); },
     post: function(path, body){ return request('POST', path, body); },
     put: function(path, body){ return request('PUT', path, body); },
+    patch: function(path, body){ return request('PATCH', path, body); },
     del: function(path){ return request('DELETE', path); }
   };
 })();
@@ -116,6 +117,16 @@ var AUDIT_ACTION_META = {
   ADMIN_DISABLE: { label: 'Disabled admin', tone: 'danger' },
   ADMIN_REACTIVATE: { label: 'Reactivated admin', tone: 'positive' },
   ADMIN_DELETE: { label: 'Deleted admin', tone: 'danger' },
+  SUPER_ADMIN_CREATE: { label: 'Created super admin', tone: 'positive' },
+  SUPER_ADMIN_ACTIVATION_LINK_VIEWED: { label: 'Viewed activation link', tone: 'neutral' },
+  SUPER_ADMIN_DISABLE: { label: 'Disabled super admin', tone: 'danger' },
+  SUPER_ADMIN_REACTIVATE: { label: 'Reactivated super admin', tone: 'positive' },
+  SUPER_ADMIN_DELETE: { label: 'Deleted super admin', tone: 'danger' },
+  DEPARTMENT_CREATE: { label: 'Created department', tone: 'positive' },
+  DEPARTMENT_SEED: { label: 'Added standard departments', tone: 'positive' },
+  DEPARTMENT_RENAME: { label: 'Renamed department', tone: 'neutral' },
+  DEPARTMENT_PAUSE: { label: 'Paused department', tone: 'warning' },
+  DEPARTMENT_RESUME: { label: 'Resumed department', tone: 'positive' },
   SHEET_SEALED: { label: 'Sealed sheet', tone: 'info' },
   DAY_REOPENED: { label: 'Reopened a day', tone: 'warning' },
   DAY_CHECKIN_BY_PHONE: { label: 'Phone check-in', tone: 'neutral' },
@@ -202,6 +213,20 @@ function auditSummary(e){
       return escapeHtml(m.county || '');
     case 'ADMIN_DELETE':
       return escapeHtml(m.email || '') + (m.county ? ' (' + escapeHtml(m.county) + ')' : '');
+    case 'SUPER_ADMIN_CREATE':
+      return escapeHtml(m.department || '');
+    case 'SUPER_ADMIN_DISABLE':
+      return escapeHtml(m.department || '');
+    case 'SUPER_ADMIN_DELETE':
+      return escapeHtml(m.email || '') + (m.department ? ' (' + escapeHtml(m.department) + ')' : '');
+    case 'DEPARTMENT_CREATE':
+    case 'DEPARTMENT_PAUSE':
+    case 'DEPARTMENT_RESUME':
+      return escapeHtml(m.name || '');
+    case 'DEPARTMENT_RENAME':
+      return escapeHtml(m.from || '') + ' → ' + escapeHtml(m.to || '');
+    case 'DEPARTMENT_SEED':
+      return (m.created ? m.created.length : 0) + ' added'; 
     default:
       return e.targetType ? escapeHtml(e.targetType) + (e.targetId ? ' ' + escapeHtml(String(e.targetId).slice(0, 8)) : '') : '';
   }
@@ -213,9 +238,10 @@ function auditSummary(e){
 // check-in). Anything else without an actor is shown as not recorded rather
 // than guessed at.
 var AUDIT_SYSTEM_ACTIONS = ['CHAIN_ANCHORED'];
+var AUDIT_ROLE_LABEL = { PLATFORM_ADMIN: 'Platform admin', SUPER_ADMIN: 'Super admin', COUNTY_ADMIN: 'County admin' };
 var AUDIT_ATTENDEE_ACTIONS = ['CERTIFICATE_ISSUED', 'DAY_CHECKIN_BY_PHONE'];
 function auditActorLabel(e){
-  if(e.actor) return e.actor.email + ' (' + e.actor.role + (e.actor.county ? ', ' + e.actor.county : '') + ')';
+  if(e.actor) return e.actor.email + ' (' + (AUDIT_ROLE_LABEL[e.actor.role] || e.actor.role) + (e.actor.county ? ', ' + e.actor.county : '') + (e.actor.department ? ', ' + e.actor.department.name : '') + ')';
   if(e.actorEmail) return e.actorEmail + ' (' + e.actorRole + (e.actorCounty ? ', ' + e.actorCounty : '') + ') [deleted]';
   if(e.actorId) return e.actorId;
   if(AUDIT_SYSTEM_ACTIONS.indexOf(e.action) !== -1) return 'System (automatic)';
