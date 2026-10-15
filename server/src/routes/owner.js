@@ -12,6 +12,7 @@ import { isValidEmailShape } from '../lib/normalize.js';
 import { ah } from '../lib/asyncHandler.js';
 import { logger } from '../lib/logger.js';
 import { cleanOrgName, cleanShortName, isValidOrgSlug, orgSlug } from '../lib/organisations.js';
+import { brandFromOrg, emailBrand } from '../lib/brand.js';
 
 // The platform owner's console. It answers "who is using the platform and is it
 // healthy": organisations, counts, activity. Deliberately nothing here returns an
@@ -20,8 +21,9 @@ import { cleanOrgName, cleanShortName, isValidOrgSlug, orgSlug } from '../lib/or
 export const ownerRouter = Router();
 ownerRouter.use(requireRole('OWNER'));
 
-function activationUrl(raw) {
-  return `${process.env.PUBLIC_APP_URL}/activate.html?token=${encodeURIComponent(raw)}`;
+// The page opens in the organisation's own look because the link names it.
+function activationUrl(raw, slug) {
+  return `${process.env.PUBLIC_APP_URL}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(slug)}`;
 }
 
 function isUnique(err) {
@@ -97,8 +99,8 @@ ownerRouter.post('/organisations', ah(async (req, res) => {
   }
 
   const raw = await issueToken(admin.id, 'ACTIVATION');
-  const url = activationUrl(raw);
-  sendActivationEmail(admin.email, url, null, null, org.name).catch((err) => logger.error('sendActivationEmail failed', { toEmail: admin.email, stack: err.stack }));
+  const url = activationUrl(raw, org.slug);
+  sendActivationEmail(admin.email, url, null, null, org.name, emailBrand(brandFromOrg(org))).catch((err) => logger.error('sendActivationEmail failed', { toEmail: admin.email, stack: err.stack }));
   await writeAudit({ actorId: req.user.id, action: 'ORG_CREATE', targetType: 'Organisation', targetId: org.id, metadata: { name: org.name, slug: org.slug }, req });
   res.json({ ok: true, organisation: { id: org.id, name: org.name, slug: org.slug }, activationUrl: url });
 }));
@@ -136,5 +138,5 @@ ownerRouter.post('/organisations/:id/activation-link', ah(async (req, res) => {
   if (!admin) return res.status(409).json({ ok: false, error: 'NOT_PENDING', message: 'This organisation has no administrator waiting to activate.' });
   const raw = await issueToken(admin.id, 'ACTIVATION');
   await writeAudit({ actorId: req.user.id, action: 'ORG_ACTIVATION_LINK_VIEWED', targetType: 'Organisation', targetId: org.id, req });
-  res.json({ ok: true, url: activationUrl(raw), email: admin.email });
+  res.json({ ok: true, url: activationUrl(raw, org.slug), email: admin.email });
 }));

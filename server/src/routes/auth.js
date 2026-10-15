@@ -13,6 +13,7 @@ import { loginLimiter, forgotPasswordLimiter } from '../middleware/rateLimit.js'
 import { ah } from '../lib/asyncHandler.js';
 import { logger } from '../lib/logger.js';
 import { publicUser, departmentPaused, organisationSuspended } from '../lib/userView.js';
+import { brandForOrgId, brandFromOrg, emailBrand } from '../lib/brand.js';
 
 export const authRouter = Router();
 
@@ -118,8 +119,10 @@ authRouter.post('/forgot-password', forgotPasswordLimiter, ah(async (req, res) =
     const user = await prisma.user.findUnique({ where: { email } });
     if (user && user.status === 'ACTIVE') {
       const raw = await issueToken(user.id, 'PASSWORD_RESET');
-      const resetUrl = `${process.env.PUBLIC_APP_URL}/reset-password.html?token=${encodeURIComponent(raw)}`;
-      sendPasswordResetEmail(user.email, resetUrl).catch((err) => logger.error('sendPasswordResetEmail failed', { stack: err.stack }));
+      const resetUrl = `${process.env.PUBLIC_APP_URL}/reset-password.html?token=${encodeURIComponent(raw)}${user.organisationId ? '&org=' + encodeURIComponent(user.organisation.slug) : ''}`;
+      (user.organisationId ? brandForOrgId(user.organisationId) : Promise.resolve(brandFromOrg(null)))
+    .then((brand) => sendPasswordResetEmail(user.email, resetUrl, emailBrand(brand)))
+    .catch((err) => logger.error('sendPasswordResetEmail failed', { stack: err.stack }));
       writeAudit({ actorId: user.id, action: 'PASSWORD_RESET_REQUESTED', req }).catch(() => {});
     }
   }

@@ -12,6 +12,7 @@ import { writeAudit } from '../lib/audit.js';
 import { KENYA_COUNTIES, MAX_ACTIVE_COUNTY_ADMINS } from '../lib/constants.js';
 import { pagedAudit } from '../lib/auditPage.js';
 import { ACCESS_LEVELS, PAYMENT_ROLES } from '../lib/duty.js';
+import { brandForOrgId, emailBrand } from '../lib/brand.js';
 import { isValidEmailShape } from '../lib/normalize.js';
 import { ah } from '../lib/asyncHandler.js';
 import { logger } from '../lib/logger.js';
@@ -49,8 +50,9 @@ function publicAdmin(u) {
 // account creation/reactivation still succeeds even if mail delivery is
 // slow or briefly down; failures are logged rather than surfaced as a
 // crash (see lib/asyncHandler.js for why that distinction matters here).
-function sendActivationEmailBestEffort(toEmail, activateUrl, county) {
-  sendActivationEmail(toEmail, activateUrl, county).catch((err) => {
+function sendActivationEmailBestEffort(toEmail, activateUrl, county, organisationId) {
+  brandForOrgId(organisationId)
+    .then((brand) => sendActivationEmail(toEmail, activateUrl, county, null, null, emailBrand(brand))).catch((err) => {
     logger.error('sendActivationEmail failed', { toEmail, stack: err.stack });
   });
 }
@@ -152,8 +154,8 @@ superadminRouter.post('/admins', ah(async (req, res) => {
   }
 
   const raw = await issueToken(admin.id, 'ACTIVATION');
-  const activateUrl = `${process.env.PUBLIC_APP_URL}/activate.html?token=${encodeURIComponent(raw)}`;
-  sendActivationEmailBestEffort(admin.email, activateUrl, admin.county);
+  const activateUrl = `${process.env.PUBLIC_APP_URL}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(req.user.organisation.slug)}`;
+  sendActivationEmailBestEffort(admin.email, activateUrl, admin.county, admin.organisationId);
   await writeAudit({ actorId: req.user.id, action: 'ADMIN_CREATE', targetType: 'User', targetId: admin.id, metadata: { county, access, paymentRole }, req });
 
   res.json({ ok: true, admin: publicAdmin(admin) });
@@ -173,7 +175,7 @@ superadminRouter.post('/admins/:id/activation-link', ah(async (req, res) => {
   if (admin.status !== 'PENDING') return res.status(409).json({ ok: false, error: 'NOT_PENDING' });
 
   const raw = await issueToken(admin.id, 'ACTIVATION');
-  const activateUrl = `${process.env.PUBLIC_APP_URL}/activate.html?token=${encodeURIComponent(raw)}`;
+  const activateUrl = `${process.env.PUBLIC_APP_URL}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(req.user.organisation.slug)}`;
   await writeAudit({ actorId: req.user.id, action: 'ADMIN_ACTIVATION_LINK_VIEWED', targetType: 'User', targetId: admin.id, req });
 
   res.json({ ok: true, url: activateUrl });
@@ -234,8 +236,8 @@ superadminRouter.post('/admins/:id/reactivate', ah(async (req, res) => {
   }
 
   const raw = await issueToken(updated.id, 'ACTIVATION');
-  const activateUrl = `${process.env.PUBLIC_APP_URL}/activate.html?token=${encodeURIComponent(raw)}`;
-  sendActivationEmailBestEffort(updated.email, activateUrl, updated.county);
+  const activateUrl = `${process.env.PUBLIC_APP_URL}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(req.user.organisation.slug)}`;
+  sendActivationEmailBestEffort(updated.email, activateUrl, updated.county, updated.organisationId);
   await writeAudit({ actorId: req.user.id, action: 'ADMIN_REACTIVATE', targetType: 'User', targetId: updated.id, req });
 
   res.json({ ok: true, admin: publicAdmin(updated) });

@@ -41,14 +41,17 @@ async function sendViaBrevo({ to, subject, html, brand }) {
 // Who the email is from. Every message is sent in the look of the organisation it concerns;
 // one with no organisation in hand falls back to the platform default.
 function brandOf(given) {
-  return given || emailBrand(brandFromOrg(null));
+  const b = given || emailBrand(brandFromOrg(null));
+  // orgName and productName stay plain for subjects and the sender; the Html versions
+  // are for placing inside the message body, since an organisation chooses its own name.
+  return { ...b, orgHtml: escapeHtml(b.orgName), productHtml: escapeHtml(b.productName), logoHtml: escapeHtml(b.logoUrl) };
 }
 
 function wrapHtml(brand, bodyHtml) {
   return `<!doctype html>
 <html><body style="margin:0;padding:24px;background:#e9e9e9;font-family:'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;">
   <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:4px;padding:28px 32px;box-shadow:0 4px 24px rgba(0,0,0,.15);">
-    <table role="presentation" style="margin:0 0 16px;"><tr><td style="padding-right:10px;"><img src="${brand.logoUrl}" alt="" height="34" style="display:block;height:34px;max-width:120px;"></td><td><h1 style="font-size:16px;margin:0;color:#1a1a1a;">${brand.orgName} — ${brand.productName}</h1></td></tr></table>
+    <table role="presentation" style="margin:0 0 16px;"><tr><td style="padding-right:10px;"><img src="${brand.logoHtml}" alt="" height="34" style="display:block;height:34px;max-width:120px;"></td><td><h1 style="font-size:16px;margin:0;color:#1a1a1a;">${brand.orgHtml} — ${brand.productHtml}</h1></td></tr></table>
     ${bodyHtml}
     <p style="font-size:11px;color:#888;margin-top:28px;">© 2026 Asya Hafidh. All rights reserved.</p>
   </div>
@@ -71,9 +74,9 @@ export async function sendActivationEmail(toEmail, activateUrl, county, departme
   const html = wrapHtml(brand, `
     <p style="font-size:13.5px;color:#333;">An account has been created for you as ${
       organisation
-        ? `the administrator of <strong>${organisation}</strong> on this platform`
+        ? `the administrator of <strong>${escapeHtml(organisation)}</strong> on this platform`
         : department
-          ? `the super admin of <strong>${department}</strong>`
+          ? `the super admin of <strong>${escapeHtml(department)}</strong>`
           : `the <strong>${county}</strong> county admin`
     }.</p>
     <p style="font-size:13.5px;color:#333;">Click the button below to set your own password and activate your account. This link can only be used once and expires in 48 hours.</p>
@@ -181,7 +184,7 @@ export async function sendAttendanceConfirmationEmail(toEmail, details, brandIn 
       <div style="padding:26px 30px 0;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr>
-            <td style="font:700 10px/1 'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;letter-spacing:.1em;color:#9a9a9a;text-transform:uppercase;">${brand.orgName} · ${brand.productName}</td>
+            <td style="font:700 10px/1 'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;letter-spacing:.1em;color:#9a9a9a;text-transform:uppercase;">${brand.orgHtml} · ${brand.productHtml}</td>
             <td style="text-align:right;font:700 10px/1 'Courier New',monospace;letter-spacing:.05em;color:#9a9a9a;">REF ${refCode}</td>
           </tr>
         </table>
@@ -215,7 +218,7 @@ export async function sendAttendanceConfirmationEmail(toEmail, details, brandIn 
   </div>
 </body></html>`;
 
-  await sendViaBrevo({ to: toEmail, subject: `You're on record — ${eventName}${dayTag ? ' (' + dayTag + ')' : ''}`, html });
+  await sendViaBrevo({ to: toEmail, subject: `You're on record — ${eventName}${dayTag ? ' (' + dayTag + ')' : ''}`, html, brand });
 }
 
 // Sent to the platform admin each day. Its whole value is that it sits in an

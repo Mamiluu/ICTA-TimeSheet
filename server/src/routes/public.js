@@ -13,7 +13,7 @@ import { randomToken, hashToken } from '../lib/tokens.js';
 import { writeAudit, verifyChain } from '../lib/audit.js';
 import { sendAttendanceConfirmationEmail } from '../lib/mailer.js';
 import { logger } from '../lib/logger.js';
-import { resolveBrand, DEFAULT_ORG_SLUG, monogramSvg, brandFromOrg } from '../lib/brand.js';
+import { resolveBrand, DEFAULT_ORG_SLUG, monogramSvg, brandFromOrg, brandForOrgId, emailBrand } from '../lib/brand.js';
 import { dayIsOpen, dayOpensAt, dayClosesAt, ensureFirstDay, pickSigningDay, anchorDayFor } from '../lib/days.js';
 import { maskName } from '../lib/mask.js';
 import { walletEntry } from '../lib/wallet.js';
@@ -30,7 +30,11 @@ import { newSealCode, SEAL_CODE_PATTERN, buildDaySnapshot, buildEventSnapshot, s
 // multi-day event so the receipt says which day was recorded.
 function sendConfirmationIfEmailed(row, event, day, dayCount, recordedAt) {
   if (!row.email || !isValidEmailShape(row.email)) return;
-  sendAttendanceConfirmationEmail(row.email, {
+  brandForOrgId(event.organisationId)
+    .then((brand) =>
+      sendAttendanceConfirmationEmail(
+        row.email,
+        {
     name: row.name,
     eventName: event.name,
     eventDescription: event.description,

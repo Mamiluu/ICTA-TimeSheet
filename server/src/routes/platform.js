@@ -15,7 +15,7 @@ import { logger } from '../lib/logger.js';
 import { pagedAudit } from '../lib/auditPage.js';
 import { bucketByDay } from '../lib/analytics.js';
 import { cleanBranding } from '../lib/brandInput.js';
-import { brandFromOrg, invalidateBrandCache } from '../lib/brand.js';
+import { brandFromOrg, brandForOrgId, emailBrand, invalidateBrandCache } from '../lib/brand.js';
 import { detectImage, MAX_LOGO_BYTES } from '../lib/imageSniff.js';
 import { chainHead, lastAnchorAt, sendAnchor, checkAnchor } from '../lib/anchor.js';
 import { DEFAULT_DEPARTMENTS, MAX_SUPER_ADMINS_PER_DEPARTMENT, cleanDepartmentName, departmentSlug } from '../lib/departments.js';
@@ -39,12 +39,13 @@ function publicSuperAdmin(u) {
   };
 }
 
-function activationUrl(raw) {
-  return `${process.env.PUBLIC_APP_URL}/activate.html?token=${encodeURIComponent(raw)}`;
+function activationUrl(raw, slug) {
+  return `${process.env.PUBLIC_APP_URL}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(slug)}`;
 }
 
 function sendActivationBestEffort(user, url, departmentName) {
-  sendActivationEmail(user.email, url, null, departmentName).catch((err) => {
+  brandForOrgId(user.organisationId)
+    .then((brand) => sendActivationEmail(user.email, url, null, departmentName, null, emailBrand(brand))).catch((err) => {
     logger.error('sendActivationEmail failed', { toEmail: user.email, stack: err.stack });
   });
 }
@@ -232,7 +233,7 @@ platformRouter.post('/super-admins', ah(async (req, res) => {
   }
 
   const raw = await issueToken(admin.id, 'ACTIVATION');
-  const url = activationUrl(raw);
+  const url = activationUrl(raw, req.user.organisation.slug);
   sendActivationBestEffort(admin, url, dept.name);
   await writeAudit({ actorId: req.user.id, action: 'SUPER_ADMIN_CREATE', targetType: 'User', targetId: admin.id, metadata: { department: dept.name }, req });
 
@@ -247,7 +248,7 @@ platformRouter.post('/super-admins/:id/activation-link', ah(async (req, res) => 
 
   const raw = await issueToken(admin.id, 'ACTIVATION');
   await writeAudit({ actorId: req.user.id, action: 'SUPER_ADMIN_ACTIVATION_LINK_VIEWED', targetType: 'User', targetId: admin.id, req });
-  res.json({ ok: true, url: activationUrl(raw) });
+  res.json({ ok: true, url: activationUrl(raw, req.user.organisation.slug) });
 }));
 
 platformRouter.post('/super-admins/:id/disable', ah(async (req, res) => {
@@ -279,7 +280,7 @@ platformRouter.post('/super-admins/:id/reactivate', ah(async (req, res) => {
     include: { department: true }
   });
   const raw = await issueToken(updated.id, 'ACTIVATION');
-  sendActivationBestEffort(updated, activationUrl(raw), updated.department?.name);
+  sendActivationBestEffort(updated, activationUrl(raw, req.user.organisation.slug), updated.department?.name);
   await writeAudit({ actorId: req.user.id, action: 'SUPER_ADMIN_REACTIVATE', targetType: 'User', targetId: updated.id, req });
   res.json({ ok: true, admin: publicSuperAdmin(updated) });
 }));
