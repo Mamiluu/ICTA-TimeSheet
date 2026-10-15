@@ -164,6 +164,15 @@ async function main() {
   expect("authoriser A's queue holds none of B's sheets", !q.data.sheets || q.data.sheets.every((s) => s.id !== B.duty.id));
   expect("authoriser A cannot certify B's sheet", notFoundOrRefused(await A.auth.client.post(`/duty-review/sheets/${B.duty.id}/certify`, { acknowledge: true })));
 
+  // Branding: an organisation changes only its own look
+  const bBefore = await client().get(`/branding?org=${B.org.slug}`);
+  const aSet = await A.orgAdmin.put('/platform/branding', { displayName: 'Fence A Renamed', accentColor: '#006633' });
+  expect('org admin A can restyle its own organisation', aSet.data && aSet.data.ok === true);
+  const bAfter = await client().get(`/branding?org=${B.org.slug}`);
+  expect("A's branding change does not touch B's look", bAfter.data.orgName === bBefore.data.orgName && bAfter.data.accent === bBefore.data.accent);
+  expect("B's signed-in pages still show B's name", (await B.orgAdmin.get('/branding')).data.orgName === bBefore.data.orgName);
+  expect('the owner cannot be reached through the branding routes of an org admin', refused(await owner.get('/platform/branding')));
+
   // The owner sees counts only
   const list = await owner.get('/owner/organisations');
   const text = JSON.stringify(list.data);
