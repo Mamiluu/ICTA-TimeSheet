@@ -50,6 +50,22 @@
   .cell.OPEN{ background:#fdf0d4; color:var(--warn); }
   .cell.UPCOMING{ color:#a9a392; }
   .cell.ABSENT{ background:#f6e1e5; color:var(--bad); }
+  .stage{ display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
+  .steps{ display:flex; gap:6px; flex-wrap:wrap; margin:0 0 4px; padding:0; list-style:none; }
+  .steps li{ font-size:12.5px; font-weight:700; padding:4px 11px; border-radius:999px; background:#eee9dc; color:var(--muted); }
+  .steps li.done{ background:#e0f1e6; color:var(--ok); }
+  .steps li.now{ background:var(--accent); color:#fff; }
+  .timeline{ margin:10px 0 0; padding:0; list-style:none; font-size:13px; }
+  .timeline li{ padding:6px 0; border-top:1px solid var(--rule); }
+  .timeline li:first-child{ border-top:0; }
+  .timeline .who{ color:var(--muted); }
+  .timeline .ret{ color:var(--bad); font-weight:700; }
+  .qitem{ padding:10px 0; border-top:1px solid var(--rule); }
+  .qitem:first-child{ border-top:0; }
+  .qitem .q{ color:var(--muted); font-size:13px; margin:2px 0 6px; }
+  .qitem .a{ display:flex; gap:8px; flex-wrap:wrap; }
+  .qitem .a input{ flex:1 1 260px; }
+  .lockednote{ background:#fdf0d4; border:1px solid #ecd49a; color:#6b4a00; border-radius:10px; padding:10px 12px; font-size:13.5px; margin-bottom:12px; }
   tfoot td{ font-weight:700; border-bottom:0; }
   .empty{ color:var(--muted); padding:14px 2px; }
   .form{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px 12px; }
@@ -93,6 +109,8 @@
   .sheet-page .dayhead small{ display:block; font-weight:400; font-size:8.5px; }
   .sheet-page .foot{ display:flex; justify-content:space-between; gap:20px; margin-top:10px; font-size:10.5px; }
   .sheet-page .foot div{ flex:1; border-top:1px solid #000; padding-top:3px; margin-top:22px; }
+  .sheet-page .seal{ display:flex; align-items:center; gap:8px; margin-top:8px; font-size:10px; }
+  .sheet-page .seal img{ width:58px; height:58px; }
   .sheet-page .gen{ margin-top:8px; font-size:9px; color:#444; }
 </style>
 </head>
@@ -116,6 +134,25 @@
       </div>
     </div>
 
+    <div class="card" id="stageCard">
+      <h2>Approval</h2>
+      <ol class="steps" id="steps"></ol>
+      <ul class="timeline" id="timeline"></ul>
+      <div id="submitBox" hidden style="margin-top:12px;">
+        <p class="meta" style="margin:0 0 8px;" id="submitHelp"></p>
+        <div class="linkrow" id="submitReasonRow" hidden>
+          <input type="text" id="submitNote" maxlength="300" placeholder="Why is the sheet being sent before every day has closed?" aria-label="Reason for sending early">
+        </div>
+        <div style="margin-top:10px;"><button type="button" class="primary" id="submitBtn">Send for certification</button></div>
+        <p class="msg" id="submitMsg" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+
+    <div class="card" id="queriesCard" hidden>
+      <h2>Questions from the people on this sheet</h2>
+      <div id="queriesWrap"></div>
+    </div>
+
     <div class="card">
       <div class="grid">
         <div>
@@ -137,10 +174,11 @@
 
     <div class="card">
       <h2>People on this sheet</h2>
+      <div class="lockednote" id="lockedNote" hidden></div>
       <div class="tablewrap" id="rosterWrap"></div>
     </div>
 
-    <div class="card">
+    <div class="card" id="addCard">
       <h2>Add a person</h2>
       <div class="form">
         <div><label for="fType">They are</label>
@@ -215,6 +253,82 @@
       box.appendChild(document.createTextNode(d.place || '')); days.appendChild(box);
     });
     renderRoster();
+    renderStage();
+    loadQueries();
+  }
+
+  var STEPS = [['OPEN', 'Collecting signatures'], ['SUBMITTED', 'Authorising officer'], ['CERTIFIED', 'Certified'], ['VERIFIED', 'Verified by finance']];
+  var STEP_WORD = { SUBMITTED: 'Submitted', CERTIFIED: 'Certified', VERIFIED: 'Verified', RETURNED: 'Returned' };
+  function locked(){ return roll.stage && roll.stage !== 'OPEN'; }
+
+  function renderStage(){
+    var idx = STEPS.map(function(s){ return s[0]; }).indexOf(roll.stage);
+    var ol = $('steps'); ol.textContent = '';
+    STEPS.forEach(function(s, i){ ol.appendChild(el('li', i < idx ? 'done' : (i === idx ? 'now' : ''), (i < idx ? '\u2713 ' : '') + s[1])); });
+    var tl = $('timeline'); tl.textContent = '';
+    (roll.approvals || []).forEach(function(a){
+      var li = el('li');
+      var head = el('span', a.step === 'RETURNED' ? 'ret' : null, STEP_WORD[a.step] || a.step);
+      li.appendChild(head);
+      li.appendChild(el('span', 'who', ' by ' + a.by + ' · ' + new Date(a.at).toLocaleString('en-GB', { timeZone: tz() })));
+      if(a.note) li.appendChild(el('div', 'who', '\u201c' + a.note + '\u201d'));
+      if(a.sealCode){ var v = el('a', null, ' Check seal ' + a.sealCode); v.href = 'verify.html?code=' + encodeURIComponent(a.sealCode); v.target = '_blank'; v.rel = 'noopener'; li.appendChild(v); }
+      tl.appendChild(li);
+    });
+    var open = !locked();
+    $('submitBox').hidden = !open;
+    $('addCard').hidden = !open;
+    var note = $('lockedNote');
+    note.hidden = open;
+    if(!open) note.textContent = 'This sheet is ' + (roll.stageLabel || '').toLowerCase() + ', so it can no longer be changed. If something is wrong, the authorising officer or finance can return it to you.';
+    if(open){
+      var last = roll.days[roll.days.length - 1];
+      var finished = last && Date.now() > new Date(last.endAt).getTime() + 2 * 3600 * 1000;
+      $('submitReasonRow').hidden = finished;
+      $('submitHelp').textContent = finished
+        ? 'Every day has closed. When the roll is right, send it to the authorising officer. You will not be able to change it afterwards.'
+        : 'Not every day has closed yet. You can still send it now, but you must say why.';
+    }
+    renderRoster();
+  }
+
+  $('submitBtn').addEventListener('click', function(){
+    var btn = this;
+    if(!window.confirm('Send this sheet for certification? You will not be able to change it afterwards.')) return;
+    btn.disabled = true; say('submitMsg', 'Sending…');
+    API.post('/api/admin/events/' + encodeURIComponent(eventId) + '/duty/submit', { note: $('submitNote').value }).then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ say('submitMsg', r.data.message || 'Could not send the sheet.', 'err'); return; }
+      say('submitMsg', ''); load();
+    }).catch(function(){ btn.disabled = false; say('submitMsg', 'No connection. Please try again.', 'err'); });
+  });
+
+  // --- Questions from the people on the sheet ---
+  function loadQueries(){
+    API.get('/api/admin/events/' + encodeURIComponent(eventId) + '/duty/queries').then(function(r){
+      if(r.status !== 200 || !r.data.ok) return;
+      var qs = r.data.queries, wrap = $('queriesWrap'); wrap.textContent = '';
+      $('queriesCard').hidden = !qs.length;
+      qs.forEach(function(q){
+        var box = el('div', 'qitem');
+        box.appendChild(el('strong', null, q.name + ' · day ' + (q.day || '?')));
+        box.appendChild(el('div', 'q', '\u201c' + q.message + '\u201d'));
+        if(q.status === 'RESOLVED'){ box.appendChild(el('div', 'meta', 'Answered: ' + q.response)); }
+        else if(!locked()){
+          var row = el('div', 'a'); var inp = el('input'); inp.type = 'text'; inp.maxLength = 300; inp.placeholder = 'Your answer, e.g. day reopened for signing'; inp.setAttribute('aria-label', 'Answer for ' + q.name);
+          var b = el('button', 'primary', 'Answer'); b.type = 'button';
+          b.addEventListener('click', function(){
+            API.post('/api/admin/events/' + encodeURIComponent(eventId) + '/duty/queries/' + encodeURIComponent(q.id) + '/resolve', { response: inp.value }).then(function(res){
+              if(!res.data.ok){ window.alert(res.data.message || 'Could not save the answer.'); return; }
+              load();
+            }).catch(function(){ window.alert('No connection. Please try again.'); });
+          });
+          row.appendChild(inp); row.appendChild(b); box.appendChild(row);
+          box.appendChild(el('div', 'meta', 'If the person was right, reopen that day from Events, More, Reopen a day, so they can sign, then answer here.'));
+        } else box.appendChild(el('div', 'meta', 'Still open. Ask for the sheet to be returned to answer it.'));
+        wrap.appendChild(box);
+      });
+    }).catch(function(){});
   }
 
   var CELL_TEXT = { SIGNED: '✓', OPEN: 'open', UPCOMING: '–', ABSENT: '✕' };
@@ -244,8 +358,10 @@
       tr.appendChild(el('td', 'num', String(r.daysSigned)));
       tr.appendChild(el('td', 'num', Number(r.amount).toLocaleString('en-KE')));
       var act = el('td');
-      var rate = el('button', 'link', 'Change rate'); rate.type = 'button'; rate.addEventListener('click', function(){ changeRate(r); }); act.appendChild(rate);
-      if(r.daysSigned === 0){ var rm = el('button', 'link danger', 'Remove'); rm.type = 'button'; rm.addEventListener('click', function(){ removePerson(r); }); act.appendChild(rm); }
+      if(!locked()){
+        var rate = el('button', 'link', 'Change rate'); rate.type = 'button'; rate.addEventListener('click', function(){ changeRate(r); }); act.appendChild(rate);
+      }
+      if(r.daysSigned === 0 && !locked()){ var rm = el('button', 'link danger', 'Remove'); rm.type = 'button'; rm.addEventListener('click', function(){ removePerson(r); }); act.appendChild(rm); }
       tr.appendChild(act); tb.appendChild(tr);
     });
     t.appendChild(tb);
@@ -371,8 +487,23 @@
       t.appendChild(tb); pg.appendChild(t);
 
       var foot = el('div', 'foot');
-      ['Prepared by (name, signature, date)', 'Certified by the authorising officer (name, signature, date)'].forEach(function(s){ foot.appendChild(el('div', null, s)); });
+      var ap = data.approvals || [];
+      function done(step){ return ap.filter(function(a){ return a.step === step; }).pop(); }
+      function stamp(step, label, blank){
+        var a = done(step), box = el('div', null, a ? label + ': ' + a.by + ', ' + new Date(a.at).toLocaleDateString('en-GB', { timeZone: tz() }) : blank);
+        return box;
+      }
+      foot.appendChild(stamp('SUBMITTED', 'Prepared by', 'Prepared by (name, signature, date)'));
+      foot.appendChild(stamp('CERTIFIED', 'Certified by the authorising officer', 'Certified by the authorising officer (name, signature, date)'));
+      if(done('VERIFIED')) foot.appendChild(stamp('VERIFIED', 'Verified by finance', ''));
       pg.appendChild(foot);
+      var cert = done('CERTIFIED');
+      if(cert && cert.sealCode){
+        var chk = el('div', 'seal');
+        var qr = document.createElement('img'); qr.src = '/api/seals/' + encodeURIComponent(cert.sealCode) + '/qr'; qr.alt = 'QR code to check this sheet';
+        chk.appendChild(qr); chk.appendChild(el('span', null, 'Seal ' + cert.sealCode + '. Scan to check that this sheet matches the certified record.'));
+        pg.appendChild(chk);
+      }
       pg.appendChild(el('div', 'gen', 'Page ' + (pi + 1) + ' of ' + pages.length + ' · Days ' + chunk[0].position + (chunk.length > 1 ? '–' + chunk[chunk.length - 1].position : '') + ' of ' + origin + ' · Printed from the digital record on ' + new Date().toLocaleString('en-GB', { timeZone: tz() })));
       area.appendChild(pg);
     });

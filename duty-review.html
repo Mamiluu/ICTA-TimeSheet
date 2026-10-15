@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+  Proprietary and confidential. See LICENSE in the repository root.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payment approvals</title>
+<link rel="icon" href="assets/icta_logo_cropped.png">
+<style>
+  :root{ --ink:#1b1a18; --muted:#6a655b; --rule:#d9d2c3; --paper:#fffdf8; --page:#ebe7de; --accent:#c8102e; --ok:#14683a; --warn:#8a5a00; --bad:#9d1230; }
+  @media (prefers-color-scheme: dark){ :root{ --page:#1d1c1a; } }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--page); color:var(--ink); font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; font-size:14px; line-height:1.5; }
+  .wrap{ max-width:1100px; margin:0 auto; padding:20px 18px 50px; }
+  a{ color:var(--accent); }
+  .back{ color:var(--muted); text-decoration:none; font-size:13px; }
+  h1{ font-family:Georgia, "Times New Roman", serif; font-weight:400; font-size:28px; line-height:1.15; margin:8px 0 4px; }
+  .meta{ color:var(--muted); font-size:13.5px; margin:2px 0 0; }
+  .card{ background:var(--paper); border:1px solid var(--rule); border-radius:14px; padding:16px 18px; margin:14px 0; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+  h2{ font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0 0 12px; font-weight:700; }
+  button{ font:inherit; font-weight:700; font-size:13.5px; padding:9px 14px; border-radius:9px; border:1px solid #bfb7a4; background:#fff; color:var(--ink); cursor:pointer; }
+  button.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.good{ background:var(--ok); border-color:var(--ok); color:#fff; }
+  button:disabled{ opacity:.55; cursor:default; }
+  button:focus-visible, input:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  input{ font:inherit; font-size:14px; padding:9px 10px; border:1px solid #bfb7a4; border-radius:9px; background:#fff; color:var(--ink); width:100%; }
+  .row{ display:grid; grid-template-columns:minmax(0,1fr) 150px 130px 120px auto; gap:10px 16px; align-items:center; padding:12px 2px; border-top:1px solid var(--rule); }
+  .row:first-of-type{ border-top:0; }
+  .row .t{ font-weight:700; }
+  .row .s{ color:var(--muted); font-size:12.5px; }
+  .pill{ display:inline-block; font-size:12px; font-weight:700; padding:2px 10px; border-radius:999px; background:#eee9dc; color:var(--muted); white-space:nowrap; }
+  .pill.me{ background:var(--accent); color:#fff; }
+  .pill.ok{ background:#e0f1e6; color:var(--ok); }
+  .empty{ color:var(--muted); padding:8px 2px; }
+  .tablewrap{ overflow-x:auto; }
+  table{ border-collapse:collapse; width:100%; font-size:13px; }
+  th, td{ padding:8px 9px; border-bottom:1px solid var(--rule); text-align:left; white-space:nowrap; }
+  th{ font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+  td.num, th.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  td.c, th.c{ text-align:center; }
+  td.name{ white-space:normal; min-width:150px; }
+  td.name small{ display:block; color:var(--muted); font-size:12px; }
+  .cell{ display:inline-block; min-width:26px; padding:2px 6px; border-radius:7px; font-size:12px; font-weight:700; }
+  .cell.SIGNED{ background:#e0f1e6; color:var(--ok); }
+  .cell.OPEN{ background:#fdf0d4; color:var(--warn); }
+  .cell.UPCOMING{ color:#a9a392; }
+  .cell.ABSENT{ background:#f6e1e5; color:var(--bad); }
+  tfoot td{ font-weight:700; border-bottom:0; }
+  .steps{ display:flex; gap:6px; flex-wrap:wrap; margin:0 0 4px; padding:0; list-style:none; }
+  .steps li{ font-size:12.5px; font-weight:700; padding:4px 11px; border-radius:999px; background:#eee9dc; color:var(--muted); }
+  .steps li.done{ background:#e0f1e6; color:var(--ok); }
+  .steps li.now{ background:var(--accent); color:#fff; }
+  .timeline{ margin:10px 0 0; padding:0; list-style:none; font-size:13px; }
+  .timeline li{ padding:6px 0; border-top:1px solid var(--rule); }
+  .timeline li:first-child{ border-top:0; }
+  .timeline .who{ color:var(--muted); }
+  .timeline .ret{ color:var(--bad); font-weight:700; }
+  .msg{ margin:10px 0 0; font-size:13.5px; min-height:1.2em; }
+  .msg.err{ color:var(--bad); }
+  .msg.ok{ color:var(--ok); font-weight:700; }
+  .info{ background:#fdf0d4; border:1px solid #ecd49a; color:#6b4a00; border-radius:10px; padding:10px 12px; font-size:13.5px; margin:10px 0 0; }
+  .actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  [hidden]{ display:none !important; }
+  @media (max-width: 760px){ .row{ grid-template-columns:1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" id="backLink" href="admin.html">&larr; Back</a>
+  <h1>Payment approvals</h1>
+  <p class="meta" id="intro">Payment sheets sent up from your department.</p>
+
+  <div id="listView">
+    <div class="card"><h2>Waiting for you</h2><div id="mineWrap"><p class="empty">Loading…</p></div></div>
+    <div class="card"><h2>Everything else in your department</h2><div id="othersWrap"></div></div>
+  </div>
+
+  <div id="sheetView" hidden>
+    <p><a href="#" id="toList">&larr; All payment sheets</a></p>
+    <div class="card">
+      <h2 id="sheetName"></h2>
+      <p class="meta" id="sheetMeta"></p>
+      <ol class="steps" id="steps" style="margin-top:12px;"></ol>
+      <ul class="timeline" id="timeline"></ul>
+    </div>
+    <div class="card">
+      <h2>People, days and pay</h2>
+      <div class="tablewrap" id="rosterWrap"></div>
+      <p class="meta" style="margin-top:8px;">✓ signed &middot; ✕ the day closed without a signature &middot; Amount = rate &times; days signed.</p>
+      <div class="info" id="queryInfo" hidden></div>
+    </div>
+    <div class="card" id="actionCard">
+      <h2>Your decision</h2>
+      <label for="note" style="display:block; font-weight:700; font-size:12.5px; margin-bottom:4px;">Note <span style="font-weight:400; color:var(--muted);">(needed if you send it back)</span></label>
+      <input type="text" id="note" maxlength="500" autocomplete="off" placeholder="e.g. Checked against memo ICTA/DLP/2026/014">
+      <div class="actions">
+        <button type="button" class="good" id="certifyBtn" hidden>Certify this sheet</button>
+        <button type="button" class="good" id="verifyBtn" hidden>Verify for payment</button>
+        <button type="button" id="returnBtn" hidden>Send back to the preparer</button>
+      </div>
+      <p class="msg" id="actMsg" role="status" aria-live="polite"></p>
+      <p class="meta" id="noRights" hidden></p>
+    </div>
+  </div>
+</div>
+
+<script src="assets/api.js"></script>
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var me = null, current = null, flash = null;
+
+  function el(tag, cls, text){ var n = document.createElement(tag); if(cls) n.className = cls; if(text != null) n.textContent = text; return n; }
+  function say(id, text, cls){ var n = $(id); n.textContent = text || ''; n.className = 'msg' + (cls ? ' ' + cls : ''); }
+  function money(n){ return 'KES ' + Number(n || 0).toLocaleString('en-KE'); }
+  function when(iso, tz){ return iso ? new Date(iso).toLocaleString('en-GB', { timeZone: tz || 'Africa/Nairobi' }) : ''; }
+
+  var STEPS = [['OPEN', 'Collecting signatures'], ['SUBMITTED', 'Authorising officer'], ['CERTIFIED', 'Certified'], ['VERIFIED', 'Verified by finance']];
+  var STEP_WORD = { SUBMITTED: 'Submitted', CERTIFIED: 'Certified', VERIFIED: 'Verified', RETURNED: 'Returned' };
+  var CELL_TEXT = { SIGNED: '✓', OPEN: 'open', UPCOMING: '–', ABSENT: '✕' };
+
+  function requireSession(){
+    return API.get('/api/auth/me').then(function(r){
+      if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return null; }
+      var u = r.data.user;
+      if(u.role === 'SUPER_ADMIN') $('backLink').href = 'superadmin.html';
+      else if(u.role === 'COUNTY_ADMIN' && (u.paymentRole === 'AUTHORISER' || u.paymentRole === 'FINANCE')) $('backLink').href = 'admin.html';
+      else { location.href = homeFor(u.role); return null; }
+      return u;
+    });
+  }
+
+  // ---- The list ----
+  function row(s){
+    var r = el('div', 'row');
+    var left = el('div'); left.appendChild(el('div', 't', s.name));
+    left.appendChild(el('div', 's', s.county + ' county · prepared by ' + s.preparedBy + (s.authorityRef ? ' · ' + s.authorityRef : '')));
+    r.appendChild(left);
+    var st = el('div'); st.appendChild(el('span', 'pill ' + (s.waitingForMe ? 'me' : (s.stage === 'VERIFIED' ? 'ok' : '')), s.stageLabel)); r.appendChild(st);
+    r.appendChild(el('div', 's', s.people + (s.people === 1 ? ' person' : ' people')));
+    r.appendChild(el('div', 't', money(s.amount)));
+    var b = el('button', s.waitingForMe ? 'primary' : null, s.waitingForMe ? 'Review' : 'Open'); b.type = 'button';
+    b.addEventListener('click', function(){ location.hash = 'sheet=' + s.id; });
+    r.appendChild(b);
+    return r;
+  }
+
+  function loadList(){
+    return API.get('/api/duty-review/queue').then(function(r){
+      if(r.status !== 200 || !r.data.ok){ $('mineWrap').innerHTML = '<p class="empty">Could not load the sheets.</p>'; return; }
+      var mine = r.data.sheets.filter(function(s){ return s.waitingForMe; });
+      var rest = r.data.sheets.filter(function(s){ return !s.waitingForMe; });
+      var mw = $('mineWrap'); mw.textContent = '';
+      if(!mine.length) mw.appendChild(el('p', 'empty', 'Nothing is waiting for you right now.'));
+      mine.forEach(function(s){ mw.appendChild(row(s)); });
+      var ow = $('othersWrap'); ow.textContent = '';
+      if(!rest.length) ow.appendChild(el('p', 'empty', 'No other sheets have been submitted.'));
+      rest.forEach(function(s){ ow.appendChild(row(s)); });
+    }).catch(function(){ $('mineWrap').innerHTML = '<p class="empty">No connection. Reload to try again.</p>'; });
+  }
+
+  // ---- One sheet ----
+  function renderSheet(d){
+    current = d;
+    $('sheetName').textContent = d.event.name;
+    $('sheetMeta').textContent = d.event.county + ' county · prepared by ' + d.event.preparedBy + ' · authorised by ' + d.event.authorisedBy + ' · reference ' + d.event.authorityRef;
+    var idx = STEPS.map(function(s){ return s[0]; }).indexOf(d.stage);
+    var ol = $('steps'); ol.textContent = '';
+    STEPS.forEach(function(s, i){ ol.appendChild(el('li', i < idx ? 'done' : (i === idx ? 'now' : ''), (i < idx ? '✓ ' : '') + s[1])); });
+    var tl = $('timeline'); tl.textContent = '';
+    d.approvals.forEach(function(a){
+      var li = el('li');
+      li.appendChild(el('span', a.step === 'RETURNED' ? 'ret' : null, STEP_WORD[a.step] || a.step));
+      li.appendChild(el('span', 'who', ' by ' + a.by + ' · ' + when(a.at, d.event.timezone)));
+      if(a.note) li.appendChild(el('div', 'who', '“' + a.note + '”'));
+      if(a.sealCode){ var v = el('a', null, ' Check seal ' + a.sealCode); v.href = 'verify.html?code=' + encodeURIComponent(a.sealCode); v.target = '_blank'; v.rel = 'noopener'; li.appendChild(v); }
+      tl.appendChild(li);
+    });
+
+    var wrap = $('rosterWrap'); wrap.textContent = '';
+    var t = document.createElement('table');
+    var head = '<thead><tr><th class="c">No</th><th>Name</th><th>Role</th>';
+    d.days.forEach(function(day){ head += '<th class="c" title="' + escapeHtml(day.place || '') + '">Day ' + day.position + '</th>'; });
+    head += '<th class="num">Rate</th><th class="num">Days</th><th class="num">Amount</th></tr></thead>';
+    t.innerHTML = head;
+    var tb = document.createElement('tbody');
+    d.rows.forEach(function(r, i){
+      var tr = document.createElement('tr');
+      tr.appendChild(el('td', 'c', String(i + 1)));
+      var nm = el('td', 'name', r.name);
+      nm.appendChild(el('small', null, (r.payeeType === 'STAFF' ? 'Staff ' : 'ID ') + r.idNumber + (r.payeeType !== 'STAFF' && r.organisation ? ' · ' + r.organisation : '')));
+      tr.appendChild(nm);
+      tr.appendChild(el('td', null, r.jobRole || ''));
+      r.cells.forEach(function(c){ var td = el('td', 'c'); td.appendChild(el('span', 'cell ' + c.status, CELL_TEXT[c.status])); tr.appendChild(td); });
+      tr.appendChild(el('td', 'num', Number(r.ratePerDay).toLocaleString('en-KE')));
+      tr.appendChild(el('td', 'num', String(r.daysSigned)));
+      tr.appendChild(el('td', 'num', Number(r.amount).toLocaleString('en-KE')));
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    var tf = document.createElement('tfoot');
+    tf.innerHTML = '<tr><td colspan="' + (3 + d.days.length) + '">' + d.totals.people + (d.totals.people === 1 ? ' person' : ' people') + '</td><td></td><td class="num">' + d.totals.daysSigned + '</td><td class="num">' + Number(d.totals.amount).toLocaleString('en-KE') + '</td></tr>';
+    t.appendChild(tf); wrap.appendChild(t);
+
+    var qi = $('queryInfo');
+    qi.hidden = !d.openQueries;
+    if(d.openQueries) qi.textContent = d.openQueries + ' question' + (d.openQueries === 1 ? '' : 's') + ' from people on this sheet ' + (d.openQueries === 1 ? 'is' : 'are') + ' still open.';
+
+    $('certifyBtn').hidden = !d.canCertify;
+    $('verifyBtn').hidden = !d.canVerify;
+    $('returnBtn').hidden = !d.canReturn;
+    var none = !d.canCertify && !d.canVerify && !d.canReturn;
+    $('note').parentNode.hidden = false;
+    $('noRights').hidden = !none;
+    $('note').hidden = none;
+    document.querySelector('label[for=note]').hidden = none;
+    if(none) $('noRights').textContent = d.stage === 'VERIFIED' ? 'This sheet is fully approved.' : 'Nothing for you to do on this sheet at this stage. Whoever prepared or certified it cannot approve the next step.';
+    say('actMsg', flash || '', flash ? 'ok' : '');
+    flash = null;
+  }
+
+  function openSheet(id){
+    $('listView').hidden = true; $('sheetView').hidden = false;
+    $('sheetName').textContent = 'Loading…';
+    API.get('/api/duty-review/sheets/' + encodeURIComponent(id)).then(function(r){
+      if(r.status !== 200 || !r.data.ok){ $('sheetName').textContent = 'This sheet could not be opened.'; return; }
+      renderSheet(r.data); current.id = id;
+    }).catch(function(){ $('sheetName').textContent = 'No connection. Reload to try again.'; });
+  }
+
+  function act(path, confirmText, needNote){
+    var note = $('note').value.trim();
+    if(needNote && note.length < 5){ say('actMsg', 'Say what needs to be fixed, so the preparer knows.', 'err'); return; }
+    if(!window.confirm(confirmText)) return;
+    ['certifyBtn', 'verifyBtn', 'returnBtn'].forEach(function(b){ $(b).disabled = true; });
+    say('actMsg', 'Saving…');
+    API.post('/api/duty-review/sheets/' + encodeURIComponent(current.id) + '/' + path, { note: note }).then(function(r){
+      ['certifyBtn', 'verifyBtn', 'returnBtn'].forEach(function(b){ $(b).disabled = false; });
+      if(!r.data.ok){ say('actMsg', r.data.message || 'Could not save your decision.', 'err'); return; }
+      $('note').value = '';
+      flash = path === 'return' ? 'Sent back to the preparer.' : 'Recorded.';
+      openSheet(current.id);
+    }).catch(function(){ ['certifyBtn', 'verifyBtn', 'returnBtn'].forEach(function(b){ $(b).disabled = false; }); say('actMsg', 'No connection. Please try again.', 'err'); });
+  }
+  $('certifyBtn').addEventListener('click', function(){ act('certify', 'Certify this sheet? It is sealed as you see it now, and it goes to finance.', false); });
+  $('verifyBtn').addEventListener('click', function(){ act('verify', 'Verify this sheet for payment?', false); });
+  $('returnBtn').addEventListener('click', function(){ act('return', 'Send this sheet back to the preparer? Its approval starts again.', true); });
+
+  function route(){
+    var m = /^#sheet=(.+)$/.exec(location.hash);
+    if(m){ openSheet(decodeURIComponent(m[1])); return; }
+    $('sheetView').hidden = true; $('listView').hidden = false; loadList();
+  }
+  $('toList').addEventListener('click', function(e){ e.preventDefault(); location.hash = ''; if(!location.hash) route(); });
+  window.addEventListener('hashchange', route);
+
+  requireSession().then(function(u){ if(u){ me = u; route(); } });
+})();
+</script>
+</body>
+</html>
