@@ -3,6 +3,7 @@
 
 import { formatEventWhen } from './timezone.js';
 import { brandFromOrg, emailBrand } from './brand.js';
+import { prisma } from './prisma.js';
 
 // Sent over Brevo's HTTPS API rather than SMTP. Render's free web services
 // block all outbound traffic on the SMTP ports (25/465/587) as an
@@ -13,7 +14,25 @@ import { brandFromOrg, emailBrand } from './brand.js';
 // every transactional-email API rides on.
 const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email';
 
-async function sendViaBrevo({ to, subject, html, brand }) {
+// Notes whether an email went out, for the owner's health view. It keeps the kind and the
+// result, never the address: a failure message can mention the recipient, so anything that
+// looks like an address is taken out of it first.
+function recordDelivery(brand, kind, ok, message) {
+  const error = ok ? null : String(message || 'failed').replace(/[\w.+-]+@[\w.-]+/g, '[address]').slice(0, 200);
+  prisma.emailDelivery.create({ data: { organisationSlug: brand ? brand.slug : null, kind: kind || 'other', ok, error } }).catch(() => {});
+}
+
+async function sendViaBrevo({ to, subject, html, brand, kind }) {
+  try {
+    await sendViaBrevoRaw({ to, subject, html, brand });
+    recordDelivery(brand, kind, true);
+  } catch (err) {
+    recordDelivery(brand, kind, false, err.message);
+    throw err;
+  }
+}
+
+async function sendViaBrevoRaw({ to, subject, html, brand }) {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) throw new Error('BREVO_API_KEY is not configured');
 
@@ -83,7 +102,7 @@ export async function sendActivationEmail(toEmail, activateUrl, county, departme
     <p style="margin:22px 0;"><a href="${activateUrl}" style="background:${brand.accent};color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Activate your account</a></p>
     <p style="font-size:11.5px;color:#888;">If the button doesn't work, copy this link: ${activateUrl}</p>
   `);
-  await sendViaBrevo({ to: toEmail, subject: `Activate your ${brand.orgName} account`, html, brand });
+  await sendViaBrevo({ to: toEmail, subject: `Activate your ${brand.orgName} account`, html, brand, kind: 'activation' });
 }
 
 export async function sendPasswordResetEmail(toEmail, resetUrl, brandIn = null) {
@@ -95,7 +114,7 @@ export async function sendPasswordResetEmail(toEmail, resetUrl, brandIn = null) 
     <p style="font-size:11.5px;color:#888;">If you didn't request this, you can safely ignore this email — your password will not change.</p>
     <p style="font-size:11.5px;color:#888;">If the button doesn't work, copy this link: ${resetUrl}</p>
   `);
-  await sendViaBrevo({ to: toEmail, subject: `Reset your ${brand.orgName} password`, html, brand });
+  await sendViaBrevo({ to: toEmail, subject: `Reset your ${brand.orgName} password`, html, brand, kind: 'reset' });
 }
 
 // Attendee-facing, so unlike the two admin emails above this carries no
@@ -218,7 +237,7 @@ export async function sendAttendanceConfirmationEmail(toEmail, details, brandIn 
   </div>
 </body></html>`;
 
-  await sendViaBrevo({ to: toEmail, subject: `You're on record — ${eventName}${dayTag ? ' (' + dayTag + ')' : ''}`, html, brand });
+  await sendViaBrevo({ to: toEmail, subject: `You're on record — ${eventName}${dayTag ? ' (' + dayTag + ')' : ''}`, html, brand, kind: 'confirmation' });
 }
 
 // Sent to the platform admin each day. Its whole value is that it sits in an
