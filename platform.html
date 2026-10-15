@@ -66,6 +66,27 @@
   .help{ font-size:13px; color:var(--c-muted); margin:0 0 16px; line-height:1.55; max-width:70ch; }
   .note{ font-size:13px; padding:11px 14px; border-radius:var(--r-md); margin-top:14px; }
   .note.ok{ background:var(--c-ok-wash); border:1px solid #b7e0c7; color:#084d27; }
+  .brand-grid{ display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:0 36px; }
+  .brand-grid label{ display:block; }
+  .opt{ font-weight:400; color:var(--c-muted); }
+  .colour-row{ display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+  .colour-row input[type=color]{ width:46px; height:38px; padding:2px; border:1px solid var(--c-line); border-radius:var(--r-md); background:#fff; margin:0; }
+  .colour-row input{ margin:0; }
+  .colour-row button{ margin:0; }
+  .contrast{ font-size:12.5px; font-weight:600; }
+  .contrast.good{ color:var(--c-ok); }
+  .contrast.bad{ color:var(--c-accent-dark); }
+  .logo-box{ width:120px; height:120px; border:1px dashed var(--c-line-strong); border-radius:var(--r-md); display:flex; align-items:center; justify-content:center; background:#fff; }
+  .logo-box img{ max-width:96px; max-height:96px; object-fit:contain; }
+  .letter-prev{ border:1px solid var(--c-line); border-radius:var(--r-md); padding:16px 18px; background:#fff; max-width:420px; }
+  .lp-top{ display:flex; justify-content:space-between; gap:14px; align-items:flex-start; }
+  .lp-text{ font-size:12px; color:#444; line-height:1.45; }
+  .lp-text strong{ display:block; font-size:14px; color:#111; }
+  .lp-top img{ width:44px; height:44px; object-fit:contain; }
+  .lp-bar{ height:3px; width:64px; background:var(--c-accent); margin:12px 0; }
+  .lp-row{ display:flex; gap:14px; align-items:center; font-size:12.5px; }
+  .lp-btn{ background:var(--c-accent); color:#fff; padding:7px 14px; border-radius:6px; font-weight:600; }
+  .lp-link{ color:var(--c-accent); font-weight:600; }
   .note.err{ background:var(--c-accent-wash); border:1px solid #f3b9c3; color:#7a0a1e; }
 </style>
 
@@ -128,6 +149,7 @@
       <a class="nav-item" href="#audit" data-nav="audit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Audit trail</span></a>
       <a class="nav-item" href="#integrity" data-nav="integrity"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3zM9 12l2 2 4-4"/></svg><span>Integrity</span></a>
       <div class="nav-group">Settings</div>
+      <a class="nav-item" href="#branding" data-nav="branding"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.2 0 2-.8 2-1.8 0-.6-.3-1-.6-1.4-.3-.4-.4-.7-.4-1.1 0-.9.7-1.7 1.7-1.7H17a4 4 0 0 0 4-4C21 6.5 17 3 12 3zM7.5 12a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM10 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM15 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg><span>Branding</span></a>
       <a class="nav-item" href="#profile" data-nav="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Profile</span></a>
     </nav>
     <button type="button" id="logoutBtn" class="side-logout">Log out</button>
@@ -249,6 +271,50 @@
       </div>
     </section>
 
+    <!-- Branding -->
+    <section class="view" data-view="branding" data-title="Branding">
+      <div class="sheet wide">
+        <h2 class="section">How your organisation looks</h2>
+        <p class="help">Your name, logo and colour appear on the sign-in pages, printed sheets, certificates, the verification page and the emails your people and attendees receive. Anything you leave empty uses the platform default.</p>
+        <div class="brand-grid">
+          <div>
+            <label for="bName">Name on printouts and emails</label>
+            <input type="text" id="bName" maxlength="100" autocomplete="off">
+            <label for="bAddress">Address <span class="opt">(up to four lines, shown on printed sheets)</span></label>
+            <textarea id="bAddress" rows="4" maxlength="400" style="width:100%; margin-bottom:12px;"></textarea>
+            <div class="form-grid">
+              <div><label for="bPhone">Phone</label><input type="text" id="bPhone" maxlength="30" autocomplete="off"></div>
+              <div><label for="bSite">Website</label><input type="text" id="bSite" maxlength="120" autocomplete="off" placeholder="https://"></div>
+            </div>
+            <label for="bColour">Accent colour</label>
+            <div class="colour-row">
+              <input type="color" id="bColourPick" aria-label="Pick a colour">
+              <input type="text" id="bColour" maxlength="7" autocomplete="off" placeholder="#c8102e" style="max-width:130px;">
+              <span id="bContrast" class="contrast"></span>
+              <button type="button" id="bColourReset">Use the default</button>
+            </div>
+            <button class="primary" id="bSave" style="margin-top:6px;">Save branding</button>
+            <p class="note err" id="bErr" style="display:none;"></p>
+            <p class="note ok" id="bOk" style="display:none;"></p>
+          </div>
+          <div>
+            <label>Logo</label>
+            <div class="logo-box"><img id="bLogoImg" alt="Your logo" width="96" height="96"></div>
+            <p class="help" style="margin:8px 0;">PNG, JPEG or WebP, up to 300 KB. A square or wide image on a plain background works best. Without one, a round badge with your initials is used.</p>
+            <input type="file" id="bLogoFile" accept="image/png,image/jpeg,image/webp" style="display:none;">
+            <div class="toolbar-row"><button type="button" id="bLogoPick">Choose a logo…</button><button type="button" id="bLogoRemove">Remove logo</button></div>
+            <p class="note err" id="bLogoErr" style="display:none;"></p>
+            <h2 class="section" style="margin-top:22px;">Preview</h2>
+            <div class="letter-prev" id="prev">
+              <div class="lp-top"><div class="lp-text"><strong id="pName"></strong><div id="pAddr"></div><div id="pContact"></div></div><img id="pLogo" alt="" width="44" height="44"></div>
+              <div class="lp-bar"></div>
+              <div class="lp-row"><span class="lp-btn">Activate your account</span><span class="lp-link">A link in your colour</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Profile -->
     <section class="view" data-view="profile" data-title="Profile">
       <div class="sheet wide">
@@ -271,7 +337,7 @@
   applyTopbarBranding('Platform Admin');
 
   var whoEmail = document.getElementById('whoEmail');
-  var VIEWS = ['overview', 'departments', 'admins', 'add', 'audit', 'integrity', 'profile'];
+  var VIEWS = ['overview', 'departments', 'admins', 'add', 'audit', 'integrity', 'branding', 'profile'];
   var currentView = null;
 
   // --- Sidebar sections: one view at a time, addressable by #hash ---
@@ -304,6 +370,7 @@
     currentView = name;
     if(changed && name === 'audit') loadAudit();
     if(changed && name === 'integrity') showAnchorStatus();
+    if(changed && name === 'branding') loadBranding();
   }
   navToggle.addEventListener('click', function(){
     var open = !sidenav.classList.contains('open');
@@ -794,6 +861,77 @@
       if(d.hashMismatches || d.linkBreaks) msg += ' Whole-trail scan: ' + d.hashMismatches + ' altered entr' + (d.hashMismatches === 1 ? 'y' : 'ies') + ', ' + d.linkBreaks + ' break(s) in the chain order.';
       say(d.intactUpToAnchor ? 'ok' : 'bad', msg);
     }).catch(function(){ say('bad', NET_ERR); });
+  });
+
+  // --- Branding ---
+  var bEls = { name: $('bName'), addr: $('bAddress'), phone: $('bPhone'), site: $('bSite'), colour: $('bColour'), pick: $('bColourPick') };
+  var currentBrand = null;
+  function $(id){ return document.getElementById(id); }
+
+  function luminance(hex){
+    var n = parseInt(hex.slice(1), 16), c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(function(v){ v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  }
+  function contrastWithWhite(hex){ return 1.05 / (luminance(hex) + 0.05); }
+  function normHex(v){ var m = /^#?([0-9a-f]{6})$/i.exec((v || '').trim()); return m ? '#' + m[1].toLowerCase() : null; }
+
+  function renderPreview(){
+    var hex = normHex(bEls.colour.value) || (currentBrand && currentBrand.accent) || '#c8102e';
+    var ok = !!normHex(bEls.colour.value);
+    var c = $('bContrast');
+    if(!bEls.colour.value.trim()){ c.textContent = 'Using the default colour'; c.className = 'contrast'; }
+    else if(!ok){ c.textContent = 'Six digits, like #c8102e'; c.className = 'contrast bad'; }
+    else { var r = contrastWithWhite(hex); c.textContent = r >= 4.5 ? 'Readable with white text' : 'Too light for white text'; c.className = 'contrast ' + (r >= 4.5 ? 'good' : 'bad'); }
+    $('prev').style.setProperty('--c-accent', hex);
+    if(ok) bEls.pick.value = hex;
+    $('pName').textContent = bEls.name.value.trim() || (currentBrand ? currentBrand.orgName : '');
+    $('pAddr').textContent = bEls.addr.value.split(/\r?\n/).map(function(l){ return l.trim(); }).filter(Boolean).join(' · ');
+    $('pContact').textContent = [bEls.phone.value.trim() ? 'Tel: ' + bEls.phone.value.trim() : '', bEls.site.value.trim().replace(/^https?:\/\//, '')].filter(Boolean).join(' · ');
+  }
+
+  function showBrand(r){
+    currentBrand = r.brand;
+    var b = r.branding || {};
+    bEls.name.value = b.displayName || ''; bEls.addr.value = b.address || ''; bEls.phone.value = b.phone || ''; bEls.site.value = b.website || ''; bEls.colour.value = b.accentColor || '';
+    $('bLogoImg').src = r.brand.logoUrl; $('pLogo').src = r.brand.logoUrl;
+    $('bLogoRemove').style.display = b.hasLogo ? '' : 'none';
+    renderPreview();
+  }
+  function loadBranding(){
+    API.get('/api/platform/branding').then(function(r){ if(r.status === 200 && r.data.ok) showBrand(r.data); }).catch(function(){});
+  }
+  ['name', 'addr', 'phone', 'site', 'colour'].forEach(function(k){ bEls[k].addEventListener('input', renderPreview); });
+  bEls.pick.addEventListener('input', function(){ bEls.colour.value = bEls.pick.value; renderPreview(); });
+  $('bColourReset').addEventListener('click', function(){ bEls.colour.value = ''; renderPreview(); });
+
+  $('bSave').addEventListener('click', function(){
+    var btn = this, err = $('bErr'), ok = $('bOk'); err.style.display = 'none'; ok.style.display = 'none';
+    btn.disabled = true;
+    API.put('/api/platform/branding', { displayName: bEls.name.value, address: bEls.addr.value, phone: bEls.phone.value, website: bEls.site.value, accentColor: bEls.colour.value }).then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ err.textContent = r.data.message || 'Could not save.'; err.style.display = ''; return; }
+      ok.textContent = 'Saved. Your pages and emails now use this look.'; ok.style.display = '';
+      try{ Object.keys(localStorage).forEach(function(k){ if(k.indexOf('brand:v1:') === 0) localStorage.removeItem(k); }); }catch(e){}
+      loadBranding();
+    }).catch(function(){ btn.disabled = false; err.textContent = NET_ERR; err.style.display = ''; });
+  });
+
+  $('bLogoPick').addEventListener('click', function(){ $('bLogoFile').click(); });
+  $('bLogoFile').addEventListener('change', function(){
+    var f = this.files && this.files[0], err = $('bLogoErr'); err.style.display = 'none';
+    if(!f) return;
+    if(['image/png', 'image/jpeg', 'image/webp'].indexOf(f.type) === -1){ err.textContent = 'Choose a PNG, JPEG or WebP image.'; err.style.display = ''; return; }
+    if(f.size > 300 * 1024){ err.textContent = 'That image is ' + Math.round(f.size / 1024) + ' KB. It must be 300 KB or smaller.'; err.style.display = ''; return; }
+    fetch('/api/platform/branding/logo', { method: 'PUT', credentials: 'include', headers: { 'Content-Type': f.type }, body: f }).then(function(res){ return res.json(); }).then(function(d){
+      if(!d.ok){ err.textContent = d.message || 'Could not upload that image.'; err.style.display = ''; return; }
+      try{ Object.keys(localStorage).forEach(function(k){ if(k.indexOf('brand:v1:') === 0) localStorage.removeItem(k); }); }catch(e){}
+      loadBranding();
+    }).catch(function(){ err.textContent = NET_ERR; err.style.display = ''; });
+    this.value = '';
+  });
+  $('bLogoRemove').addEventListener('click', function(){
+    if(!window.confirm('Remove your logo? A round badge with your initials will be used instead.')) return;
+    API.del('/api/platform/branding/logo').then(function(){ loadBranding(); }).catch(function(){});
   });
 
   requireSession().then(function(user){
