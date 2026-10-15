@@ -37,7 +37,7 @@ export function billingState(paidUntil, now = Date.now()) {
   if (!paidUntil) return { state: 'NOT_SET', days: null };
   const diff = new Date(paidUntil).getTime() - now;
   const days = Math.ceil(diff / DAY_MS);
-  if (diff < 0) return { state: 'OVERDUE', days: Math.abs(Math.floor(diff / DAY_MS)) };
+  if (diff < 0) return { state: 'OVERDUE', days: Math.floor(Math.abs(diff) / DAY_MS) };
   if (days <= DUE_SOON_DAYS) return { state: 'DUE_SOON', days };
   return { state: 'PAID', days };
 }

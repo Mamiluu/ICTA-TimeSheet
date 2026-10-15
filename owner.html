@@ -43,6 +43,7 @@
   .pill{ display:inline-block; font-size:12px; font-weight:700; padding:2px 10px; border-radius:999px; background:#eee9dc; color:var(--muted); }
   .pill.ok{ background:#e0f1e6; color:var(--ok); }
   .pill.bad{ background:#f6e1e5; color:var(--bad); }
+  .pill.warn{ background:#fdf0d4; color:var(--warn); }
   .acts{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
   .form{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px 12px; align-items:end; }
   .help{ color:var(--muted); font-size:12.5px; margin:8px 0 0; }
@@ -113,6 +114,20 @@
     var s = el('div', 'stat'); s.appendChild(el('div', 'l', label)); s.appendChild(el('div', 'v', String(value))); if(sub) s.appendChild(el('div', 's', sub)); return s;
   }
 
+  // Whether the organisation has paid, in words. Only shown once billing is set up for it.
+  function billingLine(o){
+    var line = el('div', 'm');
+    var b = o.billing || { state: 'NOT_SET' };
+    var pill;
+    if(b.state === 'NOT_SET'){ line.appendChild(el('span', null, 'No billing set up')); return line; }
+    var until = new Date(o.paidUntil).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    if(b.state === 'PAID') pill = el('span', 'pill ok', 'Paid until ' + until);
+    else if(b.state === 'DUE_SOON') pill = el('span', 'pill warn', 'Due ' + (b.days <= 0 ? 'today' : 'in ' + b.days + (b.days === 1 ? ' day' : ' days')) + ' (' + until + ')');
+    else pill = el('span', 'pill bad', 'Overdue' + (b.days ? ' by ' + b.days + (b.days === 1 ? ' day' : ' days') : '') + ' (was ' + until + ')');
+    line.appendChild(pill);
+    return line;
+  }
+
   function render(orgs){
     var stats = $('stats'); stats.textContent = '';
     var active = orgs.filter(function(o){ return o.status === 'ACTIVE'; }).length;
@@ -131,6 +146,7 @@
       head.appendChild(document.createTextNode(' '));
       head.appendChild(el('span', 'pill ' + (o.status === 'ACTIVE' ? 'ok' : 'bad'), o.status === 'ACTIVE' ? 'Active' : 'Suspended'));
       left.appendChild(head);
+      left.appendChild(billingLine(o));
       left.appendChild(el('div', 'm', o.slug + ' · ' + o.plan.toLowerCase() + ' plan · added ' + new Date(o.createdAt).toLocaleDateString('en-GB')));
       left.appendChild(el('div', 'm', 'Last activity ' + ago(o.lastActivityAt) + ' · last login ' + ago(o.lastLoginAt) + (o.orgAdminsActive === 0 ? ' · administrator has not activated yet' : '')));
       row.appendChild(left);
@@ -147,6 +163,9 @@
         link.addEventListener('click', function(){ copyLink(o, link); });
         acts.appendChild(link);
       }
+      var pay = el('button', (o.billing && o.billing.state === 'OVERDUE') ? 'primary' : null, 'Record payment'); pay.type = 'button';
+      pay.addEventListener('click', function(){ recordPayment(o, pay); });
+      acts.appendChild(pay);
       var tog = el('button', o.status === 'ACTIVE' ? 'danger' : 'primary', o.status === 'ACTIVE' ? 'Suspend' : 'Resume'); tog.type = 'button';
       tog.addEventListener('click', function(){ toggle(o, tog); });
       acts.appendChild(tog);
@@ -173,11 +192,25 @@
     }).catch(function(){ btn.disabled = false; window.alert('No connection. Please try again.'); });
   }
 
+  function recordPayment(o, btn){
+    var m = window.prompt('How many months has ' + o.name + ' paid for?', '1');
+    if(m == null) return;
+    var months = parseInt(m, 10);
+    if(!months || months < 1 || months > 24){ window.alert('Enter a whole number of months, from 1 to 24.'); return; }
+    var note = window.prompt('A note for your records (optional), for example the M-Pesa reference:', '') || '';
+    btn.disabled = true;
+    API.post('/api/owner/organisations/' + encodeURIComponent(o.id) + '/payment', { months: months, note: note }).then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ window.alert(r.data.message || 'Could not record the payment.'); return; }
+      load();
+    }).catch(function(){ btn.disabled = false; window.alert('No connection. Please try again.'); });
+  }
+
   function toggle(o, btn){
     var suspend = o.status === 'ACTIVE';
     var body = {};
     if(suspend){
-      var why = window.prompt('Suspending ' + o.name + ' signs everyone in it out and stops them logging in. Nothing is deleted.\n\nWhy are you suspending it?');
+      var why = window.prompt('Suspending ' + o.name + ' signs everyone in it out and stops them logging in. Nothing is deleted.\n\nWhy are you suspending it?', (o.billing && o.billing.state === 'OVERDUE') ? 'Non-payment' : '');
       if(!why) return; body.reason = why;
     } else if(!window.confirm('Resume ' + o.name + '? Its people will be able to log in again.')) return;
     btn.disabled = true;
