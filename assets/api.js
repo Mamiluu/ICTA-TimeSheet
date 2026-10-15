@@ -117,6 +117,12 @@ var AUDIT_ACTION_META = {
   ADMIN_DISABLE: { label: 'Disabled admin', tone: 'danger' },
   ADMIN_REACTIVATE: { label: 'Reactivated admin', tone: 'positive' },
   ADMIN_DELETE: { label: 'Deleted admin', tone: 'danger' },
+  ADMIN_ACCESS_CHANGED: { label: 'Changed admin access', tone: 'warning' },
+  DUTY_PAYEE_ADDED: { label: 'Added to payment sheet', tone: 'positive' },
+  DUTY_PAYEE_UPDATED: { label: 'Updated payment details', tone: 'neutral' },
+  DUTY_PAYEE_REMOVED: { label: 'Removed from payment sheet', tone: 'danger' },
+  DUTY_ROLL_PRINTED: { label: 'Printed payment sheet', tone: 'info' },
+  DUTY_ROLL_EXPORTED: { label: 'Exported payment schedule', tone: 'info' },
   SUPER_ADMIN_CREATE: { label: 'Created super admin', tone: 'positive' },
   SUPER_ADMIN_ACTIVATION_LINK_VIEWED: { label: 'Viewed activation link', tone: 'neutral' },
   SUPER_ADMIN_DISABLE: { label: 'Disabled super admin', tone: 'danger' },
@@ -213,6 +219,16 @@ function auditSummary(e){
       return escapeHtml(m.county || '');
     case 'ADMIN_DELETE':
       return escapeHtml(m.email || '') + (m.county ? ' (' + escapeHtml(m.county) + ')' : '');
+    case 'ADMIN_ACCESS_CHANGED':
+      return escapeHtml(m.from || '') + ' → ' + escapeHtml(m.to || '');
+    case 'DUTY_PAYEE_ADDED':
+    case 'DUTY_PAYEE_REMOVED':
+      return escapeHtml(m.name || '') + (m.reason ? ' — “' + escapeHtml(m.reason) + '”' : '');
+    case 'DUTY_PAYEE_UPDATED':
+      return escapeHtml(m.name || '') + (m.before && m.after && m.before.ratePerDay !== m.after.ratePerDay ? ': rate ' + m.before.ratePerDay + ' → ' + m.after.ratePerDay : '');
+    case 'DUTY_ROLL_PRINTED':
+    case 'DUTY_ROLL_EXPORTED':
+      return '“' + escapeHtml(m.name || '') + '” — ' + (m.rowCount != null ? m.rowCount : '?') + (m.rowCount === 1 ? ' person' : ' people');
     case 'SUPER_ADMIN_CREATE':
       return escapeHtml(m.department || '');
     case 'SUPER_ADMIN_DISABLE':

@@ -11,6 +11,7 @@ import { sendActivationEmail } from '../lib/mailer.js';
 import { writeAudit } from '../lib/audit.js';
 import { KENYA_COUNTIES, MAX_ACTIVE_COUNTY_ADMINS } from '../lib/constants.js';
 import { pagedAudit } from '../lib/auditPage.js';
+import { ACCESS_LEVELS } from '../lib/duty.js';
 import { isValidEmailShape } from '../lib/normalize.js';
 import { ah } from '../lib/asyncHandler.js';
 import { logger } from '../lib/logger.js';
@@ -36,6 +37,7 @@ function publicAdmin(u) {
     email: u.email,
     county: u.county,
     status: u.status,
+    access: u.access,
     createdAt: u.createdAt,
     disabledAt: u.disabledAt,
     lastLoginAt: u.lastLoginAt
@@ -107,6 +109,9 @@ superadminRouter.post('/admins', ah(async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   const county = String(req.body.county || '').trim();
   if (!isValidEmailShape(email)) return res.status(400).json({ ok: false, error: 'INVALID_EMAIL' });
+  // Which kinds of event this person may use. Attendance sheets unless told otherwise.
+  const access = req.body.access === undefined ? 'ATTENDANCE' : req.body.access;
+  if (!ACCESS_LEVELS.includes(access)) return res.status(400).json({ ok: false, error: 'INVALID_ACCESS' });
   if (!county || !KENYA_COUNTIES.includes(county)) {
     return res.status(400).json({ ok: false, error: 'INVALID_COUNTY' });
   }
@@ -125,7 +130,7 @@ superadminRouter.post('/admins', ah(async (req, res) => {
   try {
     admin = await prisma.user.create({
       // A county admin belongs to the department of the super admin who creates them.
-      data: { email, county, role: 'COUNTY_ADMIN', status: 'PENDING', createdById: req.user.id, departmentId: req.user.departmentId }
+      data: { email, county, access, role: 'COUNTY_ADMIN', status: 'PENDING', createdById: req.user.id, departmentId: req.user.departmentId }
     });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
@@ -146,7 +151,7 @@ superadminRouter.post('/admins', ah(async (req, res) => {
   const raw = await issueToken(admin.id, 'ACTIVATION');
   const activateUrl = `${process.env.PUBLIC_APP_URL}/activate.html?token=${encodeURIComponent(raw)}`;
   sendActivationEmailBestEffort(admin.email, activateUrl, admin.county);
-  await writeAudit({ actorId: req.user.id, action: 'ADMIN_CREATE', targetType: 'User', targetId: admin.id, metadata: { county }, req });
+  await writeAudit({ actorId: req.user.id, action: 'ADMIN_CREATE', targetType: 'User', targetId: admin.id, metadata: { county, access }, req });
 
   res.json({ ok: true, admin: publicAdmin(admin) });
 }));
@@ -169,6 +174,20 @@ superadminRouter.post('/admins/:id/activation-link', ah(async (req, res) => {
   await writeAudit({ actorId: req.user.id, action: 'ADMIN_ACTIVATION_LINK_VIEWED', targetType: 'User', targetId: admin.id, req });
 
   res.json({ ok: true, url: activateUrl });
+}));
+
+// Changes which kinds of event this admin can see and run. Takes effect on their
+// next request; nothing they already created is deleted.
+superadminRouter.patch('/admins/:id/access', ah(async (req, res) => {
+  const admin = await findCountyAdmin(req);
+  if (!admin) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const access = req.body.access;
+  if (!ACCESS_LEVELS.includes(access)) return res.status(400).json({ ok: false, error: 'INVALID_ACCESS' });
+  if (access === admin.access) return res.json({ ok: true, admin: publicAdmin(admin) });
+
+  const updated = await prisma.user.update({ where: { id: admin.id }, data: { access } });
+  await writeAudit({ actorId: req.user.id, action: 'ADMIN_ACCESS_CHANGED', targetType: 'User', targetId: admin.id, metadata: { from: admin.access, to: access }, req });
+  res.json({ ok: true, admin: publicAdmin(updated) });
 }));
 
 superadminRouter.post('/admins/:id/disable', ah(async (req, res) => {
