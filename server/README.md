@@ -79,6 +79,17 @@ A `render.yaml` blueprint at the repo root does most of this for you.
   the API, has every account of one try to reach the other's data, and fails on anything that
   is not refused. Run it against a test database after any change that touches who can see what
   (start the server with `LOGIN_RATE_LIMIT=100`).
+- Branding: each organisation sets its own name, address, phone, website, accent colour (checked for
+  readable contrast with white text) and logo (PNG, JPEG or WebP up to 300 KB, judged by its bytes;
+  SVG is refused because it can carry script) at `platform.html`, Branding. Without a logo an
+  organisation gets a round badge with its initials. `GET /api/branding` returns the look for the
+  page asking (`?org=`, `?event=`, `?code=`, or the person signed in), and `assets/brand.js` applies
+  it to every page, so the pages stay written once. Emails, printed sheets and the verify page use it
+  too. Anything an organisation has not filled in falls back to the platform default, but another
+  organisation never inherits ICT Authority's address or contact details.
+- Billing: the owner records payments by hand (`paidUntil` on the organisation) at `owner.html`; the
+  console shows paid, due soon or overdue, and the owner decides whether to suspend. Nothing is
+  suspended automatically.
 - Roles: `OWNER` (the platform operator), `PLATFORM_ADMIN` (shown as "Organisation admin"; an
   organisation's own top account) (departments and their super admins, organisation-wide
   totals, audit trail and integrity checks; never attendee details) →
