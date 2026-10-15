@@ -11,7 +11,7 @@ import { sendActivationEmail } from '../lib/mailer.js';
 import { writeAudit } from '../lib/audit.js';
 import { KENYA_COUNTIES, MAX_ACTIVE_COUNTY_ADMINS } from '../lib/constants.js';
 import { pagedAudit } from '../lib/auditPage.js';
-import { ACCESS_LEVELS } from '../lib/duty.js';
+import { ACCESS_LEVELS, PAYMENT_ROLES } from '../lib/duty.js';
 import { isValidEmailShape } from '../lib/normalize.js';
 import { ah } from '../lib/asyncHandler.js';
 import { logger } from '../lib/logger.js';
@@ -38,6 +38,7 @@ function publicAdmin(u) {
     county: u.county,
     status: u.status,
     access: u.access,
+    paymentRole: u.paymentRole,
     createdAt: u.createdAt,
     disabledAt: u.disabledAt,
     lastLoginAt: u.lastLoginAt
@@ -112,6 +113,8 @@ superadminRouter.post('/admins', ah(async (req, res) => {
   // Which kinds of event this person may use. Attendance sheets unless told otherwise.
   const access = req.body.access === undefined ? 'ATTENDANCE' : req.body.access;
   if (!ACCESS_LEVELS.includes(access)) return res.status(400).json({ ok: false, error: 'INVALID_ACCESS' });
+  const paymentRole = req.body.paymentRole === undefined ? 'PREPARER' : req.body.paymentRole;
+  if (!PAYMENT_ROLES.includes(paymentRole)) return res.status(400).json({ ok: false, error: 'INVALID_PAYMENT_ROLE' });
   if (!county || !KENYA_COUNTIES.includes(county)) {
     return res.status(400).json({ ok: false, error: 'INVALID_COUNTY' });
   }
@@ -130,7 +133,7 @@ superadminRouter.post('/admins', ah(async (req, res) => {
   try {
     admin = await prisma.user.create({
       // A county admin belongs to the department of the super admin who creates them.
-      data: { email, county, access, role: 'COUNTY_ADMIN', status: 'PENDING', createdById: req.user.id, departmentId: req.user.departmentId }
+      data: { email, county, access, paymentRole, role: 'COUNTY_ADMIN', status: 'PENDING', createdById: req.user.id, departmentId: req.user.departmentId }
     });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
@@ -151,7 +154,7 @@ superadminRouter.post('/admins', ah(async (req, res) => {
   const raw = await issueToken(admin.id, 'ACTIVATION');
   const activateUrl = `${process.env.PUBLIC_APP_URL}/activate.html?token=${encodeURIComponent(raw)}`;
   sendActivationEmailBestEffort(admin.email, activateUrl, admin.county);
-  await writeAudit({ actorId: req.user.id, action: 'ADMIN_CREATE', targetType: 'User', targetId: admin.id, metadata: { county, access }, req });
+  await writeAudit({ actorId: req.user.id, action: 'ADMIN_CREATE', targetType: 'User', targetId: admin.id, metadata: { county, access, paymentRole }, req });
 
   res.json({ ok: true, admin: publicAdmin(admin) });
 }));
@@ -183,10 +186,12 @@ superadminRouter.patch('/admins/:id/access', ah(async (req, res) => {
   if (!admin) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
   const access = req.body.access;
   if (!ACCESS_LEVELS.includes(access)) return res.status(400).json({ ok: false, error: 'INVALID_ACCESS' });
-  if (access === admin.access) return res.json({ ok: true, admin: publicAdmin(admin) });
+  const paymentRole = req.body.paymentRole === undefined ? admin.paymentRole : req.body.paymentRole;
+  if (!PAYMENT_ROLES.includes(paymentRole)) return res.status(400).json({ ok: false, error: 'INVALID_PAYMENT_ROLE' });
+  if (access === admin.access && paymentRole === admin.paymentRole) return res.json({ ok: true, admin: publicAdmin(admin) });
 
-  const updated = await prisma.user.update({ where: { id: admin.id }, data: { access } });
-  await writeAudit({ actorId: req.user.id, action: 'ADMIN_ACCESS_CHANGED', targetType: 'User', targetId: admin.id, metadata: { from: admin.access, to: access }, req });
+  const updated = await prisma.user.update({ where: { id: admin.id }, data: { access, paymentRole } });
+  await writeAudit({ actorId: req.user.id, action: 'ADMIN_ACCESS_CHANGED', targetType: 'User', targetId: admin.id, metadata: { from: admin.access, to: access, fromRole: admin.paymentRole, toRole: paymentRole }, req });
   res.json({ ok: true, admin: publicAdmin(updated) });
 }));
 

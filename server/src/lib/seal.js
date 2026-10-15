@@ -79,7 +79,19 @@ export async function buildEventSnapshot(event, days) {
   const ordered = [...days].sort((a, b) => a.position - b.position);
   const snaps = [];
   for (const day of ordered) snaps.push(await buildDaySnapshot(event, day));
-  return assembleEventSnapshot(event, snaps);
+  const snapshot = assembleEventSnapshot(event, snaps);
+  // A payment sheet also seals what each person is paid per day, so changing a rate
+  // after certification shows on the verify page as a change since sealing. ID
+  // numbers go in as hashes only.
+  if (event.kind === 'DUTY_ROLL') {
+    const payees = await prisma.dutyPayee.findMany({
+      where: { eventId: event.id },
+      orderBy: { attendanceId: 'asc' },
+      select: { attendanceId: true, payeeType: true, ratePerDay: true, idNumber: true }
+    });
+    snapshot.pay = payees.map((p) => ({ attendanceId: p.attendanceId, payeeType: p.payeeType, ratePerDay: p.ratePerDay, idNumberSha256: sha256Hex(p.idNumber) }));
+  }
+  return snapshot;
 }
 
 // What the public verify page may show about a stored snapshot: counts only.

@@ -23,6 +23,7 @@ describe('publicUser', () => {
       role: 'SUPER_ADMIN',
       county: null,
       access: 'BOTH',
+      paymentRole: null,
       department: { id: 'd1', name: 'Finance & Accounting' }
     });
     assert.doesNotMatch(JSON.stringify(v), /secret-hash|slug/);
@@ -32,6 +33,11 @@ describe('publicUser', () => {
     assert.equal(publicUser({ ...user, role: 'COUNTY_ADMIN', access: 'PAYMENT' }).access, 'PAYMENT');
     assert.equal(publicUser({ ...user, role: 'COUNTY_ADMIN' }).access, 'ATTENDANCE');
     assert.equal(publicUser({ ...user, role: 'PLATFORM_ADMIN', department: null }).access, null);
+  });
+
+  test('a county admin carries their payment role', () => {
+    assert.equal(publicUser({ ...user, role: 'COUNTY_ADMIN', paymentRole: 'FINANCE' }).paymentRole, 'FINANCE');
+    assert.equal(publicUser({ ...user, role: 'COUNTY_ADMIN' }).paymentRole, 'PREPARER');
   });
 
   test('an account with no department, such as the platform admin, has none', () => {

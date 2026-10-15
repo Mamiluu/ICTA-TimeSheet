@@ -18,6 +18,7 @@ import { sanitizeScanTime, indexByIdHash, resolveAttendee, sha256Hex } from '../
 import { notifyDaySigned } from './public.js';
 import { kindsFor, canAccessKind, cleanAuthority } from '../lib/duty.js';
 import { registerDutyRoutes } from './adminDuty.js';
+import { sheetIsOpen } from '../lib/duty.js';
 import QRCode from 'qrcode';
 
 export const adminRouter = Router();
@@ -39,6 +40,7 @@ function publicEvent(ev, count) {
     meetingLink: ev.meetingLink,
     certificatesEnabled: ev.certificatesEnabled,
     kind: ev.kind,
+    dutyStage: ev.dutyStage,
     authorisedBy: ev.authorisedBy,
     authorityRef: ev.authorityRef,
     county: ev.county,
@@ -241,6 +243,10 @@ adminRouter.put('/events/:id', ah(async (req, res) => {
   const event = await findOwnEvent(req);
   if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
 
+  if (event.kind === 'DUTY_ROLL' && !sheetIsOpen(event)) {
+    return res.status(409).json({ ok: false, error: 'SHEET_LOCKED', message: 'This payment sheet has been submitted and can no longer be edited.' });
+  }
+
   const f = requireEventFields(req.body);
   const err = validateEventFields(f);
   if (err) return res.status(400).json(err);
@@ -416,6 +422,9 @@ adminRouter.post('/events/:id/days/:dayId/seal', ah(async (req, res) => {
 adminRouter.post('/events/:id/days/:dayId/reopen', ah(async (req, res) => {
   const event = await findOwnEvent(req);
   if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  if (event.kind === 'DUTY_ROLL' && !sheetIsOpen(event)) {
+    return res.status(409).json({ ok: false, error: 'SHEET_LOCKED', message: 'This payment sheet has been submitted, so a day cannot be reopened. Ask the authorising officer to return it first.' });
+  }
   const day = await prisma.eventDay.findFirst({ where: { id: req.params.dayId, eventId: event.id } });
   if (!day) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
 
@@ -431,7 +440,7 @@ adminRouter.post('/events/:id/days/:dayId/reopen', ah(async (req, res) => {
 
 // Seals every day of the event as one record and writes it to the audit chain.
 // Shared by the plain "Seal & print" route and by claim-pack approval.
-async function sealWholeEvent(event, req) {
+export async function sealWholeEvent(event, req) {
   const days = await prisma.eventDay.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } });
   if (!days.length) return null;
   const snapshot = await buildEventSnapshot(event, days);

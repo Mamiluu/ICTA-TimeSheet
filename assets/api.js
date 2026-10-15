@@ -123,6 +123,13 @@ var AUDIT_ACTION_META = {
   DUTY_PAYEE_REMOVED: { label: 'Removed from payment sheet', tone: 'danger' },
   DUTY_ROLL_PRINTED: { label: 'Printed payment sheet', tone: 'info' },
   DUTY_ROLL_EXPORTED: { label: 'Exported payment schedule', tone: 'info' },
+  DUTY_ROLL_SUBMITTED: { label: 'Submitted payment sheet', tone: 'info' },
+  DUTY_ROLL_REVIEWED: { label: 'Reviewed payment sheet', tone: 'neutral' },
+  DUTY_ROLL_CERTIFIED: { label: 'Certified payment sheet', tone: 'positive' },
+  DUTY_ROLL_VERIFIED: { label: 'Verified payment sheet', tone: 'positive' },
+  DUTY_ROLL_RETURNED: { label: 'Returned payment sheet', tone: 'warning' },
+  DUTY_QUERY_RAISED: { label: 'Question raised', tone: 'neutral' },
+  DUTY_QUERY_RESOLVED: { label: 'Question answered', tone: 'positive' },
   SUPER_ADMIN_CREATE: { label: 'Created super admin', tone: 'positive' },
   SUPER_ADMIN_ACTIVATION_LINK_VIEWED: { label: 'Viewed activation link', tone: 'neutral' },
   SUPER_ADMIN_DISABLE: { label: 'Disabled super admin', tone: 'danger' },
@@ -226,6 +233,15 @@ function auditSummary(e){
       return escapeHtml(m.name || '') + (m.reason ? ' — “' + escapeHtml(m.reason) + '”' : '');
     case 'DUTY_PAYEE_UPDATED':
       return escapeHtml(m.name || '') + (m.before && m.after && m.before.ratePerDay !== m.after.ratePerDay ? ': rate ' + m.before.ratePerDay + ' → ' + m.after.ratePerDay : '');
+    case 'DUTY_ROLL_SUBMITTED':
+      return '“' + escapeHtml(m.name || '') + '” — ' + (m.people != null ? m.people : '?') + ' people' + (m.early ? ' · sent early: ' + escapeHtml(m.reason || '') : '');
+    case 'DUTY_ROLL_CERTIFIED':
+    case 'DUTY_ROLL_VERIFIED':
+    case 'DUTY_ROLL_RETURNED':
+      return '“' + escapeHtml(m.name || '') + '”' + (m.sealCode ? ' · seal ' + escapeHtml(m.sealCode) : '') + (m.note ? ' — “' + escapeHtml(m.note) + '”' : '');
+    case 'DUTY_ROLL_REVIEWED':
+    case 'DUTY_QUERY_RESOLVED':
+      return '“' + escapeHtml(m.name || '') + '”' + (m.response ? ' — “' + escapeHtml(m.response) + '”' : '');
     case 'DUTY_ROLL_PRINTED':
     case 'DUTY_ROLL_EXPORTED':
       return '“' + escapeHtml(m.name || '') + '” — ' + (m.rowCount != null ? m.rowCount : '?') + (m.rowCount === 1 ? ' person' : ' people');

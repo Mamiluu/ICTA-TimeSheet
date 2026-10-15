@@ -148,3 +148,68 @@ export function buildPayCsv(rows, days) {
   lines.push(['', 'Total', '', '', '', '', '', '', ...days.map(() => ''), t.daysSigned, t.amount].map(csvCell).join(','));
   return lines.join('\r\n') + '\r\n';
 }
+
+// ---- Approval chain --------------------------------------------------------
+
+export const PAYMENT_ROLES = ['PREPARER', 'AUTHORISER', 'FINANCE'];
+
+export const STAGE_LABEL = {
+  OPEN: 'Collecting signatures',
+  SUBMITTED: 'With the authorising officer',
+  CERTIFIED: 'Certified, with finance',
+  VERIFIED: 'Verified by finance'
+};
+
+function lastBy(approvals, step) {
+  const found = [...(approvals || [])].reverse().find((a) => a.step === step);
+  return found ? found.byId : null;
+}
+
+const isAuthoriser = (u) => u.role === 'SUPER_ADMIN' || (u.role === 'COUNTY_ADMIN' && u.paymentRole === 'AUTHORISER');
+const isFinance = (u) => u.role === 'SUPER_ADMIN' || (u.role === 'COUNTY_ADMIN' && u.paymentRole === 'FINANCE');
+
+const no = (error, message) => ({ ok: false, error, message });
+
+// Decides whether this person may take this step on this sheet right now.
+// step is SUBMIT, CERTIFY, VERIFY or RETURN. approvals are the sheet's earlier
+// steps, oldest first. The rules keep three different people involved: whoever
+// prepared the sheet cannot certify or verify it, and whoever certified it
+// cannot verify it.
+export function approvalCheck({ user, event, step, approvals = [] }) {
+  if (!user || !canAccessKind(user, 'DUTY_ROLL')) return no('NO_ACCESS', 'Your account does not have access to payment sheets.');
+  if (!user.departmentId || user.departmentId !== event.departmentId) return no('NO_ACCESS', 'This sheet belongs to another department.');
+  const stage = event.dutyStage || 'OPEN';
+
+  if (step === 'SUBMIT') {
+    if (stage !== 'OPEN') return no('WRONG_STAGE', 'This sheet has already been submitted.');
+    if (user.id !== event.ownerId) return no('NOT_PREPARER', 'Only the person who prepared this sheet can submit it.');
+    return { ok: true };
+  }
+
+  const preparer = event.ownerId;
+  const submitter = lastBy(approvals, 'SUBMITTED') || preparer;
+  const notPrepared = (u) => u.id !== preparer && u.id !== submitter;
+
+  if (step === 'CERTIFY' || (step === 'RETURN' && stage === 'SUBMITTED')) {
+    if (stage !== 'SUBMITTED') return no('WRONG_STAGE', 'This sheet is not waiting for certification.');
+    if (!isAuthoriser(user)) return no('NOT_AUTHORISER', 'Only an authorising officer can do this.');
+    if (!notPrepared(user)) return no('CONFLICT', 'You prepared this sheet, so someone else has to certify it.');
+    return { ok: true };
+  }
+
+  if (step === 'VERIFY' || (step === 'RETURN' && stage === 'CERTIFIED')) {
+    if (stage !== 'CERTIFIED') return no('WRONG_STAGE', 'This sheet is not waiting for verification.');
+    if (!isFinance(user)) return no('NOT_FINANCE', 'Only finance can do this.');
+    if (!notPrepared(user)) return no('CONFLICT', 'You prepared this sheet, so someone else has to verify it.');
+    if (step === 'VERIFY' && user.id === lastBy(approvals, 'CERTIFIED')) return no('CONFLICT', 'You certified this sheet, so someone else has to verify it.');
+    return { ok: true };
+  }
+
+  return no('WRONG_STAGE', 'This sheet cannot be changed at this stage.');
+}
+
+// Anything that edits the roll itself is only allowed while signatures are still
+// being collected.
+export function sheetIsOpen(event) {
+  return (event.dutyStage || 'OPEN') === 'OPEN';
+}

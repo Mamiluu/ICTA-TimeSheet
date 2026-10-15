@@ -18,7 +18,7 @@ import { dayIsOpen, dayOpensAt, dayClosesAt, ensureFirstDay, pickSigningDay, anc
 import { maskName } from '../lib/mask.js';
 import { walletEntry } from '../lib/wallet.js';
 import { certificateEligible, loadCertificateSnapshot, certificateStillHolds, publicCertificateView } from '../lib/certificate.js';
-import { canAccessKind, dayStatus } from '../lib/duty.js';
+import { canAccessKind, dayStatus, STAGE_LABEL } from '../lib/duty.js';
 import { newSealCode, SEAL_CODE_PATTERN, buildDaySnapshot, buildEventSnapshot, summarizeSnapshot, digestOf } from '../lib/seal.js';
 
 // Fire-and-forget, same discipline as writeAudit's own .catch(() => {})
@@ -280,6 +280,64 @@ publicRouter.get('/duty/:slug', ah(async (req, res) => {
     event: { name: event.name, description: event.description, timezone: event.timezone },
     days: days.map((d) => ({ id: d.id, position: d.position, startAt: d.startAt, endAt: d.endAt, place: d.place, open: dayIsOpen(d), status: dayStatus(d, false) }))
   });
+}));
+
+// A person on a payment sheet looking at their own days, and raising a question about
+// one. Same proof as signing: the phone number they were registered with. The answer
+// is days and status only, never a rate or an amount.
+async function findDutyPayee(req) {
+  const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
+  if (!event || event.deletedAt || event.kind !== 'DUTY_ROLL') return { status: 404, body: { ok: false, error: 'NOT_FOUND' } };
+  const phoneNormalized = normalizePhone(String(req.body.phone || ''));
+  if (!phoneNormalized) return { status: 200, body: { ok: false, error: 'INVALID_PHONE', message: 'Enter a valid Kenyan phone number.' } };
+  const attendee = await prisma.attendance.findUnique({
+    where: { eventId_phoneNormalized: { eventId: event.id, phoneNormalized } },
+    include: { dutyPayee: true, daySignatures: { select: { dayId: true } } }
+  });
+  if (!attendee || attendee.status === 'RETIRED' || !attendee.dutyPayee) {
+    return { status: 200, body: { ok: false, error: 'NOT_REGISTERED', message: 'We could not find that number on this sheet.' } };
+  }
+  return { event, attendee };
+}
+
+publicRouter.post('/duty/:slug/mine', checkInLimiter, ah(async (req, res) => {
+  const found = await findDutyPayee(req);
+  if (found.body) return res.status(found.status).json(found.body);
+  const { event, attendee } = found;
+  const [days, queries] = await Promise.all([
+    prisma.eventDay.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } }),
+    prisma.dutyQuery.findMany({ where: { payeeId: attendee.dutyPayee.id }, orderBy: { createdAt: 'desc' } })
+  ]);
+  const signed = new Set(attendee.daySignatures.map((s) => s.dayId));
+  res.json({
+    ok: true,
+    maskedName: maskName(attendee.name),
+    stage: event.dutyStage,
+    stageLabel: STAGE_LABEL[event.dutyStage],
+    days: days.map((d) => ({ id: d.id, position: d.position, startAt: d.startAt, place: d.place, status: dayStatus(d, signed.has(d.id)) })),
+    queries: queries.map((q) => ({ dayId: q.dayId, message: q.message, status: q.status, response: q.response }))
+  });
+}));
+
+publicRouter.post('/duty/:slug/query', checkInLimiter, ah(async (req, res) => {
+  const found = await findDutyPayee(req);
+  if (found.body) return res.status(found.status).json(found.body);
+  const { event, attendee } = found;
+  if (event.dutyStage !== 'OPEN' && event.dutyStage !== 'SUBMITTED') {
+    return res.json({ ok: false, error: 'TOO_LATE', message: 'This sheet has already been certified. Speak to the organiser.' });
+  }
+  const day = await prisma.eventDay.findFirst({ where: { id: String(req.body.dayId || ''), eventId: event.id } });
+  if (!day) return res.json({ ok: false, error: 'UNKNOWN_DAY', message: 'That day is not part of this sheet.' });
+  const signed = attendee.daySignatures.some((s) => s.dayId === day.id);
+  if (dayStatus(day, signed) !== 'ABSENT') return res.json({ ok: false, error: 'NOT_DISPUTABLE', message: 'Only a day that closed without your signature can be queried.' });
+  const message = String(req.body.message || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  if (message.length < 5) return res.json({ ok: false, error: 'MESSAGE_REQUIRED', message: 'Say in a few words what happened on that day.' });
+  const already = await prisma.dutyQuery.count({ where: { payeeId: attendee.dutyPayee.id, dayId: day.id, status: 'OPEN' } });
+  if (already) return res.json({ ok: false, error: 'ALREADY_RAISED', message: 'You already have a question open for that day.' });
+
+  const q = await prisma.dutyQuery.create({ data: { eventId: event.id, payeeId: attendee.dutyPayee.id, dayId: day.id, message } });
+  await writeAudit({ actorId: null, action: 'DUTY_QUERY_RAISED', targetType: 'Attendance', targetId: attendee.id, metadata: { eventId: event.id, position: day.position, queryId: q.id }, req }).catch(() => {});
+  res.json({ ok: true });
 }));
 
 // Lets whoever manages this event (see canManageEvent above) generate a
@@ -683,6 +741,10 @@ async function findForPhoneCheckIn(req) {
   if (!event || event.deletedAt) return { error: { ok: false, error: 'Unknown event' } };
   if (isLinkExpired(event)) return { error: { ok: false, error: 'LINK_EXPIRED', message: 'Sign-in for this event has closed.' } };
 
+  // A submitted payment sheet no longer takes signatures.
+  if (event.kind === 'DUTY_ROLL' && event.dutyStage !== 'OPEN') {
+    return { error: { ok: false, error: 'SHEET_SUBMITTED', message: 'This payment sheet has been submitted, so signing is closed. Contact the organiser.' } };
+  }
   const day = await prisma.eventDay.findFirst({ where: { id: req.params.dayId, eventId: event.id } });
   if (!day) return { error: { ok: false, error: 'UNKNOWN_DAY', message: 'That day is not part of this event.' } };
   if (!dayIsOpen(day)) {

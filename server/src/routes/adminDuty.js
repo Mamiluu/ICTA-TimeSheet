@@ -7,7 +7,9 @@ import { prisma } from '../lib/prisma.js';
 import { writeAudit } from '../lib/audit.js';
 import { ah } from '../lib/asyncHandler.js';
 import { MAX_ATTENDANCE_PER_EVENT } from '../lib/constants.js';
-import { cleanPayee, buildPayRows, totalsOf, buildPayCsv, MAX_RATE_PER_DAY } from '../lib/duty.js';
+import { cleanPayee, buildPayCsv, MAX_RATE_PER_DAY, sheetIsOpen, approvalCheck, STAGE_LABEL } from '../lib/duty.js';
+import { loadRoll } from '../lib/dutyRoll.js';
+import { dayClosesAt } from '../lib/days.js';
 
 // A one-pixel transparent PNG. A person added to a duty roll has not signed
 // anything yet; their real signatures are the per-day ones.
@@ -27,47 +29,23 @@ export function registerDutyRoutes(router, findOwnEvent) {
     return event;
   }
 
-  // The roster, the days, who signed which, and what each person is owed.
-  async function loadRoll(event, { withSignatures } = {}) {
-    const [days, payees] = await Promise.all([
-      prisma.eventDay.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } }),
-      prisma.dutyPayee.findMany({
-        where: { eventId: event.id, attendance: { status: { not: 'RETIRED' } } },
-        orderBy: { createdAt: 'asc' },
-        include: { attendance: { include: { daySignatures: { select: { dayId: true, signedAt: true, method: true, ...(withSignatures ? { signature: true } : {}) } } } } }
-      })
-    ]);
-
-    const people = payees.map((p) => ({
-      id: p.id,
-      name: p.attendance.name,
-      organisation: p.attendance.organization || '',
-      phone: p.attendance.phone,
-      payeeType: p.payeeType,
-      idNumber: p.idNumber,
-      jobRole: p.jobRole,
-      ratePerDay: p.ratePerDay,
-      attendanceStatus: p.attendance.status
-    }));
-    const signedByPayee = new Map(payees.map((p) => [p.id, new Set(p.attendance.daySignatures.map((s) => s.dayId))]));
-    const rows = buildPayRows(people, days, signedByPayee).map((r, i) => {
-      const sigs = payees[i].attendance.daySignatures;
-      return {
-        ...r,
-        cells: r.cells.map((c) => {
-          const s = sigs.find((x) => x.dayId === c.dayId);
-          return s ? { ...c, method: s.method, signedAt: s.signedAt, ...(withSignatures ? { signature: s.signature } : {}) } : c;
-        })
-      };
-    });
-    return { days, rows, totals: totalsOf(rows) };
+  // Once a sheet is submitted nothing on it may change, so the approvers see exactly
+  // what the preparer sent. The authorising officer can return it if it needs fixing.
+  function refuseIfLocked(event, res) {
+    if (sheetIsOpen(event)) return false;
+    res.status(409).json({ ok: false, error: 'SHEET_LOCKED', message: 'This sheet has been submitted and can no longer be changed. Ask the authorising officer to return it if something needs fixing.' });
+    return true;
   }
 
   router.get('/events/:id/duty', ah(async (req, res) => {
     const event = await dutyEvent(req, res);
     if (!event) return;
     const print = req.query.print === '1';
-    const roll = await loadRoll(event, { withSignatures: print });
+    const [roll, approvals, openQueries] = await Promise.all([
+      loadRoll(event, { withSignatures: print }),
+      prisma.dutyApproval.findMany({ where: { eventId: event.id }, orderBy: { createdAt: 'asc' } }),
+      prisma.dutyQuery.count({ where: { eventId: event.id, status: 'OPEN' } })
+    ]);
     if (print) {
       await writeAudit({ actorId: req.user.id, action: 'DUTY_ROLL_PRINTED', targetType: 'Event', targetId: event.id, metadata: { name: event.name, rowCount: roll.rows.length }, req });
     }
@@ -88,6 +66,10 @@ export function registerDutyRoutes(router, findOwnEvent) {
       days: roll.days.map((d) => ({ id: d.id, position: d.position, startAt: d.startAt, endAt: d.endAt, place: d.place })),
       rows: roll.rows,
       totals: roll.totals,
+      stage: event.dutyStage,
+      stageLabel: STAGE_LABEL[event.dutyStage],
+      approvals: approvals.map((a) => ({ step: a.step, by: a.byEmail, note: a.note, sealCode: a.sealCode, at: a.createdAt })),
+      openQueries,
       maxRate: MAX_RATE_PER_DAY
     });
   }));
@@ -95,6 +77,7 @@ export function registerDutyRoutes(router, findOwnEvent) {
   router.post('/events/:id/duty/payees', ah(async (req, res) => {
     const event = await dutyEvent(req, res);
     if (!event) return;
+    if (refuseIfLocked(event, res)) return;
 
     const parsed = cleanPayee(req.body);
     if (parsed.error) return res.status(400).json({ ok: false, error: 'INVALID_PAYEE', message: parsed.error });
@@ -155,6 +138,7 @@ export function registerDutyRoutes(router, findOwnEvent) {
   router.patch('/events/:id/duty/payees/:payeeId', ah(async (req, res) => {
     const event = await dutyEvent(req, res);
     if (!event) return;
+    if (refuseIfLocked(event, res)) return;
     const payee = await prisma.dutyPayee.findFirst({
       where: { id: req.params.payeeId, eventId: event.id },
       include: { attendance: { include: { _count: { select: { daySignatures: true } } } } }
@@ -188,6 +172,7 @@ export function registerDutyRoutes(router, findOwnEvent) {
   router.delete('/events/:id/duty/payees/:payeeId', ah(async (req, res) => {
     const event = await dutyEvent(req, res);
     if (!event) return;
+    if (refuseIfLocked(event, res)) return;
     const payee = await prisma.dutyPayee.findFirst({
       where: { id: req.params.payeeId, eventId: event.id },
       include: { attendance: { include: { _count: { select: { daySignatures: true } } } } }
@@ -199,6 +184,65 @@ export function registerDutyRoutes(router, findOwnEvent) {
     const reason = String(req.body?.reason || '').replace(/\s+/g, ' ').trim().slice(0, 300) || 'Removed from the roster before signing';
     await prisma.attendance.update({ where: { id: payee.attendanceId }, data: { status: 'RETIRED', statusReason: reason, statusAt: new Date() } });
     await writeAudit({ actorId: req.user.id, action: 'DUTY_PAYEE_REMOVED', targetType: 'Attendance', targetId: payee.attendanceId, metadata: { eventId: event.id, name: payee.attendance.name, reason }, req });
+    res.json({ ok: true });
+  }));
+
+  // The preparer sends the finished sheet for certification. It must have people on it
+  // and every day must have closed; sending it early needs a reason, which is recorded.
+  router.post('/events/:id/duty/submit', ah(async (req, res) => {
+    const event = await dutyEvent(req, res);
+    if (!event) return;
+    const approvals = await prisma.dutyApproval.findMany({ where: { eventId: event.id }, orderBy: { createdAt: 'asc' } });
+    const check = approvalCheck({ user: req.user, event, step: 'SUBMIT', approvals });
+    if (!check.ok) return res.status(check.error === 'WRONG_STAGE' ? 409 : 403).json({ ok: false, error: check.error, message: check.message });
+
+    const roll = await loadRoll(event);
+    if (!roll.rows.length) return res.status(400).json({ ok: false, error: 'EMPTY', message: 'There is nobody on this sheet yet.' });
+    const lastDay = roll.days[roll.days.length - 1];
+    const unfinished = !lastDay || Date.now() <= dayClosesAt(lastDay).getTime();
+    const note = String(req.body.note || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+    if (unfinished && note.length < 5) {
+      return res.status(400).json({ ok: false, error: 'REASON_REQUIRED', message: 'Not every day has closed yet. Say why the sheet is being sent now.' });
+    }
+    const openQueries = await prisma.dutyQuery.count({ where: { eventId: event.id, status: 'OPEN' } });
+    if (openQueries > 0) {
+      return res.status(409).json({ ok: false, error: 'OPEN_QUERIES', message: `${openQueries} question${openQueries === 1 ? ' is' : 's are'} still open from people on this sheet. Answer them first.` });
+    }
+
+    await prisma.$transaction([
+      prisma.event.update({ where: { id: event.id }, data: { dutyStage: 'SUBMITTED' } }),
+      prisma.dutyApproval.create({ data: { eventId: event.id, step: 'SUBMITTED', byId: req.user.id, byEmail: req.user.email, note: note || null } })
+    ]);
+    await writeAudit({ actorId: req.user.id, action: 'DUTY_ROLL_SUBMITTED', targetType: 'Event', targetId: event.id, metadata: { name: event.name, people: roll.rows.length, amount: roll.totals.amount, ...(unfinished ? { early: true, reason: note } : {}) }, req });
+    res.json({ ok: true });
+  }));
+
+  // Questions raised by the people on the sheet, and the organiser's answers.
+  router.get('/events/:id/duty/queries', ah(async (req, res) => {
+    const event = await dutyEvent(req, res);
+    if (!event) return;
+    const queries = await prisma.dutyQuery.findMany({
+      where: { eventId: event.id },
+      orderBy: { createdAt: 'desc' },
+      include: { payee: { include: { attendance: { select: { name: true } } } } }
+    });
+    const days = await prisma.eventDay.findMany({ where: { eventId: event.id }, select: { id: true, position: true } });
+    const pos = new Map(days.map((d) => [d.id, d.position]));
+    res.json({
+      ok: true,
+      queries: queries.map((q) => ({ id: q.id, name: q.payee.attendance.name, day: pos.get(q.dayId) || null, message: q.message, status: q.status, response: q.response, at: q.createdAt }))
+    });
+  }));
+
+  router.post('/events/:id/duty/queries/:qid/resolve', ah(async (req, res) => {
+    const event = await dutyEvent(req, res);
+    if (!event) return;
+    const q = await prisma.dutyQuery.findFirst({ where: { id: req.params.qid, eventId: event.id, status: 'OPEN' } });
+    if (!q) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+    const response = String(req.body.response || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+    if (response.length < 3) return res.status(400).json({ ok: false, error: 'RESPONSE_REQUIRED', message: 'Write a short answer for the person.' });
+    await prisma.dutyQuery.update({ where: { id: q.id }, data: { status: 'RESOLVED', response, resolvedById: req.user.id, resolvedAt: new Date() } });
+    await writeAudit({ actorId: req.user.id, action: 'DUTY_QUERY_RESOLVED', targetType: 'Event', targetId: event.id, metadata: { name: event.name, response }, req });
     res.json({ ok: true });
   }));
 

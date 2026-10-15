@@ -15,7 +15,10 @@ import {
   cleanPayee,
   cleanAuthority,
   csvCell,
-  buildPayCsv
+  buildPayCsv,
+  approvalCheck,
+  sheetIsOpen,
+  STAGE_LABEL
 } from '../src/lib/duty.js';
 
 const HOUR = 60 * 60 * 1000;
@@ -179,4 +182,80 @@ test('csv: one line per person plus a total', () => {
   assert.equal(csv.length, 3);
   assert.match(csv[1], /Signed,Absent,1,1000$/);
   assert.match(csv[2], /^,Total/);
+});
+
+// ---- Approval chain ----
+
+const sheet = (stage) => ({ id: 'e1', ownerId: 'prep', departmentId: 'd1', dutyStage: stage });
+const person = (id, role, paymentRole, extra = {}) => ({ id, role, paymentRole, access: 'PAYMENT', departmentId: 'd1', ...extra });
+const step = (user, event, s, approvals = []) => approvalCheck({ user, event, step: s, approvals });
+
+test('only the preparer submits, and only while the sheet is open', () => {
+  assert.equal(step(person('prep', 'COUNTY_ADMIN', 'PREPARER'), sheet('OPEN'), 'SUBMIT').ok, true);
+  assert.equal(step(person('other', 'COUNTY_ADMIN', 'PREPARER'), sheet('OPEN'), 'SUBMIT').error, 'NOT_PREPARER');
+  assert.equal(step(person('prep', 'COUNTY_ADMIN', 'PREPARER'), sheet('SUBMITTED'), 'SUBMIT').error, 'WRONG_STAGE');
+});
+
+test('certifying needs an authorising officer who did not prepare the sheet', () => {
+  const approvals = [{ step: 'SUBMITTED', byId: 'prep' }];
+  assert.equal(step(person('auth', 'COUNTY_ADMIN', 'AUTHORISER'), sheet('SUBMITTED'), 'CERTIFY', approvals).ok, true);
+  assert.equal(
+    step(person('boss', 'SUPER_ADMIN', 'PREPARER'), sheet('SUBMITTED'), 'CERTIFY', approvals).ok,
+    true,
+    'a department super admin can certify'
+  );
+  assert.equal(step(person('x', 'COUNTY_ADMIN', 'FINANCE'), sheet('SUBMITTED'), 'CERTIFY', approvals).error, 'NOT_AUTHORISER');
+  assert.equal(step(person('x', 'COUNTY_ADMIN', 'PREPARER'), sheet('SUBMITTED'), 'CERTIFY', approvals).error, 'NOT_AUTHORISER');
+  assert.equal(
+    step(person('prep', 'COUNTY_ADMIN', 'AUTHORISER'), sheet('SUBMITTED'), 'CERTIFY', approvals).error,
+    'CONFLICT',
+    'the preparer cannot certify their own sheet'
+  );
+  assert.equal(step(person('auth', 'COUNTY_ADMIN', 'AUTHORISER'), sheet('OPEN'), 'CERTIFY', approvals).error, 'WRONG_STAGE');
+});
+
+test('verifying needs finance, and a person different from the preparer and the certifier', () => {
+  const approvals = [
+    { step: 'SUBMITTED', byId: 'prep' },
+    { step: 'CERTIFIED', byId: 'auth' }
+  ];
+  assert.equal(step(person('fin', 'COUNTY_ADMIN', 'FINANCE'), sheet('CERTIFIED'), 'VERIFY', approvals).ok, true);
+  assert.equal(
+    step(person('auth', 'COUNTY_ADMIN', 'FINANCE'), sheet('CERTIFIED'), 'VERIFY', approvals).error,
+    'CONFLICT',
+    'the certifier cannot verify'
+  );
+  assert.equal(step(person('prep', 'COUNTY_ADMIN', 'FINANCE'), sheet('CERTIFIED'), 'VERIFY', approvals).error, 'CONFLICT');
+  assert.equal(step(person('x', 'COUNTY_ADMIN', 'AUTHORISER'), sheet('CERTIFIED'), 'VERIFY', approvals).error, 'NOT_FINANCE');
+});
+
+test('a sheet can be returned from the stage it is waiting at, by the right person', () => {
+  const sub = [{ step: 'SUBMITTED', byId: 'prep' }];
+  assert.equal(step(person('auth', 'COUNTY_ADMIN', 'AUTHORISER'), sheet('SUBMITTED'), 'RETURN', sub).ok, true);
+  assert.equal(step(person('fin', 'COUNTY_ADMIN', 'FINANCE'), sheet('SUBMITTED'), 'RETURN', sub).error, 'NOT_AUTHORISER');
+  const cert = [...sub, { step: 'CERTIFIED', byId: 'auth' }];
+  assert.equal(step(person('fin', 'COUNTY_ADMIN', 'FINANCE'), sheet('CERTIFIED'), 'RETURN', cert).ok, true);
+  assert.equal(step(person('auth', 'COUNTY_ADMIN', 'AUTHORISER'), sheet('CERTIFIED'), 'RETURN', cert).error, 'NOT_FINANCE');
+  assert.equal(step(person('auth', 'COUNTY_ADMIN', 'AUTHORISER'), sheet('OPEN'), 'RETURN', cert).error, 'WRONG_STAGE');
+});
+
+test('approval is limited to the same department and to accounts with payment access', () => {
+  const approvals = [{ step: 'SUBMITTED', byId: 'prep' }];
+  assert.equal(
+    step(person('auth', 'COUNTY_ADMIN', 'AUTHORISER', { departmentId: 'd2' }), sheet('SUBMITTED'), 'CERTIFY', approvals).error,
+    'NO_ACCESS'
+  );
+  assert.equal(
+    step(person('auth', 'COUNTY_ADMIN', 'AUTHORISER', { access: 'ATTENDANCE' }), sheet('SUBMITTED'), 'CERTIFY', approvals).error,
+    'NO_ACCESS'
+  );
+  assert.equal(step(null, sheet('SUBMITTED'), 'CERTIFY', approvals).error, 'NO_ACCESS');
+});
+
+test('the sheet is only editable while it is open', () => {
+  assert.equal(sheetIsOpen({ dutyStage: 'OPEN' }), true);
+  assert.equal(sheetIsOpen({}), true);
+  assert.equal(sheetIsOpen({ dutyStage: 'SUBMITTED' }), false);
+  assert.equal(sheetIsOpen({ dutyStage: 'VERIFIED' }), false);
+  assert.ok(STAGE_LABEL.CERTIFIED);
 });

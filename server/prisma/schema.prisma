@@ -24,6 +24,55 @@ enum EventKind {
   DUTY_ROLL
 }
 
+enum PaymentRole {
+  PREPARER
+  AUTHORISER
+  FINANCE
+}
+
+enum DutyStage {
+  OPEN
+  SUBMITTED
+  CERTIFIED
+  VERIFIED
+}
+
+// One step in a payment sheet's approval. step is SUBMITTED, CERTIFIED, VERIFIED or
+// RETURNED (sent back to the preparer, with a note). sealCode ties a certification to
+// the sealed record anyone can check on the verify page.
+model DutyApproval {
+  id        String   @id @default(uuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  step      String
+  byId      String?
+  byEmail   String
+  note      String?
+  sealCode  String?
+  createdAt DateTime @default(now())
+
+  @@index([eventId])
+}
+
+// A person on a payment sheet disagreeing with a day: for example a day marked
+// absent that they worked.
+model DutyQuery {
+  id           String     @id @default(uuid())
+  eventId      String
+  event        Event      @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  payeeId      String
+  payee        DutyPayee  @relation(fields: [payeeId], references: [id], onDelete: Restrict)
+  dayId        String
+  message      String
+  status       String     @default("OPEN")
+  response     String?
+  resolvedById String?
+  createdAt    DateTime   @default(now())
+  resolvedAt   DateTime?
+
+  @@index([eventId, status])
+}
+
 enum PayeeType {
   STAFF
   EXTERNAL
@@ -45,6 +94,7 @@ model DutyPayee {
   ratePerDay   Int
   addedById    String?
   createdAt    DateTime   @default(now())
+  queries      DutyQuery[]
 
   @@unique([eventId, idNumber])
   @@index([eventId])
@@ -94,6 +144,9 @@ model User {
   // Which kinds of event this account may see and run. Existing accounts keep
   // attendance sheets only; a department super admin grants payment sheets (duty rolls).
   access       AccessLevel @default(ATTENDANCE)
+  // What this person does on a payment sheet: prepare it, certify it as the
+  // authorising officer, or verify it for finance. Only meaningful with payment access.
+  paymentRole  PaymentRole @default(PREPARER)
 
   createdById  String?
   createdBy    User?      @relation("CreatedAdmins", fields: [createdById], references: [id])
@@ -205,6 +258,11 @@ model Event {
   authorisedBy String?
   authorityRef String?
   dutyPayees   DutyPayee[]
+  // Where a payment sheet is in its approval: collecting signatures, submitted by the
+  // preparer, certified by the authorising officer, verified by finance.
+  dutyStage    DutyStage @default(OPEN)
+  dutyApprovals DutyApproval[]
+  dutyQueries  DutyQuery[]
 
   // The department whose admin created the event. Copied from the creator at
   // creation, so reports by department stay right even if an owner moves.

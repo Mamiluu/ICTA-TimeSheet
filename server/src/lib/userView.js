@@ -14,6 +14,8 @@ export function publicUser(u) {
     county: u.county,
     // Which kinds of event this account may use: ATTENDANCE, PAYMENT or BOTH.
     access: accessOf(u),
+    // For an account with payment access: prepares, certifies (authorising officer) or verifies (finance).
+    paymentRole: u.role === 'COUNTY_ADMIN' ? u.paymentRole || 'PREPARER' : null,
     department: u.department ? { id: u.department.id, name: u.department.name } : null
   };
 }
