@@ -136,7 +136,6 @@
       <a class="nav-item" href="#add" data-nav="add"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 8v8M8 12h8"/></svg><span>Add admin</span></a>
       <div class="nav-group">Security</div>
       <a class="nav-item" href="#audit" data-nav="audit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Audit trail</span></a>
-      <a class="nav-item" href="#integrity" data-nav="integrity"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8.3-8 9-4.8-.7-8-4.5-8-9V6l8-3zM9 12l2 2 4-4"/></svg><span>Integrity</span></a>
       <div class="nav-group">Settings</div>
       <a class="nav-item" href="#profile" data-nav="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Profile</span></a>
     </nav>
@@ -223,24 +222,6 @@
       </div>
     </section>
 
-    <!-- Integrity -->
-    <section class="view" data-view="integrity" data-title="Integrity">
-      <div class="sheet wide">
-        <h2 class="section">Audit trail integrity</h2>
-        <p class="help">Every day the latest entry of the tamper-evident audit trail is emailed to each super admin. That email is a copy nobody can change from inside the system. Paste a hash from one of those emails to check that nothing up to that point was altered or removed.</p>
-        <div class="tile-row" id="anchorTiles"></div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:22px;">
-          <button id="anchorSendBtn" class="primary" type="button">Send an anchor email now</button>
-        </div>
-        <label for="anchorHash">Check an anchor</label>
-        <div class="anchor-row">
-          <input type="text" id="anchorHash" placeholder="Paste the 64-character hash" autocomplete="off" spellcheck="false">
-          <button id="anchorCheckBtn" type="button">Check</button>
-        </div>
-        <div class="result-box" id="anchorResult" role="status" aria-live="polite"></div>
-      </div>
-    </section>
-
     <!-- Profile -->
     <section class="view" data-view="profile" data-title="Profile">
       <div class="sheet wide">
@@ -263,7 +244,7 @@
   applyTopbarBranding('Super Admin');
 
   var whoEmail = document.getElementById('whoEmail');
-  var VIEWS = ['overview', 'admins', 'add', 'audit', 'integrity', 'profile'];
+  var VIEWS = ['overview', 'admins', 'add', 'audit', 'profile'];
   var currentView = null;
 
   // --- Sidebar sections: one view at a time, addressable by #hash ---
@@ -295,7 +276,6 @@
     var changed = currentView !== name;
     currentView = name;
     if(changed && name === 'audit') loadAudit();
-    if(changed && name === 'integrity') showAnchorStatus();
   }
   navToggle.addEventListener('click', function(){
     var open = !sidenav.classList.contains('open');
@@ -735,54 +715,6 @@
   document.getElementById('auditRefreshBtn').addEventListener('click', loadAudit);
   document.getElementById('auditPrev').addEventListener('click', function(){ if(auditPage > 1){ auditPage -= 1; loadAudit(); } });
   document.getElementById('auditNext').addEventListener('click', function(){ auditPage += 1; loadAudit(); });
-
-  // --- Audit chain anchors ---
-  var anchorResult = document.getElementById('anchorResult');
-  function say(kind, text){
-    anchorResult.className = 'result-box show ' + kind;
-    anchorResult.textContent = text;
-  }
-  function anchorTile(label, value, sub){
-    var t = el('div', 'stat-tile'); t.style.minWidth = '220px';
-    t.appendChild(el('div', 'stat-label', label));
-    t.appendChild(el('div', 'stat-value', value));
-    if(sub) t.appendChild(el('div', 'stat-sub', sub));
-    return t;
-  }
-  function showAnchorStatus(){
-    var tiles = document.getElementById('anchorTiles');
-    API.get('/api/superadmin/anchor').then(function(r){
-      tiles.textContent = '';
-      if(!r.data.ok){ tiles.appendChild(el('p', 'empty', 'Could not load the anchor status.')); return; }
-      if(!r.data.head){ tiles.appendChild(el('p', 'empty', 'No chained audit entries yet.')); return; }
-      tiles.appendChild(anchorTile('Entries on record', String(r.data.head.count), 'in the tamper-evident trail'));
-      tiles.appendChild(anchorTile('Last anchor emailed', r.data.lastAnchorAt ? new Date(r.data.lastAnchorAt).toLocaleDateString() : 'Never',
-        r.data.lastAnchorAt ? new Date(r.data.lastAnchorAt).toLocaleTimeString() : 'Send one now to start'));
-    }).catch(function(){ tiles.textContent = ''; tiles.appendChild(el('p', 'empty', 'Network error — could not reach the backend.')); });
-  }
-  document.getElementById('anchorSendBtn').addEventListener('click', function(){
-    var btn = this; btn.disabled = true; anchorResult.className = 'result-box';
-    API.post('/api/superadmin/anchor').then(function(r){
-      btn.disabled = false;
-      if(r.data.ok) say('ok', 'Anchor recorded and emailed to ' + r.data.sent + ' super admin' + (r.data.sent === 1 ? '' : 's') + '.');
-      else say('bad', r.data.message || 'Could not send the anchor.');
-      showAnchorStatus();
-    }).catch(function(){ btn.disabled = false; say('bad', 'Network error — could not reach the backend.'); });
-  });
-  document.getElementById('anchorCheckBtn').addEventListener('click', function(){
-    var hash = document.getElementById('anchorHash').value.trim();
-    say('info', 'Checking…');
-    API.post('/api/superadmin/anchor/check', { hash: hash }).then(function(r){
-      var d = r.data;
-      if(!d.ok){ say('bad', d.message || 'Could not check that hash.'); return; }
-      if(!d.found){ say('bad', '✕ ' + d.message); return; }
-      var msg = d.intactUpToAnchor
-        ? '✓ That entry is still in the trail (entry ' + d.position + ') and every entry up to it is intact. ' + d.entriesSince + ' newer entries have been added since.'
-        : '✕ That entry exists, but something before it was altered or removed after the anchor was sent (or, rarely, two writes landed at the same instant). Ask a developer to look at the trail.';
-      if(d.hashMismatches || d.linkBreaks) msg += ' Whole-trail scan: ' + d.hashMismatches + ' altered entr' + (d.hashMismatches === 1 ? 'y' : 'ies') + ', ' + d.linkBreaks + ' break(s) in the chain order.';
-      say(d.intactUpToAnchor ? 'ok' : 'bad', msg);
-    }).catch(function(){ say('bad', 'Network error — could not reach the backend.'); });
-  });
 
   requireSession().then(function(user){
     if(!user) return;

@@ -10,14 +10,25 @@ import { destroyAllSessionsForUser } from '../lib/session.js';
 import { sendActivationEmail } from '../lib/mailer.js';
 import { writeAudit } from '../lib/audit.js';
 import { KENYA_COUNTIES, MAX_ACTIVE_COUNTY_ADMINS } from '../lib/constants.js';
+import { pagedAudit } from '../lib/auditPage.js';
 import { isValidEmailShape } from '../lib/normalize.js';
-import { chainHead, lastAnchorAt, sendAnchor, checkAnchor } from '../lib/anchor.js';
 import { ah } from '../lib/asyncHandler.js';
 import { logger } from '../lib/logger.js';
 import { bucketByDay, countsByKey } from '../lib/analytics.js';
 
 export const superadminRouter = Router();
 superadminRouter.use(requireRole('SUPER_ADMIN'));
+
+// A department super admin only ever sees and changes their own department.
+// An account without a department (should not exist) sees nothing rather than everything.
+superadminRouter.use((req, res, next) => {
+  if (!req.user.departmentId) return res.status(403).json({ ok: false, error: 'NO_DEPARTMENT' });
+  next();
+});
+
+function findCountyAdmin(req) {
+  return prisma.user.findFirst({ where: { id: req.params.id, role: 'COUNTY_ADMIN', departmentId: req.user.departmentId } });
+}
 
 function publicAdmin(u) {
   return {
@@ -43,7 +54,7 @@ function sendActivationEmailBestEffort(toEmail, activateUrl, county) {
 
 superadminRouter.get('/admins', ah(async (req, res) => {
   const admins = await prisma.user.findMany({
-    where: { role: 'COUNTY_ADMIN' },
+    where: { role: 'COUNTY_ADMIN', departmentId: req.user.departmentId },
     orderBy: { createdAt: 'desc' }
   });
   const activeCount = admins.filter((a) => a.status === 'ACTIVE').length;
@@ -61,7 +72,7 @@ superadminRouter.get('/admins', ah(async (req, res) => {
 // exactly one legitimate access path (a county admin's own event export,
 // audited in admin.js) and this doesn't add a second one.
 superadminRouter.get('/analytics', ah(async (req, res) => {
-  const events = await prisma.event.findMany({ where: { deletedAt: null }, select: { id: true, county: true } });
+  const events = await prisma.event.findMany({ where: { deletedAt: null, departmentId: req.user.departmentId }, select: { id: true, county: true } });
   const eventIds = events.map((e) => e.id);
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
@@ -105,7 +116,7 @@ superadminRouter.post('/admins', ah(async (req, res) => {
   // slot is the Postgres trigger installed in the migration (see
   // prisma/migrations/*_admin_constraints/migration.sql) -- this count can
   // be stale the instant after it's read, the trigger cannot.
-  const activeCount = await prisma.user.count({ where: { role: 'COUNTY_ADMIN', status: 'ACTIVE' } });
+  const activeCount = await prisma.user.count({ where: { role: 'COUNTY_ADMIN', status: 'ACTIVE', departmentId: req.user.departmentId } });
   if (activeCount >= MAX_ACTIVE_COUNTY_ADMINS) {
     return res.status(409).json({ ok: false, error: 'COUNTY_CAP_REACHED', activeCount, cap: MAX_ACTIVE_COUNTY_ADMINS });
   }
@@ -149,8 +160,8 @@ superadminRouter.post('/admins', ah(async (req, res) => {
 // (see lib/tokens.js), so the raw value from account-creation time is
 // already gone.
 superadminRouter.post('/admins/:id/activation-link', ah(async (req, res) => {
-  const admin = await prisma.user.findUnique({ where: { id: req.params.id } });
-  if (!admin || admin.role !== 'COUNTY_ADMIN') return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const admin = await findCountyAdmin(req);
+  if (!admin) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
   if (admin.status !== 'PENDING') return res.status(409).json({ ok: false, error: 'NOT_PENDING' });
 
   const raw = await issueToken(admin.id, 'ACTIVATION');
@@ -161,8 +172,8 @@ superadminRouter.post('/admins/:id/activation-link', ah(async (req, res) => {
 }));
 
 superadminRouter.post('/admins/:id/disable', ah(async (req, res) => {
-  const admin = await prisma.user.findUnique({ where: { id: req.params.id } });
-  if (!admin || admin.role !== 'COUNTY_ADMIN') return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const admin = await findCountyAdmin(req);
+  if (!admin) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
 
   await prisma.user.update({ where: { id: admin.id }, data: { status: 'DISABLED', disabledAt: new Date() } });
   await destroyAllSessionsForUser(admin.id);
@@ -176,11 +187,11 @@ superadminRouter.post('/admins/:id/disable', ah(async (req, res) => {
 // person left" or "this credential may be compromised," and we have no way
 // to tell those apart from a re-enable click alone.
 superadminRouter.post('/admins/:id/reactivate', ah(async (req, res) => {
-  const admin = await prisma.user.findUnique({ where: { id: req.params.id } });
-  if (!admin || admin.role !== 'COUNTY_ADMIN') return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const admin = await findCountyAdmin(req);
+  if (!admin) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
   if (admin.status === 'ACTIVE') return res.status(409).json({ ok: false, error: 'ALREADY_ACTIVE' });
 
-  const activeCount = await prisma.user.count({ where: { role: 'COUNTY_ADMIN', status: 'ACTIVE' } });
+  const activeCount = await prisma.user.count({ where: { role: 'COUNTY_ADMIN', status: 'ACTIVE', departmentId: req.user.departmentId } });
   if (activeCount >= MAX_ACTIVE_COUNTY_ADMINS) {
     return res.status(409).json({ ok: false, error: 'COUNTY_CAP_REACHED', activeCount, cap: MAX_ACTIVE_COUNTY_ADMINS });
   }
@@ -223,8 +234,8 @@ superadminRouter.post('/admins/:id/reactivate', ah(async (req, res) => {
 // kept in case a future relation reintroduces one, so that case degrades
 // to a clean 409 instead of a raw 500.
 superadminRouter.delete('/admins/:id', ah(async (req, res) => {
-  const admin = await prisma.user.findUnique({ where: { id: req.params.id } });
-  if (!admin || admin.role !== 'COUNTY_ADMIN') return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const admin = await findCountyAdmin(req);
+  if (!admin) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
   if (admin.status === 'ACTIVE') return res.status(409).json({ ok: false, error: 'MUST_DISABLE_FIRST' });
 
   // The audit write used to happen *before* this delete attempt -- so a
@@ -258,57 +269,16 @@ superadminRouter.delete('/admins/:id', ah(async (req, res) => {
   res.json({ ok: true });
 }));
 
-async function pagedAudit(where, req, res) {
-  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-  const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize, 10) || 25));
-
-  const [total, entries] = await Promise.all([
-    prisma.auditLog.count({ where }),
-    prisma.auditLog.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      include: { actor: { select: { email: true, role: true, county: true } } }
-    })
-  ]);
-
-  res.json({ ok: true, entries, total, page, pageSize });
-}
-
-superadminRouter.get('/admins/:id/audit', ah((req, res) => pagedAudit({ actorId: req.params.id }, req, res)));
+superadminRouter.get('/admins/:id/audit', ah(async (req, res) => {
+  const admin = await findCountyAdmin(req);
+  if (!admin) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  return pagedAudit({ actorId: admin.id }, req, res);
+}));
 
 superadminRouter.get('/audit', ah((req, res) => {
-  const where = {};
+  const where = { actor: { departmentId: req.user.departmentId } };
   if (req.query.county) {
-    where.actor = { county: String(req.query.county) };
+    where.actor.county = String(req.query.county);
   }
   return pagedAudit(where, req, res);
-}));
-
-// --- Audit chain anchors ---
-// See lib/anchor.js: the chain head is emailed to every super admin daily,
-// and any kept hash can be checked against the live chain here.
-superadminRouter.get('/anchor', ah(async (req, res) => {
-  const [head, last] = await Promise.all([chainHead(), lastAnchorAt()]);
-  res.json({ ok: true, head, lastAnchorAt: last });
-}));
-
-superadminRouter.post('/anchor', ah(async (req, res) => {
-  // Each anchor adds an audit row and an email per super admin, so a manual
-  // send is limited to once every 5 minutes.
-  const last = await lastAnchorAt();
-  if (last && Date.now() - last.getTime() < 5 * 60 * 1000) {
-    return res.json({ ok: false, error: 'TOO_SOON', message: 'An anchor was sent a moment ago. Wait a few minutes before sending another.' });
-  }
-  const result = await sendAnchor({ actorId: req.user.id, req });
-  if (!result.head) return res.json({ ok: false, error: 'EMPTY_CHAIN', message: 'There are no chained entries to anchor yet.' });
-  if (!result.sent) return res.json({ ok: false, error: 'NOT_DELIVERED', message: 'The email could not be sent to any super admin, so no anchor was recorded. Check the email settings and try again.' });
-  res.json({ ok: true, sent: result.sent, head: result.head });
-}));
-
-superadminRouter.post('/anchor/check', ah(async (req, res) => {
-  const hash = String(req.body.hash || '').trim().toLowerCase();
-  if (!/^[0-9a-f]{64}$/.test(hash)) return res.status(400).json({ ok: false, error: 'INVALID_HASH', message: 'Paste the full 64-character hash from the anchor email.' });
-  res.json({ ok: true, ...(await checkAnchor(hash)) });
 }));

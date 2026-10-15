@@ -3,7 +3,7 @@
 
 // All 47 Kenyan counties, selectable when a super admin assigns a county
 // admin. The MAX_ACTIVE_COUNTY_ADMINS cap (24, the pilot phase size) limits
-// how many of these can have an active admin at once -- it does not
+// how many of these can have an active admin at once within one department -- it does not
 // restrict which specific counties may be chosen.
 export const KENYA_COUNTIES = [
   'Mombasa', 'Kwale', 'Kilifi', 'Tana River', 'Lamu', 'Taita-Taveta',

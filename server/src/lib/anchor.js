@@ -68,12 +68,14 @@ export async function checkAnchor(hash) {
   };
 }
 
-// Records the anchor in the chain itself, then emails the head to every active
-// super admin. Returns what was sent.
+// Records the anchor in the chain itself, then emails the head to the active
+// platform admin(s). Returns what was sent.
 export async function sendAnchor({ actorId = null, req } = {}) {
   const head = await chainHead();
   if (!head) return { sent: 0, head: null };
-  const admins = await prisma.user.findMany({ where: { role: 'SUPER_ADMIN', status: 'ACTIVE' }, select: { email: true } });
+  // The platform admin holds the copy. Until one exists, department super admins do, so a fresh install still gets anchors.
+  let admins = await prisma.user.findMany({ where: { role: 'PLATFORM_ADMIN', status: 'ACTIVE' }, select: { email: true } });
+  if (!admins.length) admins = await prisma.user.findMany({ where: { role: 'SUPER_ADMIN', status: 'ACTIVE' }, select: { email: true } });
   let sent = 0;
   for (const a of admins) {
     try { await sendChainAnchorEmail(a.email, head); sent += 1; }

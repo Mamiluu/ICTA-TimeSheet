@@ -213,7 +213,7 @@ export async function sendAttendanceConfirmationEmail(toEmail, details) {
   await sendViaBrevo({ to: toEmail, subject: `You're on record — ${eventName}${dayTag ? ' (' + dayTag + ')' : ''}`, html });
 }
 
-// Sent to every super admin each day. Its whole value is that it sits in an
+// Sent to the platform admin each day. Its whole value is that it sits in an
 // inbox the application cannot edit: the hash below is the audit chain's
 // latest entry at send time, so a later check can show whether anything up to
 // it was changed or removed. There is nothing to click.
@@ -227,7 +227,7 @@ export async function sendChainAnchorEmail(toEmail, head) {
     </table>
     <p style="font-size:11px;color:#888;margin:0 0 4px;">LATEST ENTRY HASH</p>
     <p style="font-family:'Courier New',monospace;font-size:12px;word-break:break-all;background:#f4f4f4;padding:10px;border-radius:4px;color:#1a1a1a;">${escapeHtml(head.hash)}</p>
-    <p style="font-size:11.5px;color:#888;">To check it later, open the super admin page, paste this hash into "Check an anchor" and the system will tell you whether that entry, and everything before it, is still intact.</p>
+    <p style="font-size:11.5px;color:#888;">To check it later, open the platform page, paste this hash into "Check an anchor" and the system will tell you whether that entry, and everything before it, is still intact.</p>
   `);
   await sendViaBrevo({ to: toEmail, subject: `${BRANDING.orgName} audit anchor — ${head.count} entries`, html });
 }

@@ -12,6 +12,8 @@ import { writeAudit } from '../lib/audit.js';
 import { isValidEmailShape } from '../lib/normalize.js';
 import { ah } from '../lib/asyncHandler.js';
 import { logger } from '../lib/logger.js';
+import { pagedAudit } from '../lib/auditPage.js';
+import { chainHead, lastAnchorAt, sendAnchor, checkAnchor } from '../lib/anchor.js';
 import { DEFAULT_DEPARTMENTS, MAX_SUPER_ADMINS_PER_DEPARTMENT, cleanDepartmentName, departmentSlug } from '../lib/departments.js';
 
 // The platform admin runs the organisation-wide account: departments and the
@@ -253,4 +255,38 @@ platformRouter.delete('/super-admins/:id', ah(async (req, res) => {
     logger.error('writeAudit failed', { stack: err.stack })
   );
   res.json({ ok: true });
+}));
+
+// ---- Organisation-wide audit trail and integrity ---------------------------
+
+platformRouter.get('/audit', ah((req, res) => {
+  const where = {};
+  if (req.query.departmentId) where.actor = { departmentId: String(req.query.departmentId) };
+  return pagedAudit(where, req, res);
+}));
+
+// See lib/anchor.js: the chain head is emailed to the platform admin daily,
+// and any kept hash can be checked against the live chain here.
+platformRouter.get('/anchor', ah(async (req, res) => {
+  const [head, last] = await Promise.all([chainHead(), lastAnchorAt()]);
+  res.json({ ok: true, head, lastAnchorAt: last });
+}));
+
+platformRouter.post('/anchor', ah(async (req, res) => {
+  // Each anchor adds an audit row and an email per recipient, so a manual
+  // send is limited to once every 5 minutes.
+  const last = await lastAnchorAt();
+  if (last && Date.now() - last.getTime() < 5 * 60 * 1000) {
+    return res.json({ ok: false, error: 'TOO_SOON', message: 'An anchor was sent a moment ago. Wait a few minutes before sending another.' });
+  }
+  const result = await sendAnchor({ actorId: req.user.id, req });
+  if (!result.head) return res.json({ ok: false, error: 'EMPTY_CHAIN', message: 'There are no chained entries to anchor yet.' });
+  if (!result.sent) return res.json({ ok: false, error: 'NOT_DELIVERED', message: 'The email could not be sent, so no anchor was recorded. Check the email settings and try again.' });
+  res.json({ ok: true, sent: result.sent, head: result.head });
+}));
+
+platformRouter.post('/anchor/check', ah(async (req, res) => {
+  const hash = String(req.body.hash || '').trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(hash)) return res.status(400).json({ ok: false, error: 'INVALID_HASH', message: 'Paste the full 64-character hash from the anchor email.' });
+  res.json({ ok: true, ...(await checkAnchor(hash)) });
 }));

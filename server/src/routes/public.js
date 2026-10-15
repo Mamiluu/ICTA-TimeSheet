@@ -159,7 +159,8 @@ function publicEventMeta(event) {
 // /api/admin/events/:id/attendance path from the admin's own dashboard.
 function canManageEvent(user, event) {
   if (!user) return false;
-  if (user.role === 'SUPER_ADMIN') return true;
+  // A department super admin manages their own department's events only.
+  if (user.role === 'SUPER_ADMIN') return !!user.departmentId && user.departmentId === event.departmentId;
   // County alone isn't enough now that a county can have multiple active
   // admins (see the per-county cap migration, which lets Nairobi run up to
   // 3) -- without also checking ownerId here, any of that county's admins
@@ -805,7 +806,7 @@ publicRouter.patch('/events/:slug/attendance/:clientId', attendanceLimiter, ah(a
 publicRouter.patch('/events/:slug/attendance/:rowId/admin-edit', ah(async (req, res) => {
   const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
   if (!event || event.deletedAt) return res.json({ ok: false, error: 'Event not found' });
-  if (!req.user || req.user.role !== 'SUPER_ADMIN') return res.status(403).json({ ok: false, error: 'FORBIDDEN' });
+  if (!req.user || req.user.role !== 'SUPER_ADMIN' || !canManageEvent(req.user, event)) return res.status(403).json({ ok: false, error: 'FORBIDDEN' });
 
   const row = await prisma.attendance.findFirst({ where: { id: req.params.rowId, eventId: event.id } });
   if (!row) return res.json({ ok: false, error: 'NOT_FOUND' });
