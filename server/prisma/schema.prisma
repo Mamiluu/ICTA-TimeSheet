@@ -10,7 +10,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// PLATFORM_ADMIN is the organisation's official top account: it creates the
+// departments and the SUPER_ADMIN of each one. A SUPER_ADMIN runs one
+// department and the COUNTY_ADMINs under it.
 enum Role {
+  PLATFORM_ADMIN
   SUPER_ADMIN
   COUNTY_ADMIN
 }
@@ -45,6 +49,11 @@ model User {
   county       String?
   status       UserStatus @default(PENDING)
 
+  // Null only for a PLATFORM_ADMIN. Every SUPER_ADMIN and COUNTY_ADMIN belongs
+  // to exactly one department, and sees only that department's data.
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
   createdById  String?
   createdBy    User?      @relation("CreatedAdmins", fields: [createdById], references: [id])
   createdAdmins User[]    @relation("CreatedAdmins")
@@ -60,6 +69,7 @@ model User {
 
   @@index([role, status])
   @@index([county])
+  @@index([departmentId])
 }
 
 model AuthToken {
@@ -146,8 +156,14 @@ model Event {
   // this event once its last day has ended.
   certificatesEnabled Boolean @default(true)
 
+  // The department whose admin created the event. Copied from the creator at
+  // creation, so reports by department stay right even if an owner moves.
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
   @@index([county])
   @@index([ownerId])
+  @@index([departmentId])
 }
 
 model SheetSeal {
@@ -314,4 +330,18 @@ model AttendanceCertificate {
 
   @@unique([attendanceId, digest])
   @@index([eventId])
+}
+
+// One of the organisation's departments (Innovation & Incubation, Finance,
+// Internal Audit, ...). Created by the platform admin. A department is
+// disabled rather than deleted so its history stays attached to a name.
+model Department {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  slug      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  users  User[]
+  events Event[]
 }
