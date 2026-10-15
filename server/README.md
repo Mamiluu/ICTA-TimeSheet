@@ -72,6 +72,14 @@ A `render.yaml` blueprint at the repo root does most of this for you.
   totals, audit trail and integrity checks; never attendee details) →
   `SUPER_ADMIN` (one department: its county admins, events and audit) →
   `COUNTY_ADMIN`. Pausing a department signs everyone in it out.
+- Payment sheets ("duty rolls"): an event of kind `DUTY_ROLL` is a closed roster of named
+  people (ICTA staff or external invitees), each signing every day they work. Only
+  county admins whose `access` is `PAYMENT` or `BOTH` can see or create one; the super
+  admin sets that when creating the admin or later from the admins list. An event the
+  account has no access to answers 404. Pay is rate per day x days signed, entered per
+  person. People sign at `duty-sign.html` with the phone number they were registered with;
+  the organiser manages the roll, prints the form and exports the schedule at
+  `duty-roll.html`. Printing and exporting are audited.
 - The 24-admin cap and one-admin-per-county rule (both per department) are
   enforced by Postgres
   itself (a trigger and a partial unique index), not just application

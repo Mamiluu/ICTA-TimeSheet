@@ -77,6 +77,17 @@
   .help{ font-size:13px; color:var(--c-muted); margin:0 0 16px; line-height:1.55; max-width:70ch; }
   .note{ font-size:13px; padding:11px 14px; border-radius:var(--r-md); margin-top:14px; }
   .note.ok{ background:var(--c-ok-wash); border:1px solid #b7e0c7; color:#084d27; }
+  .access-dialog{ border:1px solid var(--c-line); border-radius:var(--r-md); padding:22px 24px; width:min(460px, 92vw); box-shadow:0 18px 50px rgba(20,24,34,.25); }
+  .access-dialog::backdrop{ background:rgba(20,24,34,.45); }
+  .access-dialog h3{ margin:0 0 4px; font-size:17px; }
+  .access-dialog .who{ font-size:13px; color:var(--c-muted); margin:0 0 14px; }
+  .access-opt{ display:flex; gap:10px; align-items:flex-start; padding:10px 12px; border:1px solid var(--c-line); border-radius:var(--r-md); margin-bottom:8px; cursor:pointer; font-weight:400; }
+  .access-opt input{ width:auto; margin:3px 0 0; }
+  .access-opt strong{ display:block; font-size:14px; }
+  .access-opt span{ font-size:12.5px; color:var(--c-muted); }
+  .access-opt:has(input:checked){ border-color:var(--c-accent); background:var(--c-accent-wash); }
+  .access-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:14px; }
+  .access-actions button{ margin:0; }
   .note.err{ background:var(--c-accent-wash); border:1px solid #f3b9c3; color:#7a0a1e; }
 </style>
 
@@ -195,6 +206,15 @@
             <select id="newCounty"><option value="">Select a county…</option></select>
           </div>
         </div>
+        <div style="max-width:760px; margin-top:2px;">
+          <label for="newAccess">What they can use</label>
+          <select id="newAccess">
+            <option value="ATTENDANCE">Attendance sheets only</option>
+            <option value="PAYMENT">Payment sheets only</option>
+            <option value="BOTH">Both attendance and payment sheets</option>
+          </select>
+          <p class="help" style="margin:-6px 0 14px;">Payment sheets hold payment details, so only give this access to people who need it. You can change it later.</p>
+        </div>
         <button class="primary" id="createBtn">Create admin &amp; send activation email</button>
         <p class="note err" id="createError" style="display:none;"></p>
         <p class="note ok" id="createSuccess" style="display:none;"></p>
@@ -234,6 +254,16 @@
         <p><a href="forgot-password.html">Change my password</a></p>
       </div>
     </section>
+
+    <dialog class="access-dialog" id="accessDialog" aria-labelledby="accessTitle">
+      <h3 id="accessTitle">Change access</h3>
+      <p class="who" id="accessWho"></p>
+      <label class="access-opt"><input type="radio" name="accessOpt" value="ATTENDANCE"><div><strong>Attendance sheets</strong><span>Open sign-in sheets for events and trainings.</span></div></label>
+      <label class="access-opt"><input type="radio" name="accessOpt" value="PAYMENT"><div><strong>Payment sheets</strong><span>Closed rosters whose attendance is used for payment.</span></div></label>
+      <label class="access-opt"><input type="radio" name="accessOpt" value="BOTH"><div><strong>Both</strong><span>Everything above.</span></div></label>
+      <p class="note err" id="accessError" style="display:none;"></p>
+      <div class="access-actions"><button type="button" id="accessCancel">Cancel</button><button type="button" class="primary" id="accessSave">Save</button></div>
+    </dialog>
 
     <p class="footer-note">© 2026 Asya Hafidh. All rights reserved.</p>
   </main>
@@ -377,12 +407,12 @@
     }
 
     createBtn.disabled = true;
-    API.post('/api/superadmin/admins', { email: email, county: county }).then(function(r){
+    API.post('/api/superadmin/admins', { email: email, county: county, access: document.getElementById('newAccess').value }).then(function(r){
       createBtn.disabled = false;
       if(r.status === 200 && r.data.ok){
         createSuccess.textContent = 'Admin created for ' + county + '. An activation email was sent to ' + email + '.';
         createSuccess.style.display = '';
-        newEmail.value = ''; newCounty.value = '';
+        newEmail.value = ''; newCounty.value = ''; document.getElementById('newAccess').value = 'ATTENDANCE';
         loadAdmins();
         return;
       }
@@ -410,6 +440,7 @@
   var adminsCache = [];
   var adminSearch = document.getElementById('adminSearch');
   var adminFilter = document.getElementById('adminFilter');
+  var ACCESS_LABEL = { ATTENDANCE: 'Attendance sheets', PAYMENT: 'Payment sheets', BOTH: 'Attendance and payment sheets' };
   var PILL = { ACTIVE: ['active', 'Active'], PENDING: ['pending', 'Pending activation'], DISABLED: ['disabled', 'Disabled'] };
 
   function menuItem(label, onClick, cls){
@@ -430,7 +461,7 @@
     var text = el('div'); text.style.minWidth = '0';
     var em = el('div', 'adm-email', a.email); em.title = a.email;
     text.appendChild(em);
-    text.appendChild(el('div', 'adm-county', a.county + ' County'));
+    text.appendChild(el('div', 'adm-county', a.county + ' County · ' + (ACCESS_LABEL[a.access] || ACCESS_LABEL.ATTENDANCE)));
     who.appendChild(text);
 
     var state = el('div', 'adm-state');
@@ -457,6 +488,7 @@
     var sum = el('summary', null, 'More'); sum.setAttribute('aria-label', 'More actions for ' + a.email);
     more.appendChild(sum);
     var menu = el('div', 'ev-menu');
+    menu.appendChild(menuItem('Change access…', function(){ openAccessDialog(a); }));
     if(a.status === 'ACTIVE') menu.appendChild(menuItem('Disable admin', function(b){ setAdminStatus(a.id, 'disable', b); }, 'danger'));
     if(a.status !== 'ACTIVE') menu.appendChild(menuItem('Delete admin', function(b){ deleteAdmin(a.id, a.email, b); }, 'danger'));
     more.appendChild(menu);
@@ -573,6 +605,31 @@
   }
 
   document.getElementById('refreshBtn').addEventListener('click', loadAdmins);
+
+  // --- Change what an admin can use ---
+  var accessDialog = document.getElementById('accessDialog');
+  var accessTarget = null;
+  function openAccessDialog(a){
+    accessTarget = a;
+    document.getElementById('accessWho').textContent = a.email + ' · ' + a.county + ' County';
+    document.getElementById('accessError').style.display = 'none';
+    Array.prototype.forEach.call(document.querySelectorAll('input[name=accessOpt]'), function(r){ r.checked = r.value === (a.access || 'ATTENDANCE'); });
+    if(accessDialog.showModal) accessDialog.showModal(); else accessDialog.setAttribute('open', '');
+  }
+  function closeAccessDialog(){ if(accessDialog.close) accessDialog.close(); else accessDialog.removeAttribute('open'); }
+  document.getElementById('accessCancel').addEventListener('click', closeAccessDialog);
+  document.getElementById('accessSave').addEventListener('click', function(){
+    var chosen = document.querySelector('input[name=accessOpt]:checked');
+    var err = document.getElementById('accessError');
+    if(!chosen || !accessTarget) return;
+    var btn = this; btn.disabled = true;
+    API.patch('/api/superadmin/admins/' + accessTarget.id + '/access', { access: chosen.value }).then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ err.textContent = r.data.message || 'Could not change access.'; err.style.display = ''; return; }
+      closeAccessDialog();
+      loadAdmins();
+    }).catch(function(){ btn.disabled = false; err.textContent = 'Network error — could not reach the backend.'; err.style.display = ''; });
+  });
 
   // --- Platform insights: aggregate counts only, never a per-attendee
   // list -- see the matching comment on GET /api/superadmin/analytics.

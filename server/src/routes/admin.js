@@ -228,7 +228,9 @@ adminRouter.get('/events/:id/qr', ah(async (req, res) => {
   const event = await findOwnEvent(req);
   if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
 
-  const url = `${process.env.PUBLIC_APP_URL}/index.html?event=${encodeURIComponent(event.slug)}`;
+  // A payment sheet has its own signing page; everything else uses the attendance page.
+  const page = event.kind === 'DUTY_ROLL' ? 'duty-sign.html' : 'index.html';
+  const url = `${process.env.PUBLIC_APP_URL}/${page}?event=${encodeURIComponent(event.slug)}`;
   const png = await QRCode.toBuffer(url, { width: 180, margin: 1 });
   res.set('Content-Type', 'image/png');
   res.set('Cache-Control', 'private, max-age=3600');

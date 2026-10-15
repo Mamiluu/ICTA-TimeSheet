@@ -323,11 +323,40 @@
   <section class="view" data-view="new" data-title="New event">
   <div class="sheet wide">
     <h2 class="section" id="formTitle">Create a new event</h2>
+
+    <!-- Only shown to an account that has both kinds of access. A payment-only
+         account always creates payment sheets; an attendance-only account never
+         sees this. The server enforces the same rule. -->
+    <div id="kindRow" style="display:none;">
+      <label>Type of sheet</label>
+      <div class="loctype-toggle" id="kindToggle">
+        <button type="button" data-kind="ATTENDANCE" class="active">Attendance sheet</button>
+        <button type="button" data-kind="DUTY_ROLL">Payment sheet</button>
+      </div>
+      <p class="schedule-help" id="kindHelp" style="margin:6px 0 14px;"></p>
+    </div>
     <label for="newName">Event name</label>
     <input type="text" id="newName" placeholder="e.g. Huduma Whitebox Sensitization — Mombasa">
 
     <label for="newDescription">Description <span style="font-weight:normal;color:#888;">(optional)</span></label>
     <textarea id="newDescription" placeholder="What's this event about? Attendees will see this on the sign-in page."></textarea>
+
+    <div id="dutyBox" class="schedule-box" style="display:none;">
+      <div class="schedule-head"><span class="schedule-title">Payment sheet</span></div>
+      <p class="schedule-help">Only the people you add can sign, and each day is a day someone can be paid for. You add the people on the next screen.</p>
+      <div class="row">
+        <div>
+          <label for="dutyAuthBy">Authorised by</label>
+          <input type="text" id="dutyAuthBy" placeholder="e.g. Director, ICT Infrastructure" maxlength="120">
+        </div>
+        <div>
+          <label for="dutyAuthRef">Memo or invitation reference</label>
+          <input type="text" id="dutyAuthRef" placeholder="e.g. ICTA/DLP/2026/014" maxlength="120">
+        </div>
+      </div>
+      <label>Where the team works each day</label>
+      <div id="dutyPlaces"><p class="schedule-help" style="margin:0;">Choose the start and end dates first.</p></div>
+    </div>
 
     <div class="row">
       <div>
@@ -582,6 +611,7 @@
     document.getElementById('userAvatar').textContent = (user.email || 'A').charAt(0).toUpperCase();
     document.getElementById('profEmail').textContent = user.email;
     document.getElementById('profCounty').textContent = user.county;
+    if(user.access) applyAccess(user.access);
   }
   function requireSession(){
     return API.get('/api/auth/me').then(function(r){
@@ -957,6 +987,9 @@
   // receives the explicit list, so it never has to guess at date math.
   var MAX_EVENT_DAYS = 31;
   var scheduleMode = 'DAILY';
+  var eventKind = 'ATTENDANCE';
+  var userAccess = 'ATTENDANCE';
+  var dayPlaces = [];
   var scheduleBox = document.getElementById('scheduleBox');
   var scheduleTitle = document.getElementById('scheduleTitle');
   var scheduleHelp = document.getElementById('scheduleHelp');
@@ -989,7 +1022,41 @@
     return { days: out };
   }
 
+  // Payment sheets: one "where" box per calendar day, kept across redraws.
+  var dutyPlaces = document.getElementById('dutyPlaces');
+  function refreshDutyPlaces(){
+    if(eventKind !== 'DUTY_ROLL') return;
+    var n = calendarSpan(), sp = parseIso(newStartDate.value);
+    dutyPlaces.textContent = '';
+    if(!n || !sp){
+      var hint = document.createElement('p'); hint.className = 'schedule-help'; hint.style.margin = '0';
+      hint.textContent = 'Choose the start and end dates first.';
+      dutyPlaces.appendChild(hint);
+      return;
+    }
+    if(n > MAX_EVENT_DAYS){
+      var many = document.createElement('p'); many.className = 'schedule-help'; many.style.margin = '0';
+      many.textContent = 'A payment sheet can run for at most ' + MAX_EVENT_DAYS + ' days.';
+      dutyPlaces.appendChild(many);
+      return;
+    }
+    for(var i = 0; i < n; i++){
+      (function(i){
+        var d = new Date(Date.UTC(sp.y, sp.m, sp.d + i));
+        var row = document.createElement('div'); row.style.cssText = 'display:flex; gap:10px; align-items:center; margin-bottom:6px;';
+        var lab = document.createElement('span'); lab.style.cssText = 'flex:0 0 190px; font-size:13px; color:#555;';
+        lab.textContent = 'Day ' + (i + 1) + ' · ' + formatDisplayParts(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+        var input = document.createElement('input'); input.type = 'text'; input.maxLength = 80; input.placeholder = 'e.g. Mombasa';
+        input.style.margin = '0'; input.value = dayPlaces[i] || '';
+        input.setAttribute('aria-label', 'Place on day ' + (i + 1));
+        input.addEventListener('input', function(){ dayPlaces[i] = input.value; refreshCreateBtnState(); });
+        row.appendChild(lab); row.appendChild(input); dutyPlaces.appendChild(row);
+      })(i);
+    }
+  }
+
   function refreshSchedule(){
+    refreshDutyPlaces();
     var multi = isMultiDaySpan();
     scheduleBox.style.display = multi ? '' : 'none';
     scheduleError.style.display = 'none';
@@ -1032,11 +1099,49 @@
     var base = !!(newName.value.trim() && newStartDate.value.trim() && newStartTime.value && newEndDate.value.trim() && newEndTime.value && newTimezone.value);
     if(!base) return false;
     if(usingDaily() && buildDaysPayload().error) return false;
+    if(eventKind === 'DUTY_ROLL'){
+      var n = calendarSpan();
+      if(!n || n > MAX_EVENT_DAYS || buildDaysPayload().error) return false;
+      if(!document.getElementById('dutyAuthBy').value.trim() || !document.getElementById('dutyAuthRef').value.trim()) return false;
+      for(var i = 0; i < n; i++){ if(!(dayPlaces[i] || '').trim()) return false; }
+    }
     return newLocType === 'PHYSICAL' ? !!newAddress.value.trim() : !!newMeetingLink.value.trim();
   }
   function refreshCreateBtnState(){
     createBtn.disabled = !newEventFieldsComplete();
   }
+  ['dutyAuthBy', 'dutyAuthRef'].forEach(function(id){ document.getElementById(id).addEventListener('input', refreshCreateBtnState); });
+
+  // Which sheet types this account may create, set from /api/auth/me.
+  var KIND_HELP = {
+    ATTENDANCE: 'Anyone with the link or QR code can sign in. Use it for events and trainings.',
+    DUTY_ROLL: 'A closed list of named people, each signing every day they work. Use it when attendance is what a payment is based on.'
+  };
+  function setKind(kind){
+    eventKind = kind;
+    Array.prototype.forEach.call(document.querySelectorAll('#kindToggle button'), function(b){ b.classList.toggle('active', b.getAttribute('data-kind') === kind); });
+    document.getElementById('kindHelp').textContent = KIND_HELP[kind];
+    var duty = kind === 'DUTY_ROLL';
+    document.getElementById('dutyBox').style.display = duty ? '' : 'none';
+    document.getElementById('newCertificates').closest('label').style.display = duty ? 'none' : '';
+    if(!editingEventId){
+      formTitle.textContent = duty ? 'Create a payment sheet' : 'Create a new event';
+      createBtn.textContent = duty ? 'Create payment sheet' : 'Create event';
+    }
+    refreshSchedule();
+    refreshCreateBtnState();
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('#kindToggle button'), function(b){
+    b.addEventListener('click', function(){ if(!editingEventId) setKind(b.getAttribute('data-kind')); });
+  });
+  function applyAccess(access){
+    userAccess = access || 'ATTENDANCE';
+    document.getElementById('kindRow').style.display = userAccess === 'BOTH' ? '' : 'none';
+    if(userAccess === 'PAYMENT') setKind('DUTY_ROLL');
+    else if(userAccess === 'ATTENDANCE') setKind('ATTENDANCE');
+    else document.getElementById('kindHelp').textContent = KIND_HELP[eventKind];
+  }
+
   newName.addEventListener('input', refreshCreateBtnState);
   newStartTime.addEventListener('input', refreshCreateBtnState);
   newEndTime.addEventListener('input', refreshCreateBtnState);
@@ -1109,8 +1214,10 @@
     venueTemplateNameField.style.display = 'none';
     createError.style.display = 'none';
     scheduleMode = 'DAILY';
-    refreshSchedule();
-    refreshCreateBtnState();
+    dayPlaces = [];
+    document.getElementById('dutyAuthBy').value = ''; document.getElementById('dutyAuthRef').value = '';
+    if(userAccess === 'BOTH') eventKind = 'ATTENDANCE';
+    setKind(userAccess === 'PAYMENT' ? 'DUTY_ROLL' : eventKind);
   }
 
   // Populates the one shared form with an existing event's details and
@@ -1155,8 +1262,11 @@
     newLatitude.value = (ev.locationType === 'PHYSICAL' && ev.latitude != null) ? ev.latitude : '';
     newLongitude.value = (ev.locationType === 'PHYSICAL' && ev.longitude != null) ? ev.longitude : '';
     createError.style.display = 'none';
-    refreshSchedule();
-    refreshCreateBtnState();
+    document.getElementById('dutyAuthBy').value = ev.authorisedBy || '';
+    document.getElementById('dutyAuthRef').value = ev.authorityRef || '';
+    dayPlaces = (ev.days || []).map(function(d){ return d.place || ''; });
+    setKind(ev.kind === 'DUTY_ROLL' ? 'DUTY_ROLL' : 'ATTENDANCE');
+    formTitle.textContent = ev.kind === 'DUTY_ROLL' ? 'Edit payment sheet' : 'Edit event';
     showView('new');
   }
 
@@ -1186,7 +1296,12 @@
       meetingLink: newLocType === 'VIRTUAL' ? newMeetingLink.value.trim() : '',
       certificatesEnabled: document.getElementById('newCertificates').checked
     };
-    if(usingDaily()) payload.days = buildDaysPayload().days;
+    if(eventKind === 'DUTY_ROLL'){
+      payload.kind = 'DUTY_ROLL';
+      payload.authorisedBy = document.getElementById('dutyAuthBy').value.trim();
+      payload.authorityRef = document.getElementById('dutyAuthRef').value.trim();
+      payload.days = buildDaysPayload().days.map(function(d, i){ d.place = (dayPlaces[i] || '').trim(); return d; });
+    } else if(usingDaily()) payload.days = buildDaysPayload().days;
 
     createBtn.disabled = true;
     var wasEditing = !!editingEventId;
@@ -1196,6 +1311,11 @@
         refreshCreateBtnState();
         createError.textContent = r.data.message || 'Could not save the event.';
         createError.style.display = '';
+        return;
+      }
+      if(!editingEventId && r.data.event.kind === 'DUTY_ROLL'){
+        // A payment sheet is managed on its own page: add the people, share the link.
+        location.href = 'duty-roll.html?event=' + encodeURIComponent(r.data.event.id);
         return;
       }
       if(!editingEventId){
@@ -1287,7 +1407,8 @@
   }
 
   function buildEventCard(ev){
-    var url = attendeePageUrl() + '?event=' + encodeURIComponent(ev.slug);
+    var isDuty = ev.kind === 'DUTY_ROLL';
+    var url = isDuty ? attendeePageUrl().replace(/index\.html$/, 'duty-sign.html') + '?event=' + encodeURIComponent(ev.slug) : attendeePageUrl() + '?event=' + encodeURIComponent(ev.slug);
     // &kiosk=1 tells the server (see GET /events/:slug in public.js) to render
     // this exact page as a plain attendee would see it, even in a browser that
     // is still logged in as this admin. Use it whenever the *device*, not just
@@ -1317,12 +1438,15 @@
     var side = document.createElement('div'); side.className = 'ev-side';
     var count = document.createElement('div'); count.className = 'ev-count';
     var num = document.createElement('strong'); num.textContent = ev.count;
-    var lab = document.createElement('span'); lab.textContent = 'signed in';
+    var lab = document.createElement('span'); lab.textContent = isDuty ? 'on the roll' : 'signed in';
     count.appendChild(num); count.appendChild(lab);
     side.appendChild(count);
     var pills = document.createElement('div'); pills.className = 'ev-pills';
     var pill = document.createElement('span'); pill.className = 'pill ' + status.cls; pill.textContent = status.text;
     pills.appendChild(pill);
+    if(isDuty){
+      var pp = document.createElement('span'); pp.className = 'pill days'; pp.textContent = 'Payment sheet'; pills.appendChild(pp);
+    }
     if(ev.days && ev.days.length > 1){
       var dp = document.createElement('span'); dp.className = 'pill days'; dp.textContent = ev.days.length + ' days'; pills.appendChild(dp);
     }
@@ -1330,8 +1454,8 @@
 
     var actions = document.createElement('div'); actions.className = 'ev-actions';
     var openBtn = document.createElement('button');
-    openBtn.type = 'button'; openBtn.className = 'primary'; openBtn.textContent = 'Open sheet';
-    openBtn.addEventListener('click', function(){ window.open(url, '_blank'); });
+    openBtn.type = 'button'; openBtn.className = 'primary'; openBtn.textContent = isDuty ? 'Open payment sheet' : 'Open sheet';
+    openBtn.addEventListener('click', function(){ if(isDuty) window.open('duty-roll.html?event=' + encodeURIComponent(ev.id), '_blank'); else window.open(url, '_blank'); });
     var copyBtn = document.createElement('button');
     copyBtn.type = 'button'; copyBtn.textContent = 'Copy link';
     copyBtn.addEventListener('click', function(){
@@ -1350,13 +1474,15 @@
     // Export and print are the only places personal data (name, phone, email,
     // a drawn signature) leaves the sheet as a file or printout. Both go
     // through the audited endpoint so there is a record of who took a copy.
-    menu.appendChild(menuItem('Kiosk link', function(){
-      if(navigator.clipboard) navigator.clipboard.writeText(kioskUrl);
-    }));
-    menu.appendChild(menuItem('Export CSV', function(b){ exportEventCsv(ev, b); }));
-    menu.appendChild(menuItem('Print sheet', function(b){ printEventSheet(ev, b); }));
-    menu.appendChild(menuItem('Claim pack', function(){ window.open('claim-pack.html?event=' + encodeURIComponent(ev.id), '_blank'); }));
-    menu.appendChild(menuItem('Seal & print', function(b){ sealEventDay(ev, b); }));
+    if(!isDuty){
+      menu.appendChild(menuItem('Kiosk link', function(){
+        if(navigator.clipboard) navigator.clipboard.writeText(kioskUrl);
+      }));
+      menu.appendChild(menuItem('Export CSV', function(b){ exportEventCsv(ev, b); }));
+      menu.appendChild(menuItem('Print sheet', function(b){ printEventSheet(ev, b); }));
+      menu.appendChild(menuItem('Claim pack', function(){ window.open('claim-pack.html?event=' + encodeURIComponent(ev.id), '_blank'); }));
+      menu.appendChild(menuItem('Seal & print', function(b){ sealEventDay(ev, b); }));
+    }
     menu.appendChild(menuItem('Reopen a day', function(){ openReopenModal(ev); }));
     var sep = document.createElement('div'); sep.className = 'ev-menu-sep'; menu.appendChild(sep);
     menu.appendChild(menuItem('Delete event', function(b){ deleteEvent(ev, b); }, 'danger'));

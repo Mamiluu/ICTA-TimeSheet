@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+  Proprietary and confidential. See LICENSE in the repository root.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payment sheet</title>
+<link rel="icon" href="assets/icta_logo_cropped.png">
+<style>
+  :root{ --ink:#1b1a18; --muted:#6a655b; --rule:#d9d2c3; --paper:#fffdf8; --page:#ebe7de; --accent:#c8102e; --ok:#14683a; --warn:#8a5a00; --bad:#9d1230; }
+  @media (prefers-color-scheme: dark){ :root{ --page:#1d1c1a; } }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--page); color:var(--ink); font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; font-size:14px; line-height:1.5; }
+  .wrap{ max-width:1180px; margin:0 auto; padding:20px 18px 50px; }
+  .top{ display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+  .top a.back{ color:var(--muted); text-decoration:none; font-size:13px; }
+  .top a.back:hover{ color:var(--ink); }
+  h1{ font-family:Georgia, "Times New Roman", serif; font-weight:400; font-size:28px; line-height:1.15; margin:0; }
+  .meta{ color:var(--muted); font-size:13.5px; margin:4px 0 0; }
+  .card{ background:var(--paper); border:1px solid var(--rule); border-radius:14px; padding:16px 18px; margin-bottom:14px; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+  h2{ font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0 0 12px; font-weight:700; }
+  .grid{ display:grid; grid-template-columns:1fr 210px; gap:18px; align-items:start; }
+  .linkrow{ display:flex; gap:8px; flex-wrap:wrap; }
+  input, select{ font:inherit; font-size:14px; padding:9px 10px; border:1px solid #bfb7a4; border-radius:9px; background:#fff; color:var(--ink); min-width:0; }
+  input:focus-visible, select:focus-visible, button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .linkrow input{ flex:1 1 280px; }
+  button{ font:inherit; font-weight:700; font-size:13.5px; padding:9px 14px; border-radius:9px; border:1px solid #bfb7a4; background:#fff; color:var(--ink); cursor:pointer; }
+  button.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.link{ border:0; background:none; padding:2px 6px; color:var(--accent); font-weight:600; }
+  button.link.danger{ color:var(--bad); }
+  button:disabled{ opacity:.55; cursor:default; }
+  .qr{ width:180px; height:180px; background:#fff; border:1px solid var(--rule); border-radius:10px; padding:6px; }
+  .qrnote{ font-size:12px; color:var(--muted); margin:6px 0 0; }
+  .days{ display:flex; gap:8px; flex-wrap:wrap; }
+  .day{ border:1px solid var(--rule); border-radius:10px; padding:7px 11px; background:#fff; font-size:13px; }
+  .day b{ display:block; font-size:12px; color:var(--muted); font-weight:700; }
+  .tablewrap{ overflow-x:auto; }
+  table{ border-collapse:collapse; width:100%; font-size:13px; }
+  th, td{ padding:8px 9px; border-bottom:1px solid var(--rule); text-align:left; vertical-align:middle; white-space:nowrap; }
+  th{ font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+  td.num, th.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  td.c, th.c{ text-align:center; }
+  td.name{ white-space:normal; min-width:150px; }
+  td.name small{ display:block; color:var(--muted); font-size:12px; }
+  .cell{ display:inline-block; min-width:26px; padding:2px 6px; border-radius:7px; font-size:12px; font-weight:700; }
+  .cell.SIGNED{ background:#e0f1e6; color:var(--ok); }
+  .cell.OPEN{ background:#fdf0d4; color:var(--warn); }
+  .cell.UPCOMING{ color:#a9a392; }
+  .cell.ABSENT{ background:#f6e1e5; color:var(--bad); }
+  tfoot td{ font-weight:700; border-bottom:0; }
+  .empty{ color:var(--muted); padding:14px 2px; }
+  .form{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px 12px; }
+  .form label{ display:block; font-size:12.5px; font-weight:700; margin:0 0 4px; }
+  .form input, .form select{ width:100%; }
+  .form .wide{ grid-column:span 2; }
+  .msg{ margin:10px 0 0; font-size:13.5px; min-height:1.2em; }
+  .msg.err{ color:var(--bad); }
+  .msg.ok{ color:var(--ok); font-weight:700; }
+  .actions{ display:flex; gap:8px; flex-wrap:wrap; margin-left:auto; }
+  [hidden]{ display:none !important; }
+  #printArea{ display:none; }
+
+  @media (max-width: 760px){
+    .grid{ grid-template-columns:1fr; }
+    .form{ grid-template-columns:1fr 1fr; }
+  }
+
+  /* ---- The printed payment sheet: the paper form, one page per nine days ---- */
+  @page{ size:A4 landscape; margin:10mm; }
+  @media print{
+    body{ background:#fff; font-size:11px; }
+    .wrap{ display:none !important; }
+    #printArea{ display:block; }
+    .sheet-page{ page-break-after:always; break-after:page; }
+    .sheet-page:last-child{ page-break-after:auto; break-after:auto; }
+  }
+  .sheet-page{ color:#000; font-family:Arial, Helvetica, sans-serif; }
+  .sheet-page .lh{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .sheet-page .lh img{ height:34px; }
+  .sheet-page .lh strong{ font-size:15px; }
+  .sheet-page h3{ text-align:center; margin:2px 0 6px; font-size:15px; letter-spacing:.06em; }
+  .sheet-page table{ border:1px solid #000; }
+  .sheet-page th, .sheet-page td{ border:1px solid #000; padding:3px 5px; font-size:10.5px; white-space:normal; color:#000; text-transform:none; letter-spacing:0; }
+  .sheet-page th{ background:#e4e4e4; font-weight:700; text-align:center; }
+  .sheet-page .hdr td{ font-size:11px; }
+  .sheet-page .hdr td.k{ font-weight:700; width:15%; }
+  .sheet-page .sigcell{ height:34px; width:62px; text-align:center; padding:1px; }
+  .sheet-page .sigcell img{ max-width:58px; max-height:30px; }
+  .sheet-page .sigcell.ABSENT{ background:linear-gradient(to top right, transparent calc(50% - .6px), #000 50%, transparent calc(50% + .6px)); }
+  .sheet-page .dayhead small{ display:block; font-weight:400; font-size:8.5px; }
+  .sheet-page .foot{ display:flex; justify-content:space-between; gap:20px; margin-top:10px; font-size:10.5px; }
+  .sheet-page .foot div{ flex:1; border-top:1px solid #000; padding-top:3px; margin-top:22px; }
+  .sheet-page .gen{ margin-top:8px; font-size:9px; color:#444; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="back" href="admin.html#events">&larr; Events</a>
+  </div>
+
+  <div id="loading" class="card"><p class="empty" style="margin:0;">Loading…</p></div>
+
+  <div id="page" hidden>
+    <div class="top" style="align-items:flex-start;">
+      <div>
+        <h1 id="title"></h1>
+        <p class="meta" id="authLine"></p>
+      </div>
+      <div class="actions">
+        <button type="button" id="printBtn">Print payment sheet</button>
+        <button type="button" id="csvBtn">Download payment schedule (CSV)</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <div>
+          <h2>Signing link for the people on this sheet</h2>
+          <div class="linkrow">
+            <input type="text" id="signLink" readonly aria-label="Signing link">
+            <button type="button" id="copyBtn">Copy</button>
+          </div>
+          <p class="meta" style="margin-top:8px;">Each person opens this link on their own phone, types the number they were registered with and signs for the day. Only people on the list can sign.</p>
+          <h2 style="margin-top:16px;">Days</h2>
+          <div class="days" id="days"></div>
+        </div>
+        <div>
+          <img class="qr" id="qr" alt="QR code for the signing link" width="180" height="180">
+          <p class="qrnote">Show this at the venue.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>People on this sheet</h2>
+      <div class="tablewrap" id="rosterWrap"></div>
+    </div>
+
+    <div class="card">
+      <h2>Add a person</h2>
+      <div class="form">
+        <div><label for="fType">They are</label>
+          <select id="fType"><option value="STAFF">ICTA staff</option><option value="EXTERNAL">External invitee</option></select></div>
+        <div class="wide"><label for="fName">Full name</label><input type="text" id="fName" maxlength="120" autocomplete="off"></div>
+        <div><label for="fId" id="fIdLabel">Staff number</label><input type="text" id="fId" maxlength="30" autocomplete="off"></div>
+        <div><label for="fPhone">Phone (they sign with it)</label><input type="tel" id="fPhone" inputmode="tel" autocomplete="off"></div>
+        <div id="fOrgBox" hidden><label for="fOrg">Organisation</label><input type="text" id="fOrg" maxlength="120" autocomplete="off" placeholder="e.g. Ministry of Education"></div>
+        <div><label for="fRole">Role on this engagement</label><input type="text" id="fRole" maxlength="60" autocomplete="off" placeholder="e.g. Driver"></div>
+        <div><label for="fRate">Rate per day (KES)</label><input type="number" id="fRate" min="0" step="1" inputmode="numeric"></div>
+        <div class="wide" id="fReasonBox" hidden><label for="fReason">Why is this person being added now?</label><input type="text" id="fReason" maxlength="300" autocomplete="off" placeholder="The engagement has already started"></div>
+      </div>
+      <div style="margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <button type="button" class="primary" id="addBtn">Add to the sheet</button>
+        <span class="meta" style="margin:0;">Rates are set by you for each person. Nothing is calculated from a table.</span>
+      </div>
+      <p class="msg" id="addMsg" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+</div>
+
+<div id="printArea" aria-hidden="true"></div>
+
+<script src="assets/api.js"></script>
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var eventId = new URLSearchParams(location.search).get('event') || '';
+  var roll = null, orgName = 'ICT Authority';
+
+  function el(tag, cls, text){ var n = document.createElement(tag); if(cls) n.className = cls; if(text != null) n.textContent = text; return n; }
+  function money(n){ return 'KES ' + Number(n || 0).toLocaleString('en-KE'); }
+  function tz(){ return roll.event.timezone; }
+  function fmt(iso, opts){ return new Intl.DateTimeFormat('en-GB', Object.assign({ timeZone: tz() }, opts)).format(new Date(iso)); }
+  function shortDate(iso){ return fmt(iso, { day: 'numeric', month: 'short' }); }
+  function longDate(iso){ return fmt(iso, { day: 'numeric', month: 'long', year: 'numeric' }); }
+  function say(id, text, cls){ var n = $(id); n.textContent = text || ''; n.className = 'msg' + (cls ? ' ' + cls : ''); }
+
+  API.get('/api/branding').then(function(r){ if(r.status === 200 && r.data && r.data.orgName) orgName = r.data.orgName; }).catch(function(){});
+
+  function requireSession(){
+    return API.get('/api/auth/me').then(function(r){
+      if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return null; }
+      if(r.data.user.role !== 'COUNTY_ADMIN'){ location.href = homeFor(r.data.user.role); return null; }
+      return r.data.user;
+    });
+  }
+
+  function load(){
+    return API.get('/api/admin/events/' + encodeURIComponent(eventId) + '/duty').then(function(r){
+      if(r.status !== 200 || !r.data.ok){
+        $('loading').innerHTML = '';
+        $('loading').appendChild(el('p', 'empty', 'This payment sheet could not be found, or your account does not have access to it.'));
+        return;
+      }
+      roll = r.data; render();
+    }).catch(function(){ $('loading').innerHTML = '<p class="empty">No connection. Reload to try again.</p>'; });
+  }
+
+  function render(){
+    $('loading').hidden = true; $('page').hidden = false;
+    document.title = roll.event.name + ' · Payment sheet';
+    $('title').textContent = roll.event.name;
+    $('authLine').textContent = 'Authorised by ' + roll.event.authorisedBy + ' · Reference ' + roll.event.authorityRef;
+    var link = location.href.replace(/duty-roll\.html.*$/, 'duty-sign.html') + '?event=' + encodeURIComponent(roll.event.slug);
+    $('signLink').value = link;
+    $('qr').src = '/api/admin/events/' + encodeURIComponent(roll.event.id) + '/qr';
+
+    var days = $('days'); days.textContent = '';
+    roll.days.forEach(function(d){
+      var box = el('div', 'day'); box.appendChild(el('b', null, 'Day ' + d.position + ' · ' + shortDate(d.startAt)));
+      box.appendChild(document.createTextNode(d.place || '')); days.appendChild(box);
+    });
+    renderRoster();
+  }
+
+  var CELL_TEXT = { SIGNED: '✓', OPEN: 'open', UPCOMING: '–', ABSENT: '✕' };
+
+  function renderRoster(){
+    var wrap = $('rosterWrap'); wrap.textContent = '';
+    if(!roll.rows.length){ wrap.appendChild(el('p', 'empty', 'Nobody is on this sheet yet. Add the people below. They will be able to sign once they are added.')); return; }
+    var t = document.createElement('table');
+    var head = '<thead><tr><th class="c">No</th><th>Name</th><th>Role</th><th>Phone</th>';
+    roll.days.forEach(function(d){ head += '<th class="c" title="' + escapeHtml(d.place || '') + '">Day ' + d.position + '</th>'; });
+    head += '<th class="num">Rate</th><th class="num">Days</th><th class="num">Amount</th><th></th></tr></thead>';
+    t.innerHTML = head;
+    var tb = document.createElement('tbody');
+    roll.rows.forEach(function(r, i){
+      var tr = document.createElement('tr');
+      tr.appendChild(el('td', 'c', String(i + 1)));
+      var nm = el('td', 'name', r.name);
+      nm.appendChild(el('small', null, (r.payeeType === 'STAFF' ? 'Staff ' : 'ID ') + r.idNumber + (r.organisation && r.payeeType !== 'STAFF' ? ' · ' + r.organisation : '')));
+      tr.appendChild(nm);
+      tr.appendChild(el('td', null, r.jobRole || ''));
+      tr.appendChild(el('td', null, r.phone));
+      r.cells.forEach(function(c){
+        var td = el('td', 'c'); var s = el('span', 'cell ' + c.status, CELL_TEXT[c.status]);
+        if(c.method === 'PHONE') s.title = 'Signed from the phone number'; td.appendChild(s); tr.appendChild(td);
+      });
+      tr.appendChild(el('td', 'num', Number(r.ratePerDay).toLocaleString('en-KE')));
+      tr.appendChild(el('td', 'num', String(r.daysSigned)));
+      tr.appendChild(el('td', 'num', Number(r.amount).toLocaleString('en-KE')));
+      var act = el('td');
+      var rate = el('button', 'link', 'Change rate'); rate.type = 'button'; rate.addEventListener('click', function(){ changeRate(r); }); act.appendChild(rate);
+      if(r.daysSigned === 0){ var rm = el('button', 'link danger', 'Remove'); rm.type = 'button'; rm.addEventListener('click', function(){ removePerson(r); }); act.appendChild(rm); }
+      tr.appendChild(act); tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    var tf = document.createElement('tfoot');
+    var span = 4 + roll.days.length;
+    tf.innerHTML = '<tr><td colspan="' + span + '">' + roll.totals.people + (roll.totals.people === 1 ? ' person' : ' people') + '</td><td></td><td class="num">' + roll.totals.daysSigned + '</td><td class="num">' + Number(roll.totals.amount).toLocaleString('en-KE') + '</td><td></td></tr>';
+    t.appendChild(tf);
+    wrap.appendChild(t);
+    wrap.appendChild(el('p', 'meta', '✓ signed · open = signing is open now · – not yet · ✕ the day closed without a signature. Amount = rate × days signed.'));
+  }
+
+  function changeRate(r){
+    var v = window.prompt('New rate per day (KES) for ' + r.name + ':', String(r.ratePerDay));
+    if(v == null || v.trim() === '' || Number(v) === r.ratePerDay) return;
+    var body = { ratePerDay: Number(v) };
+    if(r.daysSigned > 0){
+      var why = window.prompt(r.name + ' has already signed. Why is the rate changing?');
+      if(!why) return; body.reason = why;
+    }
+    API.patch('/api/admin/events/' + encodeURIComponent(eventId) + '/duty/payees/' + encodeURIComponent(r.id), body).then(function(res){
+      if(!res.data.ok){ window.alert(res.data.message || 'Could not change the rate.'); return; }
+      load();
+    }).catch(function(){ window.alert('No connection. Please try again.'); });
+  }
+  function removePerson(r){
+    if(!window.confirm('Take ' + r.name + ' off this sheet? They have not signed any day.')) return;
+    API.del('/api/admin/events/' + encodeURIComponent(eventId) + '/duty/payees/' + encodeURIComponent(r.id)).then(function(res){
+      if(!res.data.ok){ window.alert(res.data.message || 'Could not remove this person.'); return; }
+      load();
+    }).catch(function(){ window.alert('No connection. Please try again.'); });
+  }
+
+  // --- Add a person ---
+  function syncType(){
+    var staff = $('fType').value === 'STAFF';
+    $('fIdLabel').textContent = staff ? 'Staff number' : 'National ID number';
+    $('fOrgBox').hidden = staff;
+  }
+  $('fType').addEventListener('change', syncType); syncType();
+
+  $('addBtn').addEventListener('click', function(){
+    var btn = this;
+    var body = {
+      payeeType: $('fType').value, name: $('fName').value, idNumber: $('fId').value, phone: $('fPhone').value,
+      organisation: $('fOrg').value, jobRole: $('fRole').value, ratePerDay: $('fRate').value === '' ? null : Number($('fRate').value), reason: $('fReason').value
+    };
+    btn.disabled = true; say('addMsg', 'Adding…');
+    API.post('/api/admin/events/' + encodeURIComponent(eventId) + '/duty/payees', body).then(function(r){
+      btn.disabled = false;
+      if(r.data.ok){
+        say('addMsg', body.name.trim() + ' was added. They can sign from the link above.', 'ok');
+        ['fName', 'fId', 'fPhone', 'fOrg', 'fRole', 'fRate', 'fReason'].forEach(function(id){ $(id).value = ''; });
+        $('fReasonBox').hidden = true;
+        load();
+        return;
+      }
+      if(r.data.error === 'REASON_REQUIRED') $('fReasonBox').hidden = false;
+      say('addMsg', r.data.message || 'Could not add this person.', 'err');
+    }).catch(function(){ btn.disabled = false; say('addMsg', 'No connection. Please try again.', 'err'); });
+  });
+
+  $('copyBtn').addEventListener('click', function(){
+    var b = this, v = $('signLink').value;
+    var done = function(){ b.textContent = 'Copied ✓'; setTimeout(function(){ b.textContent = 'Copy'; }, 1400); };
+    if(navigator.clipboard) navigator.clipboard.writeText(v).then(done, function(){ $('signLink').select(); }); else { $('signLink').select(); document.execCommand('copy'); done(); }
+  });
+
+  $('csvBtn').addEventListener('click', function(){
+    location.href = '/api/admin/events/' + encodeURIComponent(eventId) + '/duty/export.csv';
+  });
+
+  // --- Print: the paper form, nine days to a page ---
+  function buildPrint(data){
+    var area = $('printArea'); area.textContent = '';
+    var days = data.days, rows = data.rows;
+    var pages = [];
+    for(var i = 0; i < days.length; i += 9) pages.push(days.slice(i, i + 9));
+    var places = [];
+    days.forEach(function(d){ if(d.place && places.indexOf(d.place) === -1) places.push(d.place); });
+    var dateRange = longDate(days[0].startAt) + (days.length > 1 ? ' to ' + longDate(days[days.length - 1].startAt) : '');
+    var origin = days.length;
+
+    pages.forEach(function(chunk, pi){
+      var last = pi === pages.length - 1;
+      var pg = el('section', 'sheet-page');
+      var lh = el('div', 'lh'); var img = document.createElement('img'); img.src = 'assets/icta_logo_cropped.png'; img.alt = '';
+      lh.appendChild(img); lh.appendChild(el('strong', null, orgName)); pg.appendChild(lh);
+      pg.appendChild(el('h3', null, 'ATTENDANCE SHEET'));
+
+      var hdr = document.createElement('table'); hdr.className = 'hdr';
+      hdr.innerHTML = '<tr><td class="k">DATE:</td><td>' + escapeHtml(dateRange) + '</td><td class="k">AUTHORISED BY:</td><td>' + escapeHtml(data.event.authorisedBy) + '</td></tr>'
+        + '<tr><td class="k">LOCATION:</td><td>' + escapeHtml(places.join(', ')) + '</td><td class="k">REFERENCE:</td><td>' + escapeHtml(data.event.authorityRef) + '</td></tr>'
+        + '<tr><td class="k">MAIN AGENDA / SUBJECT:</td><td colspan="3">' + escapeHtml(data.event.name) + '</td></tr>';
+      pg.appendChild(hdr);
+
+      // The paper form keeps every day column the same width, so the last page of a long
+      // engagement is narrower instead of stretching its few columns across the sheet.
+      var total = 40 + chunk.length * 6.6 + (last ? 6 : 0);
+      var pct = function(n){ return (n / total * 100).toFixed(2) + '%'; };
+      var t = document.createElement('table'); t.style.marginTop = '6px'; t.style.tableLayout = 'fixed'; t.style.width = total + '%';
+      var h = '<thead><tr><th style="width:' + pct(4) + '">S/NO.</th><th style="width:' + pct(22) + '">NAME</th><th style="width:' + pct(14) + '">ORGANISATION</th>';
+      chunk.forEach(function(d){ h += '<th class="dayhead" style="width:' + pct(6.6) + '">Day ' + d.position + '<small>' + escapeHtml(shortDate(d.startAt)) + '</small><small>' + escapeHtml(d.place || '') + '</small></th>'; });
+      if(last) h += '<th style="width:' + pct(6) + '">DAYS</th>';
+      h += '</tr></thead>';
+      t.innerHTML = h;
+      var tb = document.createElement('tbody');
+      var rowTotal = Math.max(rows.length, 5);
+      for(var n = 0; n < rowTotal; n++){
+        var r = rows[n]; var tr = document.createElement('tr');
+        tr.appendChild(el('td', null, String(n + 1) + '.'));
+        tr.appendChild(el('td', null, r ? r.name : ''));
+        tr.appendChild(el('td', null, r ? (r.organisation || '') : ''));
+        chunk.forEach(function(d){
+          var td = el('td', 'sigcell'); var cell = r ? r.cells.filter(function(c){ return c.dayId === d.id; })[0] : null;
+          if(cell && cell.status === 'SIGNED' && cell.signature){ var im = document.createElement('img'); im.src = cell.signature; im.alt = 'signature'; td.appendChild(im); }
+          else if(cell && cell.status === 'ABSENT') td.className = 'sigcell ABSENT';
+          else if(!r) td.className = 'sigcell ABSENT';
+          tr.appendChild(td);
+        });
+        if(last) tr.appendChild(el('td', null, r ? String(r.daysSigned) : ''));
+        tb.appendChild(tr);
+      }
+      t.appendChild(tb); pg.appendChild(t);
+
+      var foot = el('div', 'foot');
+      ['Prepared by (name, signature, date)', 'Certified by the authorising officer (name, signature, date)'].forEach(function(s){ foot.appendChild(el('div', null, s)); });
+      pg.appendChild(foot);
+      pg.appendChild(el('div', 'gen', 'Page ' + (pi + 1) + ' of ' + pages.length + ' · Days ' + chunk[0].position + (chunk.length > 1 ? '–' + chunk[chunk.length - 1].position : '') + ' of ' + origin + ' · Printed from the digital record on ' + new Date().toLocaleString('en-GB', { timeZone: tz() })));
+      area.appendChild(pg);
+    });
+  }
+
+  $('printBtn').addEventListener('click', function(){
+    var btn = this; btn.disabled = true;
+    // The print request is recorded in the audit trail: it carries signatures and names.
+    API.get('/api/admin/events/' + encodeURIComponent(eventId) + '/duty?print=1').then(function(r){
+      btn.disabled = false;
+      if(r.status !== 200 || !r.data.ok){ window.alert('Could not prepare the sheet for printing.'); return; }
+      roll.event.timezone = r.data.event.timezone;
+      buildPrint(r.data);
+      var imgs = Array.prototype.slice.call(document.querySelectorAll('#printArea img'));
+      Promise.all(imgs.map(function(im){ return im.complete ? null : new Promise(function(ok){ im.onload = im.onerror = ok; }); })).then(function(){ window.print(); });
+    }).catch(function(){ btn.disabled = false; window.alert('No connection. Please try again.'); });
+  });
+
+  requireSession().then(function(u){ if(u) load(); });
+})();
+</script>
+</body>
+</html>

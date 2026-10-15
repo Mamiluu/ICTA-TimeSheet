@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
+  Proprietary and confidential. See LICENSE in the repository root.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign for the day</title>
+<link rel="icon" href="assets/icta_logo_cropped.png">
+<style>
+  :root{ --ink:#1b1a18; --muted:#6a655b; --rule:#d9d2c3; --paper:#fffdf8; --page:#ebe7de; --accent:#c8102e; --ok:#14683a; --warn:#8a5a00; }
+  @media (prefers-color-scheme: dark){ :root{ --page:#1d1c1a; } }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--page); color:var(--ink); font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; font-size:15px; line-height:1.5; }
+  main{ max-width:520px; margin:0 auto; padding:22px 16px 40px; }
+  .brand{ display:flex; align-items:center; gap:10px; margin-bottom:18px; }
+  .brand img{ width:38px; height:38px; object-fit:contain; background:#fff; border-radius:8px; padding:3px; }
+  .brand span{ font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+  h1{ font-family:Georgia, "Times New Roman", serif; font-weight:400; font-size:26px; line-height:1.2; margin:0 0 6px; }
+  .sub{ color:var(--muted); font-size:14px; margin:0 0 18px; }
+  .card{ background:var(--paper); border:1px solid var(--rule); border-radius:14px; padding:16px 16px 14px; margin-bottom:14px; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+  h2{ font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0 0 10px; font-weight:700; }
+  .days{ list-style:none; margin:0; padding:0; }
+  .days li{ display:flex; justify-content:space-between; gap:10px; padding:9px 0; border-top:1px solid var(--rule); font-size:14px; }
+  .days li:first-child{ border-top:0; }
+  .days .when{ color:var(--muted); font-size:13px; }
+  .tag{ font-size:11.5px; font-weight:700; padding:2px 9px; border-radius:999px; white-space:nowrap; align-self:flex-start; background:#eee9dc; color:var(--muted); }
+  .tag.open{ background:#e0f1e6; color:var(--ok); }
+  label{ display:block; font-weight:700; font-size:13px; margin:0 0 6px; }
+  input[type=tel]{ width:100%; font:inherit; font-size:16px; padding:12px 12px; border:1px solid #bfb7a4; border-radius:10px; background:#fff; color:var(--ink); }
+  input:focus-visible, button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  button{ font:inherit; font-weight:700; font-size:15px; padding:12px 16px; border-radius:10px; border:1px solid #bfb7a4; background:#fff; color:var(--ink); cursor:pointer; }
+  button.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  button:disabled{ opacity:.55; cursor:default; }
+  .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  .row button{ flex:1 1 140px; }
+  .msg{ margin:12px 0 0; font-size:14px; min-height:1.3em; }
+  .msg.err{ color:#9d1230; }
+  .msg.ok{ color:var(--ok); font-weight:700; }
+  .pad{ width:100%; height:190px; border:1px dashed #9d9686; border-radius:10px; background:#fff; touch-action:none; display:block; }
+  .hint{ font-size:12.5px; color:var(--muted); margin:6px 0 0; }
+  .done{ text-align:center; padding:10px 0 4px; }
+  .done .tick{ width:54px; height:54px; border-radius:50%; background:#e0f1e6; color:var(--ok); display:flex; align-items:center; justify-content:center; margin:0 auto 10px; font-size:28px; }
+  [hidden]{ display:none !important; }
+  footer{ margin-top:22px; font-size:12px; color:var(--muted); text-align:center; }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand"><img src="assets/icta_logo_cropped.png" alt=""><span>Payment sheet</span></div>
+  <h1 id="title">Loading…</h1>
+  <p class="sub" id="sub"></p>
+
+  <div class="card" id="daysCard" hidden>
+    <h2>Days</h2>
+    <ul class="days" id="days"></ul>
+  </div>
+
+  <div class="card" id="findCard" hidden>
+    <h2 id="findTitle">Sign for today</h2>
+    <label for="phone">The phone number you were registered with</label>
+    <input type="tel" id="phone" placeholder="e.g. 0712 345 678" autocomplete="tel" inputmode="tel">
+    <div class="row"><button type="button" class="primary" id="findBtn">Find my name</button></div>
+    <p class="msg" id="findMsg" role="status" aria-live="polite"></p>
+    <p class="hint">Only people on the list can sign. If your number is not found, ask the person who organised the engagement to add you.</p>
+  </div>
+
+  <div class="card" id="confirmCard" hidden>
+    <h2>Is this you?</h2>
+    <p style="font-size:18px; margin:0 0 4px;" id="maskedName"></p>
+    <p class="sub" style="margin:0;" id="confirmDay"></p>
+    <div class="row">
+      <button type="button" class="primary" id="yesBtn">Yes, that's me</button>
+      <button type="button" id="noBtn">Not me</button>
+    </div>
+  </div>
+
+  <div class="card" id="padCard" hidden>
+    <h2>Your signature</h2>
+    <canvas class="pad" id="pad" aria-label="Draw your signature here"></canvas>
+    <p class="hint">Sign with your finger inside the box.</p>
+    <div class="row">
+      <button type="button" class="primary" id="saveBtn">Save signature</button>
+      <button type="button" id="clearBtn">Clear</button>
+    </div>
+    <p class="msg" id="padMsg" role="status" aria-live="polite"></p>
+  </div>
+
+  <div class="card" id="doneCard" hidden>
+    <div class="done">
+      <div class="tick" aria-hidden="true">&#10003;</div>
+      <strong id="doneTitle">Recorded</strong>
+      <p class="sub" id="doneSub" style="margin:6px 0 0;"></p>
+    </div>
+  </div>
+
+  <footer>Your signature is kept with this engagement's payment record. <a href="privacy.html" style="color:inherit;">Privacy policy</a></footer>
+</main>
+
+<script src="assets/api.js"></script>
+<script>
+(function(){
+  var slug = new URLSearchParams(location.search).get('event') || '';
+  var $ = function(id){ return document.getElementById(id); };
+  var info = null, openDay = null, phone = '';
+
+  function show(id, on){ $(id).hidden = !on; }
+  function say(id, text, cls){ var n = $(id); n.textContent = text || ''; n.className = 'msg' + (cls ? ' ' + cls : ''); }
+  function fmt(iso, opts){ return new Intl.DateTimeFormat('en-GB', Object.assign({ timeZone: info.event.timezone }, opts)).format(new Date(iso)); }
+  function dayLabel(d){ return fmt(d.startAt, { weekday: 'short', day: 'numeric', month: 'short' }); }
+
+  function render(){
+    $('title').textContent = info.event.name;
+    $('sub').textContent = 'Sign each day you work. You can only sign while a day is open.';
+    var list = $('days'); list.textContent = '';
+    info.days.forEach(function(d){
+      var li = document.createElement('li');
+      var left = document.createElement('div');
+      var a = document.createElement('div'); a.textContent = 'Day ' + d.position + ' · ' + (d.place || '');
+      var b = document.createElement('div'); b.className = 'when'; b.textContent = dayLabel(d) + ', ' + fmt(d.startAt, { hour: 'numeric', minute: '2-digit' }) + ' to ' + fmt(d.endAt, { hour: 'numeric', minute: '2-digit' });
+      left.appendChild(a); left.appendChild(b);
+      var tag = document.createElement('span');
+      var state = d.open ? 'open' : (d.status === 'UPCOMING' ? 'upcoming' : 'closed');
+      tag.className = 'tag' + (state === 'open' ? ' open' : '');
+      tag.textContent = state === 'open' ? 'Open now' : (state === 'upcoming' ? 'Not yet' : 'Closed');
+      li.appendChild(left); li.appendChild(tag); list.appendChild(li);
+    });
+    show('daysCard', true);
+    var open = info.days.filter(function(d){ return d.open; });
+    openDay = open.length ? open[open.length - 1] : null;
+    show('findCard', !!openDay);
+    if(!openDay){
+      $('sub').textContent = 'Signing is not open right now. Come back on a working day while it is open.';
+    } else {
+      $('findTitle').textContent = 'Sign for day ' + openDay.position + (openDay.place ? ' · ' + openDay.place : '');
+    }
+  }
+
+  function load(){
+    if(!slug){ $('title').textContent = 'Link not recognised'; $('sub').textContent = 'Use the link or QR code you were given.'; return; }
+    API.get('/api/duty/' + encodeURIComponent(slug)).then(function(r){
+      if(r.status !== 200 || !r.data.ok){ $('title').textContent = 'Link not recognised'; $('sub').textContent = 'This link does not match a payment sheet. Check it with the person who sent it.'; return; }
+      info = r.data; render();
+    }).catch(function(){ $('title').textContent = 'No connection'; $('sub').textContent = 'Check your signal and reload this page.'; });
+  }
+
+  $('findBtn').addEventListener('click', function(){
+    phone = $('phone').value.trim();
+    if(!phone){ say('findMsg', 'Enter your phone number first.', 'err'); return; }
+    var btn = this; btn.disabled = true; say('findMsg', 'Looking…');
+    API.post('/api/events/' + encodeURIComponent(slug) + '/days/' + encodeURIComponent(openDay.id) + '/lookup', { phone: phone }).then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ say('findMsg', r.data.message || 'Could not check that number right now.', 'err'); return; }
+      if(r.data.alreadySigned){ say('findMsg', 'You have already signed today, ' + r.data.maskedName + '. Thank you.', 'ok'); return; }
+      say('findMsg', '');
+      $('maskedName').textContent = r.data.maskedName;
+      $('confirmDay').textContent = 'Day ' + openDay.position + ' · ' + dayLabel(openDay) + (openDay.place ? ' · ' + openDay.place : '');
+      show('findCard', false); show('confirmCard', true);
+    }).catch(function(){ btn.disabled = false; say('findMsg', 'No connection. Please try again.', 'err'); });
+  });
+  $('noBtn').addEventListener('click', function(){ show('confirmCard', false); show('findCard', true); say('findMsg', 'Check the number and try again, or ask the organiser to help.'); });
+  $('yesBtn').addEventListener('click', function(){ show('confirmCard', false); show('padCard', true); sizePad(); });
+
+  // --- Signature pad ---
+  var canvas = $('pad'), ctx = canvas.getContext('2d'), drawing = false, hasInk = false;
+  function sizePad(){
+    var r = canvas.getBoundingClientRect(), ratio = window.devicePixelRatio || 1;
+    canvas.width = Math.round(r.width * ratio); canvas.height = Math.round(r.height * ratio);
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#111';
+    hasInk = false;
+  }
+  function pos(e){ var r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+  canvas.addEventListener('pointerdown', function(e){ drawing = true; canvas.setPointerCapture(e.pointerId); var p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + .1, p.y + .1); ctx.stroke(); hasInk = true; e.preventDefault(); });
+  canvas.addEventListener('pointermove', function(e){ if(!drawing) return; var p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); });
+  ['pointerup', 'pointercancel'].forEach(function(n){ canvas.addEventListener(n, function(){ drawing = false; }); });
+  $('clearBtn').addEventListener('click', function(){ sizePad(); say('padMsg', ''); });
+  window.addEventListener('resize', function(){ if(!$('padCard').hidden && !hasInk) sizePad(); });
+
+  $('saveBtn').addEventListener('click', function(){
+    if(!hasInk){ say('padMsg', 'Please draw your signature in the box first.', 'err'); return; }
+    var btn = this; btn.disabled = true; say('padMsg', 'Saving…');
+    API.post('/api/events/' + encodeURIComponent(slug) + '/days/' + encodeURIComponent(openDay.id) + '/check-in', { phone: phone, signature: canvas.toDataURL('image/png') }).then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ say('padMsg', r.data.message || 'This could not be recorded right now.', 'err'); return; }
+      show('padCard', false); show('doneCard', true);
+      $('doneTitle').textContent = 'Day ' + openDay.position + ' recorded';
+      $('doneSub').textContent = dayLabel(openDay) + (openDay.place ? ' · ' + openDay.place : '') + '. You can close this page.';
+    }).catch(function(){ btn.disabled = false; say('padMsg', 'No connection. Please try again when you have signal.', 'err'); });
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

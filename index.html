@@ -2604,6 +2604,11 @@
           }
           return;
         }
+        // A payment sheet has its own signing page: it is a closed list, not an open register.
+        if(data.event && data.event.kind === 'DUTY_ROLL'){
+          location.replace('duty-sign.html?event=' + encodeURIComponent(eventId));
+          return;
+        }
         if(data.expired){
           state.meta = data.event || state.meta;
           isAdmin = false;
