@@ -257,5 +257,5 @@ export async function sendChainAnchorEmail(toEmail, head, brandIn = null) {
     <p style="font-family:'Courier New',monospace;font-size:12px;word-break:break-all;background:#f4f4f4;padding:10px;border-radius:4px;color:#1a1a1a;">${escapeHtml(head.hash)}</p>
     <p style="font-size:11.5px;color:#888;">To check it later, open the platform page, paste this hash into "Check an anchor" and the system will tell you whether that entry, and everything before it, is still intact.</p>
   `);
-  await sendViaBrevo({ to: toEmail, subject: `${brand.orgName} audit anchor — ${head.count} entries`, html, brand });
+  await sendViaBrevo({ to: toEmail, subject: `${brand.orgName} audit anchor — ${head.count} entries`, html, brand, kind: 'anchor' });
 }

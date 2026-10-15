@@ -17,6 +17,7 @@ import { bucketByDay } from '../lib/analytics.js';
 import { cleanBranding } from '../lib/brandInput.js';
 import { brandFromOrg, brandForOrgId, emailBrand, invalidateBrandCache } from '../lib/brand.js';
 import { detectImage, MAX_LOGO_BYTES } from '../lib/imageSniff.js';
+import { supportState } from '../lib/support.js';
 import { chainHead, lastAnchorAt, sendAnchor, checkAnchor } from '../lib/anchor.js';
 import { DEFAULT_DEPARTMENTS, MAX_SUPER_ADMINS_PER_DEPARTMENT, cleanDepartmentName, departmentSlug } from '../lib/departments.js';
 
@@ -404,4 +405,48 @@ platformRouter.delete('/branding/logo', ah(async (req, res) => {
   invalidateBrandCache();
   await writeAudit({ actorId: req.user.id, action: 'ORG_LOGO_REMOVED', targetType: 'Organisation', targetId: orgId, req });
   res.json({ ok: true, brand: brandFromOrg(await loadOwnOrg(req)) });
+}));
+
+// ---- Support access: the platform owner asks, you decide --------------------
+
+function supportView(g) {
+  return { id: g.id, reason: g.reason, hours: g.hours, state: supportState(g), requestedBy: g.requestedByEmail, requestedAt: g.createdAt, decidedBy: g.decidedByEmail, decidedAt: g.decidedAt, expiresAt: g.expiresAt };
+}
+
+platformRouter.get('/support', ah(async (req, res) => {
+  const grants = await prisma.supportAccess.findMany({ where: { organisationId: req.user.organisationId }, orderBy: { createdAt: 'desc' }, take: 20 });
+  const views = grants.map(supportView);
+  res.json({ ok: true, grants: views, pending: views.filter((g) => g.state === 'PENDING').length });
+}));
+
+async function ownGrant(req) {
+  return prisma.supportAccess.findFirst({ where: { id: req.params.gid, organisationId: req.user.organisationId } });
+}
+
+// Approving opens a read-only view of this organisation's overview pages, for the hours that
+// were asked for. It never includes attendee records, and nothing can be changed through it.
+platformRouter.post('/support/:gid/approve', ah(async (req, res) => {
+  const grant = await ownGrant(req);
+  if (!grant || supportState(grant) !== 'PENDING') return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const expiresAt = new Date(Date.now() + grant.hours * 60 * 60 * 1000);
+  await prisma.supportAccess.update({ where: { id: grant.id }, data: { status: 'APPROVED', decidedById: req.user.id, decidedByEmail: req.user.email, decidedAt: new Date(), expiresAt } });
+  await writeAudit({ actorId: req.user.id, action: 'SUPPORT_APPROVED', targetType: 'Organisation', targetId: req.user.organisationId, metadata: { hours: grant.hours, until: expiresAt.toISOString() }, req });
+  res.json({ ok: true, expiresAt });
+}));
+
+platformRouter.post('/support/:gid/deny', ah(async (req, res) => {
+  const grant = await ownGrant(req);
+  if (!grant || supportState(grant) !== 'PENDING') return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  await prisma.supportAccess.update({ where: { id: grant.id }, data: { status: 'DENIED', decidedById: req.user.id, decidedByEmail: req.user.email, decidedAt: new Date(), endedAt: new Date() } });
+  await writeAudit({ actorId: req.user.id, action: 'SUPPORT_DENIED', targetType: 'Organisation', targetId: req.user.organisationId, req });
+  res.json({ ok: true });
+}));
+
+// Ends a running session straight away.
+platformRouter.post('/support/:gid/revoke', ah(async (req, res) => {
+  const grant = await ownGrant(req);
+  if (!grant || supportState(grant) !== 'ACTIVE') return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  await prisma.supportAccess.update({ where: { id: grant.id }, data: { status: 'REVOKED', endedAt: new Date() } });
+  await writeAudit({ actorId: req.user.id, action: 'SUPPORT_REVOKED', targetType: 'Organisation', targetId: req.user.organisationId, req });
+  res.json({ ok: true });
 }));

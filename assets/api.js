@@ -137,6 +137,12 @@ var AUDIT_ACTION_META = {
   SUPER_ADMIN_REACTIVATE: { label: 'Reactivated super admin', tone: 'positive' },
   SUPER_ADMIN_DELETE: { label: 'Deleted super admin', tone: 'danger' },
   ORG_CREATE: { label: 'Created organisation', tone: 'positive' },
+  SUPPORT_REQUESTED: { label: 'Support access requested', tone: 'warning' },
+  SUPPORT_APPROVED: { label: 'Support access approved', tone: 'warning' },
+  SUPPORT_DENIED: { label: 'Support access denied', tone: 'neutral' },
+  SUPPORT_REVOKED: { label: 'Support access revoked', tone: 'neutral' },
+  SUPPORT_ENDED: { label: 'Support access ended', tone: 'neutral' },
+  SUPPORT_VIEWED: { label: 'Support viewed a page', tone: 'info' },
   ORG_PAYMENT_RECORDED: { label: 'Recorded payment', tone: 'positive' },
   ORG_BILLING_OFF: { label: 'Turned billing off', tone: 'neutral' },
   ORG_BRANDING_UPDATED: { label: 'Updated branding', tone: 'neutral' },
@@ -264,6 +270,12 @@ function auditSummary(e){
     case 'ORG_CREATE':
     case 'ORG_RESUME':
       return escapeHtml(m.name || '');
+    case 'SUPPORT_REQUESTED':
+      return '“' + escapeHtml(m.reason || '') + '” — ' + (m.hours || '?') + ' hours';
+    case 'SUPPORT_APPROVED':
+      return (m.hours || '?') + ' hours';
+    case 'SUPPORT_VIEWED':
+      return escapeHtml(String(m.page || '').replace(/^\//, ''));
     case 'ORG_PAYMENT_RECORDED':
       return escapeHtml(m.name || '') + ' — ' + (m.months || '?') + (m.months === 1 ? ' month' : ' months') + ', paid until ' + escapeHtml(m.paidUntil || '');
     case 'ORG_BRANDING_UPDATED':
