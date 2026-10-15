@@ -7,7 +7,8 @@
 // every account of organisation A try to reach organisation B's things. Anything
 // other than a refusal is a failure.
 //
-// Run it against a TEST database only; it leaves its data behind.
+// Run it against a TEST database only; it leaves its data behind. Start the server
+// with LOGIN_RATE_LIMIT=100, because it signs in more than ten times from one place.
 //
 //   BASE_URL=http://localhost:3000 OWNER_EMAIL=... OWNER_PASSWORD=... node scripts/tenant-fence-check.js
 //

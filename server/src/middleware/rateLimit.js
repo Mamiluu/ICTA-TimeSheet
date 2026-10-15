@@ -7,9 +7,11 @@ import rateLimit from 'express-rate-limit';
 // IPv6-normalizes req.ip) -- login/reset attempts are infrequent enough
 // per-admin that a per-IP cap is sufficient brute-force/enumeration
 // protection at this scale without extra per-email bookkeeping.
+// LOGIN_RATE_LIMIT exists only so the tenant fence check, which signs in many test
+// accounts from one machine, can run; leave it unset in production.
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+  limit: Number(process.env.LOGIN_RATE_LIMIT) || 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: { ok: false, error: 'TOO_MANY_ATTEMPTS', message: 'Too many login attempts. Try again later.' }
