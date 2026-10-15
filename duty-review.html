@@ -48,6 +48,15 @@
   .cell.OPEN{ background:#fdf0d4; color:var(--warn); }
   .cell.UPCOMING{ color:#a9a392; }
   .cell.ABSENT{ background:#f6e1e5; color:var(--bad); }
+  .finds{ list-style:none; margin:0; padding:0; }
+  .finds li{ display:grid; grid-template-columns:22px 1fr; gap:8px; padding:9px 0; border-top:1px solid var(--rule); font-size:13.5px; }
+  .finds li:first-child{ border-top:0; }
+  .finds .dot{ width:12px; height:12px; border-radius:50%; margin-top:5px; background:#cfc8b6; }
+  .finds .review .dot{ background:var(--bad); }
+  .finds .note .dot{ background:#d6a01c; }
+  .finds .t{ font-weight:700; }
+  .finds .dd{ color:var(--muted); font-size:13px; margin-top:1px; }
+  .okline{ color:var(--ok); font-weight:700; }
   tfoot td{ font-weight:700; border-bottom:0; }
   .steps{ display:flex; gap:6px; flex-wrap:wrap; margin:0 0 4px; padding:0; list-style:none; }
   .steps li{ font-size:12.5px; font-weight:700; padding:4px 11px; border-radius:999px; background:#eee9dc; color:var(--muted); }
@@ -92,6 +101,12 @@
       <p class="meta" style="margin-top:8px;">✓ signed &middot; ✕ the day closed without a signature &middot; Amount = rate &times; days signed.</p>
       <div class="info" id="queryInfo" hidden></div>
     </div>
+    <div class="card" id="checksCard">
+      <h2>Automatic checks</h2>
+      <div id="checksWrap"></div>
+      <label id="ackRow" style="display:none; gap:8px; align-items:flex-start; margin-top:12px; font-weight:700; font-size:13.5px;"><input type="checkbox" id="ack" style="width:auto; margin:3px 0 0;"> <span>I have looked at the items marked “Look at this”.</span></label>
+    </div>
+
     <div class="card" id="actionCard">
       <h2>Your decision</h2>
       <label for="note" style="display:block; font-weight:700; font-size:12.5px; margin-bottom:4px;">Note <span style="font-weight:400; color:var(--muted);">(needed if you send it back)</span></label>
@@ -205,6 +220,10 @@
     tf.innerHTML = '<tr><td colspan="' + (3 + d.days.length) + '">' + d.totals.people + (d.totals.people === 1 ? ' person' : ' people') + '</td><td></td><td class="num">' + d.totals.daysSigned + '</td><td class="num">' + Number(d.totals.amount).toLocaleString('en-KE') + '</td></tr>';
     t.appendChild(tf); wrap.appendChild(t);
 
+    renderFindings(d.findings, $('checksWrap'));
+    var needAck = (d.findings || []).some(function(f){ return f.severity === 'review'; });
+    $('ackRow').style.display = needAck && (d.canCertify || d.canVerify) ? 'flex' : 'none';
+    $('ack').checked = false;
     var qi = $('queryInfo');
     qi.hidden = !d.openQueries;
     if(d.openQueries) qi.textContent = d.openQueries + ' question' + (d.openQueries === 1 ? '' : 's') + ' from people on this sheet ' + (d.openQueries === 1 ? 'is' : 'are') + ' still open.';
@@ -222,6 +241,19 @@
     flash = null;
   }
 
+  function renderFindings(list, target){
+      target.textContent = '';
+      if(!list || !list.length){ target.appendChild(el('p', 'okline', 'Nothing was flagged.')); return; }
+      var ul = el('ul', 'finds');
+      list.forEach(function(f){
+        var li = el('li', f.severity);
+        li.appendChild(el('span', 'dot'));
+        var body = el('div'); body.appendChild(el('div', 't', (f.severity === 'review' ? 'Look at this: ' : '') + f.title)); body.appendChild(el('div', 'dd', f.detail));
+        li.appendChild(body); ul.appendChild(li);
+      });
+      target.appendChild(ul);
+    }
+
   function openSheet(id){
     $('listView').hidden = true; $('sheetView').hidden = false;
     $('sheetName').textContent = 'Loading…';
@@ -233,11 +265,13 @@
 
   function act(path, confirmText, needNote){
     var note = $('note').value.trim();
+    var needAck = $('ackRow').style.display === 'flex';
+    if(path !== 'return' && needAck && !$('ack').checked){ say('actMsg', 'Tick the box to confirm you have looked at the items flagged for review.', 'err'); return; }
     if(needNote && note.length < 5){ say('actMsg', 'Say what needs to be fixed, so the preparer knows.', 'err'); return; }
     if(!window.confirm(confirmText)) return;
     ['certifyBtn', 'verifyBtn', 'returnBtn'].forEach(function(b){ $(b).disabled = true; });
     say('actMsg', 'Saving…');
-    API.post('/api/duty-review/sheets/' + encodeURIComponent(current.id) + '/' + path, { note: note }).then(function(r){
+    API.post('/api/duty-review/sheets/' + encodeURIComponent(current.id) + '/' + path, { note: note, acknowledge: $('ack').checked }).then(function(r){
       ['certifyBtn', 'verifyBtn', 'returnBtn'].forEach(function(b){ $(b).disabled = false; });
       if(!r.data.ok){ say('actMsg', r.data.message || 'Could not save your decision.', 'err'); return; }
       $('note').value = '';

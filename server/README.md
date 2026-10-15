@@ -88,6 +88,13 @@ A `render.yaml` blueprint at the repo root does most of this for you.
   send it back with a note, which reopens it. Reviewers work at `duty-review.html`; people on
   a sheet can see their own days and question a day they were marked absent for at
   `duty-sign.html`.
+- Automatic checks (`lib/dutyChecks.js`) run on every payment sheet for the preparer and for the
+  approvers: the same person signing the same date on another sheet in the department, one phone
+  number registered to different IDs, identical signature images, weekend and public-holiday days
+  (fixed holidays and Easter only; moon-dependent ones are not guessed), rates well above the
+  group, people added after the start, and many people signing within two minutes. Items that
+  need review must be acknowledged to certify or verify; what the approver was shown is recorded
+  in the audit trail. Other departments' sheets are never compared.
 - The 24-admin cap and one-admin-per-county rule (both per department) are
   enforced by Postgres
   itself (a trigger and a partial unique index), not just application

@@ -66,6 +66,15 @@
   .qitem .a{ display:flex; gap:8px; flex-wrap:wrap; }
   .qitem .a input{ flex:1 1 260px; }
   .lockednote{ background:#fdf0d4; border:1px solid #ecd49a; color:#6b4a00; border-radius:10px; padding:10px 12px; font-size:13.5px; margin-bottom:12px; }
+  .finds{ list-style:none; margin:0; padding:0; }
+  .finds li{ display:grid; grid-template-columns:22px 1fr; gap:8px; padding:9px 0; border-top:1px solid var(--rule); font-size:13.5px; }
+  .finds li:first-child{ border-top:0; }
+  .finds .dot{ width:12px; height:12px; border-radius:50%; margin-top:5px; background:#cfc8b6; }
+  .finds .review .dot{ background:var(--bad); }
+  .finds .note .dot{ background:#d6a01c; }
+  .finds .t{ font-weight:700; }
+  .finds .dd{ color:var(--muted); font-size:13px; margin-top:1px; }
+  .okline{ color:var(--ok); font-weight:700; }
   tfoot td{ font-weight:700; border-bottom:0; }
   .empty{ color:var(--muted); padding:14px 2px; }
   .form{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px 12px; }
@@ -146,6 +155,12 @@
         <div style="margin-top:10px;"><button type="button" class="primary" id="submitBtn">Send for certification</button></div>
         <p class="msg" id="submitMsg" role="status" aria-live="polite"></p>
       </div>
+    </div>
+
+    <div class="card" id="checksCard">
+      <h2>Automatic checks</h2>
+      <p class="meta" style="margin:0 0 8px;">Looked at before you send the sheet, and again by the approvers. Items marked “Look at this” need an explanation if they are right.</p>
+      <div id="checksWrap"></div>
     </div>
 
     <div class="card" id="queriesCard" hidden>
@@ -254,8 +269,22 @@
     });
     renderRoster();
     renderStage();
+    renderFindings(roll.findings, $('checksWrap'));
     loadQueries();
   }
+  function renderFindings(list, target){
+    target.textContent = '';
+    if(!list || !list.length){ target.appendChild(el('p', 'okline', 'Nothing was flagged.')); return; }
+    var ul = el('ul', 'finds');
+    list.forEach(function(f){
+      var li = el('li', f.severity);
+      li.appendChild(el('span', 'dot'));
+      var body = el('div'); body.appendChild(el('div', 't', (f.severity === 'review' ? 'Look at this: ' : '') + f.title)); body.appendChild(el('div', 'dd', f.detail));
+      li.appendChild(body); ul.appendChild(li);
+    });
+    target.appendChild(ul);
+  }
+
 
   var STEPS = [['OPEN', 'Collecting signatures'], ['SUBMITTED', 'Authorising officer'], ['CERTIFIED', 'Certified'], ['VERIFIED', 'Verified by finance']];
   var STEP_WORD = { SUBMITTED: 'Submitted', CERTIFIED: 'Certified', VERIFIED: 'Verified', RETURNED: 'Returned' };
