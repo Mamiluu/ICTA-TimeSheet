@@ -13,6 +13,43 @@ datasource db {
 // PLATFORM_ADMIN is the organisation's official top account: it creates the
 // departments and the SUPER_ADMIN of each one. A SUPER_ADMIN runs one
 // department and the COUNTY_ADMINs under it.
+enum AccessLevel {
+  ATTENDANCE
+  PAYMENT
+  BOTH
+}
+
+enum EventKind {
+  ATTENDANCE
+  DUTY_ROLL
+}
+
+enum PayeeType {
+  STAFF
+  EXTERNAL
+}
+
+// One person on a duty roll. The Attendance row holds identity and the daily
+// signatures; this holds what the payment needs: who they are to the payer, their
+// role on the engagement and the daily rate.
+model DutyPayee {
+  id           String     @id @default(uuid())
+  eventId      String
+  event        Event      @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  attendanceId String     @unique
+  attendance   Attendance @relation(fields: [attendanceId], references: [id], onDelete: Restrict)
+  payeeType    PayeeType
+  // Staff number for staff, national ID for an external invitee.
+  idNumber     String
+  jobRole      String?
+  ratePerDay   Int
+  addedById    String?
+  createdAt    DateTime   @default(now())
+
+  @@unique([eventId, idNumber])
+  @@index([eventId])
+}
+
 enum Role {
   PLATFORM_ADMIN
   SUPER_ADMIN
@@ -53,6 +90,10 @@ model User {
   // to exactly one department, and sees only that department's data.
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  // Which kinds of event this account may see and run. Existing accounts keep
+  // attendance sheets only; a department super admin grants payment sheets (duty rolls).
+  access       AccessLevel @default(ATTENDANCE)
 
   createdById  String?
   createdBy    User?      @relation("CreatedAdmins", fields: [createdById], references: [id])
@@ -156,6 +197,15 @@ model Event {
   // this event once its last day has ended.
   certificatesEnabled Boolean @default(true)
 
+  // ATTENDANCE is the open sign-in sheet. DUTY_ROLL is a closed payment roster:
+  // only people the organiser added can sign, and each day is a payable unit.
+  kind         EventKind @default(ATTENDANCE)
+  // Duty rolls only: the officer who authorised the engagement, and the memo or
+  // invitation reference that backs it.
+  authorisedBy String?
+  authorityRef String?
+  dutyPayees   DutyPayee[]
+
   // The department whose admin created the event. Copied from the creator at
   // creation, so reports by department stay right even if an owner moves.
   departmentId String?
@@ -191,6 +241,8 @@ model EventDay {
   endAt      DateTime
   // Set when an admin reopens a closed day; signing stays open until then.
   reopenedUntil DateTime?
+  // Duty rolls: where the team worked that day (the team moves between counties).
+  place      String?
   signatures SessionSignature[]
   seals      SheetSeal[]
 
@@ -270,6 +322,7 @@ model Attendance {
 
   daySignatures SessionSignature[]
   certificates  AttendanceCertificate[]
+  dutyPayee     DutyPayee?
 
   @@unique([eventId, clientId])
   @@unique([eventId, phoneNormalized])
