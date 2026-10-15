@@ -11,6 +11,7 @@ import cookieParser from 'cookie-parser';
 import { attachUser } from './middleware/auth.js';
 import { authRouter } from './routes/auth.js';
 import { superadminRouter } from './routes/superadmin.js';
+import { platformRouter } from './routes/platform.js';
 import { adminRouter } from './routes/admin.js';
 import { publicRouter } from './routes/public.js';
 import { startAnchorJob } from './lib/anchor.js';
@@ -59,6 +60,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authRouter);
 app.use('/api/superadmin', superadminRouter);
+app.use('/api/platform', platformRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api', publicRouter);
 
