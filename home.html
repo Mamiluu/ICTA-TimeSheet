@@ -7,651 +7,511 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sign Sheet: attendance that proves itself</title>
-<meta name="description" content="Replace printed attendance sheets with a link. People sign on their own phone, every day gets its own signature, payment sheets go through approval, and every record can be checked by anyone.">
-<meta name="theme-color" content="#14161b">
+<title>Sign Sheet: an attendance sheet nobody can quietly fix afterwards</title>
+<meta name="description" content="People sign for the day on their own phone. Once the sheet is sealed, changing even one letter shows. Payment sheets go through the officer and finance before anyone is paid.">
+<meta name="theme-color" content="#f3eee2">
 <link rel="icon" href="assets/icta_logo_cropped.png">
 <style>
   :root{
-    --ink:#14161b; --ink2:#2a2f3a; --muted:#5d6472; --faint:#8b93a1;
-    --line:#e3e5ea; --paper:#ffffff; --bg:#f6f4ef; --bg2:#efece4;
-    --red:#c8102e; --red-d:#9d0c24; --red-w:#fdecef;
-    --ok:#0b6b36; --ok-w:#e3f4ea; --warn:#8a5a00; --warn-w:#fdf0d4;
-    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
-    --sans:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
-    --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
-    --r:16px;
+    --paper:#f3eee2; --paper2:#ebe4d3; --sheet:#fffdf7; --ink:#1c1b19; --soft:#58544b; --faint:#8d877a;
+    --rule:#d8cfba; --pen:#1d2b6e; --stamp:#b3121f; --ok:#1d6b3a;
+    --serif:Georgia,"Times New Roman",serif;
+    --sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Mono",Consolas,"Courier New",monospace;
+    --hand:"Segoe Script","Bradley Hand","Lucida Handwriting","Comic Sans MS",cursive;
   }
   *{ box-sizing:border-box; }
-  html{ overflow-x:hidden; scroll-behavior:smooth; scroll-padding-top:76px; }
-  body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased; }
+  html{ scroll-behavior:smooth; scroll-padding-top:20px; }
+  body{ margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); font-size:17px; line-height:1.6; }
   a{ color:inherit; }
-  img,svg{ display:block; max-width:100%; }
-  .wrap{ width:min(1180px, 100% - 40px); margin:0 auto; }
-  :focus-visible{ outline:2px solid var(--red); outline-offset:3px; border-radius:6px; }
+  img,svg{ max-width:100%; }
+  :focus-visible{ outline:2px solid var(--stamp); outline-offset:3px; }
+  .col{ width:min(1100px, 100% - 44px); margin:0 auto; }
+  .narrow{ max-width:62ch; }
 
-  /* ---------- Nav ---------- */
-  .nav{ position:sticky; top:0; z-index:50; background:rgba(246,244,239,.82); backdrop-filter:saturate(1.4) blur(14px); -webkit-backdrop-filter:saturate(1.4) blur(14px); border-bottom:1px solid transparent; transition:border-color .2s; }
-  .nav.stuck{ border-color:var(--line); }
-  .nav .wrap{ display:flex; align-items:center; gap:28px; height:64px; }
-  .logo{ display:flex; align-items:center; gap:10px; text-decoration:none; font-weight:700; letter-spacing:-.01em; font-size:17px; }
-  .logo i{ width:30px; height:30px; border-radius:9px; background:var(--ink); display:grid; place-items:center; flex:none; }
-  .logo i svg{ width:17px; height:17px; stroke:#fff; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
-  .logo i svg path:last-child{ stroke:#ff5d78; }
-  .links{ display:flex; gap:22px; margin-left:12px; font-size:14.5px; }
-  .links a{ text-decoration:none; color:var(--muted); font-weight:500; }
-  .links a:hover{ color:var(--ink); }
-  .nav .cta{ margin-left:auto; display:flex; gap:10px; align-items:center; }
-  .btn{ display:inline-flex; align-items:center; gap:8px; font:inherit; font-size:14.5px; font-weight:600; padding:10px 18px; border-radius:999px; border:1px solid var(--ink); background:transparent; color:var(--ink); text-decoration:none; cursor:pointer; transition:transform .15s, background .15s, box-shadow .15s; white-space:nowrap; }
-  .btn:hover{ transform:translateY(-1px); }
-  .btn.solid{ background:var(--ink); color:#fff; }
-  .btn.solid:hover{ box-shadow:0 8px 22px rgba(20,22,27,.28); }
-  .btn.red{ background:var(--red); border-color:var(--red); color:#fff; }
-  .btn.red:hover{ box-shadow:0 8px 24px rgba(200,16,46,.35); }
-  .btn.ghost{ border-color:var(--line); background:#fff; }
-  .btn.lg{ padding:14px 24px; font-size:15.5px; }
-  .btn svg{ width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
-  .navtoggle{ display:none; }
+  /* a ledger margin line, desktop only */
+  @media (min-width:1180px){ body{ background-image:linear-gradient(90deg, transparent 54px, rgba(179,18,31,.22) 54px, rgba(179,18,31,.22) 55px, transparent 55px); } }
 
-  /* ---------- Hero ---------- */
-  .hero{ position:relative; overflow:hidden; padding:54px 0 90px; }
-  .hero::before{ content:""; position:absolute; inset:0; background-image:linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size:44px 44px; mask-image:radial-gradient(70% 60% at 70% 30%, #000 0%, transparent 75%); -webkit-mask-image:radial-gradient(70% 60% at 70% 30%, #000 0%, transparent 75%); opacity:.7; }
-  .hero::after{ content:""; position:absolute; width:620px; height:620px; right:-160px; top:-200px; border-radius:50%; background:radial-gradient(circle, rgba(200,16,46,.2), transparent 65%); }
-  .hero .wrap{ position:relative; z-index:1; display:grid; grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr); gap:50px; align-items:center; }
-  .kicker{ display:inline-flex; align-items:center; gap:9px; font-size:13px; font-weight:600; padding:6px 14px 6px 8px; border-radius:999px; background:#fff; border:1px solid var(--line); color:var(--ink2); }
-  .kicker b{ background:var(--red); color:#fff; font-size:11px; letter-spacing:.06em; padding:3px 9px; border-radius:999px; }
-  h1{ font-family:var(--serif); font-weight:500; font-size:clamp(40px, 5.6vw, 70px); line-height:1.02; letter-spacing:-.025em; margin:22px 0 20px; }
-  h1 em{ font-style:italic; color:var(--red); position:relative; white-space:nowrap; }
-  h1 em svg{ position:absolute; left:0; right:0; bottom:-10px; width:100%; height:12px; stroke:var(--red); fill:none; stroke-width:3; stroke-linecap:round; }
-  .lede{ font-size:clamp(17px, 1.7vw, 20px); color:var(--muted); max-width:52ch; margin:0 0 30px; }
-  .heroActions{ display:flex; gap:12px; flex-wrap:wrap; }
-  .proof{ display:flex; gap:22px; flex-wrap:wrap; margin-top:34px; font-size:13.5px; color:var(--muted); }
-  .proof span{ display:flex; align-items:center; gap:8px; }
-  .proof svg{ width:16px; height:16px; stroke:var(--ok); fill:none; stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; }
+  /* ---------- top ---------- */
+  .top{ display:flex; align-items:baseline; gap:30px; padding:22px 0 0; flex-wrap:wrap; }
+  .mark{ font-family:var(--serif); font-size:23px; font-weight:700; text-decoration:none; letter-spacing:-.01em; }
+  .mark span{ color:var(--stamp); }
+  .top nav{ display:flex; gap:22px; font-size:15px; flex:1; flex-wrap:wrap; }
+  .top nav a{ color:var(--soft); text-decoration:none; border-bottom:1px solid transparent; }
+  .top nav a:hover{ color:var(--ink); border-color:var(--ink); }
+  .top .who{ display:flex; gap:18px; align-items:baseline; font-size:15px; }
+  .top .who a.login{ color:var(--soft); }
+  .btn{ display:inline-block; font:inherit; font-size:15.5px; font-weight:600; padding:11px 20px; background:var(--ink); color:var(--sheet); border:2px solid var(--ink); border-radius:3px; text-decoration:none; cursor:pointer; }
+  .btn:hover{ background:#000; }
+  .btn.alt{ background:transparent; color:var(--ink); }
+  .btn.alt:hover{ background:var(--ink); color:var(--sheet); }
+  .btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .btn.sm{ padding:7px 13px; font-size:14px; }
 
-  /* the phone */
-  .stage{ position:relative; height:560px; }
-  .phone{ position:absolute; left:50%; top:0; width:268px; margin-left:-134px; background:#0d0f13; border-radius:38px; padding:10px; box-shadow:0 40px 80px -20px rgba(20,22,27,.45), 0 0 0 1px #2a2f3a inset; transform:rotate(-3deg); }
-  .screen{ background:#fff; border-radius:29px; overflow:hidden; min-height:520px; display:flex; flex-direction:column; }
-  .notch{ height:26px; display:flex; justify-content:center; align-items:center; }
-  .notch i{ width:62px; height:7px; border-radius:6px; background:#0d0f13; }
-  .scr{ padding:6px 18px 18px; flex:1; display:flex; flex-direction:column; }
-  .scr .org{ display:flex; align-items:center; gap:8px; font-size:11px; font-weight:700; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; }
-  .scr .org i{ width:20px; height:20px; border-radius:6px; background:var(--red); }
-  .scr h4{ margin:12px 0 2px; font-size:16px; line-height:1.25; letter-spacing:-.01em; }
-  .scr .meta{ font-size:12px; color:var(--muted); }
-  .daychips{ display:flex; gap:5px; margin:14px 0 12px; }
-  .daychips span{ flex:1; text-align:center; font-size:10.5px; font-weight:700; padding:5px 0; border-radius:8px; background:var(--bg); color:var(--faint); }
-  .daychips span.d{ background:var(--ok-w); color:var(--ok); }
-  .daychips span.n{ background:var(--ink); color:#fff; }
-  .pad{ border:1.5px dashed #c9ced8; border-radius:14px; height:128px; background:linear-gradient(transparent 77%, #e8ebf0 77%, #e8ebf0 78%, transparent 78%); position:relative; overflow:hidden; }
-  .pad svg{ position:absolute; inset:0; width:100%; height:100%; }
-  .pad path{ stroke:#1b2a6b; stroke-width:2.6; fill:none; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:420; stroke-dashoffset:420; animation:ink 5.2s ease-in-out infinite; }
-  @keyframes ink{ 0%,8%{ stroke-dashoffset:420; } 50%,88%{ stroke-dashoffset:0; } 100%{ stroke-dashoffset:0; opacity:0; } }
-  .pad .hint{ position:absolute; left:12px; top:9px; font-size:10.5px; color:var(--faint); }
-  .signbtn{ margin-top:12px; border:0; width:100%; padding:13px; border-radius:12px; font:inherit; font-weight:700; font-size:14px; color:#fff; background:var(--red); position:relative; overflow:hidden; }
-  .signbtn .a, .signbtn .b{ display:block; transition:transform .4s, opacity .4s; }
-  .signbtn .b{ position:absolute; inset:0; display:grid; place-items:center; transform:translateY(100%); background:var(--ok); }
-  .stage.done .signbtn .a{ transform:translateY(-100%); }
-  .stage.done .signbtn .b{ transform:none; }
-  .scr .foot{ margin-top:auto; padding-top:12px; font-size:11px; color:var(--faint); text-align:center; }
+  /* ---------- hero ---------- */
+  .hero{ padding:64px 0 36px; }
+  h1{ font-family:var(--serif); font-weight:700; font-size:clamp(36px, 5.4vw, 66px); line-height:1.04; letter-spacing:-.025em; margin:0 0 22px; max-width:15ch; }
+  .hero p.lead{ font-size:clamp(18px, 2vw, 21px); color:var(--soft); max-width:50ch; margin:0 0 26px; }
+  .hero .go{ display:flex; gap:14px; flex-wrap:wrap; align-items:center; }
+  .hero .go .hand{ font-family:var(--hand); color:var(--pen); font-size:18px; transform:rotate(-3deg); display:inline-block; }
 
-  .float{ position:absolute; background:#fff; border:1px solid var(--line); border-radius:14px; box-shadow:0 20px 40px -14px rgba(20,22,27,.28); padding:12px 14px; font-size:12.5px; }
-  .f1{ right:-6px; top:70px; width:196px; transform:rotate(3deg); animation:bob 6s ease-in-out infinite; }
-  .f2{ left:-14px; bottom:60px; width:200px; transform:rotate(-2deg); animation:bob 7s ease-in-out -2s infinite; }
-  @keyframes bob{ 50%{ translate:0 -9px; } }
-  .f1 .t, .f2 .t{ font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint); font-weight:700; margin-bottom:7px; }
-  .qr{ display:grid; grid-template-columns:repeat(9,1fr); gap:1.5px; width:66px; padding:5px; background:#fff; border:1px solid var(--line); border-radius:7px; }
-  .qr i{ aspect-ratio:1; background:var(--ink); border-radius:1px; }
-  .qr i.o{ background:transparent; }
-  .sealrow{ display:flex; gap:11px; align-items:center; }
-  .sealrow b{ display:block; font-family:var(--mono); font-size:11.5px; letter-spacing:.03em; }
-  .sealrow span.ok{ display:inline-flex; gap:5px; align-items:center; color:var(--ok); font-weight:700; font-size:12px; margin-top:3px; }
-  .sealrow span.ok::before{ content:""; width:7px; height:7px; border-radius:50%; background:var(--ok); }
-  .approve{ list-style:none; margin:0; padding:0; display:grid; gap:7px; }
-  .approve li{ display:flex; gap:9px; align-items:center; font-size:12px; }
-  .approve i{ width:16px; height:16px; border-radius:50%; background:var(--ok); display:grid; place-items:center; flex:none; }
-  .approve i svg{ width:9px; height:9px; stroke:#fff; fill:none; stroke-width:3.4; stroke-linecap:round; stroke-linejoin:round; }
-  .approve li.now i{ background:#fff; border:2px solid var(--red); box-shadow:0 0 0 3px rgba(200,16,46,.15); }
-  .approve li.now i svg{ display:none; }
-  .approve li.todo{ color:var(--faint); }
-  .approve li.todo i{ background:#fff; border:2px solid var(--line); }
-  .approve li.todo i svg{ display:none; }
+  /* ---------- the demo ---------- */
+  .desk{ background:var(--paper2); border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); padding:44px 0 56px; }
+  .desk h2{ font-family:var(--serif); font-size:clamp(26px,3.2vw,36px); margin:0 0 6px; letter-spacing:-.015em; }
+  .desk .intro{ color:var(--soft); margin:0 0 28px; max-width:60ch; }
+  .demo{ display:grid; grid-template-columns:minmax(0,1.75fr) minmax(0,1fr); gap:34px; align-items:start; }
 
-  /* ---------- Sections ---------- */
-  section{ padding:96px 0; }
-  .eyebrow{ font-size:12.5px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--red); margin:0 0 14px; }
-  h2{ font-family:var(--serif); font-weight:500; font-size:clamp(32px, 4vw, 50px); line-height:1.06; letter-spacing:-.02em; margin:0 0 16px; max-width:24ch; }
-  .sub{ font-size:18px; color:var(--muted); max-width:56ch; margin:0 0 46px; }
+  .sheet{ background:var(--sheet); color:#000; font-family:Arial,Helvetica,sans-serif; padding:22px 24px 20px; box-shadow:0 1px 0 rgba(0,0,0,.05), 0 14px 30px -18px rgba(40,30,10,.55); transform:rotate(-.45deg); position:relative; }
+  .sheet .lh{ display:flex; justify-content:space-between; font-size:11px; line-height:1.4; color:#1d4f86; }
+  .sheet .lh b{ display:block; color:#000; font-size:13px; }
+  .sheet .lh .lg{ font-weight:900; font-style:italic; font-size:25px; letter-spacing:-.05em; color:#000; text-align:right; line-height:1; }
+  .sheet .lh .lg small{ display:block; font-size:8px; font-weight:400; letter-spacing:.04em; color:var(--stamp); }
+  .sheet h3{ text-align:center; font-size:14px; letter-spacing:.2em; margin:10px 0 8px; }
+  .sheet table{ width:100%; border-collapse:collapse; border:1.5px solid #000; font-size:12px; table-layout:fixed; }
+  .sheet th, .sheet td{ border:1px solid #000; padding:4px 6px; height:34px; vertical-align:middle; }
+  .sheet th{ background:#d9d9d9; font-size:11px; height:26px; }
+  .sheet table.hd td{ height:24px; font-size:11.5px; }
+  .sheet table.hd td.k{ font-weight:700; width:17%; }
+  .sheet table + table, .sheet .scroll{ margin-top:10px; }
+  .sheet td.nm{ color:var(--pen); font-family:var(--hand); font-size:14px; }
+  .sheet td.nm input{ width:100%; border:0; background:transparent; font:inherit; color:var(--pen); padding:0; }
+  .sheet td.nm input:focus{ outline:none; background:#fff8c4; }
+  .sheet td.sg{ text-align:center; padding:1px; }
+  .sheet td.sg img, .sheet td.sg svg{ max-width:100%; max-height:30px; }
+  .sheet td.sg svg path{ stroke:var(--pen); fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+  .sheet td.blank{ background:linear-gradient(#000,#000) center/100% 1px no-repeat; }
+  .sheet tr.touched td{ outline:2px solid var(--stamp); outline-offset:-2px; background-color:#fff0f0; }
+  .sheet .foot{ text-align:center; margin-top:14px; }
+  .sheet .foot span{ background:var(--stamp); color:#fff; font-size:10px; padding:2px 8px; }
+  .sheet .scroll{ overflow-x:auto; }
 
-  /* the strip */
-  .strip{ padding:0; border-block:1px solid var(--line); background:#fff; }
-  .strip .wrap{ display:grid; grid-template-columns:repeat(4, 1fr); }
-  .strip .it{ padding:26px 22px; border-left:1px solid var(--line); }
-  .strip .it:first-child{ border-left:0; padding-left:0; }
-  .strip b{ display:block; font-family:var(--serif); font-size:30px; font-weight:500; letter-spacing:-.02em; line-height:1.1; }
-  .strip span{ font-size:13.5px; color:var(--muted); }
+  .stamp{ position:absolute; right:30px; bottom:58px; border:3px solid var(--stamp); color:var(--stamp); font-family:var(--mono); font-weight:700; text-transform:uppercase; letter-spacing:.12em; padding:6px 12px 5px; transform:rotate(-8deg); background:rgba(255,253,247,.88); opacity:0; pointer-events:none; text-align:center; transition:opacity .25s; }
+  .stamp small{ display:block; font-size:12px; letter-spacing:.06em; font-weight:400; }
+  .stamp.show{ opacity:1; }
+  .stamp.ok{ color:var(--ok); border-color:var(--ok); }
 
+  .slip{ background:var(--sheet); border:1px solid var(--rule); padding:20px 22px 22px; box-shadow:0 10px 24px -18px rgba(40,30,10,.5); transform:rotate(.5deg); }
+  .slip ol{ list-style:none; margin:0; padding:0; counter-reset:s; }
+  .slip li{ counter-increment:s; padding:0 0 18px 34px; position:relative; }
+  .slip li:last-child{ padding-bottom:0; }
+  .slip li::before{ content:counter(s); position:absolute; left:0; top:0; width:24px; height:24px; border:1.5px solid var(--ink); border-radius:50%; text-align:center; font-size:13px; font-weight:700; line-height:21px; }
+  .slip li.off{ opacity:.45; }
+  .slip label{ display:block; font-weight:700; font-size:15px; margin-bottom:6px; }
+  .slip input[type=text]{ width:100%; font:inherit; font-size:16px; padding:8px 10px; border:1.5px solid var(--ink); border-radius:2px; background:#fff; }
+  .pad{ position:relative; border:1.5px dashed var(--faint); background:#fff; border-radius:2px; height:116px; touch-action:none; }
+  .pad canvas{ width:100%; height:100%; display:block; cursor:crosshair; touch-action:none; }
+  .pad .ph{ position:absolute; left:10px; top:8px; font-size:12.5px; color:var(--faint); pointer-events:none; }
+  .row{ display:flex; gap:12px; flex-wrap:wrap; margin-top:8px; }
+  .link{ background:none; border:0; padding:0; font:inherit; font-size:14px; color:var(--soft); text-decoration:underline; cursor:pointer; }
+  .link:disabled{ opacity:.4; cursor:not-allowed; }
+  .cheats{ display:grid; gap:8px; justify-items:start; }
+  .msg{ margin:16px 0 0; padding:12px 14px; border-left:4px solid var(--ink); background:rgba(255,255,255,.55); font-size:15px; min-height:1.5em; }
+  .msg.bad{ border-color:var(--stamp); }
+  .msg.good{ border-color:var(--ok); }
+  .msg code{ font-family:var(--mono); font-size:14px; }
 
-  /* why */
-  .why{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:56px; align-items:start; }
-  .facts{ display:grid; gap:14px; }
-  .fact{ background:#fff; border:1px solid var(--line); border-radius:20px; padding:24px 26px; }
-  .fact b{ font-family:var(--serif); font-weight:500; font-size:44px; letter-spacing:-.03em; line-height:1; display:block; color:var(--red); }
-  .fact p{ margin:10px 0 8px; font-size:15.5px; color:var(--ink2); }
-  .fact a{ font-size:12.5px; color:var(--muted); }
-  .fix{ list-style:none; padding:0; margin:26px 0 0; display:grid; gap:12px; }
-  .fix li{ display:grid; grid-template-columns:26px 1fr; gap:12px; font-size:15.5px; color:var(--muted); }
-  .fix li::before{ content:""; width:22px; height:22px; border-radius:50%; background:var(--ok-w) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230b6b36' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4 8-9'/%3E%3C/svg%3E") center/12px no-repeat; margin-top:1px; }
-  .fix b{ color:var(--ink); }
+  /* ---------- body sections ---------- */
+  section.s{ padding:76px 0 0; }
+  h2.t{ font-family:var(--serif); font-size:clamp(28px,3.6vw,42px); line-height:1.1; letter-spacing:-.02em; margin:0 0 18px; max-width:20ch; }
+  .s p{ margin:0 0 16px; }
+  .soft{ color:var(--soft); }
 
-  /* how it works */
-  .how{ display:grid; grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr); gap:56px; align-items:center; }
-  .steps{ display:grid; gap:6px; }
-  .step{ text-align:left; font:inherit; background:transparent; border:1px solid transparent; border-radius:var(--r); padding:18px 20px; cursor:pointer; display:grid; grid-template-columns:38px 1fr; gap:4px 16px; position:relative; color:var(--ink); }
-  .step:hover{ background:rgba(255,255,255,.6); }
-  .step .n{ grid-row:1 / 3; width:38px; height:38px; border-radius:50%; border:1.5px solid var(--line); display:grid; place-items:center; font-weight:700; font-size:14px; color:var(--muted); background:#fff; }
-  .step b{ font-size:17.5px; letter-spacing:-.01em; }
-  .step p{ margin:0; font-size:14.5px; color:var(--muted); grid-column:2; max-height:0; overflow:hidden; opacity:0; transition:max-height .35s, opacity .35s; }
-  .step.on{ background:#fff; border-color:var(--line); box-shadow:0 12px 30px -16px rgba(20,22,27,.25); }
-  .step.on .n{ background:var(--red); border-color:var(--red); color:#fff; }
-  .step.on p{ max-height:90px; opacity:1; margin-top:2px; }
-  .step .bar{ position:absolute; left:20px; right:20px; bottom:0; height:2px; background:var(--line); border-radius:2px; overflow:hidden; display:none; }
-  .step.on .bar{ display:block; }
-  .step .bar i{ display:block; height:100%; width:0; background:var(--red); }
-  .step.on .bar i{ animation:fill 5.5s linear forwards; }
-  .how.paused .step.on .bar i{ animation-play-state:paused; }
-  @keyframes fill{ to{ width:100%; } }
+  .clips{ display:grid; grid-template-columns:1fr 1fr; gap:26px; margin-top:26px; }
+  .clip{ background:#fbf8ef; border:1px solid var(--rule); padding:20px 22px; position:relative; }
+  .clip:nth-child(1){ transform:rotate(-.6deg); } .clip:nth-child(2){ transform:rotate(.5deg); }
+  .clip q{ display:block; font-family:var(--serif); font-size:22px; line-height:1.3; quotes:none; margin-bottom:12px; }
+  .clip q b{ background:linear-gradient(transparent 62%, rgba(179,18,31,.28) 62%); font-weight:700; }
+  .clip cite{ font-style:normal; font-size:13.5px; color:var(--soft); }
+  .clip cite a{ color:var(--soft); }
 
-  .panel{ background:var(--ink); border-radius:24px; min-height:430px; padding:26px; position:relative; overflow:hidden; color:#fff; box-shadow:0 40px 70px -30px rgba(20,22,27,.5); }
-  .panel::before{ content:""; position:absolute; width:380px; height:380px; right:-120px; top:-140px; border-radius:50%; background:radial-gradient(circle, rgba(255,93,120,.35), transparent 65%); }
-  .scene{ position:absolute; inset:26px; opacity:0; transform:translateY(14px); transition:opacity .45s, transform .45s; pointer-events:none; display:flex; flex-direction:column; justify-content:center; }
-  .scene.on{ opacity:1; transform:none; pointer-events:auto; }
-  .win{ background:#fff; color:var(--ink); border-radius:14px; padding:16px 18px; font-size:13.5px; box-shadow:0 20px 40px -18px rgba(0,0,0,.5); }
-  .win .hd{ display:flex; gap:6px; margin-bottom:12px; } .win .hd i{ width:9px; height:9px; border-radius:50%; background:#d7dbe2; }
-  .field{ display:flex; justify-content:space-between; gap:10px; padding:9px 12px; border:1px solid var(--line); border-radius:10px; margin-bottom:8px; font-size:13px; }
-  .field span{ color:var(--faint); }
-  .win .go{ display:inline-block; margin-top:6px; background:var(--red); color:#fff; font-weight:700; padding:9px 16px; border-radius:9px; font-size:13px; }
-  .linkbox{ display:flex; gap:10px; align-items:center; background:#fff; color:var(--ink); border-radius:12px; padding:12px 14px; font-family:var(--mono); font-size:12.5px; margin-bottom:14px; }
-  .linkbox b{ margin-left:auto; font-family:var(--sans); background:var(--ink); color:#fff; padding:5px 11px; border-radius:7px; font-size:12px; }
-  .chat{ display:grid; gap:9px; }
-  .chat div{ max-width:82%; padding:10px 13px; border-radius:14px 14px 14px 4px; background:rgba(255,255,255,.12); font-size:13.5px; }
-  .chat div.me{ margin-left:auto; background:#25d366; color:#06361a; border-radius:14px 14px 4px 14px; font-weight:600; }
-  .roll{ background:#fff; color:var(--ink); border-radius:14px; overflow:hidden; font-size:13px; }
-  .roll .r{ display:grid; grid-template-columns:1fr auto; gap:10px; padding:11px 16px; border-top:1px solid var(--line); align-items:center; }
-  .roll .r:first-child{ border-top:0; background:var(--bg); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:700; }
-  .roll .tick{ color:var(--ok); font-weight:700; background:var(--ok-w); padding:3px 10px; border-radius:999px; font-size:12px; }
-  .roll .wait{ color:var(--warn); background:var(--warn-w); padding:3px 10px; border-radius:999px; font-size:12px; font-weight:700; }
-  .big{ text-align:center; padding:10px; }
-  .big .qr{ width:118px; margin:0 auto 14px; padding:8px; }
-  .big b{ display:block; font-family:var(--mono); font-size:18px; letter-spacing:.06em; }
-  .big span{ color:#9cf0bd; font-weight:700; font-size:14px; display:inline-block; margin-top:6px; }
-  .big p{ color:#aab1c0; font-size:13.5px; max-width:36ch; margin:10px auto 0; }
+  table.cmp{ width:100%; border-collapse:collapse; margin-top:34px; font-size:16px; }
+  table.cmp th, table.cmp td{ text-align:left; padding:14px 16px 14px 0; border-bottom:1px solid var(--rule); vertical-align:top; }
+  table.cmp th{ font-size:13px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); font-weight:600; border-bottom:2px solid var(--ink); }
+  table.cmp td:first-child{ font-weight:700; width:26%; }
+  table.cmp td:nth-child(2){ color:var(--soft); width:34%; }
+  table.cmp td:nth-child(3){ width:40%; }
 
-  /* bento */
-  .bento{ display:grid; grid-template-columns:repeat(6, 1fr); gap:16px; }
-  .cell{ background:#fff; border:1px solid var(--line); border-radius:22px; padding:26px; position:relative; overflow:hidden; transition:transform .25s, box-shadow .25s; }
-  .cell:hover{ transform:translateY(-3px); box-shadow:0 24px 40px -24px rgba(20,22,27,.3); }
-  .cell h3{ font-size:20px; letter-spacing:-.015em; margin:0 0 8px; line-height:1.2; }
-  .cell p{ margin:0; color:var(--muted); font-size:15px; }
-  .cell .ic{ width:42px; height:42px; border-radius:12px; background:var(--red-w); display:grid; place-items:center; margin-bottom:18px; }
-  .cell .ic svg{ width:21px; height:21px; stroke:var(--red); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
-  .c-a{ grid-column:span 3; } .c-b{ grid-column:span 3; } .c-c{ grid-column:span 2; } .c-d{ grid-column:span 2; } .c-e{ grid-column:span 2; }
-  .c-wide{ grid-column:span 4; } .c-dark{ background:var(--ink); color:#fff; border-color:var(--ink); } .c-dark p{ color:#aab1c0; } .c-dark .ic{ background:rgba(255,255,255,.1); } .c-dark .ic svg{ stroke:#ff8095; }
-  .minidays{ display:flex; gap:6px; margin-top:20px; }
-  .minidays span{ flex:1; height:46px; border-radius:10px; background:var(--bg); display:grid; place-items:center; font-size:11px; font-weight:700; color:var(--faint); }
-  .minidays span.s{ background:var(--ok-w); color:var(--ok); }
-  .minidays span.s::after{ content:"\2713"; font-size:14px; }
-  .minidays span:not(.s)::after{ content:attr(data-d); }
-  .chain{ display:flex; gap:0; margin-top:22px; align-items:center; }
-  .chain i{ flex:1; height:34px; border:1.5px solid #3a4150; border-radius:8px; display:grid; place-items:center; font-style:normal; font-family:var(--mono); font-size:10px; color:#8b93a1; }
-  .chain u{ width:14px; height:2px; background:#ff8095; }
-  .swatches{ display:flex; gap:8px; margin-top:20px; }
-  .swatches i{ width:30px; height:30px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 0 1px var(--line); }
+  .pay{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.2fr); gap:44px; align-items:center; }
+  .note{ position:absolute; font-family:var(--hand); color:var(--pen); font-size:15px; line-height:1.2; width:150px; z-index:2; }
+  .note svg{ display:block; width:46px; height:26px; stroke:var(--pen); fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+  .paperwrap{ position:relative; padding:66px 0 58px; }
+  .paperwrap .sheet{ transform:rotate(.6deg); padding:16px 18px; }
+  .paperwrap .sheet th, .paperwrap .sheet td{ height:24px; font-size:10.5px; }
+  .paperwrap .n1{ left:4px; top:0; width:230px; transform:rotate(-3deg); }
+  .paperwrap .n2{ right:4px; bottom:0; width:230px; transform:rotate(2deg); text-align:right; }
 
-  /* payment showcase */
-  .pay{ background:var(--ink); color:#fff; border-radius:34px; padding:70px 0; margin:0 14px; position:relative; overflow:hidden; }
-  .pay::before{ content:""; position:absolute; inset:0; background-image:linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px); background-size:44px 44px; mask-image:radial-gradient(60% 70% at 20% 30%, #000, transparent); -webkit-mask-image:radial-gradient(60% 70% at 20% 30%, #000, transparent); }
-  .pay .wrap{ position:relative; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.1fr); gap:56px; align-items:center; }
-  .pay h2{ color:#fff; } .pay .sub{ color:#aab1c0; margin-bottom:28px; }
-  .tick-list{ list-style:none; padding:0; margin:0 0 30px; display:grid; gap:13px; }
-  .tick-list li{ display:grid; grid-template-columns:24px 1fr; gap:12px; color:#d6dae3; font-size:15.5px; }
-  .tick-list li::before{ content:""; width:22px; height:22px; border-radius:50%; background:#ff5d78 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4 8-9'/%3E%3C/svg%3E") center/12px no-repeat; margin-top:1px; }
-  .tick-list b{ color:#fff; }
-  .paper{ background:#fff; color:#000; border-radius:6px; padding:18px 20px 0; font-family:Arial, Helvetica, sans-serif; box-shadow:0 40px 70px -26px #000; transform:rotate(1.6deg); transition:transform .4s; }
-  .paper:hover{ transform:none; }
-  .paper .top{ display:flex; justify-content:space-between; align-items:flex-start; }
-  .paper .ad{ font-size:8.5px; line-height:1.35; color:#1d4f86; } .paper .ad b{ color:#000; font-size:10.5px; display:block; }
-  .paper .lg{ font-weight:900; font-style:italic; font-size:22px; letter-spacing:-.04em; } .paper .lg small{ display:block; font-size:7px; font-style:italic; font-weight:400; letter-spacing:.04em; margin-top:-3px; color:var(--red); text-align:right; }
-  .paper h5{ text-align:center; margin:8px 0 6px; font-size:12px; letter-spacing:.16em; }
-  .paper table{ width:100%; border-collapse:collapse; border:1px solid #000; font-size:8px; table-layout:fixed; }
-  .paper td, .paper th{ border:1px solid #000; padding:3px 4px; height:17px; }
-  .paper th{ background:#d9d9d9; }
-  .paper td.k{ font-weight:700; width:19%; }
-  .paper tr.sg td{ background:linear-gradient(#000,#000) center/100% 1px no-repeat; }
-  .paper svg{ width:100%; height:100%; } .paper .sig path{ stroke:#1b2a6b; stroke-width:1.4; fill:none; }
-  .paper .band{ text-align:center; margin:12px -20px 0; padding-bottom:12px; }
-  .paper .band span{ background:var(--red); color:#fff; font-size:8px; padding:2px 8px; }
-  .paper .tt{ margin-top:10px; }
+  .log{ list-style:none; margin:26px 0 0; padding:0; max-width:760px; }
+  .log li{ display:grid; grid-template-columns:116px 1fr; gap:6px 20px; padding:14px 0; border-top:1px solid var(--rule); }
+  .log li:last-child{ border-bottom:1px solid var(--rule); }
+  .log time{ font-family:var(--mono); font-size:14px; color:var(--stamp); padding-top:2px; }
+  .log b{ font-weight:700; }
+  .eg{ font-size:13.5px; color:var(--faint); margin-top:10px; }
 
-  /* verify */
-  .verify{ background:#fff; border:1px solid var(--line); border-radius:28px; padding:50px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:40px; align-items:center; }
-  .verify h2{ font-size:clamp(28px,3.2vw,40px); }
-  .vform{ display:flex; gap:10px; background:var(--bg); padding:8px; border-radius:999px; border:1px solid var(--line); }
-  .vform input{ flex:1; min-width:0; border:0; background:transparent; font:inherit; font-family:var(--mono); font-size:16px; letter-spacing:.06em; padding:0 16px; text-transform:uppercase; }
-  .vform input:focus{ outline:none; }
-  .vform:focus-within{ border-color:var(--ink); box-shadow:0 0 0 4px rgba(20,22,27,.08); }
-  .vnote{ font-size:13.5px; color:var(--muted); margin:12px 6px 0; }
+  .check{ background:var(--sheet); border:1px solid var(--rule); padding:28px 30px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:28px; align-items:center; }
+  .check h2{ font-family:var(--serif); font-size:28px; line-height:1.15; margin:0 0 8px; }
+  .check p{ margin:0; color:var(--soft); }
+  .check form{ display:flex; gap:8px; }
+  .check input{ flex:1; min-width:0; font-family:var(--mono); font-size:17px; letter-spacing:.08em; text-transform:uppercase; padding:11px 12px; border:2px solid var(--ink); border-radius:2px; background:#fff; }
 
-  /* trust */
-  .pillars{ display:grid; grid-template-columns:repeat(3,1fr); gap:0; border-top:1px solid var(--line); }
-  .pillar{ padding:30px 30px 10px 0; border-left:1px solid var(--line); padding-left:30px; }
-  .pillar:first-child{ border-left:0; padding-left:0; }
-  .pillar .num{ font-family:var(--serif); font-size:15px; color:var(--red); font-style:italic; margin-bottom:10px; }
-  .pillar h3{ font-size:21px; margin:0 0 10px; letter-spacing:-.015em; line-height:1.2; }
-  .pillar p{ margin:0; color:var(--muted); font-size:15px; }
+  details{ border-top:1px solid var(--rule); padding:16px 0; }
+  details:last-of-type{ border-bottom:1px solid var(--rule); }
+  summary{ cursor:pointer; font-weight:700; font-size:18px; list-style:none; display:flex; justify-content:space-between; gap:16px; }
+  summary::-webkit-details-marker{ display:none; }
+  summary::after{ content:"+"; font-family:var(--mono); font-size:22px; line-height:1; color:var(--stamp); }
+  details[open] summary::after{ content:"\2212"; }
+  details p{ margin:10px 0 0; color:var(--soft); max-width:64ch; }
 
-  /* final */
-  .final{ text-align:center; padding:110px 0 100px; position:relative; }
-  .final h2{ margin:0 auto 18px; max-width:16ch; font-size:clamp(36px,5vw,64px); }
-  .final p{ color:var(--muted); font-size:18px; max-width:48ch; margin:0 auto 32px; }
-  .final .heroActions{ justify-content:center; }
-  footer{ border-top:1px solid var(--line); padding:30px 0 40px; font-size:13.5px; color:var(--muted); }
-  footer .wrap{ display:flex; gap:12px 26px; flex-wrap:wrap; align-items:center; }
-  footer .sp{ margin-left:auto; display:flex; gap:20px; flex-wrap:wrap; }
-  footer a{ color:var(--muted); text-decoration:none; } footer a:hover{ color:var(--ink); text-decoration:underline; }
+  .end{ padding:80px 0 56px; }
+  .end h2{ font-family:var(--serif); font-size:clamp(30px,4vw,48px); line-height:1.08; margin:0 0 14px; max-width:18ch; letter-spacing:-.02em; }
+  .end p{ color:var(--soft); max-width:52ch; margin:0 0 24px; }
+  footer{ border-top:1px solid var(--rule); padding:22px 0 40px; font-size:14px; color:var(--soft); }
+  footer .col{ display:flex; gap:10px 26px; flex-wrap:wrap; }
+  footer a{ color:var(--soft); } footer .sp{ margin-left:auto; display:flex; gap:20px; flex-wrap:wrap; }
 
-  /* reveal */
-  .rv{ opacity:0; transform:translateY(22px); transition:opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
-  .rv.in{ opacity:1; transform:none; }
-  .rv.d1{ transition-delay:.08s; } .rv.d2{ transition-delay:.16s; } .rv.d3{ transition-delay:.24s; }
-
-  @media (max-width: 980px){
-    .why{ grid-template-columns:minmax(0,1fr); gap:30px; }
-    .hero .wrap, .how, .pay .wrap, .verify{ grid-template-columns:minmax(0,1fr); }
-    h1 em{ white-space:normal; }
-    .stage{ height:600px; max-width:430px; margin:10px auto 0; width:100%; }
-    .bento{ grid-template-columns:1fr 1fr; } .c-a,.c-b,.c-c,.c-d,.c-e,.c-wide{ grid-column:span 2; } .c-c,.c-d{ grid-column:span 1; }
-    .pillars{ grid-template-columns:1fr; } .pillar{ border-left:0; padding-left:0; border-top:1px solid var(--line); } .pillar:first-child{ border-top:0; }
-    .strip .wrap{ grid-template-columns:1fr 1fr; } .strip .it:nth-child(3){ border-left:0; padding-left:0; } .strip .it{ border-top:1px solid var(--line); } .strip .it:nth-child(-n+2){ border-top:0; }
-    .links{ display:none; } .navtoggle{ display:inline-flex; }
-    .verify{ padding:30px 22px; } section{ padding:70px 0; }
+  @media (max-width:900px){
+    .demo, .pay, .check{ grid-template-columns:minmax(0,1fr); }
+    .clips{ grid-template-columns:minmax(0,1fr); }
+    .paperwrap .note{ display:none; } .paperwrap{ padding:0; }
+    .stamp{ bottom:52px; right:14px; }
+    .top .who a.login{ display:none; }
+    .top{ gap:12px 20px; } .top .who{ margin-left:auto; } .top nav{ order:3; width:100%; flex:none; flex-wrap:nowrap; overflow-x:auto; gap:20px; padding-bottom:6px; white-space:nowrap; }
+    section.s{ padding-top:56px; } .hero{ padding-top:44px; }
+    table.cmp td:first-child{ width:34%; } table.cmp td:nth-child(2){ width:30%; } table.cmp{ font-size:15px; }
+    .log li{ grid-template-columns:1fr; gap:2px; }
   }
-  @media (max-width: 560px){
-    .nav .wrap{ gap:10px; } .nav .cta .solid{ padding:9px 14px; font-size:13.5px; } .logo{ font-size:16px; } .heroActions .btn{ flex:1 1 100%; justify-content:center; } .stage{ overflow:visible; } .phone{ margin-left:-120px; width:244px; }
-    .bento{ grid-template-columns:1fr; } .c-a,.c-b,.c-c,.c-d,.c-e,.c-wide{ grid-column:span 1; }
-    .nav .cta .ghost{ display:none; } .f1{ right:-12px; width:170px; } .f2{ left:-10px; width:176px; bottom:30px; }
-    .vform{ flex-direction:column; border-radius:22px; } .vform input{ padding:12px 14px; } .pay{ margin:0 8px; border-radius:24px; }
-  }
-  @media (prefers-reduced-motion: reduce){
-    html{ scroll-behavior:auto; } *, *::before, *::after{ animation:none !important; transition:none !important; }
-    .rv{ opacity:1; transform:none; } .pad path{ stroke-dashoffset:0; }
-  }
+  @media (prefers-reduced-motion:reduce){ html{ scroll-behavior:auto; } .stamp{ transition:none; } }
 </style>
 </head>
 <body>
 
-<header class="nav" id="nav">
-  <div class="wrap">
-    <a class="logo" href="#top" aria-label="Sign Sheet, home">
-      <i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h10l4 4v12H5z"/><path d="M8 15c1.5-2.5 2.5-2.5 3-1s1.5 1.5 3-1.5"/></svg></i>
-      Sign Sheet
-    </a>
-    <nav class="links" aria-label="Sections">
-      <a href="#why">Why</a>
-      <a href="#how">How it works</a>
-      <a href="#features">Features</a>
+<div class="col">
+  <header class="top">
+    <a class="mark" href="#top">Sign Sheet<span>.</span></a>
+    <nav aria-label="Sections">
+      <a href="#try">Try it</a>
+      <a href="#paper">The problem</a>
       <a href="#payment">Payment sheets</a>
+      <a href="#faq">Questions</a>
       <a href="#verify">Check a record</a>
-      <a href="#trust">Trust</a>
     </nav>
-    <div class="cta">
-      <a class="btn ghost" href="login.html">Log in</a>
-      <a class="btn solid" href="signup.html">Get started</a>
+    <div class="who"><a class="login" href="login.html">Log in</a><a class="btn sm" href="signup.html">Add your organisation</a></div>
+  </header>
+
+  <div class="hero" id="top">
+    <h1>An attendance sheet nobody can quietly fix afterwards.</h1>
+    <p class="lead">Everyone signs for the day on their own phone. When the sheet is sealed, changing even one letter shows. And if the sheet decides who gets paid, it goes to the officer and to finance before a shilling moves.</p>
+    <div class="go">
+      <a class="btn" href="#try">Try to cheat it</a>
+      <a class="btn alt" href="signup.html">Add your organisation</a>
+      <span class="hand">no sign-up needed to try &darr;</span>
     </div>
   </div>
-</header>
+</div>
 
-<main id="top">
+<!-- ============ the demo ============ -->
+<div class="desk" id="try">
+  <div class="col">
+    <h2>Sign it. Then try to cheat it.</h2>
+    <p class="intro">This is a real sheet on a real seal, running in your browser. Nothing you type here is sent anywhere.</p>
 
-<!-- ================= HERO ================= -->
-<div class="hero">
-  <div class="wrap">
-    <div>
-      <span class="kicker rv"><b>NEW</b> Payment sheets with built-in approvals</span>
-      <h1 class="rv d1">Attendance that <em>proves itself<svg viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true"><path d="M2 8 C 50 1, 120 1, 198 6"/></svg></em></h1>
-      <p class="lede rv d2">Swap the clipboard for a link. People sign on their own phone, every day gets its own signature, payment sheets go through approval, and anyone can check the finished record is genuine.</p>
-      <div class="heroActions rv d3">
-        <a class="btn red lg" href="signup.html">Add your organisation <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-        <a class="btn ghost lg" href="#verify">Check a record</a>
+    <div class="demo">
+      <div>
+        <div class="sheet" id="sheet">
+          <div class="lh"><div><b>Your organisation</b>Street and building<br>PO Box 00100, City</div><div class="lg">LOGO<small>your logo here</small></div></div>
+          <h3>ATTENDANCE SHEET</h3>
+          <table class="hd">
+            <tr><td class="k">DATE:</td><td>Day 1 of 3</td><td class="k">CONVENER:</td><td>Eng. J. Kamau</td></tr>
+            <tr><td class="k">TIME:</td><td>08:00 &ndash; 17:00</td><td class="k">LOCATION:</td><td>Kisumu</td></tr>
+            <tr><td class="k">SUBJECT:</td><td colspan="3">County digital skills training</td></tr>
+          </table>
+          <div class="scroll"><table id="roll"></table></div>
+          <div class="foot"><span>Your organisation's own line goes here</span></div>
+          <div class="stamp" id="stamp"></div>
+        </div>
+        <div class="msg" id="msg" role="status" aria-live="polite">Two people have already signed. Add yourself on the right.</div>
       </div>
-      <div class="proof rv d3">
-        <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>No app to install</span>
-        <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>Works on any phone</span>
-        <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>Door scanning that works offline</span>
-      </div>
-    </div>
 
-    <div class="stage" id="stage" aria-hidden="true">
-      <div class="phone">
-        <div class="screen">
-          <div class="notch"><i></i></div>
-          <div class="scr">
-            <div class="org"><i></i>Your organisation</div>
-            <h4>County Digital Skills Training</h4>
-            <div class="meta">Day 3 of 5 &middot; Kisumu &middot; 8:00 to 17:00</div>
-            <div class="daychips"><span class="d">1</span><span class="d">2</span><span class="n">3</span><span>4</span><span>5</span></div>
-            <div class="pad"><span class="hint">Sign here with your finger</span>
-              <svg viewBox="0 0 220 128"><path d="M22 86 C 38 30, 52 28, 56 62 S 64 98, 84 52 S 112 24, 118 60 S 134 96, 152 56 C 160 38, 176 40, 170 66 S 188 84, 204 50"/></svg>
+      <div class="slip">
+        <ol>
+          <li id="st1"><label for="myName">Your name</label><input type="text" id="myName" maxlength="28" placeholder="e.g. Amina Said" autocomplete="off"></li>
+          <li id="st2" class="off"><label>Sign with your finger or mouse</label>
+            <div class="pad"><canvas id="pad" aria-label="Signature pad"></canvas><span class="ph" id="ph">sign here</span></div>
+            <div class="row"><button type="button" class="link" id="clear">Clear</button><button type="button" class="link" id="sample">Use a sample signature</button></div>
+            <div class="row"><button type="button" class="btn" id="signBtn" disabled>Sign for Day 1 and seal</button></div>
+          </li>
+          <li id="st3" class="off"><label>Now try to cheat</label>
+            <div class="cheats">
+              <button type="button" class="btn alt sm" id="c1" disabled>Change one letter in a name</button>
+              <button type="button" class="btn alt sm" id="c2" disabled>Add a name that was never there</button>
+              <button type="button" class="btn alt sm" id="c3" disabled>Swap someone's signature</button>
+              <button type="button" class="link" id="undo" disabled>Undo what I did</button>
             </div>
-            <button class="signbtn" tabindex="-1"><span class="a">Sign for today</span><span class="b">&#10003; Signed 09:12</span></button>
-            <div class="foot">One signature per day. No app needed.</div>
-          </div>
-        </div>
-      </div>
-      <div class="float f1">
-        <div class="t">Sealed sheet</div>
-        <div class="sealrow"><div class="qr" id="qrA"></div><div><b>7K2M-9QXA</b><span class="ok">Matches the record</span></div></div>
-      </div>
-      <div class="float f2">
-        <div class="t">Payment sheet</div>
-        <ul class="approve">
-          <li><i><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></i>Signatures collected</li>
-          <li><i><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></i>Certified by officer</li>
-          <li class="now"><i><svg viewBox="0 0 24 24"></svg></i><b>Finance verifying</b></li>
-          <li class="todo"><i><svg viewBox="0 0 24 24"></svg></i>Ready to pay</li>
-        </ul>
+          </li>
+        </ol>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ================= STRIP ================= -->
-<div class="strip">
-  <div class="wrap">
-    <div class="it rv"><b>1 link</b><span>replaces the printed sheet</span></div>
-    <div class="it rv d1"><b>Every day</b><span>its own signature, on its own day</span></div>
-    <div class="it rv d2"><b>0 apps</b><span>to install for attendees</span></div>
-    <div class="it rv d3"><b>Anyone</b><span>can check a sealed record</span></div>
-  </div>
-</div>
+<div class="col">
 
-<!-- ================= WHY ================= -->
-<section id="why">
-  <div class="wrap why">
-    <div>
-      <p class="eyebrow rv">Why it exists</p>
-      <h2 class="rv d1">A paper sheet is easy to pad and hard to prove.</h2>
-      <p class="sub rv d2" style="margin-bottom:0;">When pay depends on a list of names, the list becomes the weak point. Public audits keep finding the same gap between who signed and who was paid.</p>
-      <ul class="fix rv d2">
-        <li><span><b>Signed on the day, by the person.</b> A name cannot be added afterwards without leaving a trace.</span></li>
-        <li><span><b>Only people on the list can sign,</b> using the phone number they were registered with.</span></li>
-        <li><span><b>Approved before it is paid.</b> The officer and finance each seal their step.</span></li>
-      </ul>
-    </div>
-    <div class="facts">
-      <div class="fact rv"><b>119 vs 219</b><p>A county workshop register listed 119 people, yet payment records showed 219 had been paid, according to the Auditor General.</p><a href="https://www.standardmedia.co.ke/amp/central/article/2000128342/ghost-workers-paid-sh300000-in-kiambu-county" target="_blank" rel="noopener">Source: The Standard</a></div>
-      <div class="fact rv d1"><b>17 people</b><p>A Global Fund investigation in Kenya found 17 people had collected per diems without attending any activity.</p><a href="https://www.theglobalfund.org/media/hascxuds/oig_gf-oig-18-004_report_en.pdf" target="_blank" rel="noopener">Source: Global Fund OIG report</a></div>
-    </div>
-  </div>
-</section>
-
-<!-- ================= HOW ================= -->
-<section id="how">
-  <div class="wrap">
-    <p class="eyebrow rv">How it works</p>
-    <h2 class="rv d1">From invitation to sealed record in four steps.</h2>
-    <p class="sub rv d2">No training day needed. If you can share a link, you can run an event.</p>
-
-    <div class="how" id="how2">
-      <div class="steps" role="tablist" aria-label="Steps">
-        <button class="step on" role="tab" aria-selected="true" data-i="0"><span class="n">1</span><b>Create the event</b><p>Name it, set the days and the venue. Add the people if it is a payment sheet. That is the whole setup.</p><span class="bar"><i></i></span></button>
-        <button class="step" role="tab" aria-selected="false" data-i="1"><span class="n">2</span><b>Share one link</b><p>Post it in the group chat or show the QR code at the door. Only the people on the list can sign.</p><span class="bar"><i></i></span></button>
-        <button class="step" role="tab" aria-selected="false" data-i="2"><span class="n">3</span><b>People sign on their phone</b><p>Each person signs for the day, on the day. You watch the roll fill up live, and each day closes on time.</p><span class="bar"><i></i></span></button>
-        <button class="step" role="tab" aria-selected="false" data-i="3"><span class="n">4</span><b>Seal it and prove it</b><p>The finished sheet is sealed. Its QR code lets anyone confirm the paper matches the record.</p><span class="bar"><i></i></span></button>
-      </div>
-
-      <div class="panel" aria-live="polite">
-        <div class="scene on" data-i="0">
-          <div class="win"><div class="hd"><i></i><i></i><i></i></div>
-            <div class="field"><span>Event</span>County Digital Skills Training</div>
-            <div class="field"><span>Days</span>11 Oct to 15 Oct, 5 days</div>
-            <div class="field"><span>Venue</span>Kisumu</div>
-            <span class="go">Create event</span>
-          </div>
-        </div>
-        <div class="scene" data-i="1">
-          <div class="linkbox">sign.example/e/county-skills <b>Copy</b></div>
-          <div class="chat"><div>Please sign in for today's session here &#128071;</div><div>sign.example/e/county-skills</div><div class="me">Done, thanks &#10003;</div></div>
-        </div>
-        <div class="scene" data-i="2">
-          <div class="roll">
-            <div class="r"><span>Name</span><span>Day 3</span></div>
-            <div class="r"><span>Wanjiku Mwangi</span><span class="tick">Signed 08:41</span></div>
-            <div class="r"><span>Otieno Odhiambo</span><span class="tick">Signed 08:55</span></div>
-            <div class="r"><span>Faith Chebet</span><span class="tick">Signed 09:12</span></div>
-            <div class="r"><span>Hassan Ali</span><span class="wait">Not yet</span></div>
-          </div>
-        </div>
-        <div class="scene" data-i="3">
-          <div class="big"><div class="qr" id="qrB"></div><b>7K2M-9QXA</b><span>&#10003; Matches the sealed record</span><p>Print the sheet, and the QR on it checks itself against the original. If one name or signature changed, it will not match.</p></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ================= FEATURES ================= -->
-<section id="features" style="padding-top:20px;">
-  <div class="wrap">
-    <p class="eyebrow rv">What is inside</p>
-    <h2 class="rv d1">Everything an attendance office actually needs.</h2>
-    <p class="sub rv d2">Built around how paper registers are used in real offices, then made hard to fake.</p>
-
-    <div class="bento">
-      <div class="cell c-a rv">
-        <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 10h18M8 3v4M16 3v4"/></svg></div>
-        <h3>One signature for every day</h3>
-        <p>Multi-day events get a column for each day. People sign for a day on that day. Missed days stay visibly empty instead of being filled in later.</p>
-        <div class="minidays"><span class="s"></span><span class="s"></span><span class="s"></span><span data-d="4"></span><span data-d="5"></span></div>
-      </div>
-      <div class="cell c-b c-dark rv d1">
-        <div class="ic"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></div>
-        <h3>A tamper-evident activity log</h3>
-        <p>Every sign-in, change and approval is written to a chain where each entry fingerprints the one before it. An edit made later shows.</p>
-        <div class="chain"><i>a41f</i><u></u><i>9c07</i><u></u><i>e2b8</i><u></u><i>5d13</i></div>
-      </div>
-      <div class="cell c-c rv">
-        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3zM9 12l2 2 4-4"/></svg></div>
-        <h3>Sealed sheets</h3>
-        <p>Every finished sheet carries a QR that anyone can scan to check it against the record.</p>
-      </div>
-      <div class="cell c-d rv d1">
-        <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg></div>
-        <h3>Door scanning</h3>
-        <p>Scan passes at the entrance. It keeps working when the signal drops and catches up when it returns.</p>
-      </div>
-      <div class="cell c-e rv d2">
-        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 15a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM8.5 13.5L7 21l5-3 5 3-1.5-7.5"/></svg></div>
-        <h3>Certificates</h3>
-        <p>When an event ends, attendees can collect a certificate that can itself be verified.</p>
-      </div>
-      <div class="cell c-wide rv">
-        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg></div>
-        <h3>Your name, your colours, your web address</h3>
-        <p>Each organisation sets its own logo, colours, letterhead and printed footer, and can run on its own address. Attendees see you, not us. Departments, people and access levels stay inside your organisation.</p>
-        <div class="swatches"><i style="background:#c8102e"></i><i style="background:#0b6b36"></i><i style="background:#1b4f9c"></i><i style="background:#7a3fa0"></i><i style="background:#c46a00"></i></div>
-      </div>
-      <div class="cell c-b rv d1" style="grid-column:span 2;">
-        <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg></div>
-        <h3>Reports with a built-in check</h3>
-        <p>Every report states whether the records behind it are intact.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ================= PAYMENT ================= -->
-<div class="pay" id="payment">
-  <div class="wrap">
-    <div>
-      <p class="eyebrow" style="color:#ff8095;">Payment sheets</p>
-      <h2>The paper form you already use. Done properly.</h2>
-      <p class="sub">When people are paid for the days they attend, the sheet is the evidence. Ours prints as the same familiar form, but it is signed on phones and approved before anyone is paid.</p>
-      <ul class="tick-list">
-        <li><span><b>Prints like your paper sheet.</b> Letterhead, nine days to a page, unused rows struck through, your own footer line.</span></li>
-        <li><span><b>A real approval path.</b> Prepared, certified by the authorising officer, verified by finance. Each step is sealed.</span></li>
-        <li><span><b>Automatic checks.</b> Odd rates, late additions and gaps are flagged for the approver to look at.</span></li>
-        <li><span><b>Access you control.</b> Only the people you give payment access to can see or prepare a sheet.</span></li>
-      </ul>
-      <a class="btn red lg" href="signup.html">Set up payment sheets</a>
+  <!-- ============ the problem ============ -->
+  <section class="s" id="paper">
+    <h2 class="t">Paper isn't dishonest. It is just easy to add to afterwards.</h2>
+    <p class="narrow soft">A sheet goes round the room at nine. By the time it reaches the office, a name has been added, or a signature copied from a form that was already on file. Nobody can tell, and if pay depends on the list, that is where it leaks. Public audits keep finding the same gap.</p>
+    <div class="clips">
+      <div class="clip"><q>Register: <b>119 people</b>. Paid: <b>219</b>.</q><cite>A county workshop, according to the Auditor General. <a href="https://www.standardmedia.co.ke/amp/central/article/2000128342/ghost-workers-paid-sh300000-in-kiambu-county" target="_blank" rel="noopener">The Standard</a></cite></div>
+      <div class="clip"><q><b>17 people</b> collected per diems for activities they never attended.</q><cite>A Global Fund investigation in Kenya. <a href="https://www.theglobalfund.org/media/hascxuds/oig_gf-oig-18-004_report_en.pdf" target="_blank" rel="noopener">OIG report</a></cite></div>
     </div>
 
-    <div class="paper rv" aria-hidden="true">
-      <div class="top"><div class="ad"><b>Your organisation</b>Street and building<br>PO Box 00100, City<br>Tel: +000 000 000 000</div><div class="lg">LOGO<small>your logo here</small></div></div>
-      <h5>ATTENDANCE SHEET</h5>
-      <table>
-        <tr><td class="k">DATE:</td><td>27 July to 14 Aug 2026</td><td class="k">CONVENER:</td><td>Eng. J. Kamau</td></tr>
-        <tr><td class="k">TIME:</td><td>08:00 &ndash; 17:00</td><td class="k">LOCATION:</td><td>Mombasa</td></tr>
-        <tr><td class="k">MAIN AGENDA/SUBJECT:</td><td colspan="3">Inspection of laptops and smart boards</td></tr>
-      </table>
-      <table class="tt" id="paperTable"></table>
-      <div class="band"><span>Your organisation's legal line goes here</span></div>
-    </div>
-  </div>
-</div>
+    <table class="cmp">
+      <thead><tr><th></th><th>On paper</th><th>On Sign Sheet</th></tr></thead>
+      <tbody>
+        <tr><td>Who writes the name</td><td>Whoever holds the pen</td><td>The person, from their own phone</td></tr>
+        <tr><td>When</td><td>Whenever the sheet reaches them</td><td>On the day, while the day is open</td></tr>
+        <tr><td>Adding a name later</td><td>Easy, and nobody sees it</td><td>Shows, and the seal stops matching</td></tr>
+        <tr><td>Someone who didn't come</td><td>Filled in afterwards</td><td>Stays empty</td></tr>
+        <tr><td>Proof it is genuine</td><td>"Trust me"</td><td>A code anyone can check</td></tr>
+        <tr><td>Before anyone is paid</td><td>Chasing signatures</td><td>Officer certifies, finance verifies, each sealed</td></tr>
+      </tbody>
+    </table>
+  </section>
 
-<!-- ================= VERIFY ================= -->
-<section id="verify">
-  <div class="wrap">
-    <div class="verify rv">
+  <!-- ============ payment sheets ============ -->
+  <section class="s" id="payment">
+    <div class="pay">
       <div>
-        <p class="eyebrow">For anyone, no account needed</p>
-        <h2>Holding a printed sheet or certificate? Check it.</h2>
-        <p style="color:var(--muted);margin:0;font-size:17px;">Type the code printed on it, or scan its QR code. You will see whether it matches the original record.</p>
+        <h2 class="t">Your payment form, exactly as your office prints it.</h2>
+        <p>If people are paid for the days they attend, the sheet is the evidence. So we print the form you already use: your letterhead, nine days to a page, rows nobody used struck through, your own line at the foot.</p>
+        <p class="soft">Behind it is what paper can't do. The preparer sends it, the authorising officer certifies it, finance verifies it. Each step is sealed, and odd rates or late additions are flagged for the approver to look at.</p>
+        <p><a class="btn alt" href="signup.html">Set up payment sheets</a></p>
       </div>
+      <div class="paperwrap" aria-hidden="true">
+        <div class="note n1">the convener is your authorising officer<svg viewBox="0 0 46 26"><path d="M4 3 C 20 4, 30 12, 40 21 M33 20 L41 22 L40 13"/></svg></div>
+        <div class="note n2">rows nobody used are struck through for you<svg viewBox="0 0 46 26" style="margin-left:auto;transform:scaleY(-1)"><path d="M42 3 C 28 4, 18 12, 8 21 M15 20 L7 22 L8 13"/></svg></div>
+        <div class="sheet">
+          <div class="lh"><div><b>Your organisation</b>Street and building</div><div class="lg">LOGO</div></div>
+          <h3>ATTENDANCE SHEET</h3>
+          <table class="hd"><tr><td class="k">DATE:</td><td>27 Jul to 14 Aug 2026</td><td class="k">CONVENER:</td><td>Eng. J. Kamau</td></tr><tr><td class="k">TIME:</td><td>08:00 &ndash; 17:00</td><td class="k">LOCATION:</td><td>Mombasa</td></tr></table>
+          <table id="mini"></table>
+          <div class="foot"><span>Your organisation's own line</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ a day in the log ============ -->
+  <section class="s">
+    <h2 class="t">What the record shows, after one payment sheet.</h2>
+    <p class="narrow soft">Every step below is written to a log where each entry carries a fingerprint of the one before it. Changing an old entry breaks every entry after it.</p>
+    <ol class="log">
+      <li><time>Day 1, 08:02</time><span><b>Ruth</b> opens the link on her phone and signs for Day 1.</span></li>
+      <li><time>Day 1, 09:12</time><span><b>Faith</b> signs. <b>Hassan</b> doesn't, and his box stays empty.</span></li>
+      <li><time>Day 1, 17:30</time><span>The day closes. Nobody can sign for it any more, unless the organiser reopens it, and that is recorded too.</span></li>
+      <li><time>Day 5, 16:10</time><span>The preparer sends the sheet to the authorising officer. The system points out one person whose rate differs from the others.</span></li>
+      <li><time>Day 6, 09:30</time><span>The officer reads the flag, certifies, and the sheet is sealed. A QR goes on the printed copy.</span></li>
+      <li><time>Day 8, 11:05</time><span>Finance verifies against the seal. Payment goes ahead.</span></li>
+    </ol>
+    <p class="eg">An illustration, with made-up names and times.</p>
+  </section>
+
+  <!-- ============ check ============ -->
+  <section class="s" id="verify">
+    <div class="check">
       <div>
-        <form class="vform" id="vform">
-          <input id="vcode" type="text" inputmode="text" autocomplete="off" maxlength="20" placeholder="e.g. 7K2M-9QXA" aria-label="Code printed on the sheet or certificate">
-          <button class="btn solid" type="submit">Check</button>
-        </form>
-        <p class="vnote">The code is under the QR on every sealed sheet and certificate.</p>
+        <h2>Holding a printed sheet or certificate?</h2>
+        <p>Type the code under its QR. You will see whether it still matches the original record. No account needed.</p>
       </div>
+      <form id="vform"><input id="vcode" type="text" maxlength="20" autocomplete="off" placeholder="7K2M-9QXA" aria-label="Code printed on the sheet"><button class="btn" type="submit">Check</button></form>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- ================= TRUST ================= -->
-<section id="trust" style="padding-top:20px;">
-  <div class="wrap">
-    <p class="eyebrow rv">Trust</p>
-    <h2 class="rv d1">Careful with people's information, by design.</h2>
-    <p class="sub rv d2">Attendance records hold names, phone numbers and signatures. We treat that as a duty, not a feature.</p>
-    <div class="pillars">
-      <div class="pillar rv"><div class="num">01</div><h3>Records that show tampering</h3><p>Sealed sheets, a chained activity log and an integrity check on every report mean quiet edits do not go unnoticed.</p></div>
-      <div class="pillar rv d1"><div class="num">02</div><h3>Every organisation is fenced off</h3><p>Each organisation's people, events and records are kept apart. One organisation can never see another's. We test this on every change.</p></div>
-      <div class="pillar rv d2"><div class="num">03</div><h3>Support only with your consent</h3><p>The platform team can look inside an organisation only if its administrator approves, for a set number of hours, read-only, and never at attendee records. Every look is logged to you.</p></div>
-    </div>
-  </div>
-</section>
+  <!-- ============ questions ============ -->
+  <section class="s" id="faq">
+    <h2 class="t">Straight answers.</h2>
+    <details><summary>Do people need to install an app?</summary><p>No. They open a link in the phone's browser, type the number they were registered with, and sign.</p></details>
+    <details><summary>What if there is no signal at the door?</summary><p>Door scanning keeps working without signal and sends what it collected once the phone is back online.</p></details>
+    <details><summary>Can a signature be added after the day is over?</summary><p>Not by itself. A day closes when its hours end. The organiser can reopen it for a stated period if someone really was there, and the reopening is written to the record with a reason.</p></details>
+    <details><summary>Who can see our people's details?</summary><p>Only people inside your organisation, and only what the access you gave them allows. Another organisation can never see yours. The platform team can look inside only if your administrator approves it, for a set number of hours, read-only, and never at attendee records. Each look is logged where you can see it.</p></details>
+    <details><summary>Can we use our own name, logo and colours?</summary><p>Yes. Your letterhead, logo, colours and the line at the foot of printed sheets are yours, and you can run it on your own web address.</p></details>
+    <details><summary>What does it cost?</summary><p>Organisations are added on a plan the platform owner sets. Ask to add yours and you will get an answer by email.</p></details>
+  </section>
 
-<!-- ================= FINAL ================= -->
-<section class="final">
-  <div class="wrap">
-    <h2 class="rv">Put the clipboard down.</h2>
-    <p class="rv d1">Ask to add your organisation. We confirm your email, review the request, and set you up with your own name, logo and colours.</p>
-    <div class="heroActions rv d2">
-      <a class="btn red lg" href="signup.html">Add your organisation</a>
-      <a class="btn ghost lg" href="login.html">Log in</a>
-      <a class="btn ghost lg" href="wallet.html">My events</a>
-    </div>
-  </div>
-</section>
-</main>
+  <section class="end">
+    <h2>Want your office to stop passing round a clipboard?</h2>
+    <p>Ask to add your organisation. We confirm your email, look at the request, and set you up with your own name, logo and colours.</p>
+    <a class="btn" href="signup.html">Add your organisation</a>
+    <a class="btn alt" href="wallet.html" style="margin-left:8px;">I'm an attendee: my events</a>
+  </section>
+</div>
 
 <footer>
-  <div class="wrap">
+  <div class="col">
     <span>&copy; 2026 Asya Hafidh. All rights reserved.</span>
-    <div class="sp">
-      <a href="verify.html">Verify a record</a>
-      <a href="wallet.html">My events</a>
-      <a href="signup.html">Add your organisation</a>
-      <a href="login.html">Log in</a>
-      <a href="privacy.html">Privacy policy</a>
-    </div>
+    <div class="sp"><a href="login.html">Log in</a><a href="verify.html">Verify a record</a><a href="wallet.html">My events</a><a href="privacy.html">Privacy policy</a></div>
   </div>
 </footer>
 
 <script>
 (function(){
-  var $ = function(s, r){ return (r || document).querySelector(s); };
-  var $$ = function(s, r){ return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var $ = function(id){ return document.getElementById(id); };
 
-  // The nav gets a hairline once the page has moved.
-  var nav = $('#nav');
-  function onScroll(){ nav.classList.toggle('stuck', window.scrollY > 8); }
-  onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
-
-  // A QR-looking tile. It is decoration and never carries a real code.
-  function qr(host){
-    if(!host) return;
-    var cells = '';
-    for(var y = 0; y < 9; y++) for(var x = 0; x < 9; x++){
-      var corner = (x < 3 && y < 3) || (x > 5 && y < 3) || (x < 3 && y > 5);
-      var on = corner ? !(x % 6 === 1 && y % 6 === 1) : ((x * 7 + y * 13 + x * y) % 5 < 2);
-      cells += '<i class="' + (on ? '' : 'o') + '"></i>';
+  // ---- A sealed sheet: the code is a SHA-256 of what is on it. ----
+  function sha(text){
+    if(window.crypto && crypto.subtle && window.TextEncoder){
+      return crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)).then(function(buf){
+        return Array.prototype.map.call(new Uint8Array(buf), function(b){ return ('0' + b.toString(16)).slice(-2); }).join('');
+      });
     }
-    host.innerHTML = cells;
+    var h = 2166136261, out = '';
+    for(var r = 0; r < 4; r++){ for(var i = 0; i < text.length; i++){ h ^= text.charCodeAt(i) + r; h = Math.imul(h, 16777619) >>> 0; } out += ('00000000' + h.toString(16)).slice(-8); }
+    return Promise.resolve(out);
   }
-  qr($('#qrA')); qr($('#qrB'));
+  function code(hex){ var s = hex.slice(0, 8).toUpperCase(); return s.slice(0, 4) + '-' + s.slice(4); }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
-  // The phone signs itself, then shows "Signed", then starts over.
-  var stage = $('#stage');
-  function cycle(){
-    stage.classList.remove('done');
-    setTimeout(function(){ stage.classList.add('done'); }, 2900);
+  var SAMPLE = 'M6 30 C10 8,16 6,18 20 S24 34,32 14 S46 4,48 22 S58 30,66 12 C70 4,78 8,74 22 S88 28,96 10';
+  var pens = [
+    'M4 22 C 10 4, 16 4, 18 16 S 26 28, 32 12 S 44 6, 46 20 S 58 22, 66 8',
+    'M5 24 C 14 24, 12 6, 22 8 S 24 26, 34 14 S 48 20, 52 8 S 62 18, 70 12',
+    'M4 14 C 12 2, 20 26, 28 12 S 40 2, 48 18 S 60 24, 68 6'
+  ];
+  var penPath = { pen0: pens[0], pen1: pens[1], pen2: pens[2], forged: pens[2] };
+  function pen(d){ return '<svg viewBox="0 0 100 34" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><path d="' + d + '"/></svg>'; }
+
+  var base = [
+    { name: 'Ruth Njoroge', org: 'MoE', sig: ['pen0', null, null] },
+    { name: 'Sarah Wangui', org: 'ICTA', sig: ['pen1', null, null] }
+  ];
+  var rows, mine = null, sealed = null, touched = [], undoState = null;
+  rows = JSON.parse(JSON.stringify(base));
+
+  function render(){
+    var t = $('roll'), h = '<tr><th style="width:9%">S/NO.</th><th style="width:30%">NAME</th><th style="width:19%">ORGANISATION</th><th>Day 1</th><th>Day 2</th><th>Day 3</th></tr>';
+    rows.forEach(function(r, i){
+      h += '<tr' + (touched.indexOf(i) > -1 ? ' class="touched"' : '') + '><td>' + (i + 1) + '.</td><td class="nm">' + esc(r.name) + '</td><td>' + esc(r.org) + '</td>';
+      r.sig.forEach(function(s){
+        if(s && s.slice(0, 4) === 'img:' && mine) h += '<td class="sg"><img alt="signature" src="' + mine.dataUrl + '"></td>';
+        else if(s) h += '<td class="sg">' + pen(penPath[s] || pens[2]) + '</td>';
+        else h += '<td class="sg"></td>';
+      });
+      h += '</tr>';
+    });
+    if(!mine){
+      h += '<tr><td>' + (rows.length + 1) + '.</td><td class="nm"><input id="liveName" type="text" maxlength="28" placeholder="your name" aria-label="Your name on the sheet" value="' + esc($('myName').value) + '"></td><td>You</td><td class="sg"></td><td class="sg"></td><td class="sg"></td></tr>';
+    }
+    for(var k = rows.length + (mine ? 0 : 1); k < 5; k++) h += '<tr><td>' + (k + 1) + '.</td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td></tr>';
+    t.innerHTML = h;
+    var live = $('liveName');
+    if(live) live.addEventListener('input', function(){ $('myName').value = live.value; sync(); });
   }
-  cycle(); setInterval(cycle, 5200);
-
-  // How it works: auto-advances, pauses on hover, and can be clicked.
-  var steps = $$('.step'), scenes = $$('.scene'), how = $('#how2'), cur = 0, timer = null;
-  function go(i){
-    cur = i;
-    steps.forEach(function(s, n){ var on = n === i; s.classList.toggle('on', on); s.setAttribute('aria-selected', on ? 'true' : 'false'); });
-    scenes.forEach(function(s, n){ s.classList.toggle('on', n === i); });
-    clearTimeout(timer); timer = setTimeout(function(){ if(!how.classList.contains('paused')) go((cur + 1) % steps.length); else timer = setTimeout(function(){ go(cur); }, 1000); }, 5500);
+  function canonical(){
+    return rows.map(function(r){ return r.name + '|' + r.org + '|' + r.sig.map(function(s){ return s || '-'; }).join(','); }).join('\n');
   }
-  steps.forEach(function(s, n){ s.addEventListener('click', function(){ go(n); }); });
-  how.addEventListener('mouseenter', function(){ how.classList.add('paused'); });
-  how.addEventListener('mouseleave', function(){ how.classList.remove('paused'); });
-  go(0);
 
-  // A miniature of the paper form: three people, the rest struck through.
-  var t = $('#paperTable'), h = '<tr><th style="width:8%">S/NO.</th><th style="width:26%">NAME</th><th style="width:18%">ORGANISATION</th>';
-  for(var d = 1; d <= 6; d++) h += '<th>Day ' + d + '</th>';
-  h += '</tr>';
-  var people = [['Ruth Njoroge', 'MoE', 5], ['Sarah Wangui', 'ICTA', 5], ['Wilfred Koko', 'ICTA', 4]];
-  var sig = '<svg viewBox="0 0 40 16"><path d="M3 11 C8 1,11 1,12 8 S16 14,20 5 S27 2,28 9 S34 12,37 4"/></svg>';
-  for(var r = 0; r < 5; r++){
-    var p = people[r], row = '<tr class="' + (p ? '' : 'sg') + '"><td>' + (r + 1) + '.</td><td>' + (p ? p[0] : '') + '</td><td>' + (p ? p[1] : '') + '</td>';
-    for(var c = 0; c < 6; c++) row += '<td class="sig">' + (p && c < p[2] ? sig : '') + '</td>';
-    h += row + '</tr>';
+  // ---- signature pad ----
+  var cv = $('pad'), ctx = cv.getContext('2d'), drawing = false, inked = false;
+  function fit(){
+    var r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+    cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d);
+    ctx.setTransform(d, 0, 0, d, 0, 0); ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1d2b6e';
+    inked = false; $('ph').style.display = '';
   }
-  t.innerHTML = h;
+  function pos(e){ var r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+  cv.addEventListener('pointerdown', function(e){ if(mine) return; drawing = true; try{ cv.setPointerCapture(e.pointerId); }catch(x){} var p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); });
+  cv.addEventListener('pointermove', function(e){ if(!drawing) return; var p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); inked = true; $('ph').style.display = 'none'; sync(); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(n){ cv.addEventListener(n, function(){ drawing = false; }); });
+  $('clear').addEventListener('click', function(){ if(!mine){ fit(); sync(); } });
+  $('sample').addEventListener('click', function(){
+    if(mine) return; fit();
+    var p = new Path2D(SAMPLE), r = cv.getBoundingClientRect();
+    ctx.save(); ctx.scale(r.width / 100 * .9, r.height / 40 * .8); ctx.translate(4, 5); ctx.lineWidth = 2.6; ctx.stroke(p); ctx.restore();
+    inked = true; $('ph').style.display = 'none'; sync();
+  });
+  window.addEventListener('resize', function(){ if(!mine && !inked) fit(); });
 
-  // Check a record
-  $('#vform').addEventListener('submit', function(e){
+  function setStep(i, on){ $('st' + i).classList.toggle('off', !on); }
+  function sync(){
+    var named = $('myName').value.trim().length > 1;
+    setStep(2, named || inked);
+    $('signBtn').disabled = !(named && inked) || !!mine;
+    ['c1', 'c2', 'c3'].forEach(function(id){ $(id).disabled = !sealed; });
+    $('undo').disabled = !undoState;
+    setStep(3, !!sealed);
+  }
+  $('myName').addEventListener('input', function(){ var l = $('liveName'); if(l && l.value !== this.value) l.value = this.value; sync(); });
+
+  function say(text, cls){ var m = $('msg'); m.innerHTML = text; m.className = 'msg' + (cls ? ' ' + cls : ''); }
+  function stamp(kind, big, small){
+    var s = $('stamp'); s.className = 'stamp show' + (kind === 'ok' ? ' ok' : '');
+    s.innerHTML = big + '<small>' + small + '</small>';
+  }
+
+  $('signBtn').addEventListener('click', function(){
+    var name = $('myName').value.trim();
+    var dataUrl = cv.toDataURL('image/png');
+    sha(dataUrl).then(function(hex){
+      mine = { dataUrl: dataUrl };
+      rows.push({ name: name, org: 'You', sig: ['img:' + hex.slice(0, 12), null, null] });
+      render();
+      return sha(canonical());
+    }).then(function(hex){
+      sealed = code(hex);
+      stamp('ok', 'Sealed', sealed);
+      say('Sealed. The code <code>' + sealed + '</code> now stands for exactly what is on this sheet. Now try to change something.', 'good');
+      sync();
+    });
+  });
+
+  function recheck(what){
+    sha(canonical()).then(function(hex){
+      var now = code(hex);
+      if(now === sealed){
+        stamp('ok', 'Sealed', sealed);
+        say('Back to how it was sealed. The code matches again: <code>' + sealed + '</code>.', 'good');
+      } else {
+        stamp('bad', 'Does not match', now);
+        say(what + ' Sealed code was <code>' + sealed + '</code>. The sheet now works out to <code>' + now + '</code>. That is how anyone checking would know.', 'bad');
+      }
+    });
+  }
+  function snapshot(){ undoState = { rows: JSON.parse(JSON.stringify(rows)) }; }
+  $('c1').addEventListener('click', function(){
+    snapshot(); rows[0].name = 'Ruth Njorogi'; touched = [0]; render(); sync();
+    recheck('One letter changed: Njoroge became Njorogi.');
+  });
+  $('c2').addEventListener('click', function(){
+    snapshot(); rows.push({ name: 'Peter Kamau', org: 'MoE', sig: ['forged', null, null] }); touched = [rows.length - 1]; render(); sync();
+    recheck('A name that was never there was added.');
+  });
+  $('c3').addEventListener('click', function(){
+    snapshot(); rows[1].sig[0] = 'pen2'; touched = [1]; render(); sync();
+    recheck('Sarah\'s signature was swapped for another.');
+  });
+  $('undo').addEventListener('click', function(){
+    if(!undoState) return; rows = undoState.rows; touched = []; undoState = null; render(); sync(); recheck('');
+  });
+
+  // The little form in the payment section
+  (function(){
+    var h = '<tr><th style="width:9%">S/NO.</th><th style="width:30%">NAME</th><th style="width:19%">ORGANISATION</th><th>Day 1</th><th>Day 2</th><th>Day 3</th><th>Day 4</th></tr>';
+    var ppl = [['Ruth Njoroge', 'MoE', 4], ['Sarah Wangui', 'ICTA', 4], ['Wilfred Koko', 'ICTA', 3]];
+    ppl.forEach(function(p, i){
+      h += '<tr><td>' + (i + 1) + '.</td><td class="nm">' + p[0] + '</td><td>' + p[1] + '</td>';
+      for(var d = 0; d < 4; d++) h += '<td class="sg">' + (d < p[2] ? pen(pens[(i + d) % 3]) : '') + '</td>';
+      h += '</tr>';
+    });
+    for(var k = 3; k < 5; k++) h += '<tr><td>' + (k + 1) + '.</td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td></tr>';
+    $('mini').innerHTML = h;
+  })();
+
+  $('vform').addEventListener('submit', function(e){
     e.preventDefault();
-    var v = $('#vcode').value.trim();
+    var v = $('vcode').value.trim();
     location.href = 'verify.html' + (v ? '?code=' + encodeURIComponent(v.toUpperCase()) : '');
   });
 
-  // Reveal on scroll
-  var items = $$('.rv');
-  if('IntersectionObserver' in window){
-    var io = new IntersectionObserver(function(es){ es.forEach(function(en){ if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); } }); }, { threshold: .12, rootMargin: '0px 0px -40px 0px' });
-    items.forEach(function(n){ io.observe(n); });
-  } else items.forEach(function(n){ n.classList.add('in'); });
+  render(); fit(); sync();
 })();
 </script>
 </body>
