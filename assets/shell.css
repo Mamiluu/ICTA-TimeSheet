@@ -287,3 +287,18 @@ html::-webkit-scrollbar-thumb:hover, .tablewrap::-webkit-scrollbar-thumb:hover{ 
 .sidenav::-webkit-scrollbar-thumb:hover{ background:#515866; background-clip:content-box; }
 /* the arrow buttons at each end are what made the old bar look heavy */
 .sidenav::-webkit-scrollbar-button, html::-webkit-scrollbar-button, .tablewrap::-webkit-scrollbar-button{ display:none; width:0; height:0; }
+
+/* ---- Meetings tile: total, in person vs online, and a period switch ---- */
+.app-main .meetings-tile{ min-width:260px; }
+.meetings-tile .mix{ display:flex; height:8px; border-radius:999px; background:#eceef2; overflow:hidden; margin:12px 0 8px; }
+.meetings-tile .mix i{ display:block; height:100%; }
+.meetings-tile .mix i.p{ background:var(--c-accent); }
+.meetings-tile .mix i.v{ background:#2f6fd0; }
+.meetings-tile .mixkey{ display:flex; gap:14px; flex-wrap:wrap; font-size:12.5px; color:var(--c-muted); }
+.meetings-tile .mixkey .dot{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
+.meetings-tile .mixkey .dot.p{ background:var(--c-accent); }
+.meetings-tile .mixkey .dot.v{ background:#2f6fd0; }
+.meetings-tile .periods{ display:flex; gap:4px; flex-wrap:wrap; margin-top:12px; }
+.meetings-tile .periods button{ margin:0; padding:4px 10px; font-family:var(--ui-font); font-size:12px; font-weight:600; border-radius:999px; border:1px solid var(--c-line-strong); background:#fff; color:var(--c-muted); cursor:pointer; }
+.meetings-tile .periods button:hover{ background:var(--c-soft); color:var(--c-text); filter:none; }
+.meetings-tile .periods button.on{ background:var(--c-text); border-color:var(--c-text); color:#fff; }

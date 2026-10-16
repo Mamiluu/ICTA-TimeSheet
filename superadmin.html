@@ -686,8 +686,15 @@
     return '<div class="spark-title">Sign-ins, last 30 days</div><div class="sparkbar">' + bars + '</div><div class="sparkbar-caption"><span>' + escapeHtml(first) + '</span><span>' + escapeHtml(last) + '</span></div>';
   }
 
+  var meetingPeriod = 'all';
+  insightsWrap.addEventListener('click', function(e){
+    var b = e.target.closest ? e.target.closest('[data-period]') : null;
+    if(!b) return;
+    meetingPeriod = b.getAttribute('data-period');
+    loadAnalytics();
+  });
   function loadAnalytics(){
-    API.get('/api/superadmin/analytics').then(function(r){
+    API.get('/api/superadmin/analytics?period=' + encodeURIComponent(meetingPeriod)).then(function(r){
       if(r.status !== 200 || !r.data.ok){
         insightsWrap.innerHTML = '<p class="empty">Could not load platform insights.</p>';
         return;
@@ -697,7 +704,7 @@
       var consentRate = pct(d.byConsent['true'], d.byConsent['true'] + d.byConsent['false']);
 
       insightsWrap.innerHTML = '<div class="stat-grid">'
-        + '<div class="stat-tile"><div class="stat-label">Events</div><div class="stat-value">' + d.totalEvents + '</div></div>'
+        + meetingsTileHtml(d.meetings)
         + '<div class="stat-tile"><div class="stat-label">Attendance</div><div class="stat-value">' + d.totalAttendance + '</div>'
           + '<div class="stat-sub">' + d.byStatus.ACTIVE + ' active · ' + d.byStatus.FLAGGED_FOR_REMOVAL + ' flagged · ' + d.byStatus.RETIRED + ' retired</div></div>'
         + '<div class="stat-tile"><div class="stat-label">Photo/video consent</div><div class="stat-value">' + consentRate + '%</div>'

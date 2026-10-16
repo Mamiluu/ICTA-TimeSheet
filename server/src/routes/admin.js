@@ -11,7 +11,7 @@ import { isValidTimeZone } from '../lib/timezone.js';
 import { ah } from '../lib/asyncHandler.js';
 import { resolveSchedule, dayClosesAt, REOPEN_DEFAULT_HOURS, REOPEN_MAX_HOURS } from '../lib/days.js';
 import { EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
-import { bucketByDay, countsByKey, summarizeDays } from '../lib/analytics.js';
+import { bucketByDay, countsByKey, summarizeDays, meetingMix } from '../lib/analytics.js';
 import { doorStampDataUri, clockInZone } from '../lib/stamp.js';
 import { loadClaimPackData } from '../lib/integrity.js';
 import { sanitizeScanTime, indexByIdHash, resolveAttendee, sha256Hex } from '../lib/doorsync.js';
@@ -133,7 +133,7 @@ adminRouter.get('/events', ah(async (req, res) => {
 adminRouter.get('/analytics', ah(async (req, res) => {
   const events = await prisma.event.findMany({
     where: { county: req.user.county, ownerId: req.user.id, departmentId: req.user.departmentId, deletedAt: null, kind: { in: kindsFor(req.user) } },
-    select: { id: true }
+    select: { id: true, kind: true, locationType: true, startAt: true }
   });
   const eventIds = events.map((e) => e.id);
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -147,6 +147,7 @@ adminRouter.get('/analytics', ah(async (req, res) => {
   res.json({
     ok: true,
     totalEvents: events.length,
+    meetings: meetingMix(events, String(req.query.period || 'all')),
     byStatus: countsByKey(statusGroups, ['ACTIVE', 'FLAGGED_FOR_REMOVAL', 'RETIRED'], 'status'),
     byConsent: countsByKey(consentGroups, [true, false, null], 'photoVideoConsent'),
     trend: bucketByDay(recent.map((r) => r.createdAt), 30)

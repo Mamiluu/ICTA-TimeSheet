@@ -3,7 +3,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { bucketByDay, countsByKey, summarizeDays } from '../src/lib/analytics.js';
+import { bucketByDay, countsByKey, summarizeDays, meetingMix, periodBounds } from '../src/lib/analytics.js';
 
 describe('bucketByDay', () => {
   test('always returns exactly `days` entries, zero-filled, even with no data', () => {
@@ -95,4 +95,34 @@ test('summarizeDays counts per day and by method, with missing as the remainder'
 test('summarizeDays never reports negative missing', () => {
   const out = summarizeDays([{ id: 'd1', position: 1 }], [{ dayId: 'd1', method: 'DEVICE', _count: { _all: 5 } }], 3);
   assert.equal(out[0].missing, 0);
+});
+
+describe('meetingMix', () => {
+  const now = new Date('2026-10-16T09:00:00Z');
+  const ev = (locationType, startAt, kind = 'ATTENDANCE') => ({ locationType, kind, startAt: new Date(startAt) });
+  const events = [
+    ev('PHYSICAL', '2026-10-02T06:00:00Z'),
+    ev('VIRTUAL', '2026-10-09T06:00:00Z'),
+    ev('PHYSICAL', '2026-08-20T06:00:00Z'),
+    ev('VIRTUAL', '2025-12-01T06:00:00Z'),
+    ev('PHYSICAL', '2026-10-05T06:00:00Z', 'DUTY_ROLL')
+  ];
+
+  test('counts every meeting and splits physical from virtual, leaving payment sheets out', () => {
+    assert.deepEqual(meetingMix(events, 'all', now), { period: 'all', total: 4, physical: 2, virtual: 2 });
+  });
+  test("limits by the day the meeting starts, in Kenya's calendar", () => {
+    assert.deepEqual(meetingMix(events, 'month', now), { period: 'month', total: 2, physical: 1, virtual: 1 });
+    assert.deepEqual(meetingMix(events, 'quarter', now), { period: 'quarter', total: 2, physical: 1, virtual: 1 });
+    assert.deepEqual(meetingMix(events, 'year', now), { period: 'year', total: 3, physical: 2, virtual: 1 });
+  });
+  test('a meeting just after midnight on the 1st in Nairobi belongs to the new month', () => {
+    const late = [ev('PHYSICAL', '2026-09-30T21:30:00Z')];
+    assert.equal(meetingMix(late, 'month', now).total, 1);
+    assert.equal(meetingMix([ev('PHYSICAL', '2026-09-30T20:30:00Z')], 'month', now).total, 0);
+  });
+  test('an unknown period means all', () => {
+    assert.equal(meetingMix(events, 'decade', now).period, 'all');
+    assert.equal(periodBounds('all', now), null);
+  });
 });

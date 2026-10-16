@@ -347,3 +347,24 @@ function formatAuditEntry(e){
     rawHtml: rawJson ? '<details class="audit-raw"><summary>Raw</summary><pre>' + escapeHtml(rawJson) + '</pre></details>' : ''
   };
 }
+
+// The "Meetings" tile: the total, how many were in person and how many online, a bar showing
+// the split, and a switch for the period. `m` is { period, total, physical, virtual } from the
+// analytics endpoints. The switch buttons carry data-period; the page listens for clicks on them.
+var MEETING_PERIODS = [['month', 'Month'], ['quarter', 'Quarter'], ['year', 'Year'], ['all', 'All']];
+function meetingsTileHtml(m){
+  var total = m.total || 0;
+  var pPhys = total ? Math.round(m.physical / total * 100) : 0;
+  var pVirt = total ? 100 - pPhys : 0;
+  var tabs = MEETING_PERIODS.map(function(p){
+    return '<button type="button" data-period="' + p[0] + '" class="' + (m.period === p[0] ? 'on' : '') + '">' + p[1] + '</button>';
+  }).join('');
+  return '<div class="stat-tile meetings-tile">'
+    + '<div class="stat-label">Meetings</div>'
+    + '<div class="stat-value">' + total + '</div>'
+    + '<div class="mix" role="img" aria-label="' + m.physical + ' in person, ' + m.virtual + ' online">'
+    + (total ? '<i class="p" style="width:' + pPhys + '%"></i><i class="v" style="width:' + pVirt + '%"></i>' : '') + '</div>'
+    + '<div class="mixkey"><span><b class="dot p"></b>' + m.physical + ' in person</span><span><b class="dot v"></b>' + m.virtual + ' online</span></div>'
+    + '<div class="periods" role="group" aria-label="Period">' + tabs + '</div>'
+    + '</div>';
+}

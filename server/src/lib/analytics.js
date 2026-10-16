@@ -51,6 +51,36 @@ export function countsByKey(groups, keys, keyField) {
   return result;
 }
 
+// The window a "this month / quarter / year" figure covers, in Kenya's calendar.
+// Kenya has no daylight saving (UTC+3 all year), so a calendar boundary is a fixed offset.
+export const PERIODS = ['month', 'quarter', 'year', 'all'];
+export function periodBounds(period, now = new Date()) {
+  if (!PERIODS.includes(period) || period === 'all') return null;
+  const local = new Date(now.getTime() + 3 * 3600 * 1000);
+  const y = local.getUTCFullYear();
+  const m = local.getUTCMonth();
+  const startMonth = period === 'month' ? m : period === 'quarter' ? m - (m % 3) : 0;
+  const months = period === 'month' ? 1 : period === 'quarter' ? 3 : 12;
+  const toUtc = (yy, mm) => new Date(Date.UTC(yy, mm, 1) - 3 * 3600 * 1000);
+  return { from: toUtc(y, startMonth), to: toUtc(y, startMonth + months) };
+}
+
+// How many meetings, and how many of them were in person or online. Counts events only (a
+// multi-day event is one meeting) and leaves out payment sheets, which are engagements to be
+// paid rather than meetings. `period` limits it by the day the meeting starts.
+export function meetingMix(events, period = 'all', now = new Date()) {
+  const bounds = periodBounds(period, now);
+  let physical = 0;
+  let virtual = 0;
+  for (const ev of events) {
+    if (ev.kind === 'DUTY_ROLL') continue;
+    if (bounds && (ev.startAt < bounds.from || ev.startAt >= bounds.to)) continue;
+    if (ev.locationType === 'VIRTUAL') virtual += 1;
+    else physical += 1;
+  }
+  return { period: PERIODS.includes(period) ? period : 'all', total: physical + virtual, physical, virtual };
+}
+
 // Per-day attendance for one event. `groups` is a Prisma groupBy of
 // SessionSignature by [dayId, method]; `registered` is how many people are on
 // the event. Counts only, never names. `missing` is people registered who have

@@ -19,7 +19,7 @@ import { hasModule } from '../lib/plans.js';
 import { isValidEmailShape } from '../lib/normalize.js';
 import { ah } from '../lib/asyncHandler.js';
 import { logger } from '../lib/logger.js';
-import { bucketByDay, countsByKey } from '../lib/analytics.js';
+import { bucketByDay, countsByKey, meetingMix } from '../lib/analytics.js';
 
 export const superadminRouter = Router();
 superadminRouter.use(requireRole('SUPER_ADMIN'));
@@ -80,7 +80,7 @@ superadminRouter.get('/admins', ah(async (req, res) => {
 // exactly one legitimate access path (a county admin's own event export,
 // audited in admin.js) and this doesn't add a second one.
 superadminRouter.get('/analytics', ah(async (req, res) => {
-  const events = await prisma.event.findMany({ where: { deletedAt: null, departmentId: req.user.departmentId }, select: { id: true, county: true } });
+  const events = await prisma.event.findMany({ where: { deletedAt: null, departmentId: req.user.departmentId }, select: { id: true, county: true, kind: true, locationType: true, startAt: true } });
   const eventIds = events.map((e) => e.id);
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
@@ -103,6 +103,7 @@ superadminRouter.get('/analytics', ah(async (req, res) => {
   res.json({
     ok: true,
     totalEvents: events.length,
+    meetings: meetingMix(events, String(req.query.period || 'all')),
     totalAttendance: [...attendanceCountByEvent.values()].reduce((a, b) => a + b, 0),
     byStatus: countsByKey(statusGroups, ['ACTIVE', 'FLAGGED_FOR_REMOVAL', 'RETIRED'], 'status'),
     byConsent: countsByKey(consentGroups, [true, false, null], 'photoVideoConsent'),
