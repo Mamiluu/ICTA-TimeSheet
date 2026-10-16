@@ -79,7 +79,10 @@ A `render.yaml` blueprint at the repo root does most of this for you.
   the API, has every account of one try to reach the other's data, and fails on anything that
   is not refused. Run it against a test database after any change that touches who can see what
   (start the server with `LOGIN_RATE_LIMIT=100`).
-- Branding: each organisation sets its own name, address, phone, website, accent colour (checked for
+- Branding: each organisation sets its own name, address, phone, website, the line in the band at the
+  foot of printed payment sheets (`footerLine`; ICT Authority's default is its State Corporation
+  statement, other organisations print none until they set one; migration
+  `20261024090000_brand_footer_line`), accent colour (checked for
   readable contrast with white text) and logo (PNG, JPEG or WebP up to 300 KB, judged by its bytes;
   SVG is refused because it can carry script) at `platform.html`, Branding. Without a logo an
   organisation gets a round badge with its initials. `GET /api/branding` returns the look for the

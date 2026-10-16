@@ -104,7 +104,14 @@ test('emails get the logo as a full web address', () => {
 });
 
 test('branding input: empty fields mean use the default', () => {
-  assert.deepEqual(cleanBranding({}).value, { displayName: null, address: null, phone: null, website: null, accentColor: null });
+  assert.deepEqual(cleanBranding({}).value, {
+    displayName: null,
+    address: null,
+    phone: null,
+    website: null,
+    footerLine: null,
+    accentColor: null
+  });
 });
 
 test('branding input: a full, valid form is kept and tidied', () => {
