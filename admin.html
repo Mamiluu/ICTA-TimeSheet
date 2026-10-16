@@ -608,7 +608,9 @@
   var USER_KEY = 'icta_admin_user_v1';
   function showUser(user){
     whoEmail.textContent = user.email;
-    whoCounty.textContent = user.county + ' county' + (user.department ? ' · ' + user.department : '');
+    // From the server the department is a record with a name; from the copy kept for offline use it is just the name.
+    var deptName = user.department && typeof user.department === 'object' ? user.department.name : user.department;
+    whoCounty.textContent = user.county + ' county' + (deptName ? ' · ' + deptName : '');
     whoEmail.title = user.email;
     document.getElementById('userAvatar').textContent = (user.email || 'A').charAt(0).toUpperCase();
     document.getElementById('profEmail').textContent = user.email;
