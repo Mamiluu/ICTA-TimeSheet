@@ -3,201 +3,429 @@
   Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
   Proprietary and confidential. See LICENSE in the repository root.
 -->
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Payment approvals</title>
-<script src="assets/brand.js"></script>
+<html lang="en" class="fixed-layout">
+<meta charset="UTF-8">
+<!-- The desktop layout is the only layout (see .fixed-layout in assets/shell.css). Phones and tablets lay the page out 1280px wide and shrink it to fit; pinch-zoom still works. -->
+<meta name="viewport" content="width=1280">
+<link rel="apple-touch-icon" href="assets/icta_logo_cropped.png">
 <link rel="icon" href="assets/icta_logo_cropped.png">
+<title>ICT Authority : Payment approvals</title>
+<script src="assets/brand.js"></script>
+<link rel="stylesheet" href="assets/theme.css">
+<link rel="stylesheet" href="assets/shell.css">
+<script src="assets/fit-layout.js"></script>
 <style>
-  :root{ --ink:#1b1a18; --muted:#6a655b; --rule:#d9d2c3; --paper:#fffdf8; --page:#ebe7de; --accent:#c8102e; --ok:#14683a; --warn:#8a5a00; --bad:#9d1230; }
-  @media (prefers-color-scheme: dark){ :root{ --page:#1d1c1a; } }
-  *{ box-sizing:border-box; }
-  body{ margin:0; background:var(--page); color:var(--ink); font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; font-size:14px; line-height:1.5; }
-  .wrap{ max-width:1100px; margin:0 auto; padding:20px 18px 50px; }
-  a{ color:var(--accent); }
-  .back{ color:var(--muted); text-decoration:none; font-size:13px; }
-  h1{ font-family:Georgia, "Times New Roman", serif; font-weight:400; font-size:28px; line-height:1.15; margin:8px 0 4px; }
-  .meta{ color:var(--muted); font-size:13.5px; margin:2px 0 0; }
-  .card{ background:var(--paper); border:1px solid var(--rule); border-radius:14px; padding:16px 18px; margin:14px 0; box-shadow:0 1px 2px rgba(0,0,0,.05); }
-  h2{ font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0 0 12px; font-weight:700; }
-  button{ font:inherit; font-weight:700; font-size:13.5px; padding:9px 14px; border-radius:9px; border:1px solid #bfb7a4; background:#fff; color:var(--ink); cursor:pointer; }
-  button.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
-  button.good{ background:var(--ok); border-color:var(--ok); color:#fff; }
-  button:disabled{ opacity:.55; cursor:default; }
-  button:focus-visible, input:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
-  input{ font:inherit; font-size:14px; padding:9px 10px; border:1px solid #bfb7a4; border-radius:9px; background:#fff; color:var(--ink); width:100%; }
-  .row{ display:grid; grid-template-columns:minmax(0,1fr) 150px 130px 120px auto; gap:10px 16px; align-items:center; padding:12px 2px; border-top:1px solid var(--rule); }
-  .row:first-of-type{ border-top:0; }
-  .row .t{ font-weight:700; }
-  .row .s{ color:var(--muted); font-size:12.5px; }
-  .pill{ display:inline-block; font-size:12px; font-weight:700; padding:2px 10px; border-radius:999px; background:#eee9dc; color:var(--muted); white-space:nowrap; }
-  .pill.me{ background:var(--accent); color:#fff; }
-  .pill.ok{ background:#e0f1e6; color:var(--ok); }
-  .empty{ color:var(--muted); padding:8px 2px; }
+  .badge-count{ margin-left:auto; font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:#262b36; color:#c9cfdb; font-variant-numeric:tabular-nums; }
+  .nav-item.active .badge-count{ background:rgba(255,255,255,.14); color:#fff; }
+  .nav-item .badge-count.hot{ background:var(--c-accent); color:#fff; }
+
+  /* ---- Overview tiles ---- */
+  .tiles{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:14px; margin-bottom:20px; }
+  .tile{ background:#fff; border:1px solid var(--c-line); border-radius:var(--r-lg); padding:16px 18px 14px; box-shadow:var(--shadow-1); position:relative; overflow:hidden; }
+  .tile .l{ font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--c-muted); font-weight:700; }
+  .tile .v{ font-size:32px; font-weight:700; letter-spacing:-.02em; font-variant-numeric:tabular-nums; margin-top:6px; line-height:1.05; }
+  .tile .s{ font-size:12.5px; color:var(--c-muted); margin-top:5px; }
+  .tile.hot{ border-color:#f1b9c3; background:linear-gradient(180deg, var(--c-accent-wash), #fff 70%); }
+  .tile.hot .v{ color:var(--c-accent-dark); }
+  .tile::after{ content:""; position:absolute; right:-18px; top:-18px; width:70px; height:70px; border-radius:50%; background:var(--c-soft); }
+  .tile.hot::after{ background:rgba(200,16,46,.07); }
+
+  /* ---- Toolbar ---- */
+  .bar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  .seg{ display:inline-flex; border:1px solid var(--c-line-strong); border-radius:var(--r-md); overflow:hidden; background:#fff; }
+  .seg button{ margin:0; border:0; border-radius:0; background:transparent; padding:8px 14px; font-family:var(--ui-font); font-size:13px; font-weight:600; color:var(--c-muted); cursor:pointer; display:flex; gap:7px; align-items:center; }
+  .seg button + button{ border-left:1px solid var(--c-line); }
+  .seg button:hover{ background:var(--c-soft); color:var(--c-text); }
+  .seg button.on{ background:var(--c-text); color:#fff; }
+  .seg .n{ font-size:11px; padding:1px 7px; border-radius:999px; background:rgba(0,0,0,.08); font-variant-numeric:tabular-nums; }
+  .seg button.on .n{ background:rgba(255,255,255,.2); }
+  .bar input[type=search]{ flex:1 1 220px; min-width:0; font-family:var(--ui-font); font-size:13.5px; padding:9px 12px; border:1px solid var(--c-line-strong); border-radius:var(--r-md); background:#fff; }
+  .bar input[type=search]:focus{ outline:none; border-color:var(--c-accent); box-shadow:var(--ring); }
+  .bar button.plain{ margin:0; }
+
+  /* ---- The list of sheets ---- */
+  .sheets{ display:flex; flex-direction:column; gap:10px; }
+  .srow{ display:grid; grid-template-columns:minmax(0,1fr) 300px 150px 118px; gap:10px 22px; align-items:center; padding:16px 18px; background:#fff; border:1px solid var(--c-line); border-radius:var(--r-lg); box-shadow:var(--shadow-1); transition:border-color .15s ease, box-shadow .15s ease; position:relative; }
+  .srow:hover{ border-color:var(--c-line-strong); box-shadow:0 4px 16px rgba(20,24,34,.08); }
+  .srow.mine{ border-color:#eab1bb; }
+  .srow.mine::before{ content:""; position:absolute; left:0; top:14px; bottom:14px; width:3px; border-radius:0 3px 3px 0; background:var(--c-accent); }
+  .srow .t{ font-weight:700; font-size:14.5px; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .srow .m{ font-size:12.5px; color:var(--c-muted); margin-top:4px; display:flex; gap:6px 14px; flex-wrap:wrap; }
+  .srow .m span{ white-space:nowrap; }
+  .fig{ text-align:right; }
+  .fig .amt{ font-size:17px; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
+  .fig .ppl{ font-size:12.5px; color:var(--c-muted); }
+  .srow .go{ margin:0; width:100%; }
+
+  /* The track: where a sheet is on its way */
+  .track{ display:flex; align-items:flex-start; list-style:none; margin:0; padding:0; }
+  .track li{ flex:1; text-align:center; position:relative; font-size:11.5px; color:var(--c-faint); font-weight:600; }
+  .track li::before{ content:""; position:absolute; top:10px; left:-50%; width:100%; height:2px; background:var(--c-line-strong); z-index:0; }
+  .track li:first-child::before{ display:none; }
+  .track .dot{ width:22px; height:22px; border-radius:50%; margin:0 auto 5px; border:2px solid var(--c-line-strong); background:#fff; position:relative; z-index:1; display:flex; align-items:center; justify-content:center; font-size:11px; color:transparent; }
+  .track li.done{ color:var(--c-ok); }
+  .track li.done::before{ background:var(--c-ok); }
+  .track li.done .dot{ background:var(--c-ok); border-color:var(--c-ok); color:#fff; }
+  .track li.now{ color:var(--c-text); }
+  .track li.now::before{ background:var(--c-ok); }
+  .track li.now .dot{ border-color:var(--c-accent); box-shadow:0 0 0 4px rgba(200,16,46,.14); }
+  .track li.now .dot::after{ content:""; width:8px; height:8px; border-radius:50%; background:var(--c-accent); }
+  .track.big li{ font-size:12.5px; }
+  .track.big .dot{ width:28px; height:28px; font-size:13px; }
+  .track.big li::before{ top:13px; }
+
+  /* ---- Empty and loading states ---- */
+  .empty-state{ text-align:center; padding:46px 20px 40px; background:#fff; border:1px dashed var(--c-line-strong); border-radius:var(--r-lg); }
+  .empty-state svg{ width:92px; height:92px; margin-bottom:10px; }
+  .empty-state h3{ margin:0 0 6px; font-size:17px; }
+  .empty-state p{ margin:0 auto; max-width:46ch; color:var(--c-muted); font-size:13.5px; }
+  .skel{ height:78px; border-radius:var(--r-lg); border:1px solid var(--c-line); background:linear-gradient(100deg, #f4f5f7 30%, #fff 50%, #f4f5f7 70%) #f4f5f7; background-size:220% 100%; animation:shine 1.3s linear infinite; }
+  @keyframes shine{ from{ background-position:120% 0; } to{ background-position:-120% 0; } }
+
+  /* ---- One sheet ---- */
+  .crumb{ display:flex; align-items:center; gap:8px; font-size:13px; margin:0 0 14px; }
+  .crumb a{ color:var(--c-muted); text-decoration:none; font-weight:600; }
+  .crumb a:hover{ color:var(--c-text); }
+  .headcard{ display:grid; grid-template-columns:minmax(0,1fr) 420px; gap:20px 30px; align-items:center; }
+  .headcard h2.nm{ margin:0 0 8px; font-size:20px; letter-spacing:-.01em; line-height:1.25; }
+  .chips{ display:flex; gap:8px; flex-wrap:wrap; }
+  .chip{ font-size:12.5px; padding:5px 11px; border-radius:999px; background:var(--c-soft); border:1px solid var(--c-line); color:var(--c-muted); }
+  .chip b{ color:var(--c-text); font-weight:600; }
+  .cols{ display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:18px; align-items:start; }
   .tablewrap{ overflow-x:auto; }
-  table{ border-collapse:collapse; width:100%; font-size:13px; }
-  th, td{ padding:8px 9px; border-bottom:1px solid var(--rule); text-align:left; white-space:nowrap; }
-  th{ font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:700; }
-  td.num, th.num{ text-align:right; font-variant-numeric:tabular-nums; }
-  td.c, th.c{ text-align:center; }
-  td.name{ white-space:normal; min-width:150px; }
-  td.name small{ display:block; color:var(--muted); font-size:12px; }
-  .cell{ display:inline-block; min-width:26px; padding:2px 6px; border-radius:7px; font-size:12px; font-weight:700; }
-  .cell.SIGNED{ background:#e0f1e6; color:var(--ok); }
-  .cell.OPEN{ background:#fdf0d4; color:var(--warn); }
-  .cell.UPCOMING{ color:#a9a392; }
-  .cell.ABSENT{ background:#f6e1e5; color:var(--bad); }
+  .app-main table.pay td.c, .app-main table.pay th.c{ text-align:center; }
+  .app-main table.pay td.num, .app-main table.pay th.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  .app-main table.pay td small{ display:block; color:var(--c-muted); font-size:12px; }
+  .app-main table.pay tfoot td{ font-weight:700; background:var(--c-soft); }
+  .cell{ display:inline-flex; align-items:center; justify-content:center; min-width:28px; height:24px; padding:0 7px; border-radius:7px; font-size:12px; font-weight:700; }
+  .cell.SIGNED{ background:var(--c-ok-wash); color:var(--c-ok); }
+  .cell.OPEN{ background:var(--c-warn-wash); color:var(--c-warn); }
+  .cell.UPCOMING{ color:var(--c-faint); }
+  .cell.ABSENT{ background:var(--c-accent-wash); color:var(--c-accent-dark); }
+  .key{ font-size:12.5px; color:var(--c-muted); margin:10px 2px 0; }
+
+  .side-card{ background:#fff; border:1px solid var(--c-line); border-radius:var(--r-lg); box-shadow:var(--shadow-1); padding:16px 18px; margin-bottom:14px; }
+  .side-card h3{ margin:0 0 12px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--c-muted); }
   .finds{ list-style:none; margin:0; padding:0; }
-  .finds li{ display:grid; grid-template-columns:22px 1fr; gap:8px; padding:9px 0; border-top:1px solid var(--rule); font-size:13.5px; }
-  .finds li:first-child{ border-top:0; }
-  .finds .dot{ width:12px; height:12px; border-radius:50%; margin-top:5px; background:#cfc8b6; }
-  .finds .review .dot{ background:var(--bad); }
-  .finds .note .dot{ background:#d6a01c; }
-  .finds .t{ font-weight:700; }
-  .finds .dd{ color:var(--muted); font-size:13px; margin-top:1px; }
-  .okline{ color:var(--ok); font-weight:700; }
-  tfoot td{ font-weight:700; border-bottom:0; }
-  .steps{ display:flex; gap:6px; flex-wrap:wrap; margin:0 0 4px; padding:0; list-style:none; }
-  .steps li{ font-size:12.5px; font-weight:700; padding:4px 11px; border-radius:999px; background:#eee9dc; color:var(--muted); }
-  .steps li.done{ background:#e0f1e6; color:var(--ok); }
-  .steps li.now{ background:var(--accent); color:#fff; }
-  .timeline{ margin:10px 0 0; padding:0; list-style:none; font-size:13px; }
-  .timeline li{ padding:6px 0; border-top:1px solid var(--rule); }
-  .timeline li:first-child{ border-top:0; }
-  .timeline .who{ color:var(--muted); }
-  .timeline .ret{ color:var(--bad); font-weight:700; }
-  .msg{ margin:10px 0 0; font-size:13.5px; min-height:1.2em; }
-  .msg.err{ color:var(--bad); }
-  .msg.ok{ color:var(--ok); font-weight:700; }
-  .info{ background:#fdf0d4; border:1px solid #ecd49a; color:#6b4a00; border-radius:10px; padding:10px 12px; font-size:13.5px; margin:10px 0 0; }
-  .actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  .finds li{ display:grid; grid-template-columns:24px 1fr; gap:9px; padding:10px 0; border-top:1px solid var(--c-line); font-size:13px; }
+  .finds li:first-child{ border-top:0; padding-top:0; }
+  .finds .ic{ width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; background:var(--c-soft); color:var(--c-muted); }
+  .finds .review .ic{ background:var(--c-accent-wash); color:var(--c-accent-dark); }
+  .finds .note .ic{ background:var(--c-warn-wash); color:var(--c-warn); }
+  .finds .t{ font-weight:700; line-height:1.3; }
+  .finds .dd{ color:var(--c-muted); font-size:12.5px; margin-top:2px; }
+  .allgood{ display:flex; gap:10px; align-items:center; font-size:13.5px; font-weight:600; color:var(--c-ok); }
+  .allgood .ic{ width:26px; height:26px; border-radius:50%; background:var(--c-ok-wash); display:flex; align-items:center; justify-content:center; }
+  .tl{ list-style:none; margin:0; padding:0; font-size:13px; }
+  .tl li{ position:relative; padding:0 0 14px 20px; }
+  .tl li:last-child{ padding-bottom:0; }
+  .tl li::before{ content:""; position:absolute; left:4px; top:5px; width:9px; height:9px; border-radius:50%; background:var(--c-ok); }
+  .tl li::after{ content:""; position:absolute; left:8px; top:15px; bottom:-1px; width:1px; background:var(--c-line-strong); }
+  .tl li:last-child::after{ display:none; }
+  .tl li.ret::before{ background:var(--c-accent); }
+  .tl .w{ font-weight:700; }
+  .tl .who, .tl .nt{ color:var(--c-muted); font-size:12.5px; }
+  .tl a{ color:var(--c-accent-dark); font-weight:600; font-size:12.5px; }
+
+  /* The decision bar stays in view while the sheet is read */
+  .decide{ position:sticky; bottom:14px; z-index:5; background:#fff; border:1px solid var(--c-line-strong); border-radius:var(--r-lg); box-shadow:var(--shadow-2); padding:14px 16px; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px 16px; align-items:center; margin-top:18px; }
+  .decide .nt{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .decide input[type=text]{ flex:1 1 280px; min-width:0; font-family:var(--ui-font); font-size:14px; padding:10px 12px; border:1px solid var(--c-line-strong); border-radius:var(--r-md); }
+  .decide input[type=text]:focus{ outline:none; border-color:var(--c-accent); box-shadow:var(--ring); }
+  .decide .ack{ display:none; align-items:center; gap:8px; font-size:13px; font-weight:600; }
+  .decide .ack input{ width:auto; margin:0; }
+  .decide .btns{ display:flex; gap:8px; }
+  .decide .btns button{ margin:0; }
+  button.good{ background:var(--c-ok) !important; border-color:var(--c-ok) !important; color:#fff !important; box-shadow:0 1px 2px rgba(11,107,54,.35); }
+  button.good:hover:not(:disabled){ background:#095a2d !important; }
+  .decide .say{ grid-column:1 / -1; font-size:13px; min-height:0; margin:0; }
+  .say.err{ color:var(--c-accent-dark); font-weight:600; }
+  .say.ok{ color:var(--c-ok); font-weight:700; }
+  .decide.none{ background:var(--c-soft); box-shadow:none; }
+  .decide.none .quiet{ font-size:13.5px; color:var(--c-muted); }
+  .qinfo{ background:var(--c-warn-wash); border:1px solid #ecd49a; color:#6b4a00; border-radius:var(--r-md); padding:9px 12px; font-size:13px; margin-top:12px; }
   [hidden]{ display:none !important; }
-  @media (max-width: 760px){ .row{ grid-template-columns:1fr 1fr; } }
 </style>
-</head>
-<body>
-<div class="wrap">
-  <a class="back" id="backLink" href="admin.html">&larr; Back</a>
-  <h1>Payment approvals</h1>
-  <p class="meta" id="intro">Payment sheets sent up from your department.</p>
 
-  <div id="listView">
-    <div class="card"><h2>Waiting for you</h2><div id="mineWrap"><p class="empty">Loading…</p></div></div>
-    <div class="card"><h2>Everything else in your department</h2><div id="othersWrap"></div></div>
+<div class="app-shell">
+  <div class="mobilebar">
+    <button type="button" id="navToggle" aria-label="Open menu" aria-expanded="false">&#9776;</button>
+    <strong id="viewTitleMobile">Payment approvals</strong>
   </div>
+  <div class="nav-scrim" id="navScrim"></div>
 
-  <div id="sheetView" hidden>
-    <p><a href="#" id="toList">&larr; All payment sheets</a></p>
-    <div class="card">
-      <h2 id="sheetName"></h2>
-      <p class="meta" id="sheetMeta"></p>
-      <ol class="steps" id="steps" style="margin-top:12px;"></ol>
-      <ul class="timeline" id="timeline"></ul>
+  <aside class="sidenav" id="sidenav" aria-label="Payment approvals menu">
+    <div class="side-brand">
+      <img src="assets/icta_logo_cropped.png" alt="" width="30" height="30">
+      <div><strong id="brandTopbarTitle">ICT Authority : Payment approvals</strong></div>
     </div>
-    <div class="card">
-      <h2>People, days and pay</h2>
-      <div class="tablewrap" id="rosterWrap"></div>
-      <p class="meta" style="margin-top:8px;">✓ signed &middot; ✕ the day closed without a signature &middot; Amount = rate &times; days signed.</p>
-      <div class="info" id="queryInfo" hidden></div>
+    <div class="side-user">
+      <span class="avatar" id="userAvatar">A</span>
+      <div><div class="who-email" id="whoEmail"></div><div class="who-county" id="whoRole"></div></div>
     </div>
-    <div class="card" id="checksCard">
-      <h2>Automatic checks</h2>
-      <div id="checksWrap"></div>
-      <label id="ackRow" style="display:none; gap:8px; align-items:flex-start; margin-top:12px; font-weight:700; font-size:13.5px;"><input type="checkbox" id="ack" style="width:auto; margin:3px 0 0;"> <span>I have looked at the items marked “Look at this”.</span></label>
+    <div class="view-size" role="group" aria-label="Page size">
+      <span class="view-size-label">Size</span>
+      <button type="button" id="sizeDown" aria-label="Make everything smaller" title="Smaller">A&minus;</button>
+      <button type="button" id="sizeAuto" class="auto" title="Sized automatically to fit the screen">Auto</button>
+      <button type="button" id="sizeUp" aria-label="Make everything larger" title="Larger">A+</button>
     </div>
+    <nav>
+      <div class="nav-group">Payment sheets</div>
+      <a class="nav-item" href="#waiting" data-filter="waiting"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v4l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/></svg><span>Waiting for you</span><span class="badge-count" id="navWaiting" hidden></span></a>
+      <a class="nav-item" href="#all" data-filter="all"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>All sheets</span><span class="badge-count" id="navAll" hidden></span></a>
+      <a class="nav-item" href="#done" data-filter="done"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3zM9 12l2 2 4-4"/></svg><span>Verified</span><span class="badge-count" id="navDone" hidden></span></a>
+      <div class="nav-group">Go to</div>
+      <a class="nav-item" id="backNav" href="admin.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span>Back to my dashboard</span></a>
+    </nav>
+    <button type="button" id="logoutBtn" class="side-logout">Log out</button>
+  </aside>
 
-    <div class="card" id="actionCard">
-      <h2>Your decision</h2>
-      <label for="note" style="display:block; font-weight:700; font-size:12.5px; margin-bottom:4px;">Note <span style="font-weight:400; color:var(--muted);">(needed if you send it back)</span></label>
-      <input type="text" id="note" maxlength="500" autocomplete="off" placeholder="e.g. Checked against memo ICTA/DLP/2026/014">
-      <div class="actions">
-        <button type="button" class="good" id="certifyBtn" hidden>Certify this sheet</button>
-        <button type="button" class="good" id="verifyBtn" hidden>Verify for payment</button>
-        <button type="button" id="returnBtn" hidden>Send back to the preparer</button>
+  <main class="app-main" id="adminContent">
+    <h1 class="view-title" id="viewTitle">Payment approvals</h1>
+
+    <!-- The list -->
+    <div id="listView">
+      <div class="tiles" id="tiles"></div>
+      <div class="bar">
+        <div class="seg" id="seg" role="group" aria-label="Show">
+          <button type="button" data-filter="waiting">Waiting for you <span class="n" id="segWaiting">0</span></button>
+          <button type="button" data-filter="all">All <span class="n" id="segAll">0</span></button>
+          <button type="button" data-filter="officer">With the officer <span class="n" id="segOfficer">0</span></button>
+          <button type="button" data-filter="finance">With finance <span class="n" id="segFinance">0</span></button>
+          <button type="button" data-filter="done">Verified <span class="n" id="segDone">0</span></button>
+        </div>
+        <input type="search" id="search" placeholder="Search by name, county, reference or preparer" aria-label="Search payment sheets">
+        <button type="button" class="plain" id="refresh">Refresh</button>
       </div>
-      <p class="msg" id="actMsg" role="status" aria-live="polite"></p>
-      <p class="meta" id="noRights" hidden></p>
+      <div id="sheets" class="sheets"></div>
     </div>
-  </div>
+
+    <!-- One sheet -->
+    <div id="sheetView" hidden>
+      <div class="crumb"><a href="#all" id="toList">&larr; All payment sheets</a></div>
+      <div class="sheet wide">
+        <div class="headcard">
+          <div>
+            <h2 class="nm" id="sName"></h2>
+            <div class="chips" id="sChips"></div>
+          </div>
+          <ol class="track big" id="sTrack"></ol>
+        </div>
+      </div>
+      <div class="cols">
+        <div>
+          <div class="sheet wide" style="padding:20px 22px;">
+            <h2 class="section">People, days and pay</h2>
+            <div class="tablewrap" id="rosterWrap"></div>
+            <p class="key">&#10003; signed &nbsp;&middot;&nbsp; &#10005; the day closed without a signature &nbsp;&middot;&nbsp; Amount = rate &times; days signed.</p>
+            <div class="qinfo" id="queryInfo" hidden></div>
+          </div>
+        </div>
+        <div>
+          <div class="side-card"><h3>Automatic checks</h3><div id="checksWrap"></div></div>
+          <div class="side-card"><h3>History</h3><ul class="tl" id="timeline"></ul></div>
+        </div>
+      </div>
+      <div class="decide" id="decide">
+        <div class="nt" id="decideBody">
+          <input type="text" id="note" maxlength="500" autocomplete="off" placeholder="Add a note (needed if you send it back)" aria-label="Note">
+          <label class="ack" id="ackRow"><input type="checkbox" id="ack"> <span>I have looked at the items marked for review</span></label>
+        </div>
+        <div class="btns" id="decideBtns">
+          <button type="button" id="returnBtn" hidden>Send back</button>
+          <button type="button" class="good" id="certifyBtn" hidden>Certify this sheet</button>
+          <button type="button" class="good" id="verifyBtn" hidden>Verify for payment</button>
+        </div>
+        <p class="say" id="actMsg" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+
+    <p class="footer-note">© 2026 Asya Hafidh. All rights reserved.</p>
+  </main>
 </div>
 
 <script src="assets/api.js"></script>
 <script>
 (function(){
+  applyTopbarBranding('Payment approvals');
   var $ = function(id){ return document.getElementById(id); };
-  var me = null, current = null, flash = null;
-
   function el(tag, cls, text){ var n = document.createElement(tag); if(cls) n.className = cls; if(text != null) n.textContent = text; return n; }
-  function say(id, text, cls){ var n = $(id); n.textContent = text || ''; n.className = 'msg' + (cls ? ' ' + cls : ''); }
   function money(n){ return 'KES ' + Number(n || 0).toLocaleString('en-KE'); }
-  function when(iso, tz){ return iso ? new Date(iso).toLocaleString('en-GB', { timeZone: tz || 'Africa/Nairobi' }) : ''; }
+  function plural(n, one, many){ return n + ' ' + (n === 1 ? one : (many || one + 's')); }
+  function when(iso, tz){ return iso ? new Date(iso).toLocaleString('en-GB', { timeZone: tz || 'Africa/Nairobi', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''; }
+  function ago(iso){
+    if(!iso) return '';
+    var mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if(mins < 2) return 'just now'; if(mins < 60) return mins + ' min ago';
+    var h = Math.round(mins / 60); if(h < 24) return h + ' h ago';
+    var d = Math.round(h / 24); return d + (d === 1 ? ' day ago' : ' days ago');
+  }
 
-  var STEPS = [['OPEN', 'Collecting signatures'], ['SUBMITTED', 'Authorising officer'], ['CERTIFIED', 'Certified'], ['VERIFIED', 'Verified by finance']];
-  var STEP_WORD = { SUBMITTED: 'Submitted', CERTIFIED: 'Certified', VERIFIED: 'Verified', RETURNED: 'Returned' };
-  var CELL_TEXT = { SIGNED: '✓', OPEN: 'open', UPCOMING: '–', ABSENT: '✕' };
+  var me = null, sheets = [], filter = 'waiting', query = '', current = null, flash = null, firstLoad = true;
+  var ROLE = { AUTHORISER: 'Authorising officer', FINANCE: 'Finance' };
 
+  // ---- Who is here ----
   function requireSession(){
     return API.get('/api/auth/me').then(function(r){
       if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return null; }
       var u = r.data.user;
-      if(u.role === 'SUPER_ADMIN') $('backLink').href = 'superadmin.html';
-      else if(u.role === 'COUNTY_ADMIN' && (u.paymentRole === 'AUTHORISER' || u.paymentRole === 'FINANCE')) $('backLink').href = 'admin.html';
-      else { location.href = homeFor(u.role); return null; }
+      var reviewer = u.role === 'SUPER_ADMIN' || (u.role === 'COUNTY_ADMIN' && (u.paymentRole === 'AUTHORISER' || u.paymentRole === 'FINANCE'));
+      if(!reviewer){ location.href = homeFor(u.role); return null; }
+      $('backNav').href = u.role === 'SUPER_ADMIN' ? 'superadmin.html' : 'admin.html';
+      $('whoEmail').textContent = u.email; $('whoEmail').title = u.email;
+      $('userAvatar').textContent = (u.email || 'A').charAt(0).toUpperCase();
+      var role = u.role === 'SUPER_ADMIN' ? 'Super admin' : (ROLE[u.paymentRole] || 'Reviewer');
+      $('whoRole').textContent = role + (u.department ? ' · ' + u.department.name : '');
       return u;
     });
   }
+  $('logoutBtn').addEventListener('click', function(){ API.post('/api/auth/logout').then(function(){ location.href = 'login.html'; }); });
+
+  var sidenav = $('sidenav'), navScrim = $('navScrim'), navToggle = $('navToggle');
+  function closeNav(){ sidenav.classList.remove('open'); navScrim.classList.remove('open'); navToggle.setAttribute('aria-expanded', 'false'); }
+  navToggle.addEventListener('click', function(){ var o = !sidenav.classList.contains('open'); sidenav.classList.toggle('open', o); navScrim.classList.toggle('open', o); navToggle.setAttribute('aria-expanded', o ? 'true' : 'false'); });
+  navScrim.addEventListener('click', closeNav);
 
   // ---- The list ----
+  // Where a sheet is on its way: three steps in the list, four on the sheet itself.
+  function track(stage, big){
+    var ol = el('ol', 'track' + (big ? ' big' : ''));
+    var labels, states;
+    if(big){
+      labels = ['Collecting signatures', 'Authorising officer', 'Finance', 'Verified'];
+      var at = { OPEN: 0, SUBMITTED: 1, CERTIFIED: 2, VERIFIED: 4 }[stage];
+      states = labels.map(function(x, i){ return i < at ? 'done' : (i === at ? 'now' : ''); });
+    } else {
+      labels = ['Submitted', stage === 'SUBMITTED' ? 'Officer' : 'Certified', stage === 'VERIFIED' ? 'Verified' : 'Finance'];
+      states = { SUBMITTED: ['done', 'now', ''], CERTIFIED: ['done', 'done', 'now'], VERIFIED: ['done', 'done', 'done'] }[stage] || ['now', '', ''];
+    }
+    labels.forEach(function(s, i){
+      var li = el('li', states[i]);
+      li.appendChild(el('span', 'dot', states[i] === 'done' ? '\u2713' : ''));
+      li.appendChild(el('div', null, s));
+      ol.appendChild(li);
+    });
+    return ol;
+  }
+
+  function groups(){
+    var by = { waiting: [], officer: [], finance: [], done: [] };
+    sheets.forEach(function(s){
+      if(s.waitingForMe) by.waiting.push(s);
+      if(s.stage === 'SUBMITTED') by.officer.push(s);
+      if(s.stage === 'CERTIFIED') by.finance.push(s);
+      if(s.stage === 'VERIFIED') by.done.push(s);
+    });
+    return by;
+  }
+
+  function renderTiles(by){
+    var t = $('tiles'); t.textContent = '';
+    var total = sheets.reduce(function(n, s){ return n + (s.stage === 'VERIFIED' ? 0 : s.amount); }, 0);
+    function tile(label, value, sub, hot){ var d = el('div', 'tile' + (hot ? ' hot' : '')); d.appendChild(el('div', 'l', label)); d.appendChild(el('div', 'v', String(value))); if(sub) d.appendChild(el('div', 's', sub)); return d; }
+    t.appendChild(tile('Waiting for you', by.waiting.length, by.waiting.length ? 'needs your decision' : 'all caught up', by.waiting.length > 0));
+    t.appendChild(tile('With the officer', by.officer.length, 'to be certified'));
+    t.appendChild(tile('With finance', by.finance.length, 'to be verified'));
+    t.appendChild(tile('Still to be paid', money(total).replace('KES ', ''), 'KES, across ' + plural(sheets.filter(function(s){ return s.stage !== 'VERIFIED'; }).length, 'open sheet')));
+    ['segWaiting', 'segAll', 'segOfficer', 'segFinance', 'segDone'].forEach(function(id, i){ $(id).textContent = [by.waiting, sheets, by.officer, by.finance, by.done][i].length; });
+    [['navWaiting', by.waiting.length, true], ['navAll', sheets.length, false], ['navDone', by.done.length, false]].forEach(function(x){
+      var b = $(x[0]); b.hidden = !x[1]; b.textContent = String(x[1]); b.classList.toggle('hot', !!x[2] && x[1] > 0);
+    });
+  }
+
+  var EMPTY_ART = '<svg viewBox="0 0 96 96" aria-hidden="true"><rect x="18" y="26" width="46" height="56" rx="6" fill="#eef0f3" stroke="#d3d7de" stroke-width="2"/><rect x="26" y="16" width="46" height="56" rx="6" fill="#fff" stroke="#d3d7de" stroke-width="2"/><path d="M36 34h26M36 44h26M36 54h14" stroke="#c6cad3" stroke-width="3" stroke-linecap="round"/><circle cx="68" cy="68" r="15" fill="#e8f6ee" stroke="#0b6b36" stroke-width="2"/><path d="M61 68l5 5 9-10" fill="none" stroke="#0b6b36" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function emptyState(){
+    var d = el('div', 'empty-state'); d.innerHTML = EMPTY_ART;
+    var msg = {
+      waiting: ['Nothing is waiting for you', 'When a preparer sends a payment sheet up, it appears here for your decision. You will see who prepared it, the days people signed and what each is owed.'],
+      all: ['No payment sheets yet', 'Sheets appear here once a preparer has finished collecting signatures and sent them for certification.'],
+      officer: ['Nothing is with the authorising officer', 'Sheets sent up for certification wait here until the officer decides.'],
+      finance: ['Nothing is with finance', 'Certified sheets wait here for finance to verify them for payment.'],
+      done: ['No verified sheets yet', 'Once finance verifies a sheet it is kept here with its seal.']
+    }[query ? 'all' : filter];
+    if(query) msg = ['No sheet matches that search', 'Try part of the name, the county or the reference.'];
+    d.appendChild(el('h3', null, msg[0])); d.appendChild(el('p', null, msg[1]));
+    return d;
+  }
+
   function row(s){
-    var r = el('div', 'row');
+    var r = el('article', 'srow' + (s.waitingForMe ? ' mine' : ''));
     var left = el('div'); left.appendChild(el('div', 't', s.name));
-    left.appendChild(el('div', 's', s.county + ' county · prepared by ' + s.preparedBy + (s.authorityRef ? ' · ' + s.authorityRef : '')));
-    r.appendChild(left);
-    var st = el('div'); st.appendChild(el('span', 'pill ' + (s.waitingForMe ? 'me' : (s.stage === 'VERIFIED' ? 'ok' : '')), s.stageLabel)); r.appendChild(st);
-    r.appendChild(el('div', 's', s.people + (s.people === 1 ? ' person' : ' people')));
-    r.appendChild(el('div', 't', money(s.amount)));
-    var b = el('button', s.waitingForMe ? 'primary' : null, s.waitingForMe ? 'Review' : 'Open'); b.type = 'button';
+    var m = el('div', 'm');
+    [s.county + ' county', 'Prepared by ' + s.preparedBy, s.authorityRef, s.submittedAt ? 'Sent ' + ago(s.submittedAt) : ''].forEach(function(x){ if(x) m.appendChild(el('span', null, x)); });
+    left.appendChild(m); r.appendChild(left);
+    r.appendChild(track(s.stage, false));
+    var f = el('div', 'fig'); f.appendChild(el('div', 'amt', money(s.amount))); f.appendChild(el('div', 'ppl', plural(s.people, 'person', 'people'))); r.appendChild(f);
+    var b = el('button', 'go' + (s.waitingForMe ? ' primary' : ''), s.waitingForMe ? 'Review' : 'Open'); b.type = 'button';
     b.addEventListener('click', function(){ location.hash = 'sheet=' + s.id; });
     r.appendChild(b);
     return r;
   }
 
-  function loadList(){
-    return API.get('/api/duty-review/queue').then(function(r){
-      if(r.status !== 200 || !r.data.ok){ $('mineWrap').innerHTML = '<p class="empty">Could not load the sheets.</p>'; return; }
-      var mine = r.data.sheets.filter(function(s){ return s.waitingForMe; });
-      var rest = r.data.sheets.filter(function(s){ return !s.waitingForMe; });
-      var mw = $('mineWrap'); mw.textContent = '';
-      if(!mine.length) mw.appendChild(el('p', 'empty', 'Nothing is waiting for you right now.'));
-      mine.forEach(function(s){ mw.appendChild(row(s)); });
-      var ow = $('othersWrap'); ow.textContent = '';
-      if(!rest.length) ow.appendChild(el('p', 'empty', 'No other sheets have been submitted.'));
-      rest.forEach(function(s){ ow.appendChild(row(s)); });
-    }).catch(function(){ $('mineWrap').innerHTML = '<p class="empty">No connection. Reload to try again.</p>'; });
+  function renderList(){
+    var by = groups();
+    renderTiles(by);
+    Array.prototype.forEach.call($('seg').querySelectorAll('button'), function(b){ b.classList.toggle('on', b.getAttribute('data-filter') === filter); });
+    Array.prototype.forEach.call(document.querySelectorAll('.nav-item[data-filter]'), function(a){ a.classList.toggle('active', a.getAttribute('data-filter') === filter); });
+    var pool = { waiting: by.waiting, all: sheets, officer: by.officer, finance: by.finance, done: by.done }[filter] || sheets;
+    var q = query.trim().toLowerCase();
+    if(q) pool = sheets.filter(function(s){ return (s.name + ' ' + s.county + ' ' + (s.authorityRef || '') + ' ' + (s.preparedBy || '')).toLowerCase().indexOf(q) !== -1; });
+    var box = $('sheets'); box.textContent = '';
+    if(!pool.length){ box.appendChild(emptyState()); return; }
+    pool.forEach(function(s){ box.appendChild(row(s)); });
   }
 
+  function loadList(){
+    if(firstLoad){ var b = $('sheets'); b.textContent = ''; for(var i = 0; i < 3; i++) b.appendChild(el('div', 'skel')); }
+    return API.get('/api/duty-review/queue').then(function(r){
+      if(r.status !== 200 || !r.data.ok){ $('sheets').textContent = ''; $('sheets').appendChild(el('p', 'empty', 'Could not load the sheets.')); return; }
+      sheets = r.data.sheets;
+      // First time in, show what needs attention; if nothing does, show everything.
+      if(firstLoad){ firstLoad = false; if(!groups().waiting.length && sheets.length) filter = 'all'; }
+      renderList();
+    }).catch(function(){ $('sheets').textContent = ''; $('sheets').appendChild(el('p', 'empty', 'No connection. Reload to try again.')); });
+  }
+  Array.prototype.forEach.call($('seg').querySelectorAll('button'), function(b){ b.addEventListener('click', function(){ filter = b.getAttribute('data-filter'); renderList(); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('.nav-item[data-filter]'), function(a){ a.addEventListener('click', function(e){ e.preventDefault(); filter = a.getAttribute('data-filter'); if(location.hash.indexOf('sheet=') !== -1) location.hash = ''; else { renderList(); } showList(); closeNav(); }); });
+  $('search').addEventListener('input', function(){ query = this.value; renderList(); });
+  $('refresh').addEventListener('click', loadList);
+
   // ---- One sheet ----
+  var CELL = { SIGNED: '✓', OPEN: 'open', UPCOMING: '–', ABSENT: '✕' };
+  var STEP_WORD = { SUBMITTED: 'Submitted', CERTIFIED: 'Certified', VERIFIED: 'Verified', RETURNED: 'Sent back' };
+
+  function renderFindings(list){
+    var w = $('checksWrap'); w.textContent = '';
+    if(!list || !list.length){ var g = el('div', 'allgood'); g.appendChild(el('span', 'ic', '✓')); g.appendChild(el('span', null, 'Nothing was flagged')); w.appendChild(g); return; }
+    var ul = el('ul', 'finds');
+    list.forEach(function(f){
+      var li = el('li', f.severity); li.appendChild(el('span', 'ic', f.severity === 'review' ? '!' : 'i'));
+      var b = el('div'); b.appendChild(el('div', 't', f.title)); b.appendChild(el('div', 'dd', f.detail)); li.appendChild(b); ul.appendChild(li);
+    });
+    w.appendChild(ul);
+  }
+
   function renderSheet(d){
     current = d;
-    $('sheetName').textContent = d.event.name;
-    $('sheetMeta').textContent = d.event.county + ' county · prepared by ' + d.event.preparedBy + ' · authorised by ' + d.event.authorisedBy + ' · reference ' + d.event.authorityRef;
-    var idx = STEPS.map(function(s){ return s[0]; }).indexOf(d.stage);
-    var ol = $('steps'); ol.textContent = '';
-    STEPS.forEach(function(s, i){ ol.appendChild(el('li', i < idx ? 'done' : (i === idx ? 'now' : ''), (i < idx ? '✓ ' : '') + s[1])); });
+    $('sName').textContent = d.event.name;
+    var chips = $('sChips'); chips.textContent = '';
+    [['County', d.event.county], ['Prepared by', d.event.preparedBy], ['Authorised by', d.event.authorisedBy], ['Reference', d.event.authorityRef]].forEach(function(c){
+      var s = el('span', 'chip'); s.appendChild(document.createTextNode(c[0] + ' ')); s.appendChild(el('b', null, c[1] || '—')); chips.appendChild(s);
+    });
+    var tk = $('sTrack'); tk.replaceWith(Object.assign(track(d.stage, true), { id: 'sTrack' }));
+
     var tl = $('timeline'); tl.textContent = '';
-    d.approvals.forEach(function(a){
-      var li = el('li');
-      li.appendChild(el('span', a.step === 'RETURNED' ? 'ret' : null, STEP_WORD[a.step] || a.step));
-      li.appendChild(el('span', 'who', ' by ' + a.by + ' · ' + when(a.at, d.event.timezone)));
-      if(a.note) li.appendChild(el('div', 'who', '“' + a.note + '”'));
-      if(a.sealCode){ var v = el('a', null, ' Check seal ' + a.sealCode); v.href = 'verify.html?code=' + encodeURIComponent(a.sealCode); v.target = '_blank'; v.rel = 'noopener'; li.appendChild(v); }
+    d.approvals.slice().reverse().forEach(function(a){
+      var li = el('li', a.step === 'RETURNED' ? 'ret' : '');
+      li.appendChild(el('div', 'w', STEP_WORD[a.step] || a.step));
+      li.appendChild(el('div', 'who', a.by + ' · ' + when(a.at, d.event.timezone)));
+      if(a.note) li.appendChild(el('div', 'nt', '“' + a.note + '”'));
+      if(a.sealCode){ var v = el('a', null, 'Check seal ' + a.sealCode); v.href = 'verify.html?code=' + encodeURIComponent(a.sealCode); v.target = '_blank'; v.rel = 'noopener'; li.appendChild(v); }
       tl.appendChild(li);
     });
 
     var wrap = $('rosterWrap'); wrap.textContent = '';
-    var t = document.createElement('table');
+    var t = document.createElement('table'); t.className = 'pay';
     var head = '<thead><tr><th class="c">No</th><th>Name</th><th>Role</th>';
     d.days.forEach(function(day){ head += '<th class="c" title="' + escapeHtml(day.place || '') + '">Day ' + day.position + '</th>'; });
     head += '<th class="num">Rate</th><th class="num">Days</th><th class="num">Amount</th></tr></thead>';
@@ -206,11 +434,11 @@
     d.rows.forEach(function(r, i){
       var tr = document.createElement('tr');
       tr.appendChild(el('td', 'c', String(i + 1)));
-      var nm = el('td', 'name', r.name);
+      var nm = el('td', null, r.name);
       nm.appendChild(el('small', null, (r.payeeType === 'STAFF' ? 'Staff ' : 'ID ') + r.idNumber + (r.payeeType !== 'STAFF' && r.organisation ? ' · ' + r.organisation : '')));
       tr.appendChild(nm);
       tr.appendChild(el('td', null, r.jobRole || ''));
-      r.cells.forEach(function(c){ var td = el('td', 'c'); td.appendChild(el('span', 'cell ' + c.status, CELL_TEXT[c.status])); tr.appendChild(td); });
+      r.cells.forEach(function(c){ var td = el('td', 'c'); td.appendChild(el('span', 'cell ' + c.status, CELL[c.status])); tr.appendChild(td); });
       tr.appendChild(el('td', 'num', Number(r.ratePerDay).toLocaleString('en-KE')));
       tr.appendChild(el('td', 'num', String(r.daysSigned)));
       tr.appendChild(el('td', 'num', Number(r.amount).toLocaleString('en-KE')));
@@ -218,67 +446,57 @@
     });
     t.appendChild(tb);
     var tf = document.createElement('tfoot');
-    tf.innerHTML = '<tr><td colspan="' + (3 + d.days.length) + '">' + d.totals.people + (d.totals.people === 1 ? ' person' : ' people') + '</td><td></td><td class="num">' + d.totals.daysSigned + '</td><td class="num">' + Number(d.totals.amount).toLocaleString('en-KE') + '</td></tr>';
+    tf.innerHTML = '<tr><td colspan="' + (3 + d.days.length) + '">' + plural(d.totals.people, 'person', 'people') + '</td><td></td><td class="num">' + d.totals.daysSigned + '</td><td class="num">' + Number(d.totals.amount).toLocaleString('en-KE') + '</td></tr>';
     t.appendChild(tf); wrap.appendChild(t);
 
-    renderFindings(d.findings, $('checksWrap'));
-    var needAck = (d.findings || []).some(function(f){ return f.severity === 'review'; });
-    $('ackRow').style.display = needAck && (d.canCertify || d.canVerify) ? 'flex' : 'none';
-    $('ack').checked = false;
-    var qi = $('queryInfo');
-    qi.hidden = !d.openQueries;
-    if(d.openQueries) qi.textContent = d.openQueries + ' question' + (d.openQueries === 1 ? '' : 's') + ' from people on this sheet ' + (d.openQueries === 1 ? 'is' : 'are') + ' still open.';
+    var qi = $('queryInfo'); qi.hidden = !d.openQueries;
+    if(d.openQueries) qi.textContent = plural(d.openQueries, 'question') + ' from people on this sheet ' + (d.openQueries === 1 ? 'is' : 'are') + ' still open.';
 
-    $('certifyBtn').hidden = !d.canCertify;
-    $('verifyBtn').hidden = !d.canVerify;
-    $('returnBtn').hidden = !d.canReturn;
-    var none = !d.canCertify && !d.canVerify && !d.canReturn;
-    $('note').parentNode.hidden = false;
-    $('noRights').hidden = !none;
-    $('note').hidden = none;
-    document.querySelector('label[for=note]').hidden = none;
-    if(none) $('noRights').textContent = d.stage === 'VERIFIED' ? 'This sheet is fully approved.' : 'Nothing for you to do on this sheet at this stage. Whoever prepared or certified it cannot approve the next step.';
-    say('actMsg', flash || '', flash ? 'ok' : '');
-    flash = null;
+    renderFindings(d.findings);
+
+    var needAck = (d.findings || []).some(function(f){ return f.severity === 'review'; });
+    var canAct = d.canCertify || d.canVerify || d.canReturn;
+    $('ack').checked = false;
+    $('ackRow').style.display = needAck && (d.canCertify || d.canVerify) ? 'flex' : 'none';
+    $('certifyBtn').hidden = !d.canCertify; $('verifyBtn').hidden = !d.canVerify; $('returnBtn').hidden = !d.canReturn;
+    $('decide').classList.toggle('none', !canAct);
+    var body = $('decideBody'), quiet = body.querySelector('.quiet');
+    if(quiet) quiet.remove();
+    $('note').hidden = !canAct;
+    if(!canAct){
+      var q = el('span', 'quiet', d.stage === 'VERIFIED' ? 'This sheet is fully approved and sealed.' : 'Nothing for you to do on this sheet at this stage. Whoever prepared or certified it cannot approve the next step.');
+      body.insertBefore(q, body.firstChild);
+    }
+    var m = $('actMsg'); m.textContent = flash || ''; m.className = 'say' + (flash ? ' ok' : ''); flash = null;
   }
 
-  function renderFindings(list, target){
-      target.textContent = '';
-      if(!list || !list.length){ target.appendChild(el('p', 'okline', 'Nothing was flagged.')); return; }
-      var ul = el('ul', 'finds');
-      list.forEach(function(f){
-        var li = el('li', f.severity);
-        li.appendChild(el('span', 'dot'));
-        var body = el('div'); body.appendChild(el('div', 't', (f.severity === 'review' ? 'Look at this: ' : '') + f.title)); body.appendChild(el('div', 'dd', f.detail));
-        li.appendChild(body); ul.appendChild(li);
-      });
-      target.appendChild(ul);
-    }
+  function showList(){ $('sheetView').hidden = true; $('listView').hidden = false; $('viewTitle').textContent = 'Payment approvals'; loadList(); }
 
   function openSheet(id){
-    $('listView').hidden = true; $('sheetView').hidden = false;
-    $('sheetName').textContent = 'Loading…';
+    $('listView').hidden = true; $('sheetView').hidden = false; window.scrollTo(0, 0);
+    $('viewTitle').textContent = 'Review a payment sheet';
+    $('sName').textContent = 'Loading…'; $('sChips').textContent = ''; $('rosterWrap').textContent = ''; $('checksWrap').textContent = '';
     API.get('/api/duty-review/sheets/' + encodeURIComponent(id)).then(function(r){
-      if(r.status !== 200 || !r.data.ok){ $('sheetName').textContent = 'This sheet could not be opened.'; return; }
-      renderSheet(r.data); current.id = id;
-    }).catch(function(){ $('sheetName').textContent = 'No connection. Reload to try again.'; });
+      if(r.status !== 200 || !r.data.ok){ $('sName').textContent = 'This sheet could not be opened.'; return; }
+      current = null; renderSheet(r.data); current.id = id;
+    }).catch(function(){ $('sName').textContent = 'No connection. Reload to try again.'; });
   }
 
   function act(path, confirmText, needNote){
-    var note = $('note').value.trim();
-    var needAck = $('ackRow').style.display === 'flex';
-    if(path !== 'return' && needAck && !$('ack').checked){ say('actMsg', 'Tick the box to confirm you have looked at the items flagged for review.', 'err'); return; }
-    if(needNote && note.length < 5){ say('actMsg', 'Say what needs to be fixed, so the preparer knows.', 'err'); return; }
+    var note = $('note').value.trim(), m = $('actMsg');
+    if(path !== 'return' && $('ackRow').style.display === 'flex' && !$('ack').checked){ m.textContent = 'Tick the box to confirm you have looked at the items marked for review.'; m.className = 'say err'; return; }
+    if(needNote && note.length < 5){ m.textContent = 'Say what needs to be fixed, so the preparer knows.'; m.className = 'say err'; return; }
     if(!window.confirm(confirmText)) return;
-    ['certifyBtn', 'verifyBtn', 'returnBtn'].forEach(function(b){ $(b).disabled = true; });
-    say('actMsg', 'Saving…');
+    var btns = ['certifyBtn', 'verifyBtn', 'returnBtn'];
+    btns.forEach(function(b){ $(b).disabled = true; });
+    m.textContent = 'Saving…'; m.className = 'say';
     API.post('/api/duty-review/sheets/' + encodeURIComponent(current.id) + '/' + path, { note: note, acknowledge: $('ack').checked }).then(function(r){
-      ['certifyBtn', 'verifyBtn', 'returnBtn'].forEach(function(b){ $(b).disabled = false; });
-      if(!r.data.ok){ say('actMsg', r.data.message || 'Could not save your decision.', 'err'); return; }
+      btns.forEach(function(b){ $(b).disabled = false; });
+      if(!r.data.ok){ m.textContent = r.data.message || 'Could not save your decision.'; m.className = 'say err'; return; }
       $('note').value = '';
       flash = path === 'return' ? 'Sent back to the preparer.' : 'Recorded.';
       openSheet(current.id);
-    }).catch(function(){ ['certifyBtn', 'verifyBtn', 'returnBtn'].forEach(function(b){ $(b).disabled = false; }); say('actMsg', 'No connection. Please try again.', 'err'); });
+    }).catch(function(){ btns.forEach(function(b){ $(b).disabled = false; }); m.textContent = 'No connection. Please try again.'; m.className = 'say err'; });
   }
   $('certifyBtn').addEventListener('click', function(){ act('certify', 'Certify this sheet? It is sealed as you see it now, and it goes to finance.', false); });
   $('verifyBtn').addEventListener('click', function(){ act('verify', 'Verify this sheet for payment?', false); });
@@ -287,13 +505,11 @@
   function route(){
     var m = /^#sheet=(.+)$/.exec(location.hash);
     if(m){ openSheet(decodeURIComponent(m[1])); return; }
-    $('sheetView').hidden = true; $('listView').hidden = false; loadList();
+    var f = /^#(waiting|all|done)$/.exec(location.hash); if(f) filter = f[1];
+    showList();
   }
-  $('toList').addEventListener('click', function(e){ e.preventDefault(); location.hash = ''; if(!location.hash) route(); });
   window.addEventListener('hashchange', route);
 
   requireSession().then(function(u){ if(u){ me = u; route(); } });
 })();
 </script>
-</body>
-</html>
