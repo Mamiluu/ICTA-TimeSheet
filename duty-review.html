@@ -86,15 +86,17 @@
   .crumb{ display:flex; align-items:center; gap:8px; font-size:13px; margin:0 0 14px; }
   .crumb a{ color:var(--c-muted); text-decoration:none; font-weight:600; }
   .crumb a:hover{ color:var(--c-text); }
-  .headcard{ display:grid; grid-template-columns:minmax(0,1fr) 420px; gap:20px 30px; align-items:center; }
+  .headcard{ display:grid; grid-template-columns:minmax(0,1fr) 400px; gap:20px 30px; align-items:center; }
   .headcard h2.nm{ margin:0 0 8px; font-size:20px; letter-spacing:-.01em; line-height:1.25; }
   .chips{ display:flex; gap:8px; flex-wrap:wrap; }
   .chip{ font-size:12.5px; padding:5px 11px; border-radius:999px; background:var(--c-soft); border:1px solid var(--c-line); color:var(--c-muted); }
   .chip b{ color:var(--c-text); font-weight:600; }
-  .cols{ display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:18px; align-items:start; }
+  .pair{ display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:18px; align-items:start; margin-bottom:18px; }
+  .pair .side-card{ margin-bottom:0; }
   .tablewrap{ overflow-x:auto; }
   .app-main table.pay td.c, .app-main table.pay th.c{ text-align:center; }
   .app-main table.pay td.num, .app-main table.pay th.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  .app-main table.pay td:nth-child(2){ white-space:nowrap; }
   .app-main table.pay td small{ display:block; color:var(--c-muted); font-size:12px; }
   .app-main table.pay tfoot td{ font-weight:700; background:var(--c-soft); }
   .cell{ display:inline-flex; align-items:center; justify-content:center; min-width:28px; height:24px; padding:0 7px; border-radius:7px; font-size:12px; font-weight:700; }
@@ -138,6 +140,7 @@
   .decide .btns button{ margin:0; }
   button.good{ background:var(--c-ok) !important; border-color:var(--c-ok) !important; color:#fff !important; box-shadow:0 1px 2px rgba(11,107,54,.35); }
   button.good:hover:not(:disabled){ background:#095a2d !important; }
+  .decide .say:empty{ display:none; }
   .decide .say{ grid-column:1 / -1; font-size:13px; min-height:0; margin:0; }
   .say.err{ color:var(--c-accent-dark); font-weight:600; }
   .say.ok{ color:var(--c-ok); font-weight:700; }
@@ -212,19 +215,15 @@
           <ol class="track big" id="sTrack"></ol>
         </div>
       </div>
-      <div class="cols">
-        <div>
-          <div class="sheet wide" style="padding:20px 22px;">
-            <h2 class="section">People, days and pay</h2>
-            <div class="tablewrap" id="rosterWrap"></div>
-            <p class="key">&#10003; signed &nbsp;&middot;&nbsp; &#10005; the day closed without a signature &nbsp;&middot;&nbsp; Amount = rate &times; days signed.</p>
-            <div class="qinfo" id="queryInfo" hidden></div>
-          </div>
-        </div>
-        <div>
-          <div class="side-card"><h3>Automatic checks</h3><div id="checksWrap"></div></div>
-          <div class="side-card"><h3>History</h3><ul class="tl" id="timeline"></ul></div>
-        </div>
+      <div class="pair">
+        <div class="side-card"><h3>Automatic checks</h3><div id="checksWrap"></div></div>
+        <div class="side-card"><h3>History</h3><ul class="tl" id="timeline"></ul></div>
+      </div>
+      <div class="sheet wide" style="padding:20px 22px;">
+        <h2 class="section">People, days and pay</h2>
+        <div class="tablewrap" id="rosterWrap"></div>
+        <p class="key">&#10003; signed &nbsp;&middot;&nbsp; &#10005; the day closed without a signature &nbsp;&middot;&nbsp; Amount = rate &times; days signed.</p>
+        <div class="qinfo" id="queryInfo" hidden></div>
       </div>
       <div class="decide" id="decide">
         <div class="nt" id="decideBody">
