@@ -37,6 +37,10 @@ export function cleanBranding(body) {
   if (website && (website.length > 120 || !/^https?:\/\/[^\s<>"']+$/i.test(website))) return { error: 'The website must start with http:// or https://.' };
   out.website = website || null;
 
+  const footerLine = trimmed(body.footerLine);
+  if (footerLine.length > 140) return { error: 'The line at the foot of printed sheets can be at most 140 characters.' };
+  out.footerLine = footerLine || null;
+
   const accent = trimmed(body.accentColor);
   if (accent) {
     const checked = checkAccent(accent);

@@ -40,6 +40,7 @@ export function brandFromOrg(org) {
     addressLines: ownAddress.length ? ownAddress : isDefault ? BRANDING.addressLines : [],
     phone: (org && org.phone) || (isDefault ? BRANDING.phone : ''),
     website: (org && org.website) || (isDefault ? BRANDING.website : ''),
+    footerLine: (org && org.footerLine) || (isDefault ? BRANDING.footerLine : ''),
     accent,
     accentDark: darken(accent, 0.2),
     accentWash: wash(accent, 0.92),

@@ -45,6 +45,8 @@ model Organisation {
   address     String?
   phone       String?
   website     String?
+  // The line printed in the band at the foot of payment sheets (for example the legal status).
+  footerLine  String?
   accentColor String?
   // The logo's bytes live in OrganisationLogo, so an ordinary read of an
   // organisation never drags an image along. logoVersion changes with each upload so

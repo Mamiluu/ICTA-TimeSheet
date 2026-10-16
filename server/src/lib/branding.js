@@ -17,5 +17,6 @@ export const BRANDING = {
     .map((l) => l.trim())
     .filter(Boolean),
   phone: process.env.BRAND_PHONE || '+254 20 2089061',
-  website: process.env.BRAND_WEBSITE || 'https://www.icta.go.ke'
+  website: process.env.BRAND_WEBSITE || 'https://www.icta.go.ke',
+  footerLine: process.env.BRAND_FOOTER_LINE || 'The ICT Authority is a State Corporation under the Kenya State Corporations Act 446'
 };

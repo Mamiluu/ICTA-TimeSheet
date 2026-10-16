@@ -56,7 +56,8 @@
   .glance .share{ height:6px; border-radius:999px; background:#eceef2; width:56px; overflow:hidden; display:inline-block; vertical-align:middle; margin-right:8px; }
   .glance .share i{ display:block; height:100%; background:var(--c-accent); opacity:.75; border-radius:999px; }
   .glance .num{ text-align:right; font-variant-numeric:tabular-nums; }
-  .app-main table.glance{ table-layout:fixed; width:100%; }
+  /* theme.css gives every table a 520px minimum; this one has to fit its panel */
+  .app-main table.glance{ table-layout:fixed; width:100%; min-width:0; }
   .glance th:nth-child(2){ width:46%; }
   .glance th:nth-child(3){ width:92px; }
   .glance td{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }

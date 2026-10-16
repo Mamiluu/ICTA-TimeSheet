@@ -300,6 +300,8 @@
               <div><label for="bPhone">Phone</label><input type="text" id="bPhone" maxlength="30" autocomplete="off"></div>
               <div><label for="bSite">Website</label><input type="text" id="bSite" maxlength="120" autocomplete="off" placeholder="https://"></div>
             </div>
+            <label for="bFooter" style="margin-top:12px;">Line at the foot of payment sheets <span class="opt">(for example your legal status)</span></label>
+            <input type="text" id="bFooter" maxlength="140" autocomplete="off" style="width:100%; margin-bottom:12px;">
             <label for="bColour">Accent colour</label>
             <div class="colour-row">
               <input type="color" id="bColourPick" aria-label="Pick a colour">
@@ -939,7 +941,7 @@
   }
 
   // --- Branding ---
-  var bEls = { name: $('bName'), addr: $('bAddress'), phone: $('bPhone'), site: $('bSite'), colour: $('bColour'), pick: $('bColourPick') };
+  var bEls = { name: $('bName'), addr: $('bAddress'), phone: $('bPhone'), site: $('bSite'), footer: $('bFooter'), colour: $('bColour'), pick: $('bColourPick') };
   var currentBrand = null;
   function $(id){ return document.getElementById(id); }
 
@@ -967,7 +969,7 @@
   function showBrand(r){
     currentBrand = r.brand;
     var b = r.branding || {};
-    bEls.name.value = b.displayName || ''; bEls.addr.value = b.address || ''; bEls.phone.value = b.phone || ''; bEls.site.value = b.website || ''; bEls.colour.value = b.accentColor || '';
+    bEls.name.value = b.displayName || ''; bEls.addr.value = b.address || ''; bEls.phone.value = b.phone || ''; bEls.site.value = b.website || ''; bEls.footer.value = b.footerLine || ''; bEls.colour.value = b.accentColor || '';
     $('bLogoImg').src = r.brand.logoUrl; $('pLogo').src = r.brand.logoUrl;
     $('bLogoRemove').style.display = b.hasLogo ? '' : 'none';
     renderPreview();
@@ -975,14 +977,14 @@
   function loadBranding(){
     API.get('/api/platform/branding').then(function(r){ if(r.status === 200 && r.data.ok) showBrand(r.data); }).catch(function(){});
   }
-  ['name', 'addr', 'phone', 'site', 'colour'].forEach(function(k){ bEls[k].addEventListener('input', renderPreview); });
+  ['name', 'addr', 'phone', 'site', 'footer', 'colour'].forEach(function(k){ bEls[k].addEventListener('input', renderPreview); });
   bEls.pick.addEventListener('input', function(){ bEls.colour.value = bEls.pick.value; renderPreview(); });
   $('bColourReset').addEventListener('click', function(){ bEls.colour.value = ''; renderPreview(); });
 
   $('bSave').addEventListener('click', function(){
     var btn = this, err = $('bErr'), ok = $('bOk'); err.style.display = 'none'; ok.style.display = 'none';
     btn.disabled = true;
-    API.put('/api/platform/branding', { displayName: bEls.name.value, address: bEls.addr.value, phone: bEls.phone.value, website: bEls.site.value, accentColor: bEls.colour.value }).then(function(r){
+    API.put('/api/platform/branding', { displayName: bEls.name.value, address: bEls.addr.value, phone: bEls.phone.value, website: bEls.site.value, footerLine: bEls.footer.value, accentColor: bEls.colour.value }).then(function(r){
       btn.disabled = false;
       if(!r.data.ok){ err.textContent = r.data.message || 'Could not save.'; err.style.display = ''; return; }
       ok.textContent = 'Saved. Your pages and emails now use this look.'; ok.style.display = '';

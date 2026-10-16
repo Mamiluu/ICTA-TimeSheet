@@ -3,266 +3,385 @@
   Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
   Proprietary and confidential. See LICENSE in the repository root.
 -->
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Payment sheet</title>
-<script src="assets/brand.js"></script>
+<html lang="en" class="fixed-layout">
+<meta charset="UTF-8">
+<!-- The desktop layout is the only layout (see .fixed-layout in assets/shell.css). Phones and tablets lay the page out 1280px wide and shrink it to fit; pinch-zoom still works. -->
+<meta name="viewport" content="width=1280">
+<link rel="apple-touch-icon" href="assets/icta_logo_cropped.png">
 <link rel="icon" href="assets/icta_logo_cropped.png">
+<title>ICT Authority : Payment sheet</title>
+<script src="assets/brand.js"></script>
+<link rel="stylesheet" href="assets/theme.css">
+<link rel="stylesheet" href="assets/shell.css">
+<script src="assets/fit-layout.js"></script>
 <style>
-  :root{ --ink:#1b1a18; --muted:#6a655b; --rule:#d9d2c3; --paper:#fffdf8; --page:#ebe7de; --accent:#c8102e; --ok:#14683a; --warn:#8a5a00; --bad:#9d1230; }
-  @media (prefers-color-scheme: dark){ :root{ --page:#1d1c1a; } }
-  *{ box-sizing:border-box; }
-  body{ margin:0; background:var(--page); color:var(--ink); font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; font-size:14px; line-height:1.5; }
-  .wrap{ max-width:1180px; margin:0 auto; padding:20px 18px 50px; }
-  .top{ display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
-  .top a.back{ color:var(--muted); text-decoration:none; font-size:13px; }
-  .top a.back:hover{ color:var(--ink); }
-  h1{ font-family:Georgia, "Times New Roman", serif; font-weight:400; font-size:28px; line-height:1.15; margin:0; }
-  .meta{ color:var(--muted); font-size:13.5px; margin:4px 0 0; }
-  .card{ background:var(--paper); border:1px solid var(--rule); border-radius:14px; padding:16px 18px; margin-bottom:14px; box-shadow:0 1px 2px rgba(0,0,0,.05); }
-  h2{ font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0 0 12px; font-weight:700; }
-  .grid{ display:grid; grid-template-columns:1fr 210px; gap:18px; align-items:start; }
-  .linkrow{ display:flex; gap:8px; flex-wrap:wrap; }
-  input, select{ font:inherit; font-size:14px; padding:9px 10px; border:1px solid #bfb7a4; border-radius:9px; background:#fff; color:var(--ink); min-width:0; }
-  input:focus-visible, select:focus-visible, button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
-  .linkrow input{ flex:1 1 280px; }
-  button{ font:inherit; font-weight:700; font-size:13.5px; padding:9px 14px; border-radius:9px; border:1px solid #bfb7a4; background:#fff; color:var(--ink); cursor:pointer; }
-  button.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
-  button.link{ border:0; background:none; padding:2px 6px; color:var(--accent); font-weight:600; }
-  button.link.danger{ color:var(--bad); }
-  button:disabled{ opacity:.55; cursor:default; }
-  .qr{ width:180px; height:180px; background:#fff; border:1px solid var(--rule); border-radius:10px; padding:6px; }
-  .qrnote{ font-size:12px; color:var(--muted); margin:6px 0 0; }
-  .days{ display:flex; gap:8px; flex-wrap:wrap; }
-  .day{ border:1px solid var(--rule); border-radius:10px; padding:7px 11px; background:#fff; font-size:13px; }
-  .day b{ display:block; font-size:12px; color:var(--muted); font-weight:700; }
-  .tablewrap{ overflow-x:auto; }
-  table{ border-collapse:collapse; width:100%; font-size:13px; }
-  th, td{ padding:8px 9px; border-bottom:1px solid var(--rule); text-align:left; vertical-align:middle; white-space:nowrap; }
-  th{ font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:700; }
-  td.num, th.num{ text-align:right; font-variant-numeric:tabular-nums; }
-  td.c, th.c{ text-align:center; }
-  td.name{ white-space:normal; min-width:150px; }
-  td.name small{ display:block; color:var(--muted); font-size:12px; }
-  .cell{ display:inline-block; min-width:26px; padding:2px 6px; border-radius:7px; font-size:12px; font-weight:700; }
-  .cell.SIGNED{ background:#e0f1e6; color:var(--ok); }
-  .cell.OPEN{ background:#fdf0d4; color:var(--warn); }
-  .cell.UPCOMING{ color:#a9a392; }
-  .cell.ABSENT{ background:#f6e1e5; color:var(--bad); }
-  .stage{ display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
-  .steps{ display:flex; gap:6px; flex-wrap:wrap; margin:0 0 4px; padding:0; list-style:none; }
-  .steps li{ font-size:12.5px; font-weight:700; padding:4px 11px; border-radius:999px; background:#eee9dc; color:var(--muted); }
-  .steps li.done{ background:#e0f1e6; color:var(--ok); }
-  .steps li.now{ background:var(--accent); color:#fff; }
-  .timeline{ margin:10px 0 0; padding:0; list-style:none; font-size:13px; }
-  .timeline li{ padding:6px 0; border-top:1px solid var(--rule); }
-  .timeline li:first-child{ border-top:0; }
-  .timeline .who{ color:var(--muted); }
-  .timeline .ret{ color:var(--bad); font-weight:700; }
-  .qitem{ padding:10px 0; border-top:1px solid var(--rule); }
-  .qitem:first-child{ border-top:0; }
-  .qitem .q{ color:var(--muted); font-size:13px; margin:2px 0 6px; }
-  .qitem .a{ display:flex; gap:8px; flex-wrap:wrap; }
-  .qitem .a input{ flex:1 1 260px; }
-  .lockednote{ background:#fdf0d4; border:1px solid #ecd49a; color:#6b4a00; border-radius:10px; padding:10px 12px; font-size:13.5px; margin-bottom:12px; }
+  .nav-item .badge-count{ margin-left:auto; font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:#262b36; color:#c9cfdb; font-variant-numeric:tabular-nums; }
+  .nav-item .badge-count.hot{ background:var(--c-accent); color:#fff; }
+
+  /* ---- Buttons on this page ---- */
+  .btn{ margin:0; font-family:var(--ui-font); font-size:13px; font-weight:600; padding:9px 15px; border-radius:var(--r-md); border:1px solid var(--c-line-strong); background:#fff; color:var(--c-text); cursor:pointer; display:inline-flex; gap:7px; align-items:center; white-space:nowrap; }
+  .btn:hover:not(:disabled){ background:var(--c-soft); filter:none; }
+  .btn.pri{ background:var(--c-accent); border-color:var(--c-accent); color:#fff; box-shadow:0 1px 2px rgba(200,16,46,.3); }
+  .btn.pri:hover:not(:disabled){ background:var(--c-accent-dark); }
+  .btn svg{ width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .btn:disabled{ opacity:.55; cursor:default; }
+  .lnk{ margin:0; border:0; background:none; padding:2px 6px; color:var(--c-accent-dark); font-family:var(--ui-font); font-size:12.5px; font-weight:600; cursor:pointer; text-decoration:none; }
+  .lnk:hover{ text-decoration:underline; background:none; filter:none; }
+  .lnk.danger{ color:#9d1230; }
+
+  /* ---- Head ---- */
+  .headcard{ display:grid; grid-template-columns:minmax(0,1fr) 400px; gap:20px 30px; align-items:center; }
+  .headcard h2.nm{ margin:0 0 8px; font-size:20px; letter-spacing:-.01em; line-height:1.25; }
+  .chips{ display:flex; gap:8px; flex-wrap:wrap; }
+  .chip{ font-size:12.5px; padding:5px 11px; border-radius:999px; background:var(--c-soft); border:1px solid var(--c-line); color:var(--c-muted); }
+  .chip b{ color:var(--c-text); font-weight:600; }
+
+  .tiles{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:14px; margin:0 0 18px; }
+  .tile{ background:#fff; border:1px solid var(--c-line); border-radius:var(--r-lg); padding:16px 18px 14px; box-shadow:var(--shadow-1); position:relative; overflow:hidden; }
+  .tile .l{ font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--c-muted); font-weight:700; }
+  .tile .v{ font-size:30px; font-weight:700; letter-spacing:-.02em; font-variant-numeric:tabular-nums; margin-top:6px; line-height:1.05; }
+  .tile .s{ font-size:12.5px; color:var(--c-muted); margin-top:5px; }
+  .tile.hot{ border-color:#f1b9c3; background:linear-gradient(180deg, var(--c-accent-wash), #fff 70%); }
+  .tile.hot .v{ color:var(--c-accent-dark); }
+  .tile::after{ content:""; position:absolute; right:-18px; top:-18px; width:70px; height:70px; border-radius:50%; background:var(--c-soft); }
+
+  /* ---- The track: where the sheet is on its way ---- */
+  .track{ display:flex; align-items:flex-start; list-style:none; margin:0; padding:0; }
+  .track li{ flex:1; text-align:center; position:relative; font-size:12.5px; color:var(--c-faint); font-weight:600; }
+  .track li::before{ content:""; position:absolute; top:13px; left:-50%; width:100%; height:2px; background:var(--c-line-strong); z-index:0; }
+  .track li:first-child::before{ display:none; }
+  .track .dot{ width:28px; height:28px; border-radius:50%; margin:0 auto 5px; border:2px solid var(--c-line-strong); background:#fff; position:relative; z-index:1; display:flex; align-items:center; justify-content:center; font-size:13px; color:transparent; }
+  .track li.done{ color:var(--c-ok); }
+  .track li.done::before, .track li.now::before{ background:var(--c-ok); }
+  .track li.done .dot{ background:var(--c-ok); border-color:var(--c-ok); color:#fff; }
+  .track li.now{ color:var(--c-text); }
+  .track li.now .dot{ border-color:var(--c-accent); box-shadow:0 0 0 4px rgba(200,16,46,.14); }
+  .track li.now .dot::after{ content:""; width:8px; height:8px; border-radius:50%; background:var(--c-accent); }
+
+  .pair{ display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:18px; align-items:start; margin-bottom:18px; }
+  .pair.even{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+  .side-card{ background:#fff; border:1px solid var(--c-line); border-radius:var(--r-lg); box-shadow:var(--shadow-1); padding:16px 18px; margin-bottom:0; }
+  .side-card h3{ margin:0 0 12px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--c-muted); }
+  .side-card p.hint{ margin:0 0 10px; font-size:12.5px; color:var(--c-muted); }
   .finds{ list-style:none; margin:0; padding:0; }
-  .finds li{ display:grid; grid-template-columns:22px 1fr; gap:8px; padding:9px 0; border-top:1px solid var(--rule); font-size:13.5px; }
-  .finds li:first-child{ border-top:0; }
-  .finds .dot{ width:12px; height:12px; border-radius:50%; margin-top:5px; background:#cfc8b6; }
-  .finds .review .dot{ background:var(--bad); }
-  .finds .note .dot{ background:#d6a01c; }
-  .finds .t{ font-weight:700; }
-  .finds .dd{ color:var(--muted); font-size:13px; margin-top:1px; }
-  .okline{ color:var(--ok); font-weight:700; }
-  tfoot td{ font-weight:700; border-bottom:0; }
-  .empty{ color:var(--muted); padding:14px 2px; }
-  .form{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px 12px; }
-  .form label{ display:block; font-size:12.5px; font-weight:700; margin:0 0 4px; }
-  .form input, .form select{ width:100%; }
-  .form .wide{ grid-column:span 2; }
-  .msg{ margin:10px 0 0; font-size:13.5px; min-height:1.2em; }
-  .msg.err{ color:var(--bad); }
-  .msg.ok{ color:var(--ok); font-weight:700; }
-  .actions{ display:flex; gap:8px; flex-wrap:wrap; margin-left:auto; }
+  .finds li{ display:grid; grid-template-columns:24px 1fr; gap:9px; padding:10px 0; border-top:1px solid var(--c-line); font-size:13px; }
+  .finds li:first-child{ border-top:0; padding-top:0; }
+  .finds .ic{ width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; background:var(--c-soft); color:var(--c-muted); }
+  .finds .review .ic{ background:var(--c-accent-wash); color:var(--c-accent-dark); }
+  .finds .note .ic{ background:var(--c-warn-wash); color:var(--c-warn); }
+  .finds .t{ font-weight:700; line-height:1.3; }
+  .finds .dd{ color:var(--c-muted); font-size:12.5px; margin-top:2px; }
+  .allgood{ display:flex; gap:10px; align-items:center; font-size:13.5px; font-weight:600; color:var(--c-ok); }
+  .allgood .ic{ width:26px; height:26px; border-radius:50%; background:var(--c-ok-wash); display:flex; align-items:center; justify-content:center; }
+  .tl{ list-style:none; margin:0; padding:0; font-size:13px; }
+  .tl li{ position:relative; padding:0 0 14px 20px; }
+  .tl li:last-child{ padding-bottom:0; }
+  .tl li::before{ content:""; position:absolute; left:4px; top:5px; width:9px; height:9px; border-radius:50%; background:var(--c-ok); }
+  .tl li::after{ content:""; position:absolute; left:8px; top:15px; bottom:-1px; width:1px; background:var(--c-line-strong); }
+  .tl li:last-child::after{ display:none; }
+  .tl li.ret::before{ background:var(--c-accent); }
+  .tl .w{ font-weight:700; }
+  .tl .who, .tl .nt{ color:var(--c-muted); font-size:12.5px; }
+  .tl a{ color:var(--c-accent-dark); font-weight:600; font-size:12.5px; }
+  .tl .none{ color:var(--c-muted); }
+
+  .nextbox{ margin-top:14px; padding-top:14px; border-top:1px solid var(--c-line); }
+  .nextbox input[type=text]{ width:100%; margin:0 0 10px; font-family:var(--ui-font); font-size:13.5px; padding:9px 12px; border:1px solid var(--c-line-strong); border-radius:var(--r-md); background:#fff; }
+  .nextbox input[type=text]:focus, .addform input:focus, .addform select:focus, .qitem input:focus{ outline:none; border-color:var(--c-accent); box-shadow:var(--ring); }
+  .lockednote{ background:var(--c-warn-wash); border:1px solid #ecd49a; color:#6b4a00; border-radius:var(--r-md); padding:10px 12px; font-size:13px; margin-bottom:12px; }
+
+  .say{ margin:10px 0 0; font-size:13px; min-height:0; }
+  .say:empty{ display:none; }
+  .say.err{ color:var(--c-accent-dark); font-weight:600; }
+  .say.ok{ color:var(--c-ok); font-weight:700; }
+
+  /* ---- Questions ---- */
+  .qitem{ padding:12px 0; border-top:1px solid var(--c-line); }
+  .qitem:first-of-type{ border-top:0; padding-top:0; }
+  .qitem .q{ color:var(--c-muted); font-size:13px; margin:3px 0 8px; }
+  .qitem .a{ display:flex; gap:8px; }
+  .qitem .a input{ flex:1; min-width:0; margin:0; font-family:var(--ui-font); font-size:13px; padding:8px 11px; border:1px solid var(--c-line-strong); border-radius:var(--r-md); }
+  .qitem .mm{ color:var(--c-muted); font-size:12.5px; margin-top:6px; }
+
+  /* ---- Roster ---- */
+  .rhead{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+  .rhead h3{ margin:0; font-size:15px; margin-right:auto; }
+  .tablewrap{ overflow-x:auto; }
+  .app-main table.pay{ min-width:0; width:100%; border:0; font-size:13px; }
+  .app-main table.pay th{ background:var(--c-soft); border:0; border-bottom:1px solid var(--c-line-strong); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--c-muted); padding:9px 10px; white-space:nowrap; }
+  .app-main table.pay td{ border:0; border-bottom:1px solid var(--c-line); padding:9px 10px; vertical-align:middle; white-space:nowrap; }
+  .app-main table.pay td.c, .app-main table.pay th.c{ text-align:center; }
+  .app-main table.pay td.num, .app-main table.pay th.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  .app-main table.pay td.nm{ white-space:normal; min-width:170px; font-weight:600; }
+  .app-main table.pay td small{ display:block; color:var(--c-muted); font-size:12px; font-weight:400; }
+  .app-main table.pay tfoot td{ font-weight:700; background:var(--c-soft); border-bottom:0; }
+  .cell{ display:inline-flex; align-items:center; justify-content:center; min-width:28px; height:24px; padding:0 7px; border-radius:7px; font-size:12px; font-weight:700; }
+  .cell.SIGNED{ background:var(--c-ok-wash); color:var(--c-ok); }
+  .cell.OPEN{ background:var(--c-warn-wash); color:var(--c-warn); }
+  .cell.UPCOMING{ color:var(--c-faint); }
+  .cell.ABSENT{ background:var(--c-accent-wash); color:var(--c-accent-dark); }
+  .key{ font-size:12.5px; color:var(--c-muted); margin:10px 2px 0; }
+  .empty-roster{ text-align:center; padding:30px 10px; color:var(--c-muted); border:1px dashed var(--c-line-strong); border-radius:var(--r-lg); }
+
+  /* ---- Add a person / signing link ---- */
+  .addform{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px 12px; }
+  .addform label{ display:block; font-size:12.5px; font-weight:700; margin:0 0 4px; }
+  .addform input, .addform select{ width:100%; margin:0; font-family:var(--ui-font); font-size:13.5px; padding:9px 11px; border:1px solid var(--c-line-strong); border-radius:var(--r-md); background:#fff; color:var(--c-text); }
+  .addform .wide{ grid-column:1 / -1; }
+  .linkrow{ display:flex; gap:8px; }
+  .linkrow input{ flex:1; min-width:0; margin:0; font-family:var(--ui-font); font-size:13px; padding:9px 11px; border:1px solid var(--c-line-strong); border-radius:var(--r-md); background:var(--c-soft); }
+  .qrbox{ display:flex; gap:16px; align-items:center; margin-top:14px; }
+  .qr{ width:132px; height:132px; background:#fff; border:1px solid var(--c-line); border-radius:var(--r-md); padding:5px; flex:none; }
+  .qrbox p{ margin:0; font-size:12.5px; color:var(--c-muted); }
+  .days{ display:flex; gap:7px; flex-wrap:wrap; margin-top:6px; }
+  .day{ border:1px solid var(--c-line); border-radius:var(--r-md); padding:6px 10px; background:#fff; font-size:12.5px; }
+  .day b{ display:block; font-size:11.5px; color:var(--c-muted); font-weight:700; }
+  .sub-h{ margin:16px 0 4px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--c-muted); font-weight:700; }
+
+  .loading-card{ background:#fff; border:1px solid var(--c-line); border-radius:var(--r-lg); padding:26px; color:var(--c-muted); }
   [hidden]{ display:none !important; }
+
+  /* ---- Preview of the paper sheet ---- */
+  dialog#previewDlg{ border:0; padding:0; border-radius:var(--r-lg); width:min(1180px, 94vw); max-height:92vh; box-shadow:0 24px 70px rgba(10,14,24,.45); overflow:hidden; background:#e6e8ee; }
+  dialog#previewDlg::backdrop{ background:rgba(16,20,30,.55); }
+  .pv-head{ display:flex; align-items:center; gap:10px; padding:12px 16px; background:#fff; border-bottom:1px solid var(--c-line); }
+  .pv-head strong{ margin-right:auto; font-size:14px; }
+  .pv-body{ overflow:auto; max-height:calc(92vh - 62px); padding:22px 0 26px; display:flex; flex-direction:column; align-items:center; gap:20px; }
+  .pv-body .sheet-page{ box-shadow:0 2px 14px rgba(20,24,34,.22); }
+
+  /* ---- The paper payment form: A4 landscape, nine days to a page ---- */
   #printArea{ display:none; }
+  @page{ size:A4 landscape; margin:8mm; }
+  .sheet-page{ width:281mm; min-height:192mm; background:#fff; color:#000; font-family:Arial, Helvetica, sans-serif; padding:6mm 7mm 0; box-sizing:border-box; display:flex; flex-direction:column; }
+  .sheet-page .lh{ display:flex; justify-content:space-between; align-items:flex-start; gap:20px; }
+  .sheet-page .lh .addr{ font-size:10.5px; line-height:1.4; max-width:62%; }
+  .sheet-page .lh .addr strong{ display:block; font-size:13px; letter-spacing:.01em; margin-bottom:1px; }
+  .sheet-page .lh img{ height:58px; max-width:150px; object-fit:contain; }
+  .sheet-page h3.ttl{ text-align:center; margin:6px 0 8px; font-size:16px; letter-spacing:.14em; text-decoration:underline; text-underline-offset:3px; font-weight:700; }
+  .sheet-page table{ width:100%; min-width:0; border-collapse:collapse; border:1.2px solid #000; table-layout:fixed; }
+  .sheet-page th, .sheet-page td{ border:1px solid #000; padding:3px 6px; font-size:10.5px; color:#000; vertical-align:middle; white-space:normal; text-transform:none; letter-spacing:0; line-height:1.25; }
+  .sheet-page th{ background:#d9d9d9; font-weight:700; text-align:center; font-size:10.5px; }
+  .sheet-page table.hdr td{ font-size:11px; padding:4px 7px; height:7mm; }
+  .sheet-page table.hdr td.k{ font-weight:700; width:15%; background:#fff; }
+  .sheet-page td.sno{ text-align:center; }
+  .sheet-page td.sig{ height:9.4mm; padding:1px; text-align:center; }
+  .sheet-page td.sig img{ max-width:96%; max-height:8.4mm; }
+  .sheet-page .xout{ background:linear-gradient(to top right, transparent calc(50% - .7px), #000 50%, transparent calc(50% + .7px)); }
+  .sheet-page td.nm, .sheet-page td.og{ font-size:10.5px; }
+  .sheet-page .dayhead small{ display:block; font-weight:400; font-size:8px; line-height:1.15; }
+  .sheet-page .signoff{ display:flex; gap:22px; align-items:flex-end; margin-top:10px; font-size:10px; }
+  .sheet-page .signoff .blk{ flex:1; border-top:1px solid #000; padding-top:3px; margin-top:20px; }
+  .sheet-page .signoff .blk small{ display:block; color:#333; font-size:9px; }
+  .sheet-page .seal{ display:flex; align-items:center; gap:8px; font-size:9px; max-width:62mm; }
+  .sheet-page .seal img{ width:15mm; height:15mm; }
+  .sheet-page .gen{ margin-top:6px; font-size:8.5px; color:#444; }
+  .sheet-page .band{ margin:auto -7mm 0; padding:7px 12px; background:var(--paper-accent, #c8102e); color:#fff; text-align:center; font-size:11.5px; font-weight:700; letter-spacing:.01em; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .sheet-page .band.plain{ background:none; padding:0; border-top:2px solid var(--paper-accent, #c8102e); margin-top:auto; }
+  .sheet-page .gap{ flex:1; min-height:4mm; }
+  .sheet-page th, .sheet-page .xout, .sheet-page .band{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 
-  @media (max-width: 760px){
-    .grid{ grid-template-columns:1fr; }
-    .form{ grid-template-columns:1fr 1fr; }
-  }
-
-  /* ---- The printed payment sheet: the paper form, one page per nine days ---- */
-  @page{ size:A4 landscape; margin:10mm; }
   @media print{
-    body{ background:#fff; font-size:11px; }
-    .wrap{ display:none !important; }
+    html, body{ background:#fff !important; }
+    .app-shell, dialog, .nav-scrim{ display:none !important; }
     #printArea{ display:block; }
-    .sheet-page{ page-break-after:always; break-after:page; }
-    .sheet-page:last-child{ page-break-after:auto; break-after:auto; }
+    #printArea .sheet-page{ page-break-after:always; break-after:page; box-shadow:none; }
+    #printArea .sheet-page:last-child{ page-break-after:auto; break-after:auto; }
   }
-  .sheet-page{ color:#000; font-family:Arial, Helvetica, sans-serif; }
-  .sheet-page .lh{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
-  .sheet-page .lh img{ height:34px; }
-  .sheet-page .lh strong{ font-size:15px; }
-  .sheet-page .lh .lhaddr{ margin-left:auto; font-size:9.5px; color:#333; text-align:right; max-width:50%; }
-  .sheet-page h3{ text-align:center; margin:2px 0 6px; font-size:15px; letter-spacing:.06em; }
-  .sheet-page table{ border:1px solid #000; }
-  .sheet-page th, .sheet-page td{ border:1px solid #000; padding:3px 5px; font-size:10.5px; white-space:normal; color:#000; text-transform:none; letter-spacing:0; }
-  .sheet-page th{ background:#e4e4e4; font-weight:700; text-align:center; }
-  .sheet-page .hdr td{ font-size:11px; }
-  .sheet-page .hdr td.k{ font-weight:700; width:15%; }
-  .sheet-page .sigcell{ height:34px; width:62px; text-align:center; padding:1px; }
-  .sheet-page .sigcell img{ max-width:58px; max-height:30px; }
-  .sheet-page .sigcell.ABSENT{ background:linear-gradient(to top right, transparent calc(50% - .6px), #000 50%, transparent calc(50% + .6px)); }
-  .sheet-page .dayhead small{ display:block; font-weight:400; font-size:8.5px; }
-  .sheet-page .foot{ display:flex; justify-content:space-between; gap:20px; margin-top:10px; font-size:10.5px; }
-  .sheet-page .foot div{ flex:1; border-top:1px solid #000; padding-top:3px; margin-top:22px; }
-  .sheet-page .seal{ display:flex; align-items:center; gap:8px; margin-top:8px; font-size:10px; }
-  .sheet-page .seal img{ width:58px; height:58px; }
-  .sheet-page .gen{ margin-top:8px; font-size:9px; color:#444; }
 </style>
-</head>
-<body>
-<div class="wrap">
-  <div class="top">
-    <a class="back" href="admin.html#events">&larr; Events</a>
+
+<div class="app-shell">
+  <div class="mobilebar">
+    <button type="button" id="navToggle" aria-label="Open menu" aria-expanded="false">&#9776;</button>
+    <strong>Payment sheet</strong>
   </div>
+  <div class="nav-scrim" id="navScrim"></div>
 
-  <div id="loading" class="card"><p class="empty" style="margin:0;">Loading…</p></div>
-
-  <div id="page" hidden>
-    <div class="top" style="align-items:flex-start;">
-      <div>
-        <h1 id="title"></h1>
-        <p class="meta" id="authLine"></p>
-      </div>
-      <div class="actions">
-        <button type="button" id="printBtn">Print payment sheet</button>
-        <button type="button" id="csvBtn">Download payment schedule (CSV)</button>
-      </div>
+  <aside class="sidenav" id="sidenav" aria-label="Payment sheet menu">
+    <div class="side-brand">
+      <img src="assets/icta_logo_cropped.png" alt="" width="30" height="30">
+      <div><strong id="brandTopbarTitle">ICT Authority : Payment sheet</strong></div>
     </div>
+    <div class="side-user">
+      <span class="avatar" id="userAvatar">A</span>
+      <div><div class="who-email" id="whoEmail"></div><div class="who-county" id="whoRole"></div></div>
+    </div>
+    <div class="view-size" role="group" aria-label="Page size">
+      <span class="view-size-label">Size</span>
+      <button type="button" id="sizeDown" aria-label="Make everything smaller" title="Smaller">A&minus;</button>
+      <button type="button" id="sizeAuto" class="auto" title="Sized automatically to fit the screen">Auto</button>
+      <button type="button" id="sizeUp" aria-label="Make everything larger" title="Larger">A+</button>
+    </div>
+    <nav>
+      <div class="nav-group">This sheet</div>
+      <a class="nav-item" href="#" data-go="secNext"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v4l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/></svg><span>Approval</span></a>
+      <a class="nav-item" href="#" data-go="secPeople"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 20c0-3 3-5 6-5s6 2 6 5M14 15c1-.4 1.9-.5 2-.5 3 0 6 2 6 5.5"/></svg><span>People and pay</span><span class="badge-count" id="navPeople" hidden></span></a>
+      <a class="nav-item" href="#" data-go="secQueries" id="navQ" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg><span>Questions</span><span class="badge-count hot" id="navQN" hidden></span></a>
+      <a class="nav-item" href="#" data-go="secAdd" id="navAdd"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add a person</span></a>
+      <a class="nav-item" href="#" data-go="secLink"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span>Signing link</span></a>
+      <div class="nav-group">Go to</div>
+      <a class="nav-item" href="admin.html#events"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span>Back to events</span></a>
+    </nav>
+    <button type="button" id="logoutBtn" class="side-logout">Log out</button>
+  </aside>
 
-    <div class="card" id="stageCard">
-      <h2>Approval</h2>
-      <ol class="steps" id="steps"></ol>
-      <ul class="timeline" id="timeline"></ul>
-      <div id="submitBox" hidden style="margin-top:12px;">
-        <p class="meta" style="margin:0 0 8px;" id="submitHelp"></p>
-        <div class="linkrow" id="submitReasonRow" hidden>
-          <input type="text" id="submitNote" maxlength="300" placeholder="Why is the sheet being sent before every day has closed?" aria-label="Reason for sending early">
+  <main class="app-main" id="adminContent">
+    <h1 class="view-title">Payment sheet</h1>
+
+    <div id="loading" class="loading-card">Loading…</div>
+
+    <div id="page" hidden>
+      <div class="sheet wide">
+        <div class="headcard">
+          <div>
+            <h2 class="nm" id="title"></h2>
+            <div class="chips" id="chips"></div>
+          </div>
+          <ol class="track" id="track"></ol>
         </div>
-        <div style="margin-top:10px;"><button type="button" class="primary" id="submitBtn">Send for certification</button></div>
-        <p class="msg" id="submitMsg" role="status" aria-live="polite"></p>
       </div>
-    </div>
 
-    <div class="card" id="checksCard">
-      <h2>Automatic checks</h2>
-      <p class="meta" style="margin:0 0 8px;">Looked at before you send the sheet, and again by the approvers. Items marked “Look at this” need an explanation if they are right.</p>
-      <div id="checksWrap"></div>
-    </div>
+      <div class="tiles" id="tiles"></div>
 
-    <div class="card" id="queriesCard" hidden>
-      <h2>Questions from the people on this sheet</h2>
-      <div id="queriesWrap"></div>
-    </div>
+      <div class="pair" id="secNext">
+        <div class="side-card"><h3>Automatic checks</h3><p class="hint">Looked at before you send the sheet, and again by the approvers. Items marked for review need an explanation if they are right.</p><div id="checksWrap"></div></div>
+        <div class="side-card">
+          <h3>Where it stands</h3>
+          <ul class="tl" id="timeline"></ul>
+          <div class="nextbox" id="submitBox" hidden>
+            <p class="hint" id="submitHelp" style="margin:0 0 10px;"></p>
+            <input type="text" id="submitNote" maxlength="300" placeholder="Why is the sheet being sent before every day has closed?" aria-label="Reason for sending early" hidden>
+            <button type="button" class="btn pri" id="submitBtn">Send for certification</button>
+            <p class="say" id="submitMsg" role="status" aria-live="polite"></p>
+          </div>
+        </div>
+      </div>
 
-    <div class="card">
-      <div class="grid">
-        <div>
-          <h2>Signing link for the people on this sheet</h2>
+      <div class="sheet wide" id="queriesCard" hidden style="padding:18px 20px;">
+        <h2 class="section" id="secQueries">Questions from the people on this sheet</h2>
+        <div id="queriesWrap"></div>
+      </div>
+
+      <div class="sheet wide" style="padding:18px 20px;" id="secPeople">
+        <div class="rhead">
+          <h3>People, days and pay</h3>
+          <button type="button" class="btn" id="previewBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>Preview the paper sheet</button>
+          <button type="button" class="btn pri" id="printBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2M6 14h12v7H6z"/></svg>Print</button>
+          <button type="button" class="btn" id="csvBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg>Payment schedule (CSV)</button>
+        </div>
+        <div class="lockednote" id="lockedNote" hidden></div>
+        <div class="tablewrap" id="rosterWrap"></div>
+      </div>
+
+      <div class="pair even" style="margin-top:18px;">
+        <div class="side-card" id="addCard">
+          <h3 id="secAdd">Add a person</h3>
+          <div class="addform">
+            <div><label for="fType">They are</label>
+              <select id="fType"><option value="STAFF">Staff</option><option value="EXTERNAL">External invitee</option></select></div>
+            <div><label for="fRole">Role on this engagement</label><input type="text" id="fRole" maxlength="60" autocomplete="off" placeholder="e.g. Driver"></div>
+            <div class="wide"><label for="fName">Full name</label><input type="text" id="fName" maxlength="120" autocomplete="off"></div>
+            <div><label for="fId" id="fIdLabel">Staff number</label><input type="text" id="fId" maxlength="30" autocomplete="off"></div>
+            <div><label for="fPhone">Phone (they sign with it)</label><input type="tel" id="fPhone" inputmode="tel" autocomplete="off"></div>
+            <div class="wide" id="fOrgBox" hidden><label for="fOrg">Organisation</label><input type="text" id="fOrg" maxlength="120" autocomplete="off" placeholder="e.g. Ministry of Education"></div>
+            <div><label for="fRate">Rate per day (KES)</label><input type="number" id="fRate" min="0" step="1" inputmode="numeric"></div>
+            <div></div>
+            <div class="wide" id="fReasonBox" hidden><label for="fReason">Why is this person being added now?</label><input type="text" id="fReason" maxlength="300" autocomplete="off" placeholder="The engagement has already started"></div>
+          </div>
+          <div style="margin-top:14px;"><button type="button" class="btn pri" id="addBtn">Add to the sheet</button></div>
+          <p class="hint" style="margin:10px 0 0; font-size:12.5px; color:var(--c-muted);">Rates are set by you for each person. Nothing is calculated from a table.</p>
+          <p class="say" id="addMsg" role="status" aria-live="polite"></p>
+        </div>
+
+        <div class="side-card" id="secLink">
+          <h3>Signing link</h3>
           <div class="linkrow">
             <input type="text" id="signLink" readonly aria-label="Signing link">
-            <button type="button" id="copyBtn">Copy</button>
+            <button type="button" class="btn" id="copyBtn">Copy</button>
           </div>
-          <p class="meta" style="margin-top:8px;">Each person opens this link on their own phone, types the number they were registered with and signs for the day. Only people on the list can sign.</p>
-          <h2 style="margin-top:16px;">Days</h2>
+          <div class="qrbox">
+            <img class="qr" id="qr" alt="QR code for the signing link" width="132" height="132">
+            <p>Each person opens this link on their own phone, types the number they were registered with and signs for the day. Only people on the list can sign. Show the code at the venue.</p>
+          </div>
+          <div class="sub-h">Days</div>
           <div class="days" id="days"></div>
         </div>
-        <div>
-          <img class="qr" id="qr" alt="QR code for the signing link" width="180" height="180">
-          <p class="qrnote">Show this at the venue.</p>
-        </div>
       </div>
     </div>
 
-    <div class="card">
-      <h2>People on this sheet</h2>
-      <div class="lockednote" id="lockedNote" hidden></div>
-      <div class="tablewrap" id="rosterWrap"></div>
-    </div>
-
-    <div class="card" id="addCard">
-      <h2>Add a person</h2>
-      <div class="form">
-        <div><label for="fType">They are</label>
-          <select id="fType"><option value="STAFF">ICTA staff</option><option value="EXTERNAL">External invitee</option></select></div>
-        <div class="wide"><label for="fName">Full name</label><input type="text" id="fName" maxlength="120" autocomplete="off"></div>
-        <div><label for="fId" id="fIdLabel">Staff number</label><input type="text" id="fId" maxlength="30" autocomplete="off"></div>
-        <div><label for="fPhone">Phone (they sign with it)</label><input type="tel" id="fPhone" inputmode="tel" autocomplete="off"></div>
-        <div id="fOrgBox" hidden><label for="fOrg">Organisation</label><input type="text" id="fOrg" maxlength="120" autocomplete="off" placeholder="e.g. Ministry of Education"></div>
-        <div><label for="fRole">Role on this engagement</label><input type="text" id="fRole" maxlength="60" autocomplete="off" placeholder="e.g. Driver"></div>
-        <div><label for="fRate">Rate per day (KES)</label><input type="number" id="fRate" min="0" step="1" inputmode="numeric"></div>
-        <div class="wide" id="fReasonBox" hidden><label for="fReason">Why is this person being added now?</label><input type="text" id="fReason" maxlength="300" autocomplete="off" placeholder="The engagement has already started"></div>
-      </div>
-      <div style="margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-        <button type="button" class="primary" id="addBtn">Add to the sheet</button>
-        <span class="meta" style="margin:0;">Rates are set by you for each person. Nothing is calculated from a table.</span>
-      </div>
-      <p class="msg" id="addMsg" role="status" aria-live="polite"></p>
-    </div>
-  </div>
+    <p class="footer-note">© 2026 Asya Hafidh. All rights reserved.</p>
+  </main>
 </div>
+
+<dialog id="previewDlg" aria-label="Preview of the paper payment sheet">
+  <div class="pv-head">
+    <strong>The paper sheet, as it prints</strong>
+    <button type="button" class="btn pri" id="pvPrint">Print</button>
+    <button type="button" class="btn" id="pvClose">Close</button>
+  </div>
+  <div class="pv-body" id="pvBody"></div>
+</dialog>
 
 <div id="printArea" aria-hidden="true"></div>
 
 <script src="assets/api.js"></script>
 <script>
 (function(){
+  applyTopbarBranding('Payment sheet');
   var $ = function(id){ return document.getElementById(id); };
   var eventId = new URLSearchParams(location.search).get('event') || '';
-  var roll = null, orgName = 'ICT Authority', orgLogo = 'assets/icta_logo_cropped.png', orgAddress = [];
+  var roll = null, printData = null, openQueries = 0;
+  var brand = { orgName: 'ICT Authority', logo: 'assets/icta_logo_cropped.png', address: [], phone: '', website: '', footerLine: '', accent: '#c8102e' };
 
   function el(tag, cls, text){ var n = document.createElement(tag); if(cls) n.className = cls; if(text != null) n.textContent = text; return n; }
   function money(n){ return 'KES ' + Number(n || 0).toLocaleString('en-KE'); }
+  function plural(n, one, many){ return n + ' ' + (n === 1 ? one : (many || one + 's')); }
   function tz(){ return roll.event.timezone; }
   function fmt(iso, opts){ return new Intl.DateTimeFormat('en-GB', Object.assign({ timeZone: tz() }, opts)).format(new Date(iso)); }
   function shortDate(iso){ return fmt(iso, { day: 'numeric', month: 'short' }); }
   function longDate(iso){ return fmt(iso, { day: 'numeric', month: 'long', year: 'numeric' }); }
-  function say(id, text, cls){ var n = $(id); n.textContent = text || ''; n.className = 'msg' + (cls ? ' ' + cls : ''); }
+  function clock(iso){ return fmt(iso, { hour: '2-digit', minute: '2-digit', hour12: false }); }
+  function say(id, text, cls){ var n = $(id); n.textContent = text || ''; n.className = 'say' + (cls ? ' ' + cls : ''); }
 
   API.get('/api/branding').then(function(r){
     if(r.status !== 200 || !r.data || !r.data.orgName) return;
-    orgName = r.data.orgName; orgLogo = r.data.logoUrl || orgLogo; orgAddress = r.data.addressLines || [];
+    var d = r.data;
+    brand.orgName = d.orgName; brand.logo = d.logoUrl || brand.logo; brand.address = d.addressLines || [];
+    brand.phone = d.phone || ''; brand.website = d.website || ''; brand.footerLine = d.footerLine || ''; brand.accent = d.accent || brand.accent;
   }).catch(function(){});
 
   function requireSession(){
     return API.get('/api/auth/me').then(function(r){
       if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return null; }
-      if(r.data.user.role !== 'COUNTY_ADMIN'){ location.href = homeFor(r.data.user.role); return null; }
-      return r.data.user;
+      var u = r.data.user;
+      if(u.role !== 'COUNTY_ADMIN'){ location.href = homeFor(u.role); return null; }
+      $('whoEmail').textContent = u.email; $('whoEmail').title = u.email;
+      $('userAvatar').textContent = (u.email || 'A').charAt(0).toUpperCase();
+      $('whoRole').textContent = 'Payment preparer' + (u.department && u.department.name ? ' · ' + u.department.name : '');
+      return u;
     });
   }
 
   function load(){
     return API.get('/api/admin/events/' + encodeURIComponent(eventId) + '/duty').then(function(r){
       if(r.status !== 200 || !r.data.ok){
-        $('loading').innerHTML = '';
-        $('loading').appendChild(el('p', 'empty', 'This payment sheet could not be found, or your account does not have access to it.'));
+        $('loading').textContent = 'This payment sheet could not be found, or your account does not have access to it.';
         return;
       }
       roll = r.data; render();
-    }).catch(function(){ $('loading').innerHTML = '<p class="empty">No connection. Reload to try again.</p>'; });
+    }).catch(function(){ $('loading').textContent = 'No connection. Reload to try again.'; });
   }
+
+  function chip(label, value){ var c = el('span', 'chip', label + ' '); c.appendChild(el('b', null, value)); return c; }
 
   function render(){
     $('loading').hidden = true; $('page').hidden = false;
     document.title = roll.event.name + ' · Payment sheet';
     $('title').textContent = roll.event.name;
-    $('authLine').textContent = 'Authorised by ' + roll.event.authorisedBy + ' · Reference ' + roll.event.authorityRef;
+    var chips = $('chips'); chips.textContent = '';
+    chips.appendChild(chip('Authorised by', roll.event.authorisedBy));
+    chips.appendChild(chip('Reference', roll.event.authorityRef));
+    var first = roll.days[0], last = roll.days[roll.days.length - 1];
+    if(first) chips.appendChild(chip('When', shortDate(first.startAt) + (roll.days.length > 1 ? ' to ' + shortDate(last.startAt) : '')));
     var link = location.href.replace(/duty-roll\.html.*$/, 'duty-sign.html') + '?event=' + encodeURIComponent(roll.event.slug);
     $('signLink').value = link;
     $('qr').src = '/api/admin/events/' + encodeURIComponent(roll.event.id) + '/qr';
@@ -272,24 +391,36 @@
       var box = el('div', 'day'); box.appendChild(el('b', null, 'Day ' + d.position + ' · ' + shortDate(d.startAt)));
       box.appendChild(document.createTextNode(d.place || '')); days.appendChild(box);
     });
-    renderRoster();
     renderStage();
+    renderTiles();
     renderFindings(roll.findings, $('checksWrap'));
     loadQueries();
   }
+
+  function renderTiles(){
+    var t = roll.totals, tiles = $('tiles'); tiles.textContent = '';
+    function tile(l, v, s, hot){ var d = el('div', 'tile' + (hot ? ' hot' : '')); d.appendChild(el('div', 'l', l)); d.appendChild(el('div', 'v', v)); d.appendChild(el('div', 's', s)); tiles.appendChild(d); }
+    tile('People', String(t.people), roll.days.length === 1 ? 'on a one-day sheet' : 'across ' + roll.days.length + ' days');
+    tile('Days signed', String(t.daysSigned), 'signatures counted for pay');
+    tile('Total to pay', money(t.amount), 'rate × days signed');
+    tile('Questions', String(openQueries), openQueries ? 'waiting for your answer' : 'nothing waiting', openQueries > 0);
+  }
+
   function renderFindings(list, target){
     target.textContent = '';
-    if(!list || !list.length){ target.appendChild(el('p', 'okline', 'Nothing was flagged.')); return; }
+    if(!list || !list.length){
+      var ok = el('div', 'allgood'); var ic = el('span', 'ic'); ic.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>';
+      ok.appendChild(ic); ok.appendChild(el('span', null, 'Nothing was flagged.')); target.appendChild(ok); return;
+    }
     var ul = el('ul', 'finds');
     list.forEach(function(f){
       var li = el('li', f.severity);
-      li.appendChild(el('span', 'dot'));
-      var body = el('div'); body.appendChild(el('div', 't', (f.severity === 'review' ? 'Look at this: ' : '') + f.title)); body.appendChild(el('div', 'dd', f.detail));
+      li.appendChild(el('span', 'ic', f.severity === 'review' ? '!' : 'i'));
+      var body = el('div'); body.appendChild(el('div', 't', f.title)); body.appendChild(el('div', 'dd', f.detail));
       li.appendChild(body); ul.appendChild(li);
     });
     target.appendChild(ul);
   }
-
 
   var STEPS = [['OPEN', 'Collecting signatures'], ['SUBMITTED', 'Authorising officer'], ['CERTIFIED', 'Certified'], ['VERIFIED', 'Verified by finance']];
   var STEP_WORD = { SUBMITTED: 'Submitted', CERTIFIED: 'Certified', VERIFIED: 'Verified', RETURNED: 'Returned' };
@@ -297,32 +428,38 @@
 
   function renderStage(){
     var idx = STEPS.map(function(s){ return s[0]; }).indexOf(roll.stage);
-    var ol = $('steps'); ol.textContent = '';
-    STEPS.forEach(function(s, i){ ol.appendChild(el('li', i < idx ? 'done' : (i === idx ? 'now' : ''), (i < idx ? '\u2713 ' : '') + s[1])); });
+    var ol = $('track'); ol.textContent = '';
+    STEPS.forEach(function(s, i){
+      var li = el('li', i < idx ? 'done' : (i === idx ? 'now' : ''));
+      li.appendChild(el('span', 'dot', i < idx ? '✓' : ''));
+      li.appendChild(document.createTextNode(s[1])); ol.appendChild(li);
+    });
     var tl = $('timeline'); tl.textContent = '';
-    (roll.approvals || []).forEach(function(a){
-      var li = el('li');
-      var head = el('span', a.step === 'RETURNED' ? 'ret' : null, STEP_WORD[a.step] || a.step);
-      li.appendChild(head);
-      li.appendChild(el('span', 'who', ' by ' + a.by + ' · ' + new Date(a.at).toLocaleString('en-GB', { timeZone: tz() })));
-      if(a.note) li.appendChild(el('div', 'who', '\u201c' + a.note + '\u201d'));
-      if(a.sealCode){ var v = el('a', null, ' Check seal ' + a.sealCode); v.href = 'verify.html?code=' + encodeURIComponent(a.sealCode); v.target = '_blank'; v.rel = 'noopener'; li.appendChild(v); }
+    var approvals = roll.approvals || [];
+    if(!approvals.length) tl.appendChild(el('li', 'none', 'Nothing has been sent yet. People can sign while the sheet is open.'));
+    approvals.forEach(function(a){
+      var li = el('li', a.step === 'RETURNED' ? 'ret' : '');
+      li.appendChild(el('div', 'w', STEP_WORD[a.step] || a.step));
+      li.appendChild(el('div', 'who', a.by + ' · ' + new Date(a.at).toLocaleString('en-GB', { timeZone: tz(), day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })));
+      if(a.note) li.appendChild(el('div', 'nt', '“' + a.note + '”'));
+      if(a.sealCode){ var v = el('a', null, 'Check seal ' + a.sealCode); v.href = 'verify.html?code=' + encodeURIComponent(a.sealCode); v.target = '_blank'; v.rel = 'noopener'; li.appendChild(v); }
       tl.appendChild(li);
     });
     var open = !locked();
     $('submitBox').hidden = !open;
-    $('addCard').hidden = !open;
+    $('addCard').hidden = !open; $('navAdd').hidden = !open;
     var note = $('lockedNote');
     note.hidden = open;
     if(!open) note.textContent = 'This sheet is ' + (roll.stageLabel || '').toLowerCase() + ', so it can no longer be changed. If something is wrong, the authorising officer or finance can return it to you.';
     if(open){
-      var last = roll.days[roll.days.length - 1];
-      var finished = last && Date.now() > new Date(last.endAt).getTime() + 2 * 3600 * 1000;
-      $('submitReasonRow').hidden = finished;
+      var lastDay = roll.days[roll.days.length - 1];
+      var finished = lastDay && Date.now() > new Date(lastDay.endAt).getTime() + 2 * 3600 * 1000;
+      $('submitNote').hidden = finished;
       $('submitHelp').textContent = finished
         ? 'Every day has closed. When the roll is right, send it to the authorising officer. You will not be able to change it afterwards.'
         : 'Not every day has closed yet. You can still send it now, but you must say why.';
     }
+    var pn = $('navPeople'); pn.hidden = !roll.totals.people; pn.textContent = String(roll.totals.people);
     renderRoster();
   }
 
@@ -342,15 +479,18 @@
     API.get('/api/admin/events/' + encodeURIComponent(eventId) + '/duty/queries').then(function(r){
       if(r.status !== 200 || !r.data.ok) return;
       var qs = r.data.queries, wrap = $('queriesWrap'); wrap.textContent = '';
-      $('queriesCard').hidden = !qs.length;
+      $('queriesCard').hidden = !qs.length; $('navQ').hidden = !qs.length;
+      openQueries = qs.filter(function(q){ return q.status !== 'RESOLVED'; }).length;
+      var qn = $('navQN'); qn.hidden = !openQueries; qn.textContent = String(openQueries);
+      renderTiles();
       qs.forEach(function(q){
         var box = el('div', 'qitem');
         box.appendChild(el('strong', null, q.name + ' · day ' + (q.day || '?')));
-        box.appendChild(el('div', 'q', '\u201c' + q.message + '\u201d'));
-        if(q.status === 'RESOLVED'){ box.appendChild(el('div', 'meta', 'Answered: ' + q.response)); }
+        box.appendChild(el('div', 'q', '“' + q.message + '”'));
+        if(q.status === 'RESOLVED'){ box.appendChild(el('div', 'mm', 'Answered: ' + q.response)); }
         else if(!locked()){
           var row = el('div', 'a'); var inp = el('input'); inp.type = 'text'; inp.maxLength = 300; inp.placeholder = 'Your answer, e.g. day reopened for signing'; inp.setAttribute('aria-label', 'Answer for ' + q.name);
-          var b = el('button', 'primary', 'Answer'); b.type = 'button';
+          var b = el('button', 'btn pri', 'Answer'); b.type = 'button';
           b.addEventListener('click', function(){
             API.post('/api/admin/events/' + encodeURIComponent(eventId) + '/duty/queries/' + encodeURIComponent(q.id) + '/resolve', { response: inp.value }).then(function(res){
               if(!res.data.ok){ window.alert(res.data.message || 'Could not save the answer.'); return; }
@@ -358,8 +498,8 @@
             }).catch(function(){ window.alert('No connection. Please try again.'); });
           });
           row.appendChild(inp); row.appendChild(b); box.appendChild(row);
-          box.appendChild(el('div', 'meta', 'If the person was right, reopen that day from Events, More, Reopen a day, so they can sign, then answer here.'));
-        } else box.appendChild(el('div', 'meta', 'Still open. Ask for the sheet to be returned to answer it.'));
+          box.appendChild(el('div', 'mm', 'If the person was right, reopen that day from Events, More, Reopen a day, so they can sign, then answer here.'));
+        } else box.appendChild(el('div', 'mm', 'Still open. Ask for the sheet to be returned to answer it.'));
         wrap.appendChild(box);
       });
     }).catch(function(){});
@@ -369,8 +509,8 @@
 
   function renderRoster(){
     var wrap = $('rosterWrap'); wrap.textContent = '';
-    if(!roll.rows.length){ wrap.appendChild(el('p', 'empty', 'Nobody is on this sheet yet. Add the people below. They will be able to sign once they are added.')); return; }
-    var t = document.createElement('table');
+    if(!roll.rows.length){ wrap.appendChild(el('div', 'empty-roster', 'Nobody is on this sheet yet. Add the people below. They will be able to sign once they are added.')); return; }
+    var t = document.createElement('table'); t.className = 'pay';
     var head = '<thead><tr><th class="c">No</th><th>Name</th><th>Role</th><th>Phone</th>';
     roll.days.forEach(function(d){ head += '<th class="c" title="' + escapeHtml(d.place || '') + '">Day ' + d.position + '</th>'; });
     head += '<th class="num">Rate</th><th class="num">Days</th><th class="num">Amount</th><th></th></tr></thead>';
@@ -379,7 +519,7 @@
     roll.rows.forEach(function(r, i){
       var tr = document.createElement('tr');
       tr.appendChild(el('td', 'c', String(i + 1)));
-      var nm = el('td', 'name', r.name);
+      var nm = el('td', 'nm', r.name);
       nm.appendChild(el('small', null, (r.payeeType === 'STAFF' ? 'Staff ' : 'ID ') + r.idNumber + (r.organisation && r.payeeType !== 'STAFF' ? ' · ' + r.organisation : '')));
       tr.appendChild(nm);
       tr.appendChild(el('td', null, r.jobRole || ''));
@@ -393,9 +533,9 @@
       tr.appendChild(el('td', 'num', Number(r.amount).toLocaleString('en-KE')));
       var act = el('td');
       if(!locked()){
-        var rate = el('button', 'link', 'Change rate'); rate.type = 'button'; rate.addEventListener('click', function(){ changeRate(r); }); act.appendChild(rate);
+        var rate = el('button', 'lnk', 'Change rate'); rate.type = 'button'; rate.addEventListener('click', function(){ changeRate(r); }); act.appendChild(rate);
       }
-      if(r.daysSigned === 0 && !locked()){ var rm = el('button', 'link danger', 'Remove'); rm.type = 'button'; rm.addEventListener('click', function(){ removePerson(r); }); act.appendChild(rm); }
+      if(r.daysSigned === 0 && !locked()){ var rm = el('button', 'lnk danger', 'Remove'); rm.type = 'button'; rm.addEventListener('click', function(){ removePerson(r); }); act.appendChild(rm); }
       tr.appendChild(act); tb.appendChild(tr);
     });
     t.appendChild(tb);
@@ -404,7 +544,7 @@
     tf.innerHTML = '<tr><td colspan="' + span + '">' + roll.totals.people + (roll.totals.people === 1 ? ' person' : ' people') + '</td><td></td><td class="num">' + roll.totals.daysSigned + '</td><td class="num">' + Number(roll.totals.amount).toLocaleString('en-KE') + '</td><td></td></tr>';
     t.appendChild(tf);
     wrap.appendChild(t);
-    wrap.appendChild(el('p', 'meta', '✓ signed · open = signing is open now · – not yet · ✕ the day closed without a signature. Amount = rate × days signed.'));
+    wrap.appendChild(el('p', 'key', '✓ signed · open = signing is open now · – not yet · ✕ the day closed without a signature. Amount = rate × days signed.'));
   }
 
   function changeRate(r){
@@ -446,7 +586,7 @@
     API.post('/api/admin/events/' + encodeURIComponent(eventId) + '/duty/payees', body).then(function(r){
       btn.disabled = false;
       if(r.data.ok){
-        say('addMsg', body.name.trim() + ' was added. They can sign from the link above.', 'ok');
+        say('addMsg', body.name.trim() + ' was added. They can sign from the link.', 'ok');
         ['fName', 'fId', 'fPhone', 'fOrg', 'fRole', 'fRate', 'fReason'].forEach(function(id){ $(id).value = ''; });
         $('fReasonBox').hidden = true;
         load();
@@ -467,99 +607,148 @@
     location.href = '/api/admin/events/' + encodeURIComponent(eventId) + '/duty/export.csv';
   });
 
-  // --- Print: the paper form, nine days to a page ---
-  function buildPrint(data){
-    var area = $('printArea'); area.textContent = '';
+  // --- The paper form: letterhead, ATTENDANCE SHEET, the fields, nine days to a page ---
+  function buildPrint(data, area){
+    area.textContent = '';
+    area.style.setProperty('--paper-accent', brand.accent);
     var days = data.days, rows = data.rows;
     var pages = [];
     for(var i = 0; i < days.length; i += 9) pages.push(days.slice(i, i + 9));
     var places = [];
     days.forEach(function(d){ if(d.place && places.indexOf(d.place) === -1) places.push(d.place); });
-    var dateRange = longDate(days[0].startAt) + (days.length > 1 ? ' to ' + longDate(days[days.length - 1].startAt) : '');
-    var origin = days.length;
+    var dateText = longDate(days[0].startAt) + (days.length > 1 ? ' to ' + longDate(days[days.length - 1].startAt) : '');
+    var spans = days.map(function(d){ return clock(d.startAt) + ' – ' + clock(d.endAt); });
+    var sameHours = spans.every(function(s){ return s === spans[0]; });
+    var timeText = sameHours ? spans[0] : 'See each day';
+    var ap = data.approvals || [];
+    function done(step){ return ap.filter(function(a){ return a.step === step; }).pop(); }
 
     pages.forEach(function(chunk, pi){
       var last = pi === pages.length - 1;
       var pg = el('section', 'sheet-page');
-      var lh = el('div', 'lh'); var img = document.createElement('img'); img.src = orgLogo; img.alt = '';
-      lh.appendChild(img); lh.appendChild(el('strong', null, orgName));
-      if(orgAddress.length) lh.appendChild(el('span', 'lhaddr', orgAddress.join(' \u00b7 ')));
+
+      // Letterhead: the address block on the left, the logo on the right.
+      var lh = el('div', 'lh'); var addr = el('div', 'addr');
+      addr.appendChild(el('strong', null, brand.orgName));
+      brand.address.forEach(function(l){ addr.appendChild(el('div', null, l)); });
+      var contact = [brand.phone ? 'Tel: ' + brand.phone : '', brand.website ? brand.website.replace(/^https?:\/\//i, '') : ''].filter(Boolean).join('   ');
+      if(contact) addr.appendChild(el('div', null, contact));
+      lh.appendChild(addr);
+      var img = document.createElement('img'); img.src = brand.logo; img.alt = ''; lh.appendChild(img);
       pg.appendChild(lh);
-      pg.appendChild(el('h3', null, 'ATTENDANCE SHEET'));
+      pg.appendChild(el('h3', 'ttl', 'ATTENDANCE SHEET'));
 
       var hdr = document.createElement('table'); hdr.className = 'hdr';
-      hdr.innerHTML = '<tr><td class="k">DATE:</td><td>' + escapeHtml(dateRange) + '</td><td class="k">AUTHORISED BY:</td><td>' + escapeHtml(data.event.authorisedBy) + '</td></tr>'
-        + '<tr><td class="k">LOCATION:</td><td>' + escapeHtml(places.join(', ')) + '</td><td class="k">REFERENCE:</td><td>' + escapeHtml(data.event.authorityRef) + '</td></tr>'
-        + '<tr><td class="k">MAIN AGENDA / SUBJECT:</td><td colspan="3">' + escapeHtml(data.event.name) + '</td></tr>';
+      hdr.innerHTML = '<tr><td class="k">DATE:</td><td>' + escapeHtml(dateText) + '</td><td class="k">TIME:</td><td>' + escapeHtml(timeText) + '</td></tr>'
+        + '<tr><td class="k">CONVENER:</td><td>' + escapeHtml(data.event.authorisedBy) + '</td><td class="k">LOCATION:</td><td>' + escapeHtml(places.join(', ')) + '</td></tr>'
+        + '<tr><td class="k">MAIN AGENDA/SUBJECT:</td><td colspan="3">' + escapeHtml(data.event.name) + '</td></tr>';
       pg.appendChild(hdr);
 
-      // The paper form keeps every day column the same width, so the last page of a long
-      // engagement is narrower instead of stretching its few columns across the sheet.
-      var total = 40 + chunk.length * 6.6 + (last ? 6 : 0);
+      // Every day column is the same width, so the last page of a long engagement is
+      // narrower instead of stretching its few columns across the sheet.
+      var total = 42 + chunk.length * 6.4 + (last ? 6 : 0);
       var pct = function(n){ return (n / total * 100).toFixed(2) + '%'; };
-      var t = document.createElement('table'); t.style.marginTop = '6px'; t.style.tableLayout = 'fixed'; t.style.width = total + '%';
-      var h = '<thead><tr><th style="width:' + pct(4) + '">S/NO.</th><th style="width:' + pct(22) + '">NAME</th><th style="width:' + pct(14) + '">ORGANISATION</th>';
-      chunk.forEach(function(d){ h += '<th class="dayhead" style="width:' + pct(6.6) + '">Day ' + d.position + '<small>' + escapeHtml(shortDate(d.startAt)) + '</small><small>' + escapeHtml(d.place || '') + '</small></th>'; });
+      var t = document.createElement('table'); t.style.marginTop = '5mm'; t.style.width = Math.min(100, total) + '%';
+      var h = '<thead><tr><th style="width:' + pct(5) + '">S/NO.</th><th style="width:' + pct(22) + '">NAME</th><th style="width:' + pct(15) + '">ORGANISATION</th>';
+      chunk.forEach(function(d){ h += '<th class="dayhead" style="width:' + pct(6.4) + '">Day ' + d.position + '<small>' + escapeHtml(shortDate(d.startAt)) + '</small></th>'; });
       if(last) h += '<th style="width:' + pct(6) + '">DAYS</th>';
       h += '</tr></thead>';
       t.innerHTML = h;
       var tb = document.createElement('tbody');
-      var rowTotal = Math.max(rows.length, 5);
+      var rowTotal = Math.max(rows.length, 10);
       for(var n = 0; n < rowTotal; n++){
         var r = rows[n]; var tr = document.createElement('tr');
-        tr.appendChild(el('td', null, String(n + 1) + '.'));
-        tr.appendChild(el('td', null, r ? r.name : ''));
-        tr.appendChild(el('td', null, r ? (r.organisation || '') : ''));
+        tr.appendChild(el('td', 'sno' + (r ? '' : ' xout'), String(n + 1) + '.'));
+        tr.appendChild(el('td', 'nm' + (r ? '' : ' xout'), r ? r.name : ''));
+        tr.appendChild(el('td', 'og' + (r ? '' : ' xout'), r ? (r.organisation || (r.payeeType === 'STAFF' ? brand.orgName : '')) : ''));
         chunk.forEach(function(d){
-          var td = el('td', 'sigcell'); var cell = r ? r.cells.filter(function(c){ return c.dayId === d.id; })[0] : null;
+          var td = el('td', 'sig'); var cell = r ? r.cells.filter(function(c){ return c.dayId === d.id; })[0] : null;
           if(cell && cell.status === 'SIGNED' && cell.signature){ var im = document.createElement('img'); im.src = cell.signature; im.alt = 'signature'; td.appendChild(im); }
-          else if(cell && cell.status === 'ABSENT') td.className = 'sigcell ABSENT';
-          else if(!r) td.className = 'sigcell ABSENT';
+          else if(!r || (cell && cell.status === 'ABSENT')) td.className = 'sig xout';
           tr.appendChild(td);
         });
-        if(last) tr.appendChild(el('td', null, r ? String(r.daysSigned) : ''));
+        if(last) tr.appendChild(el('td', 'sno' + (r ? '' : ' xout'), r ? String(r.daysSigned) : ''));
         tb.appendChild(tr);
       }
       t.appendChild(tb); pg.appendChild(t);
 
-      var foot = el('div', 'foot');
-      var ap = data.approvals || [];
-      function done(step){ return ap.filter(function(a){ return a.step === step; }).pop(); }
+      // Who prepared and certified it, and the seal that proves it is the certified record.
+      var so = el('div', 'signoff');
       function stamp(step, label, blank){
-        var a = done(step), box = el('div', null, a ? label + ': ' + a.by + ', ' + new Date(a.at).toLocaleDateString('en-GB', { timeZone: tz() }) : blank);
-        return box;
+        var a = done(step), b = el('div', 'blk');
+        b.appendChild(document.createTextNode(a ? label + ': ' + a.by + ', ' + new Date(a.at).toLocaleDateString('en-GB', { timeZone: tz() }) : blank));
+        return b;
       }
-      foot.appendChild(stamp('SUBMITTED', 'Prepared by', 'Prepared by (name, signature, date)'));
-      foot.appendChild(stamp('CERTIFIED', 'Certified by the authorising officer', 'Certified by the authorising officer (name, signature, date)'));
-      if(done('VERIFIED')) foot.appendChild(stamp('VERIFIED', 'Verified by finance', ''));
-      pg.appendChild(foot);
+      so.appendChild(stamp('SUBMITTED', 'Prepared by', 'Prepared by (name, signature, date)'));
+      so.appendChild(stamp('CERTIFIED', 'Certified by the authorising officer', 'Certified by the authorising officer (name, signature, date)'));
+      if(done('VERIFIED')) so.appendChild(stamp('VERIFIED', 'Verified by finance', ''));
       var cert = done('CERTIFIED');
       if(cert && cert.sealCode){
         var chk = el('div', 'seal');
         var qr = document.createElement('img'); qr.src = '/api/seals/' + encodeURIComponent(cert.sealCode) + '/qr'; qr.alt = 'QR code to check this sheet';
         chk.appendChild(qr); chk.appendChild(el('span', null, 'Seal ' + cert.sealCode + '. Scan to check that this sheet matches the certified record.'));
-        pg.appendChild(chk);
+        so.appendChild(chk);
       }
-      pg.appendChild(el('div', 'gen', 'Page ' + (pi + 1) + ' of ' + pages.length + ' · Days ' + chunk[0].position + (chunk.length > 1 ? '–' + chunk[chunk.length - 1].position : '') + ' of ' + origin + ' · Printed from the digital record on ' + new Date().toLocaleString('en-GB', { timeZone: tz() })));
+      pg.appendChild(so);
+      pg.appendChild(el('div', 'gen', 'Ref. ' + data.event.authorityRef + ' · Page ' + (pi + 1) + ' of ' + pages.length + ' · Days ' + chunk[0].position + (chunk.length > 1 ? '–' + chunk[chunk.length - 1].position : '') + ' of ' + days.length + ' · Printed from the digital record on ' + new Date().toLocaleString('en-GB', { timeZone: tz() })));
+      pg.appendChild(el('div', 'gap'));
+      pg.appendChild(el('div', brand.footerLine ? 'band' : 'band plain', brand.footerLine));
       area.appendChild(pg);
     });
   }
 
-  $('printBtn').addEventListener('click', function(){
-    var btn = this; btn.disabled = true;
-    // The print request is recorded in the audit trail: it carries signatures and names.
-    API.get('/api/admin/events/' + encodeURIComponent(eventId) + '/duty?print=1').then(function(r){
+  function whenImagesReady(area){
+    var imgs = Array.prototype.slice.call(area.querySelectorAll('img'));
+    return Promise.all(imgs.map(function(im){ return im.complete ? null : new Promise(function(ok){ im.onload = im.onerror = ok; }); }));
+  }
+  // The request is recorded in the audit trail: the sheet carries signatures and names.
+  function fetchPrintData(btn){
+    btn.disabled = true;
+    return API.get('/api/admin/events/' + encodeURIComponent(eventId) + '/duty?print=1').then(function(r){
       btn.disabled = false;
-      if(r.status !== 200 || !r.data.ok){ window.alert('Could not prepare the sheet for printing.'); return; }
+      if(r.status !== 200 || !r.data.ok){ window.alert('Could not prepare the sheet.'); return null; }
       roll.event.timezone = r.data.event.timezone;
-      buildPrint(r.data);
-      var imgs = Array.prototype.slice.call(document.querySelectorAll('#printArea img'));
-      Promise.all(imgs.map(function(im){ return im.complete ? null : new Promise(function(ok){ im.onload = im.onerror = ok; }); })).then(function(){ window.print(); });
-    }).catch(function(){ btn.disabled = false; window.alert('No connection. Please try again.'); });
+      printData = r.data; return printData;
+    }).catch(function(){ btn.disabled = false; window.alert('No connection. Please try again.'); return null; });
+  }
+  function printNow(){
+    buildPrint(printData, $('printArea'));
+    whenImagesReady($('printArea')).then(function(){ window.print(); });
+  }
+
+  $('printBtn').addEventListener('click', function(){ fetchPrintData(this).then(function(d){ if(d) printNow(); }); });
+  $('previewBtn').addEventListener('click', function(){
+    fetchPrintData(this).then(function(d){
+      if(!d) return;
+      buildPrint(d, $('pvBody'));
+      var dlg = $('previewDlg'); if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+      // The sheet is 281mm wide; scale it down to whatever the dialog gives it.
+      requestAnimationFrame(function(){
+        var pages = $('pvBody').querySelectorAll('.sheet-page');
+        var avail = $('pvBody').clientWidth - 40;
+        pages.forEach(function(p){
+          var s = Math.min(1, avail / p.offsetWidth);
+          p.style.zoom = String(s);
+        });
+      });
+    });
+  });
+  $('pvClose').addEventListener('click', function(){ $('previewDlg').close(); });
+  $('pvPrint').addEventListener('click', function(){ if(printData) printNow(); });
+
+  // --- Shell: sidebar, size control, jumping to a section ---
+  $('logoutBtn').addEventListener('click', function(){ API.post('/api/auth/logout').then(function(){ location.href = 'login.html'; }); });
+  var sidenav = $('sidenav'), navScrim = $('navScrim'), navToggle = $('navToggle');
+  function closeNav(){ sidenav.classList.remove('open'); navScrim.classList.remove('open'); navToggle.setAttribute('aria-expanded', 'false'); }
+  navToggle.addEventListener('click', function(){ var o = !sidenav.classList.contains('open'); sidenav.classList.toggle('open', o); navScrim.classList.toggle('open', o); navToggle.setAttribute('aria-expanded', o ? 'true' : 'false'); });
+  navScrim.addEventListener('click', closeNav);
+  Array.prototype.forEach.call(document.querySelectorAll('[data-go]'), function(a){
+    a.addEventListener('click', function(e){
+      e.preventDefault(); closeNav();
+      var target = $(a.getAttribute('data-go')); if(target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   });
 
   requireSession().then(function(u){ if(u) load(); });
 })();
 </script>
-</body>
-</html>
