@@ -269,3 +269,21 @@ html.fixed-layout.manual-scale, html.fixed-layout.manual-scale body{ overflow-x:
 
 /* theme.css stacks .row below 480px; a fixed-layout page keeps its rows side by side at every size. */
 html.fixed-layout .row{ flex-direction:row; gap:12px; }
+
+/* ---- Scrollbars: slim and quiet, dark inside the dark sidebar ---- */
+/* Firefox reads the standard properties; Chrome and Edge ignore their own styling when these are set, so only Firefox gets them. */
+@supports (-moz-appearance:none){
+  html, .app-main, .tablewrap, dialog{ scrollbar-width:thin; scrollbar-color:#c6cad3 transparent; }
+  }
+html::-webkit-scrollbar, .app-main::-webkit-scrollbar, .tablewrap::-webkit-scrollbar, dialog::-webkit-scrollbar{ width:9px; height:9px; }
+html::-webkit-scrollbar-track, .tablewrap::-webkit-scrollbar-track{ background:transparent; }
+html::-webkit-scrollbar-thumb, .app-main::-webkit-scrollbar-thumb, .tablewrap::-webkit-scrollbar-thumb, dialog::-webkit-scrollbar-thumb{ background:#c6cad3; border-radius:8px; border:2px solid transparent; background-clip:content-box; }
+html::-webkit-scrollbar-thumb:hover, .tablewrap::-webkit-scrollbar-thumb:hover{ background:#a9aeb9; background-clip:content-box; }
+
+.sidenav{ scrollbar-width:thin; scrollbar-color:#3b414d transparent; }
+.sidenav::-webkit-scrollbar{ width:8px; }
+.sidenav::-webkit-scrollbar-track{ background:transparent; }
+.sidenav::-webkit-scrollbar-thumb{ background:#3b414d; border-radius:8px; border:2px solid transparent; background-clip:content-box; }
+.sidenav::-webkit-scrollbar-thumb:hover{ background:#515866; background-clip:content-box; }
+/* the arrow buttons at each end are what made the old bar look heavy */
+.sidenav::-webkit-scrollbar-button, html::-webkit-scrollbar-button, .tablewrap::-webkit-scrollbar-button{ display:none; width:0; height:0; }
