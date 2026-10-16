@@ -7,96 +7,615 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Digital Attendance Register</title>
-<script src="assets/brand.js"></script>
-<meta name="description" content="A digital attendance register for events: sign on your own phone, one signature for every day, and records anyone can verify.">
+<title>Sign Sheet: attendance that proves itself</title>
+<meta name="description" content="Replace printed attendance sheets with a link. People sign on their own phone, every day gets its own signature, payment sheets go through approval, and every record can be checked by anyone.">
+<meta name="theme-color" content="#14161b">
 <link rel="icon" href="assets/icta_logo_cropped.png">
 <style>
   :root{
-    --ink:#1b1a18; --muted:#6a655b; --rule:#d9d2c3; --paper:#fffdf8; --page:#ebe7de; --accent:#c8102e; --ok:#14683a;
+    --ink:#14161b; --ink2:#2a2f3a; --muted:#5d6472; --faint:#8b93a1;
+    --line:#e3e5ea; --paper:#ffffff; --bg:#f6f4ef; --bg2:#efece4;
+    --red:#c8102e; --red-d:#9d0c24; --red-w:#fdecef;
+    --ok:#0b6b36; --ok-w:#e3f4ea; --warn:#8a5a00; --warn-w:#fdf0d4;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+    --sans:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+    --r:16px;
   }
-  @media (prefers-color-scheme: dark){ :root{ --page:#1d1c1a; } }
   *{ box-sizing:border-box; }
-  body{ margin:0; background:var(--page); color:var(--ink); font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; font-size:15px; line-height:1.55; }
-  main{ max-width:920px; margin:0 auto; padding:44px 20px 40px; }
+  html{ scroll-behavior:smooth; scroll-padding-top:76px; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased; }
+  a{ color:inherit; }
+  img,svg{ display:block; max-width:100%; }
+  .wrap{ width:min(1180px, 100% - 40px); margin:0 auto; }
+  :focus-visible{ outline:2px solid var(--red); outline-offset:3px; border-radius:6px; }
 
-  .brand{ display:flex; align-items:center; gap:12px; }
-  .brand img{ width:44px; height:44px; object-fit:contain; background:#fff; border-radius:9px; padding:3px; }
-  .brand span{ font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+  /* ---------- Nav ---------- */
+  .nav{ position:sticky; top:0; z-index:50; background:rgba(246,244,239,.82); backdrop-filter:saturate(1.4) blur(14px); -webkit-backdrop-filter:saturate(1.4) blur(14px); border-bottom:1px solid transparent; transition:border-color .2s; }
+  .nav.stuck{ border-color:var(--line); }
+  .nav .wrap{ display:flex; align-items:center; gap:28px; height:64px; }
+  .logo{ display:flex; align-items:center; gap:10px; text-decoration:none; font-weight:700; letter-spacing:-.01em; font-size:17px; }
+  .logo i{ width:30px; height:30px; border-radius:9px; background:var(--ink); display:grid; place-items:center; flex:none; }
+  .logo i svg{ width:17px; height:17px; stroke:#fff; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+  .logo i svg path:last-child{ stroke:#ff5d78; }
+  .links{ display:flex; gap:22px; margin-left:12px; font-size:14.5px; }
+  .links a{ text-decoration:none; color:var(--muted); font-weight:500; }
+  .links a:hover{ color:var(--ink); }
+  .nav .cta{ margin-left:auto; display:flex; gap:10px; align-items:center; }
+  .btn{ display:inline-flex; align-items:center; gap:8px; font:inherit; font-size:14.5px; font-weight:600; padding:10px 18px; border-radius:999px; border:1px solid var(--ink); background:transparent; color:var(--ink); text-decoration:none; cursor:pointer; transition:transform .15s, background .15s, box-shadow .15s; white-space:nowrap; }
+  .btn:hover{ transform:translateY(-1px); }
+  .btn.solid{ background:var(--ink); color:#fff; }
+  .btn.solid:hover{ box-shadow:0 8px 22px rgba(20,22,27,.28); }
+  .btn.red{ background:var(--red); border-color:var(--red); color:#fff; }
+  .btn.red:hover{ box-shadow:0 8px 24px rgba(200,16,46,.35); }
+  .btn.ghost{ border-color:var(--line); background:#fff; }
+  .btn.lg{ padding:14px 24px; font-size:15.5px; }
+  .btn svg{ width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+  .navtoggle{ display:none; }
 
-  h1{ font-family:Georgia, "Times New Roman", serif; font-weight:400; font-size:clamp(32px, 6vw, 50px); line-height:1.1; margin:34px 0 14px; max-width:16ch; }
-  .lede{ font-size:clamp(16px, 2.2vw, 19px); color:var(--muted); max-width:56ch; margin:0 0 30px; }
-  .redrule{ height:3px; width:64px; background:var(--accent); margin:0 0 22px; }
+  /* ---------- Hero ---------- */
+  .hero{ position:relative; overflow:hidden; padding:54px 0 90px; }
+  .hero::before{ content:""; position:absolute; inset:0; background-image:linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size:44px 44px; mask-image:radial-gradient(70% 60% at 70% 30%, #000 0%, transparent 75%); -webkit-mask-image:radial-gradient(70% 60% at 70% 30%, #000 0%, transparent 75%); opacity:.7; }
+  .hero::after{ content:""; position:absolute; width:620px; height:620px; right:-160px; top:-200px; border-radius:50%; background:radial-gradient(circle, rgba(200,16,46,.2), transparent 65%); }
+  .hero .wrap{ position:relative; z-index:1; display:grid; grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr); gap:50px; align-items:center; }
+  .kicker{ display:inline-flex; align-items:center; gap:9px; font-size:13px; font-weight:600; padding:6px 14px 6px 8px; border-radius:999px; background:#fff; border:1px solid var(--line); color:var(--ink2); }
+  .kicker b{ background:var(--red); color:#fff; font-size:11px; letter-spacing:.06em; padding:3px 9px; border-radius:999px; }
+  h1{ font-family:var(--serif); font-weight:500; font-size:clamp(40px, 5.6vw, 70px); line-height:1.02; letter-spacing:-.025em; margin:22px 0 20px; }
+  h1 em{ font-style:italic; color:var(--red); position:relative; white-space:nowrap; }
+  h1 em svg{ position:absolute; left:0; right:0; bottom:-10px; width:100%; height:12px; stroke:var(--red); fill:none; stroke-width:3; stroke-linecap:round; }
+  .lede{ font-size:clamp(17px, 1.7vw, 20px); color:var(--muted); max-width:52ch; margin:0 0 30px; }
+  .heroActions{ display:flex; gap:12px; flex-wrap:wrap; }
+  .proof{ display:flex; gap:22px; flex-wrap:wrap; margin-top:34px; font-size:13.5px; color:var(--muted); }
+  .proof span{ display:flex; align-items:center; gap:8px; }
+  .proof svg{ width:16px; height:16px; stroke:var(--ok); fill:none; stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; }
 
-  .cards{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; margin-bottom:34px; }
-  .card{
-    display:flex; flex-direction:column; background:var(--paper); border:1px solid var(--rule); border-radius:14px;
-    padding:20px 20px 18px; text-decoration:none; color:inherit; box-shadow:0 1px 2px rgba(0,0,0,.05);
-    transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  /* the phone */
+  .stage{ position:relative; height:560px; }
+  .phone{ position:absolute; left:50%; top:0; width:268px; margin-left:-134px; background:#0d0f13; border-radius:38px; padding:10px; box-shadow:0 40px 80px -20px rgba(20,22,27,.45), 0 0 0 1px #2a2f3a inset; transform:rotate(-3deg); }
+  .screen{ background:#fff; border-radius:29px; overflow:hidden; min-height:520px; display:flex; flex-direction:column; }
+  .notch{ height:26px; display:flex; justify-content:center; align-items:center; }
+  .notch i{ width:62px; height:7px; border-radius:6px; background:#0d0f13; }
+  .scr{ padding:6px 18px 18px; flex:1; display:flex; flex-direction:column; }
+  .scr .org{ display:flex; align-items:center; gap:8px; font-size:11px; font-weight:700; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; }
+  .scr .org i{ width:20px; height:20px; border-radius:6px; background:var(--red); }
+  .scr h4{ margin:12px 0 2px; font-size:16px; line-height:1.25; letter-spacing:-.01em; }
+  .scr .meta{ font-size:12px; color:var(--muted); }
+  .daychips{ display:flex; gap:5px; margin:14px 0 12px; }
+  .daychips span{ flex:1; text-align:center; font-size:10.5px; font-weight:700; padding:5px 0; border-radius:8px; background:var(--bg); color:var(--faint); }
+  .daychips span.d{ background:var(--ok-w); color:var(--ok); }
+  .daychips span.n{ background:var(--ink); color:#fff; }
+  .pad{ border:1.5px dashed #c9ced8; border-radius:14px; height:128px; background:linear-gradient(transparent 77%, #e8ebf0 77%, #e8ebf0 78%, transparent 78%); position:relative; overflow:hidden; }
+  .pad svg{ position:absolute; inset:0; width:100%; height:100%; }
+  .pad path{ stroke:#1b2a6b; stroke-width:2.6; fill:none; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:420; stroke-dashoffset:420; animation:ink 5.2s ease-in-out infinite; }
+  @keyframes ink{ 0%,8%{ stroke-dashoffset:420; } 50%,88%{ stroke-dashoffset:0; } 100%{ stroke-dashoffset:0; opacity:0; } }
+  .pad .hint{ position:absolute; left:12px; top:9px; font-size:10.5px; color:var(--faint); }
+  .signbtn{ margin-top:12px; border:0; width:100%; padding:13px; border-radius:12px; font:inherit; font-weight:700; font-size:14px; color:#fff; background:var(--red); position:relative; overflow:hidden; }
+  .signbtn .a, .signbtn .b{ display:block; transition:transform .4s, opacity .4s; }
+  .signbtn .b{ position:absolute; inset:0; display:grid; place-items:center; transform:translateY(100%); background:var(--ok); }
+  .stage.done .signbtn .a{ transform:translateY(-100%); }
+  .stage.done .signbtn .b{ transform:none; }
+  .scr .foot{ margin-top:auto; padding-top:12px; font-size:11px; color:var(--faint); text-align:center; }
+
+  .float{ position:absolute; background:#fff; border:1px solid var(--line); border-radius:14px; box-shadow:0 20px 40px -14px rgba(20,22,27,.28); padding:12px 14px; font-size:12.5px; }
+  .f1{ right:-6px; top:70px; width:196px; transform:rotate(3deg); animation:bob 6s ease-in-out infinite; }
+  .f2{ left:-14px; bottom:60px; width:200px; transform:rotate(-2deg); animation:bob 7s ease-in-out -2s infinite; }
+  @keyframes bob{ 50%{ translate:0 -9px; } }
+  .f1 .t, .f2 .t{ font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint); font-weight:700; margin-bottom:7px; }
+  .qr{ display:grid; grid-template-columns:repeat(9,1fr); gap:1.5px; width:66px; padding:5px; background:#fff; border:1px solid var(--line); border-radius:7px; }
+  .qr i{ aspect-ratio:1; background:var(--ink); border-radius:1px; }
+  .qr i.o{ background:transparent; }
+  .sealrow{ display:flex; gap:11px; align-items:center; }
+  .sealrow b{ display:block; font-family:var(--mono); font-size:11.5px; letter-spacing:.03em; }
+  .sealrow span.ok{ display:inline-flex; gap:5px; align-items:center; color:var(--ok); font-weight:700; font-size:12px; margin-top:3px; }
+  .sealrow span.ok::before{ content:""; width:7px; height:7px; border-radius:50%; background:var(--ok); }
+  .approve{ list-style:none; margin:0; padding:0; display:grid; gap:7px; }
+  .approve li{ display:flex; gap:9px; align-items:center; font-size:12px; }
+  .approve i{ width:16px; height:16px; border-radius:50%; background:var(--ok); display:grid; place-items:center; flex:none; }
+  .approve i svg{ width:9px; height:9px; stroke:#fff; fill:none; stroke-width:3.4; stroke-linecap:round; stroke-linejoin:round; }
+  .approve li.now i{ background:#fff; border:2px solid var(--red); box-shadow:0 0 0 3px rgba(200,16,46,.15); }
+  .approve li.now i svg{ display:none; }
+  .approve li.todo{ color:var(--faint); }
+  .approve li.todo i{ background:#fff; border:2px solid var(--line); }
+  .approve li.todo i svg{ display:none; }
+
+  /* ---------- Sections ---------- */
+  section{ padding:96px 0; }
+  .eyebrow{ font-size:12.5px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--red); margin:0 0 14px; }
+  h2{ font-family:var(--serif); font-weight:500; font-size:clamp(32px, 4vw, 50px); line-height:1.06; letter-spacing:-.02em; margin:0 0 16px; max-width:24ch; }
+  .sub{ font-size:18px; color:var(--muted); max-width:56ch; margin:0 0 46px; }
+
+  /* the strip */
+  .strip{ padding:0; border-block:1px solid var(--line); background:#fff; }
+  .strip .wrap{ display:grid; grid-template-columns:repeat(4, 1fr); }
+  .strip .it{ padding:26px 22px; border-left:1px solid var(--line); }
+  .strip .it:first-child{ border-left:0; padding-left:0; }
+  .strip b{ display:block; font-family:var(--serif); font-size:30px; font-weight:500; letter-spacing:-.02em; line-height:1.1; }
+  .strip span{ font-size:13.5px; color:var(--muted); }
+
+  /* how it works */
+  .how{ display:grid; grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr); gap:56px; align-items:center; }
+  .steps{ display:grid; gap:6px; }
+  .step{ text-align:left; font:inherit; background:transparent; border:1px solid transparent; border-radius:var(--r); padding:18px 20px; cursor:pointer; display:grid; grid-template-columns:38px 1fr; gap:4px 16px; position:relative; color:var(--ink); }
+  .step:hover{ background:rgba(255,255,255,.6); }
+  .step .n{ grid-row:1 / 3; width:38px; height:38px; border-radius:50%; border:1.5px solid var(--line); display:grid; place-items:center; font-weight:700; font-size:14px; color:var(--muted); background:#fff; }
+  .step b{ font-size:17.5px; letter-spacing:-.01em; }
+  .step p{ margin:0; font-size:14.5px; color:var(--muted); grid-column:2; max-height:0; overflow:hidden; opacity:0; transition:max-height .35s, opacity .35s; }
+  .step.on{ background:#fff; border-color:var(--line); box-shadow:0 12px 30px -16px rgba(20,22,27,.25); }
+  .step.on .n{ background:var(--red); border-color:var(--red); color:#fff; }
+  .step.on p{ max-height:90px; opacity:1; margin-top:2px; }
+  .step .bar{ position:absolute; left:20px; right:20px; bottom:0; height:2px; background:var(--line); border-radius:2px; overflow:hidden; display:none; }
+  .step.on .bar{ display:block; }
+  .step .bar i{ display:block; height:100%; width:0; background:var(--red); }
+  .step.on .bar i{ animation:fill 5.5s linear forwards; }
+  .how.paused .step.on .bar i{ animation-play-state:paused; }
+  @keyframes fill{ to{ width:100%; } }
+
+  .panel{ background:var(--ink); border-radius:24px; min-height:430px; padding:26px; position:relative; overflow:hidden; color:#fff; box-shadow:0 40px 70px -30px rgba(20,22,27,.5); }
+  .panel::before{ content:""; position:absolute; width:380px; height:380px; right:-120px; top:-140px; border-radius:50%; background:radial-gradient(circle, rgba(255,93,120,.35), transparent 65%); }
+  .scene{ position:absolute; inset:26px; opacity:0; transform:translateY(14px); transition:opacity .45s, transform .45s; pointer-events:none; display:flex; flex-direction:column; justify-content:center; }
+  .scene.on{ opacity:1; transform:none; pointer-events:auto; }
+  .win{ background:#fff; color:var(--ink); border-radius:14px; padding:16px 18px; font-size:13.5px; box-shadow:0 20px 40px -18px rgba(0,0,0,.5); }
+  .win .hd{ display:flex; gap:6px; margin-bottom:12px; } .win .hd i{ width:9px; height:9px; border-radius:50%; background:#d7dbe2; }
+  .field{ display:flex; justify-content:space-between; gap:10px; padding:9px 12px; border:1px solid var(--line); border-radius:10px; margin-bottom:8px; font-size:13px; }
+  .field span{ color:var(--faint); }
+  .win .go{ display:inline-block; margin-top:6px; background:var(--red); color:#fff; font-weight:700; padding:9px 16px; border-radius:9px; font-size:13px; }
+  .linkbox{ display:flex; gap:10px; align-items:center; background:#fff; color:var(--ink); border-radius:12px; padding:12px 14px; font-family:var(--mono); font-size:12.5px; margin-bottom:14px; }
+  .linkbox b{ margin-left:auto; font-family:var(--sans); background:var(--ink); color:#fff; padding:5px 11px; border-radius:7px; font-size:12px; }
+  .chat{ display:grid; gap:9px; }
+  .chat div{ max-width:82%; padding:10px 13px; border-radius:14px 14px 14px 4px; background:rgba(255,255,255,.12); font-size:13.5px; }
+  .chat div.me{ margin-left:auto; background:#25d366; color:#06361a; border-radius:14px 14px 4px 14px; font-weight:600; }
+  .roll{ background:#fff; color:var(--ink); border-radius:14px; overflow:hidden; font-size:13px; }
+  .roll .r{ display:grid; grid-template-columns:1fr auto; gap:10px; padding:11px 16px; border-top:1px solid var(--line); align-items:center; }
+  .roll .r:first-child{ border-top:0; background:var(--bg); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+  .roll .tick{ color:var(--ok); font-weight:700; background:var(--ok-w); padding:3px 10px; border-radius:999px; font-size:12px; }
+  .roll .wait{ color:var(--warn); background:var(--warn-w); padding:3px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+  .big{ text-align:center; padding:10px; }
+  .big .qr{ width:118px; margin:0 auto 14px; padding:8px; }
+  .big b{ display:block; font-family:var(--mono); font-size:18px; letter-spacing:.06em; }
+  .big span{ color:#9cf0bd; font-weight:700; font-size:14px; display:inline-block; margin-top:6px; }
+  .big p{ color:#aab1c0; font-size:13.5px; max-width:36ch; margin:10px auto 0; }
+
+  /* bento */
+  .bento{ display:grid; grid-template-columns:repeat(6, 1fr); gap:16px; }
+  .cell{ background:#fff; border:1px solid var(--line); border-radius:22px; padding:26px; position:relative; overflow:hidden; transition:transform .25s, box-shadow .25s; }
+  .cell:hover{ transform:translateY(-3px); box-shadow:0 24px 40px -24px rgba(20,22,27,.3); }
+  .cell h3{ font-size:20px; letter-spacing:-.015em; margin:0 0 8px; line-height:1.2; }
+  .cell p{ margin:0; color:var(--muted); font-size:15px; }
+  .cell .ic{ width:42px; height:42px; border-radius:12px; background:var(--red-w); display:grid; place-items:center; margin-bottom:18px; }
+  .cell .ic svg{ width:21px; height:21px; stroke:var(--red); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .c-a{ grid-column:span 3; } .c-b{ grid-column:span 3; } .c-c{ grid-column:span 2; } .c-d{ grid-column:span 2; } .c-e{ grid-column:span 2; }
+  .c-wide{ grid-column:span 4; } .c-dark{ background:var(--ink); color:#fff; border-color:var(--ink); } .c-dark p{ color:#aab1c0; } .c-dark .ic{ background:rgba(255,255,255,.1); } .c-dark .ic svg{ stroke:#ff8095; }
+  .minidays{ display:flex; gap:6px; margin-top:20px; }
+  .minidays span{ flex:1; height:46px; border-radius:10px; background:var(--bg); display:grid; place-items:center; font-size:11px; font-weight:700; color:var(--faint); }
+  .minidays span.s{ background:var(--ok-w); color:var(--ok); }
+  .minidays span.s::after{ content:"\2713"; font-size:14px; }
+  .minidays span:not(.s)::after{ content:attr(data-d); }
+  .chain{ display:flex; gap:0; margin-top:22px; align-items:center; }
+  .chain i{ flex:1; height:34px; border:1.5px solid #3a4150; border-radius:8px; display:grid; place-items:center; font-style:normal; font-family:var(--mono); font-size:10px; color:#8b93a1; }
+  .chain u{ width:14px; height:2px; background:#ff8095; }
+  .swatches{ display:flex; gap:8px; margin-top:20px; }
+  .swatches i{ width:30px; height:30px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 0 1px var(--line); }
+
+  /* payment showcase */
+  .pay{ background:var(--ink); color:#fff; border-radius:34px; padding:70px 0; margin:0 14px; position:relative; overflow:hidden; }
+  .pay::before{ content:""; position:absolute; inset:0; background-image:linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px); background-size:44px 44px; mask-image:radial-gradient(60% 70% at 20% 30%, #000, transparent); -webkit-mask-image:radial-gradient(60% 70% at 20% 30%, #000, transparent); }
+  .pay .wrap{ position:relative; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.1fr); gap:56px; align-items:center; }
+  .pay h2{ color:#fff; } .pay .sub{ color:#aab1c0; margin-bottom:28px; }
+  .tick-list{ list-style:none; padding:0; margin:0 0 30px; display:grid; gap:13px; }
+  .tick-list li{ display:grid; grid-template-columns:24px 1fr; gap:12px; color:#d6dae3; font-size:15.5px; }
+  .tick-list li::before{ content:""; width:22px; height:22px; border-radius:50%; background:#ff5d78 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4 8-9'/%3E%3C/svg%3E") center/12px no-repeat; margin-top:1px; }
+  .tick-list b{ color:#fff; }
+  .paper{ background:#fff; color:#000; border-radius:6px; padding:18px 20px 0; font-family:Arial, Helvetica, sans-serif; box-shadow:0 40px 70px -26px #000; transform:rotate(1.6deg); transition:transform .4s; }
+  .paper:hover{ transform:none; }
+  .paper .top{ display:flex; justify-content:space-between; align-items:flex-start; }
+  .paper .ad{ font-size:8.5px; line-height:1.35; color:#1d4f86; } .paper .ad b{ color:#000; font-size:10.5px; display:block; }
+  .paper .lg{ font-weight:900; font-style:italic; font-size:22px; letter-spacing:-.04em; } .paper .lg small{ display:block; font-size:7px; font-style:italic; font-weight:400; letter-spacing:.04em; margin-top:-3px; color:var(--red); text-align:right; }
+  .paper h5{ text-align:center; margin:8px 0 6px; font-size:12px; letter-spacing:.16em; }
+  .paper table{ width:100%; border-collapse:collapse; border:1px solid #000; font-size:8px; table-layout:fixed; }
+  .paper td, .paper th{ border:1px solid #000; padding:3px 4px; height:17px; }
+  .paper th{ background:#d9d9d9; }
+  .paper td.k{ font-weight:700; width:19%; }
+  .paper tr.sg td{ background:linear-gradient(#000,#000) center/100% 1px no-repeat; }
+  .paper svg{ width:100%; height:100%; } .paper .sig path{ stroke:#1b2a6b; stroke-width:1.4; fill:none; }
+  .paper .band{ text-align:center; margin:12px -20px 0; padding-bottom:12px; }
+  .paper .band span{ background:var(--red); color:#fff; font-size:8px; padding:2px 8px; }
+  .paper .tt{ margin-top:10px; }
+
+  /* verify */
+  .verify{ background:#fff; border:1px solid var(--line); border-radius:28px; padding:50px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:40px; align-items:center; }
+  .verify h2{ font-size:clamp(28px,3.2vw,40px); }
+  .vform{ display:flex; gap:10px; background:var(--bg); padding:8px; border-radius:999px; border:1px solid var(--line); }
+  .vform input{ flex:1; min-width:0; border:0; background:transparent; font:inherit; font-family:var(--mono); font-size:16px; letter-spacing:.06em; padding:0 16px; text-transform:uppercase; }
+  .vform input:focus{ outline:none; }
+  .vform:focus-within{ border-color:var(--ink); box-shadow:0 0 0 4px rgba(20,22,27,.08); }
+  .vnote{ font-size:13.5px; color:var(--muted); margin:12px 6px 0; }
+
+  /* trust */
+  .pillars{ display:grid; grid-template-columns:repeat(3,1fr); gap:0; border-top:1px solid var(--line); }
+  .pillar{ padding:30px 30px 10px 0; border-left:1px solid var(--line); padding-left:30px; }
+  .pillar:first-child{ border-left:0; padding-left:0; }
+  .pillar .num{ font-family:var(--serif); font-size:15px; color:var(--red); font-style:italic; margin-bottom:10px; }
+  .pillar h3{ font-size:21px; margin:0 0 10px; letter-spacing:-.015em; line-height:1.2; }
+  .pillar p{ margin:0; color:var(--muted); font-size:15px; }
+
+  /* final */
+  .final{ text-align:center; padding:110px 0 100px; position:relative; }
+  .final h2{ margin:0 auto 18px; max-width:16ch; font-size:clamp(36px,5vw,64px); }
+  .final p{ color:var(--muted); font-size:18px; max-width:48ch; margin:0 auto 32px; }
+  .final .heroActions{ justify-content:center; }
+  footer{ border-top:1px solid var(--line); padding:30px 0 40px; font-size:13.5px; color:var(--muted); }
+  footer .wrap{ display:flex; gap:12px 26px; flex-wrap:wrap; align-items:center; }
+  footer .sp{ margin-left:auto; display:flex; gap:20px; flex-wrap:wrap; }
+  footer a{ color:var(--muted); text-decoration:none; } footer a:hover{ color:var(--ink); text-decoration:underline; }
+
+  /* reveal */
+  .rv{ opacity:0; transform:translateY(22px); transition:opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
+  .rv.in{ opacity:1; transform:none; }
+  .rv.d1{ transition-delay:.08s; } .rv.d2{ transition-delay:.16s; } .rv.d3{ transition-delay:.24s; }
+
+  @media (max-width: 980px){
+    .hero .wrap, .how, .pay .wrap, .verify{ grid-template-columns:1fr; }
+    .stage{ height:600px; max-width:430px; margin:10px auto 0; width:100%; }
+    .bento{ grid-template-columns:1fr 1fr; } .c-a,.c-b,.c-c,.c-d,.c-e,.c-wide{ grid-column:span 2; } .c-c,.c-d{ grid-column:span 1; }
+    .pillars{ grid-template-columns:1fr; } .pillar{ border-left:0; padding-left:0; border-top:1px solid var(--line); } .pillar:first-child{ border-top:0; }
+    .strip .wrap{ grid-template-columns:1fr 1fr; } .strip .it:nth-child(3){ border-left:0; padding-left:0; } .strip .it{ border-top:1px solid var(--line); } .strip .it:nth-child(-n+2){ border-top:0; }
+    .links{ display:none; } .navtoggle{ display:inline-flex; }
+    .verify{ padding:30px 22px; } section{ padding:70px 0; }
   }
-  .card:hover{ transform:translateY(-2px); box-shadow:0 8px 22px rgba(0,0,0,.1); border-color:#bfb7a4; }
-  .card:focus-visible{ outline:2px solid var(--accent); outline-offset:3px; }
-  .card h2{ margin:0 0 6px; font-family:Georgia, "Times New Roman", serif; font-weight:400; font-size:21px; }
-  .card p{ margin:0 0 16px; color:var(--muted); font-size:13.5px; flex:1; }
-  .card .go{ font-weight:700; font-size:13.5px; color:var(--accent); }
-  .card .go::after{ content:" \2192"; }
-
-  h3{ font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0 0 12px; font-weight:700; }
-  .points{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px 28px; list-style:none; padding:0; margin:0 0 36px; }
-  .points li{ display:grid; grid-template-columns:22px 1fr; gap:10px; font-size:14px; }
-  .points li::before{ content:"\2713"; color:var(--ok); font-weight:700; }
-
-  footer{ border-top:1px solid var(--rule); padding-top:16px; font-size:12px; color:var(--muted); display:flex; gap:14px; flex-wrap:wrap; justify-content:space-between; }
-  footer a{ color:var(--muted); }
-
-  @media (max-width: 760px){
-    .cards{ grid-template-columns:1fr; }
-    .points{ grid-template-columns:1fr; }
-    main{ padding-top:28px; }
+  @media (max-width: 560px){
+    .bento{ grid-template-columns:1fr; } .c-a,.c-b,.c-c,.c-d,.c-e,.c-wide{ grid-column:span 1; }
+    .nav .cta .ghost{ display:none; } .f1{ right:-12px; width:170px; } .f2{ left:-10px; width:176px; bottom:30px; }
+    .vform{ flex-direction:column; border-radius:22px; } .vform input{ padding:12px 14px; } .pay{ margin:0 8px; border-radius:24px; }
   }
-  @media (prefers-reduced-motion: reduce){ .card{ transition:none; } .card:hover{ transform:none; } }
+  @media (prefers-reduced-motion: reduce){
+    html{ scroll-behavior:auto; } *, *::before, *::after{ animation:none !important; transition:none !important; }
+    .rv{ opacity:1; transform:none; } .pad path{ stroke-dashoffset:0; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <div class="brand"><img src="assets/icta_logo_cropped.png" alt=""><span>Digital attendance register</span></div>
 
-  <h1>Attendance you can trust, signed on a phone.</h1>
-  <div class="redrule"></div>
-  <p class="lede">Replace printed sheets with a link. Attendees sign on their own phone, every day of a multi-day event gets its own signature, and the finished record can be checked by anyone.</p>
-
-  <div class="cards">
-    <a class="card" href="login.html">
-      <h2>Organisers</h2>
-      <p>Log in to create events, share the sign-in link, scan passes at the door and prepare reports.</p>
-      <span class="go">Log in</span>
+<header class="nav" id="nav">
+  <div class="wrap">
+    <a class="logo" href="#top" aria-label="Sign Sheet, home">
+      <i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h10l4 4v12H5z"/><path d="M8 15c1.5-2.5 2.5-2.5 3-1s1.5 1.5 3-1.5"/></svg></i>
+      Sign Sheet
     </a>
-    <a class="card" href="verify.html">
-      <h2>Check a record</h2>
-      <p>Have a printed sheet or a certificate? Enter its code, or scan its QR, to check it against the record.</p>
-      <span class="go">Verify a sheet</span>
-    </a>
-    <a class="card" href="wallet.html">
-      <h2>My events</h2>
-      <p>See the events you have signed in to on this device, and get your certificate once an event is over.</p>
-      <span class="go">Open my events</span>
-    </a>
+    <nav class="links" aria-label="Sections">
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#payment">Payment sheets</a>
+      <a href="#verify">Check a record</a>
+      <a href="#trust">Trust</a>
+    </nav>
+    <div class="cta">
+      <a class="btn ghost" href="login.html">Log in</a>
+      <a class="btn solid" href="signup.html">Add your organisation</a>
+    </div>
   </div>
+</header>
 
-  <h3>What it does</h3>
-  <ul class="points">
-    <li>One signature for every day of a multi-day event</li>
-    <li>Sign on your own phone; no printing, no app</li>
-    <li>Sealed sheets with a QR anyone can verify</li>
-    <li>Door scanning that keeps working without signal</li>
-    <li>Reports with an automatic integrity check</li>
-    <li>Each person sees only their own entry</li>
-  </ul>
+<main id="top">
 
-  <footer>
-    <span>© 2026 Asya Hafidh. All rights reserved. · <a href="signup.html">Add your organisation</a></span>
-    <a href="privacy.html">Privacy policy</a>
-  </footer>
+<!-- ================= HERO ================= -->
+<div class="hero">
+  <div class="wrap">
+    <div>
+      <span class="kicker rv"><b>NEW</b> Payment sheets with built-in approvals</span>
+      <h1 class="rv d1">Attendance that <em>proves itself<svg viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true"><path d="M2 8 C 50 1, 120 1, 198 6"/></svg></em></h1>
+      <p class="lede rv d2">Swap the clipboard for a link. People sign on their own phone, every day gets its own signature, payment sheets go through approval, and anyone can check the finished record is genuine.</p>
+      <div class="heroActions rv d3">
+        <a class="btn red lg" href="signup.html">Add your organisation <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        <a class="btn ghost lg" href="#verify">Check a record</a>
+      </div>
+      <div class="proof rv d3">
+        <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>No app to install</span>
+        <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>Works on any phone</span>
+        <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>Door scanning that works offline</span>
+      </div>
+    </div>
+
+    <div class="stage" id="stage" aria-hidden="true">
+      <div class="phone">
+        <div class="screen">
+          <div class="notch"><i></i></div>
+          <div class="scr">
+            <div class="org"><i></i>Your organisation</div>
+            <h4>County Digital Skills Training</h4>
+            <div class="meta">Day 3 of 5 &middot; Kisumu &middot; 8:00 to 17:00</div>
+            <div class="daychips"><span class="d">1</span><span class="d">2</span><span class="n">3</span><span>4</span><span>5</span></div>
+            <div class="pad"><span class="hint">Sign here with your finger</span>
+              <svg viewBox="0 0 220 128"><path d="M22 86 C 38 30, 52 28, 56 62 S 64 98, 84 52 S 112 24, 118 60 S 134 96, 152 56 C 160 38, 176 40, 170 66 S 188 84, 204 50"/></svg>
+            </div>
+            <button class="signbtn" tabindex="-1"><span class="a">Sign for today</span><span class="b">&#10003; Signed 09:12</span></button>
+            <div class="foot">One signature per day. No app needed.</div>
+          </div>
+        </div>
+      </div>
+      <div class="float f1">
+        <div class="t">Sealed sheet</div>
+        <div class="sealrow"><div class="qr" id="qrA"></div><div><b>7K2M-9QXA</b><span class="ok">Matches the record</span></div></div>
+      </div>
+      <div class="float f2">
+        <div class="t">Payment sheet</div>
+        <ul class="approve">
+          <li><i><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></i>Signatures collected</li>
+          <li><i><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></i>Certified by officer</li>
+          <li class="now"><i><svg viewBox="0 0 24 24"></svg></i><b>Finance verifying</b></li>
+          <li class="todo"><i><svg viewBox="0 0 24 24"></svg></i>Ready to pay</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= STRIP ================= -->
+<div class="strip">
+  <div class="wrap">
+    <div class="it rv"><b>1 link</b><span>replaces the printed sheet</span></div>
+    <div class="it rv d1"><b>Every day</b><span>its own signature, on its own day</span></div>
+    <div class="it rv d2"><b>0 apps</b><span>to install for attendees</span></div>
+    <div class="it rv d3"><b>Anyone</b><span>can check a sealed record</span></div>
+  </div>
+</div>
+
+<!-- ================= HOW ================= -->
+<section id="how">
+  <div class="wrap">
+    <p class="eyebrow rv">How it works</p>
+    <h2 class="rv d1">From invitation to sealed record in four steps.</h2>
+    <p class="sub rv d2">No training day needed. If you can share a link, you can run an event.</p>
+
+    <div class="how" id="how2">
+      <div class="steps" role="tablist" aria-label="Steps">
+        <button class="step on" role="tab" aria-selected="true" data-i="0"><span class="n">1</span><b>Create the event</b><p>Name it, set the days and the venue. Add the people if it is a payment sheet. That is the whole setup.</p><span class="bar"><i></i></span></button>
+        <button class="step" role="tab" aria-selected="false" data-i="1"><span class="n">2</span><b>Share one link</b><p>Post it in the group chat or show the QR code at the door. Only the people on the list can sign.</p><span class="bar"><i></i></span></button>
+        <button class="step" role="tab" aria-selected="false" data-i="2"><span class="n">3</span><b>People sign on their phone</b><p>Each person signs for the day, on the day. You watch the roll fill up live, and each day closes on time.</p><span class="bar"><i></i></span></button>
+        <button class="step" role="tab" aria-selected="false" data-i="3"><span class="n">4</span><b>Seal it and prove it</b><p>The finished sheet is sealed. Its QR code lets anyone confirm the paper matches the record.</p><span class="bar"><i></i></span></button>
+      </div>
+
+      <div class="panel" aria-live="polite">
+        <div class="scene on" data-i="0">
+          <div class="win"><div class="hd"><i></i><i></i><i></i></div>
+            <div class="field"><span>Event</span>County Digital Skills Training</div>
+            <div class="field"><span>Days</span>11 Oct to 15 Oct, 5 days</div>
+            <div class="field"><span>Venue</span>Kisumu</div>
+            <span class="go">Create event</span>
+          </div>
+        </div>
+        <div class="scene" data-i="1">
+          <div class="linkbox">sign.example/e/county-skills <b>Copy</b></div>
+          <div class="chat"><div>Please sign in for today's session here &#128071;</div><div>sign.example/e/county-skills</div><div class="me">Done, thanks &#10003;</div></div>
+        </div>
+        <div class="scene" data-i="2">
+          <div class="roll">
+            <div class="r"><span>Name</span><span>Day 3</span></div>
+            <div class="r"><span>Wanjiku Mwangi</span><span class="tick">Signed 08:41</span></div>
+            <div class="r"><span>Otieno Odhiambo</span><span class="tick">Signed 08:55</span></div>
+            <div class="r"><span>Faith Chebet</span><span class="tick">Signed 09:12</span></div>
+            <div class="r"><span>Hassan Ali</span><span class="wait">Not yet</span></div>
+          </div>
+        </div>
+        <div class="scene" data-i="3">
+          <div class="big"><div class="qr" id="qrB"></div><b>7K2M-9QXA</b><span>&#10003; Matches the sealed record</span><p>Print the sheet, and the QR on it checks itself against the original. If one name or signature changed, it will not match.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FEATURES ================= -->
+<section id="features" style="padding-top:20px;">
+  <div class="wrap">
+    <p class="eyebrow rv">What is inside</p>
+    <h2 class="rv d1">Everything an attendance office actually needs.</h2>
+    <p class="sub rv d2">Built around how paper registers are used in real offices, then made hard to fake.</p>
+
+    <div class="bento">
+      <div class="cell c-a rv">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 10h18M8 3v4M16 3v4"/></svg></div>
+        <h3>One signature for every day</h3>
+        <p>Multi-day events get a column for each day. People sign for a day on that day. Missed days stay visibly empty instead of being filled in later.</p>
+        <div class="minidays"><span class="s"></span><span class="s"></span><span class="s"></span><span data-d="4"></span><span data-d="5"></span></div>
+      </div>
+      <div class="cell c-b c-dark rv d1">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></div>
+        <h3>A tamper-evident activity log</h3>
+        <p>Every sign-in, change and approval is written to a chain where each entry fingerprints the one before it. An edit made later shows.</p>
+        <div class="chain"><i>a41f</i><u></u><i>9c07</i><u></u><i>e2b8</i><u></u><i>5d13</i></div>
+      </div>
+      <div class="cell c-c rv">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3zM9 12l2 2 4-4"/></svg></div>
+        <h3>Sealed sheets</h3>
+        <p>Every finished sheet carries a QR that anyone can scan to check it against the record.</p>
+      </div>
+      <div class="cell c-d rv d1">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg></div>
+        <h3>Door scanning</h3>
+        <p>Scan passes at the entrance. It keeps working when the signal drops and catches up when it returns.</p>
+      </div>
+      <div class="cell c-e rv d2">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 15a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM8.5 13.5L7 21l5-3 5 3-1.5-7.5"/></svg></div>
+        <h3>Certificates</h3>
+        <p>When an event ends, attendees can collect a certificate that can itself be verified.</p>
+      </div>
+      <div class="cell c-wide rv">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg></div>
+        <h3>Your name, your colours, your web address</h3>
+        <p>Each organisation sets its own logo, colours, letterhead and printed footer, and can run on its own address. Attendees see you, not us. Departments, people and access levels stay inside your organisation.</p>
+        <div class="swatches"><i style="background:#c8102e"></i><i style="background:#0b6b36"></i><i style="background:#1b4f9c"></i><i style="background:#7a3fa0"></i><i style="background:#c46a00"></i></div>
+      </div>
+      <div class="cell c-b rv d1" style="grid-column:span 2;">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg></div>
+        <h3>Reports with a built-in check</h3>
+        <p>Every report states whether the records behind it are intact.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PAYMENT ================= -->
+<div class="pay" id="payment">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow" style="color:#ff8095;">Payment sheets</p>
+      <h2>The paper form you already use. Done properly.</h2>
+      <p class="sub">When people are paid for the days they attend, the sheet is the evidence. Ours prints as the same familiar form, but it is signed on phones and approved before anyone is paid.</p>
+      <ul class="tick-list">
+        <li><span><b>Prints like your paper sheet.</b> Letterhead, nine days to a page, unused rows struck through, your own footer line.</span></li>
+        <li><span><b>A real approval path.</b> Prepared, certified by the authorising officer, verified by finance. Each step is sealed.</span></li>
+        <li><span><b>Automatic checks.</b> Odd rates, late additions and gaps are flagged for the approver to look at.</span></li>
+        <li><span><b>Access you control.</b> Only the people you give payment access to can see or prepare a sheet.</span></li>
+      </ul>
+      <a class="btn red lg" href="signup.html">Set up payment sheets</a>
+    </div>
+
+    <div class="paper rv" aria-hidden="true">
+      <div class="top"><div class="ad"><b>Your organisation</b>Street and building<br>PO Box 00100, City<br>Tel: +000 000 000 000</div><div class="lg">LOGO<small>your logo here</small></div></div>
+      <h5>ATTENDANCE SHEET</h5>
+      <table>
+        <tr><td class="k">DATE:</td><td>27 July to 14 Aug 2026</td><td class="k">CONVENER:</td><td>Eng. J. Kamau</td></tr>
+        <tr><td class="k">TIME:</td><td>08:00 &ndash; 17:00</td><td class="k">LOCATION:</td><td>Mombasa</td></tr>
+        <tr><td class="k">MAIN AGENDA/SUBJECT:</td><td colspan="3">Inspection of laptops and smart boards</td></tr>
+      </table>
+      <table class="tt" id="paperTable"></table>
+      <div class="band"><span>Your organisation's legal line goes here</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= VERIFY ================= -->
+<section id="verify">
+  <div class="wrap">
+    <div class="verify rv">
+      <div>
+        <p class="eyebrow">For anyone, no account needed</p>
+        <h2>Holding a printed sheet or certificate? Check it.</h2>
+        <p style="color:var(--muted);margin:0;font-size:17px;">Type the code printed on it, or scan its QR code. You will see whether it matches the original record.</p>
+      </div>
+      <div>
+        <form class="vform" id="vform">
+          <input id="vcode" type="text" inputmode="text" autocomplete="off" maxlength="20" placeholder="e.g. 7K2M-9QXA" aria-label="Code printed on the sheet or certificate">
+          <button class="btn solid" type="submit">Check</button>
+        </form>
+        <p class="vnote">The code is under the QR on every sealed sheet and certificate.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TRUST ================= -->
+<section id="trust" style="padding-top:20px;">
+  <div class="wrap">
+    <p class="eyebrow rv">Trust</p>
+    <h2 class="rv d1">Careful with people's information, by design.</h2>
+    <p class="sub rv d2">Attendance records hold names, phone numbers and signatures. We treat that as a duty, not a feature.</p>
+    <div class="pillars">
+      <div class="pillar rv"><div class="num">01</div><h3>Records that show tampering</h3><p>Sealed sheets, a chained activity log and an integrity check on every report mean quiet edits do not go unnoticed.</p></div>
+      <div class="pillar rv d1"><div class="num">02</div><h3>Every organisation is fenced off</h3><p>Each organisation's people, events and records are kept apart. One organisation can never see another's. We test this on every change.</p></div>
+      <div class="pillar rv d2"><div class="num">03</div><h3>Support only with your consent</h3><p>The platform team can look inside an organisation only if its administrator approves, for a set number of hours, read-only, and never at attendee records. Every look is logged to you.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FINAL ================= -->
+<section class="final">
+  <div class="wrap">
+    <h2 class="rv">Put the clipboard down.</h2>
+    <p class="rv d1">Ask to add your organisation. We confirm your email, review the request, and set you up with your own name, logo and colours.</p>
+    <div class="heroActions rv d2">
+      <a class="btn red lg" href="signup.html">Add your organisation</a>
+      <a class="btn ghost lg" href="login.html">Log in</a>
+      <a class="btn ghost lg" href="wallet.html">My events</a>
+    </div>
+  </div>
+</section>
 </main>
+
+<footer>
+  <div class="wrap">
+    <span>&copy; 2026 Asya Hafidh. All rights reserved.</span>
+    <div class="sp">
+      <a href="verify.html">Verify a record</a>
+      <a href="wallet.html">My events</a>
+      <a href="signup.html">Add your organisation</a>
+      <a href="login.html">Log in</a>
+      <a href="privacy.html">Privacy policy</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var $ = function(s, r){ return (r || document).querySelector(s); };
+  var $$ = function(s, r){ return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+  // The nav gets a hairline once the page has moved.
+  var nav = $('#nav');
+  function onScroll(){ nav.classList.toggle('stuck', window.scrollY > 8); }
+  onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+
+  // A QR-looking tile. It is decoration and never carries a real code.
+  function qr(host){
+    if(!host) return;
+    var cells = '';
+    for(var y = 0; y < 9; y++) for(var x = 0; x < 9; x++){
+      var corner = (x < 3 && y < 3) || (x > 5 && y < 3) || (x < 3 && y > 5);
+      var on = corner ? !(x % 6 === 1 && y % 6 === 1) : ((x * 7 + y * 13 + x * y) % 5 < 2);
+      cells += '<i class="' + (on ? '' : 'o') + '"></i>';
+    }
+    host.innerHTML = cells;
+  }
+  qr($('#qrA')); qr($('#qrB'));
+
+  // The phone signs itself, then shows "Signed", then starts over.
+  var stage = $('#stage');
+  function cycle(){
+    stage.classList.remove('done');
+    setTimeout(function(){ stage.classList.add('done'); }, 2900);
+  }
+  cycle(); setInterval(cycle, 5200);
+
+  // How it works: auto-advances, pauses on hover, and can be clicked.
+  var steps = $$('.step'), scenes = $$('.scene'), how = $('#how2'), cur = 0, timer = null;
+  function go(i){
+    cur = i;
+    steps.forEach(function(s, n){ var on = n === i; s.classList.toggle('on', on); s.setAttribute('aria-selected', on ? 'true' : 'false'); });
+    scenes.forEach(function(s, n){ s.classList.toggle('on', n === i); });
+    clearTimeout(timer); timer = setTimeout(function(){ if(!how.classList.contains('paused')) go((cur + 1) % steps.length); else timer = setTimeout(function(){ go(cur); }, 1000); }, 5500);
+  }
+  steps.forEach(function(s, n){ s.addEventListener('click', function(){ go(n); }); });
+  how.addEventListener('mouseenter', function(){ how.classList.add('paused'); });
+  how.addEventListener('mouseleave', function(){ how.classList.remove('paused'); });
+  go(0);
+
+  // A miniature of the paper form: three people, the rest struck through.
+  var t = $('#paperTable'), h = '<tr><th style="width:8%">S/NO.</th><th style="width:26%">NAME</th><th style="width:18%">ORGANISATION</th>';
+  for(var d = 1; d <= 6; d++) h += '<th>Day ' + d + '</th>';
+  h += '</tr>';
+  var people = [['Ruth Njoroge', 'MoE', 5], ['Sarah Wangui', 'ICTA', 5], ['Wilfred Koko', 'ICTA', 4]];
+  var sig = '<svg viewBox="0 0 40 16"><path d="M3 11 C8 1,11 1,12 8 S16 14,20 5 S27 2,28 9 S34 12,37 4"/></svg>';
+  for(var r = 0; r < 5; r++){
+    var p = people[r], row = '<tr class="' + (p ? '' : 'sg') + '"><td>' + (r + 1) + '.</td><td>' + (p ? p[0] : '') + '</td><td>' + (p ? p[1] : '') + '</td>';
+    for(var c = 0; c < 6; c++) row += '<td class="sig">' + (p && c < p[2] ? sig : '') + '</td>';
+    h += row + '</tr>';
+  }
+  t.innerHTML = h;
+
+  // Check a record
+  $('#vform').addEventListener('submit', function(e){
+    e.preventDefault();
+    var v = $('#vcode').value.trim();
+    location.href = 'verify.html' + (v ? '?code=' + encodeURIComponent(v.toUpperCase()) : '');
+  });
+
+  // Reveal on scroll
+  var items = $$('.rv');
+  if('IntersectionObserver' in window){
+    var io = new IntersectionObserver(function(es){ es.forEach(function(en){ if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); } }); }, { threshold: .12, rootMargin: '0px 0px -40px 0px' });
+    items.forEach(function(n){ io.observe(n); });
+  } else items.forEach(function(n){ n.classList.add('in'); });
+})();
+</script>
 </body>
 </html>
