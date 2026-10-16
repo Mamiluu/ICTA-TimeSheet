@@ -110,6 +110,20 @@ A `render.yaml` blueprint at the repo root does most of this for you.
   scanning, certificates) and sets limits (administrators, events per month). A module that is off is
   refused on the server and left out of the pages; limits stop the next thing, and nothing already
   created is removed. The organisation sees its plan on its overview page.
+- Joining: `signup.html` lets an organisation ask to be added. The request needs its email address
+  confirmed (a link that works for two days) and then the owner's approval at `owner.html`; nothing is
+  created before that. A hidden field catches bots, the form is limited to six requests an hour from
+  one place, and it gives the same answer whatever happens, so it cannot reveal which addresses are
+  already registered. Approving creates the organisation on the Starter plan and invites the person
+  who asked as its first administrator; declining sends them the reason.
+- Own web addresses: the owner saves an address for an organisation (for example
+  `attend.theirname.go.ke`) and presses Check, which looks up its CNAME record and only then switches
+  it on, so nobody can claim an address they do not control. The organisation is then recognised by
+  the address a request arrives on: pages and emails use its look, links in its emails and its QR
+  codes use its address, and only its own people can sign in there (the owner can anywhere). Setting
+  `PLATFORM_DOMAIN` (a domain with a wildcard record) also makes every organisation reachable at
+  `<short address>.<that domain>`. The address must also be added on the hosting service, which
+  issues its security certificate; that is a manual step there.
 - Roles: `OWNER` (the platform operator), `PLATFORM_ADMIN` (shown as "Organisation admin"; an
   organisation's own top account) (departments and their super admins, organisation-wide
   totals, audit trail and integrity checks; never attendee details) →

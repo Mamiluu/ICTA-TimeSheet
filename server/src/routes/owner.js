@@ -6,7 +6,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { requireRole } from '../middleware/auth.js';
 import { issueToken } from '../lib/tokens.js';
-import { sendActivationEmail } from '../lib/mailer.js';
+import { sendActivationEmail, sendSignupDeclinedEmail } from '../lib/mailer.js';
 import { writeAudit } from '../lib/audit.js';
 import { isValidEmailShape } from '../lib/normalize.js';
 import { ah } from '../lib/asyncHandler.js';
@@ -18,7 +18,8 @@ import { supportState, isOpenState, cleanSupportRequest, supportAllowed } from '
 import { platformRouter } from './platform.js';
 import { PLANS, MODULES, cleanPlanInput } from '../lib/plans.js';
 import { invalidatePlanCache } from '../lib/orgPlan.js';
-import { baseUrlFor } from '../lib/tenantHost.js';
+import { baseUrlFor, platformHost, invalidateHostCache } from '../lib/tenantHost.js';
+import { cleanDomain, isPlatformHost, checkPointsAt } from '../lib/domains.js';
 
 // The platform owner's console. It answers "who is using the platform and is it
 // healthy": organisations, counts, activity. Deliberately nothing here returns an
@@ -50,6 +51,7 @@ ownerRouter.get('/organisations', ah(async (req, res) => {
   const by = (rows, id, pick) => (rows.find((r) => r.organisationId === id) ? pick(rows.find((r) => r.organisationId === id)) : null);
   res.json({
     ok: true,
+    platformHost: platformHost(),
     organisations: orgs.map((o) => {
       const mine = users.filter((u) => u.organisationId === o.id);
       const count = (role, status) => mine.filter((u) => u.role === role && (!status || u.status === status)).reduce((n, u) => n + u._count._all, 0);
@@ -61,6 +63,8 @@ ownerRouter.get('/organisations', ah(async (req, res) => {
         status: o.status,
         plan: o.plan,
         createdAt: o.createdAt,
+        customDomain: o.customDomain,
+        domainVerified: !!o.domainVerifiedAt,
         paidUntil: o.paidUntil,
         billing: billingState(o.paidUntil),
         modules: o.modules,
@@ -83,38 +87,136 @@ ownerRouter.get('/organisations', ah(async (req, res) => {
 
 // Creates the organisation and invites its first administrator. That person then
 // sets up the organisation's own departments and people.
-ownerRouter.post('/organisations', ah(async (req, res) => {
-  const name = cleanOrgName(req.body.name);
-  if (!name) return res.status(400).json({ ok: false, error: 'INVALID_NAME', message: 'Use a name between 3 and 100 characters.' });
-  const slug = String(req.body.slug || '').trim().toLowerCase() || orgSlug(name);
-  if (!isValidOrgSlug(slug)) {
-    return res.status(400).json({ ok: false, error: 'INVALID_SLUG', message: 'The short address must be 3 to 40 letters, numbers or single dashes, and not a reserved word.' });
-  }
-  const adminEmail = String(req.body.adminEmail || '').trim().toLowerCase();
-  if (!isValidEmailShape(adminEmail)) return res.status(400).json({ ok: false, error: 'INVALID_EMAIL', message: 'Enter the first administrator\'s email address.' });
-
-  let org;
-  let admin;
+// Makes the organisation and its first administrator together, or says why it cannot be done.
+// The administrator is invited by email and sets their own password. Used both when the owner adds
+// an organisation and when they approve a request to join.
+async function createOrganisationWithAdmin({ name, slug, shortName, adminEmail, ownerId, planData }) {
   try {
-    [org, admin] = await prisma.$transaction(async (tx) => {
-      const o = await tx.organisation.create({ data: { name, slug, shortName: cleanShortName(req.body.shortName) } });
-      const a = await tx.user.create({ data: { email: adminEmail, role: 'PLATFORM_ADMIN', status: 'PENDING', organisationId: o.id, createdById: req.user.id } });
+    const [org, admin] = await prisma.$transaction(async (tx) => {
+      const o = await tx.organisation.create({ data: { name, slug, shortName, ...(planData || {}) } });
+      const a = await tx.user.create({ data: { email: adminEmail, role: 'PLATFORM_ADMIN', status: 'PENDING', organisationId: o.id, createdById: ownerId } });
       return [o, a];
     });
+    return { org, admin };
   } catch (err) {
     if (isUnique(err)) {
       const target = Array.isArray(err.meta?.target) ? err.meta.target.join(',') : String(err.meta?.target || '');
-      if (target.includes('email')) return res.status(409).json({ ok: false, error: 'EMAIL_IN_USE', message: 'That email address is already registered.' });
-      return res.status(409).json({ ok: false, error: 'ORG_EXISTS', message: 'An organisation with that name or short address already exists.' });
+      if (target.includes('email')) return { conflict: { error: 'EMAIL_IN_USE', message: 'That email address is already registered.' } };
+      return { conflict: { error: 'ORG_EXISTS', message: 'An organisation with that name or short address already exists.' } };
     }
     throw err;
   }
+}
 
+async function inviteFirstAdmin(org, admin, req) {
   const raw = await issueToken(admin.id, 'ACTIVATION');
   const url = activationUrl(raw, org);
   sendActivationEmail(admin.email, url, null, null, org.name, emailBrand(brandFromOrg(org))).catch((err) => logger.error('sendActivationEmail failed', { toEmail: admin.email, stack: err.stack }));
   await writeAudit({ actorId: req.user.id, action: 'ORG_CREATE', targetType: 'Organisation', targetId: org.id, metadata: { name: org.name, slug: org.slug }, req });
-  res.json({ ok: true, organisation: { id: org.id, name: org.name, slug: org.slug }, activationUrl: url });
+  return url;
+}
+
+function readNameAndSlug(body, fallbackName) {
+  const name = cleanOrgName(body.name || fallbackName);
+  if (!name) return { error: { error: 'INVALID_NAME', message: 'Use a name between 3 and 100 characters.' } };
+  const slug = String(body.slug || '').trim().toLowerCase() || orgSlug(name);
+  if (!isValidOrgSlug(slug)) return { error: { error: 'INVALID_SLUG', message: 'The short address must be 3 to 40 letters, numbers or single dashes, and not a reserved word.' } };
+  return { name, slug };
+}
+
+ownerRouter.post('/organisations', ah(async (req, res) => {
+  const ns = readNameAndSlug(req.body);
+  if (ns.error) return res.status(400).json({ ok: false, ...ns.error });
+  const adminEmail = String(req.body.adminEmail || '').trim().toLowerCase();
+  if (!isValidEmailShape(adminEmail)) return res.status(400).json({ ok: false, error: 'INVALID_EMAIL', message: 'Enter the first administrator\'s email address.' });
+
+  const made = await createOrganisationWithAdmin({ name: ns.name, slug: ns.slug, shortName: cleanShortName(req.body.shortName), adminEmail, ownerId: req.user.id });
+  if (made.conflict) return res.status(409).json({ ok: false, ...made.conflict });
+  const url = await inviteFirstAdmin(made.org, made.admin, req);
+  res.json({ ok: true, organisation: { id: made.org.id, name: made.org.name, slug: made.org.slug }, activationUrl: url });
+}));
+
+// ---- Organisations asking to join ------------------------------------------------
+
+ownerRouter.get('/requests', ah(async (req, res) => {
+  const [waiting, recent] = await Promise.all([
+    prisma.organisationRequest.findMany({ where: { status: 'PENDING' }, orderBy: { createdAt: 'asc' } }),
+    prisma.organisationRequest.findMany({ where: { status: { in: ['APPROVED', 'DECLINED'] } }, orderBy: { decidedAt: 'desc' }, take: 10 })
+  ]);
+  const view = (r) => ({ id: r.id, organisationName: r.organisationName, contactName: r.contactName, contactEmail: r.contactEmail, phone: r.phone, message: r.message, status: r.status, requestedAt: r.createdAt, confirmedAt: r.emailVerifiedAt, decidedAt: r.decidedAt, declineReason: r.declineReason });
+  res.json({ ok: true, waiting: waiting.map(view), recent: recent.map(view) });
+}));
+
+// Approving makes the organisation on the Starter plan (change it afterwards if they should have
+// more) and invites the person who asked as its first administrator.
+ownerRouter.post('/requests/:id/approve', ah(async (req, res) => {
+  const request = await prisma.organisationRequest.findUnique({ where: { id: req.params.id } });
+  if (!request) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  if (request.status !== 'PENDING') return res.status(409).json({ ok: false, error: 'NOT_WAITING', message: 'This request has already been dealt with, or its email is not confirmed yet.' });
+  const ns = readNameAndSlug(req.body, request.organisationName);
+  if (ns.error) return res.status(400).json({ ok: false, ...ns.error });
+  const plan = cleanPlanInput({ plan: req.body.plan || 'STARTER' });
+  if (plan.error) return res.status(400).json({ ok: false, error: 'INVALID_PLAN', message: plan.error });
+
+  const made = await createOrganisationWithAdmin({ name: ns.name, slug: ns.slug, shortName: null, adminEmail: request.contactEmail, ownerId: req.user.id, planData: plan.value });
+  if (made.conflict) return res.status(409).json({ ok: false, ...made.conflict });
+  await prisma.organisationRequest.update({ where: { id: request.id }, data: { status: 'APPROVED', decidedById: req.user.id, decidedAt: new Date(), organisationId: made.org.id } });
+  const url = await inviteFirstAdmin(made.org, made.admin, req);
+  await writeAudit({ actorId: req.user.id, action: 'ORG_REQUEST_APPROVED', targetType: 'Organisation', targetId: made.org.id, metadata: { name: made.org.name, plan: plan.value.plan }, req });
+  res.json({ ok: true, organisation: { id: made.org.id, name: made.org.name, slug: made.org.slug }, activationUrl: url });
+}));
+
+ownerRouter.post('/requests/:id/decline', ah(async (req, res) => {
+  const request = await prisma.organisationRequest.findUnique({ where: { id: req.params.id } });
+  if (!request) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  if (request.status !== 'PENDING') return res.status(409).json({ ok: false, error: 'NOT_WAITING', message: 'This request has already been dealt with.' });
+  const reason = String(req.body.reason || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  if (reason.length < 5) return res.status(400).json({ ok: false, error: 'REASON_REQUIRED', message: 'Write a short reason. It is sent to the person who asked.' });
+  await prisma.organisationRequest.update({ where: { id: request.id }, data: { status: 'DECLINED', decidedById: req.user.id, decidedAt: new Date(), declineReason: reason } });
+  sendSignupDeclinedEmail(request.contactEmail, request.contactName, request.organisationName, reason).catch((err) => logger.error('sendSignupDeclinedEmail failed', { stack: err.stack }));
+  await writeAudit({ actorId: req.user.id, action: 'ORG_REQUEST_DECLINED', targetType: 'OrganisationRequest', targetId: request.id, metadata: { name: request.organisationName, reason }, req });
+  res.json({ ok: true });
+}));
+
+// ---- An organisation's own web address ---------------------------------------------
+
+// Records the address an organisation wants to use. It is not used for anything until the check
+// below has seen that it points at this platform.
+ownerRouter.put('/organisations/:id/domain', ah(async (req, res) => {
+  const org = await prisma.organisation.findUnique({ where: { id: req.params.id } });
+  if (!org) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const raw = String(req.body.domain ?? '').trim();
+  let domain = null;
+  if (raw) {
+    domain = cleanDomain(raw);
+    if (!domain) return res.status(400).json({ ok: false, error: 'INVALID_DOMAIN', message: 'Enter a web address such as attend.theirname.go.ke (a name under their own domain, without https://).' });
+    if (isPlatformHost(domain, platformHost())) return res.status(400).json({ ok: false, error: 'INVALID_DOMAIN', message: 'That is one of the platform\'s own addresses.' });
+  }
+  try {
+    await prisma.organisation.update({ where: { id: org.id }, data: { customDomain: domain, domainVerifiedAt: null } });
+  } catch (err) {
+    if (isUnique(err)) return res.status(409).json({ ok: false, error: 'DOMAIN_IN_USE', message: 'Another organisation already has that address.' });
+    throw err;
+  }
+  invalidateHostCache();
+  await writeAudit({ actorId: req.user.id, action: 'ORG_DOMAIN_SET', targetType: 'Organisation', targetId: org.id, metadata: { name: org.name, domain }, req });
+  res.json({ ok: true, domain, platformHost: platformHost() });
+}));
+
+// Looks up the address in the public DNS and, if it points at the platform, switches it on.
+ownerRouter.post('/organisations/:id/domain/check', ah(async (req, res) => {
+  const org = await prisma.organisation.findUnique({ where: { id: req.params.id } });
+  if (!org) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  if (!org.customDomain) return res.status(409).json({ ok: false, error: 'NO_DOMAIN', message: 'Save an address first.' });
+  const result = await checkPointsAt(org.customDomain, platformHost());
+  if (!result.ok) {
+    const why = result.reason === 'NO_RECORD' ? 'There is no record for that address yet. DNS changes can take a while to appear.' : result.reason === 'LOOKUP_FAILED' ? 'The lookup did not work just now. Try again in a minute.' : `The address points at ${result.found.join(', ') || 'something else'}, not at ${platformHost()}.`;
+    return res.json({ ok: false, error: result.reason, message: why });
+  }
+  await prisma.organisation.update({ where: { id: org.id }, data: { domainVerifiedAt: new Date() } });
+  invalidateHostCache();
+  await writeAudit({ actorId: req.user.id, action: 'ORG_DOMAIN_VERIFIED', targetType: 'Organisation', targetId: org.id, metadata: { name: org.name, domain: org.customDomain }, req });
+  res.json({ ok: true });
 }));
 
 // The plans on offer and the modules they switch on, so the console never has its own copy.

@@ -239,6 +239,14 @@ async function main() {
   await owner.put(`/owner/organisations/${B.org.id}/plan`, { plan: 'PILOT' });
   expect('putting B back on the Pilot plan restores everything', (await B.orgAdmin.get('/platform/plan')).data.modules.every((m) => m.on));
 
+  // Requests to join and web addresses belong to the owner alone
+  expect('an org admin cannot read requests to join', refused(await A.orgAdmin.get('/owner/requests')));
+  expect('an org admin cannot approve a request', refused(await A.orgAdmin.post('/owner/requests/anything/approve', {})));
+  expect("an org admin cannot set its own web address", refused(await A.orgAdmin.put(`/owner/organisations/${A.org.id}/domain`, { domain: 'attend.fence-a.example.com' })));
+  expect("an org admin cannot set another organisation's web address", refused(await A.orgAdmin.put(`/owner/organisations/${B.org.id}/domain`, { domain: 'attend.fence-b.example.com' })));
+  expect('an unchecked web address is never confirmed by itself', (await owner.put(`/owner/organisations/${B.org.id}/domain`, { domain: `attend.b${stamp}.example.com` })).data.ok === true && (await owner.post(`/owner/organisations/${B.org.id}/domain/check`)).data.ok === false);
+  expect('the platform\'s own address cannot be claimed', (await owner.put(`/owner/organisations/${B.org.id}/domain`, { domain: new URL(BASE).hostname })).data.ok !== true);
+
   // The owner sees counts only
   const list = await owner.get('/owner/organisations');
   const text = JSON.stringify(list.data);

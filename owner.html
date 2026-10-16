@@ -82,6 +82,11 @@
 
   <div class="stats" id="stats"></div>
 
+  <div class="card" id="reqCard" hidden>
+    <h2>Organisations asking to join <span class="pill warn" id="reqCount"></span></h2>
+    <div id="reqList"></div>
+  </div>
+
   <div class="card">
     <h2>Platform health</h2>
     <div class="health" id="health"><p class="empty">Checking…</p></div>
@@ -91,6 +96,16 @@
     <h2>Customers</h2>
     <div id="list"><p class="empty">Loading…</p></div>
   </div>
+
+  <dialog class="plan" id="domDlg" aria-labelledby="domTitle">
+    <h3 id="domTitle">Web address</h3>
+    <p class="m" id="domWho" style="color:var(--muted); font-size:13px; margin:0 0 12px;"></p>
+    <label for="domInput">Their own address</label>
+    <input type="text" id="domInput" maxlength="120" autocomplete="off" placeholder="attend.theirname.go.ke">
+    <p class="help" id="domHelp" style="margin:10px 0 0;"></p>
+    <p class="msg" id="domMsg" role="status" aria-live="polite"></p>
+    <div class="dlg-actions"><button type="button" id="domClose">Close</button><button type="button" id="domCheck">Check it points here</button><button type="button" class="primary" id="domSave">Save address</button></div>
+  </dialog>
 
   <dialog class="plan" id="planDlg" aria-labelledby="planTitle">
     <h3 id="planTitle">Plan</h3>
@@ -170,6 +185,73 @@
     line.textContent = 'Plan ' + o.plan.toLowerCase() + ' · ' + mods + ' of ' + (PLAN_META ? PLAN_META.modules.length : 4) + ' modules · administrators ' + o.adminSeats + (o.maxAdmins ? ' of ' + o.maxAdmins : '') + ' · events a month ' + (o.maxEventsPerMonth ? 'limit ' + o.maxEventsPerMonth : 'unlimited');
     return line;
   }
+
+  // ---- Requests to join ----
+  function loadRequests(){
+    API.get('/api/owner/requests').then(function(r){
+      if(r.status !== 200 || !r.data.ok) return;
+      var card = $('reqCard'), list = $('reqList'); list.textContent = '';
+      var w = r.data.waiting;
+      card.hidden = !w.length;
+      $('reqCount').textContent = w.length + ' waiting';
+      w.forEach(function(q){
+        var row = el('div', 'org');
+        var left = el('div'); left.appendChild(el('div', 'n', q.organisationName));
+        left.appendChild(el('div', 'm', q.contactName + ' \u00b7 ' + q.contactEmail + (q.phone ? ' \u00b7 ' + q.phone : '') + ' \u00b7 asked ' + ago(q.requestedAt)));
+        if(q.message) left.appendChild(el('div', 'm', '\u201c' + q.message + '\u201d'));
+        row.appendChild(left); row.appendChild(el('div'));
+        var acts = el('div', 'acts');
+        var ok = el('button', 'primary', 'Approve'); ok.type = 'button'; ok.addEventListener('click', function(){ decideRequest(q, 'approve', ok); });
+        var no = el('button', 'danger', 'Decline'); no.type = 'button'; no.addEventListener('click', function(){ decideRequest(q, 'decline', no); });
+        acts.appendChild(ok); acts.appendChild(no); row.appendChild(acts); list.appendChild(row);
+      });
+    }).catch(function(){});
+  }
+  function decideRequest(q, action, btn){
+    var body = {};
+    if(action === 'approve'){
+      if(!window.confirm('Approve ' + q.organisationName + '? They get the Starter plan and an invitation at ' + q.contactEmail + '. You can change the plan afterwards.')) return;
+    } else {
+      var why = window.prompt('Why are you declining? This is sent to ' + q.contactName + '.');
+      if(!why) return; body.reason = why;
+    }
+    btn.disabled = true;
+    API.post('/api/owner/requests/' + encodeURIComponent(q.id) + '/' + action, body).then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ window.alert(r.data.message || 'Could not do that.'); return; }
+      load();
+    }).catch(function(){ btn.disabled = false; window.alert('No connection. Please try again.'); });
+  }
+
+  // ---- Web address dialog ----
+  var platformHostName = '', domOrg = null, domDlg = $('domDlg');
+  function openDomain(o){
+    domOrg = o;
+    $('domWho').textContent = o.name;
+    $('domInput').value = o.customDomain || '';
+    $('domHelp').textContent = 'Ask them to add a CNAME record at their DNS provider pointing that address to ' + platformHostName + ', and to add the same address on the hosting service so its security certificate is issued. Then press Check. Until it is checked, the address is not used.';
+    $('domMsg').textContent = o.customDomain ? (o.domainVerified ? 'Confirmed: it points here.' : 'Saved, not confirmed yet.') : '';
+    $('domMsg').className = 'msg' + (o.domainVerified ? ' ok' : '');
+    $('domCheck').style.display = o.customDomain ? '' : 'none';
+    if(domDlg.showModal) domDlg.showModal(); else domDlg.setAttribute('open', '');
+  }
+  $('domClose').addEventListener('click', function(){ if(domDlg.close) domDlg.close(); else domDlg.removeAttribute('open'); load(); });
+  $('domSave').addEventListener('click', function(){
+    var m = $('domMsg'); m.textContent = 'Saving\u2026'; m.className = 'msg';
+    API.put('/api/owner/organisations/' + encodeURIComponent(domOrg.id) + '/domain', { domain: $('domInput').value }).then(function(r){
+      if(!r.data.ok){ m.textContent = r.data.message || 'Could not save.'; m.className = 'msg err'; return; }
+      domOrg.customDomain = r.data.domain; domOrg.domainVerified = false;
+      $('domInput').value = r.data.domain || ''; $('domCheck').style.display = r.data.domain ? '' : 'none';
+      m.textContent = r.data.domain ? 'Saved. Now press Check once the record is in place.' : 'The address was removed.';
+    }).catch(function(){ m.textContent = 'No connection. Please try again.'; m.className = 'msg err'; });
+  });
+  $('domCheck').addEventListener('click', function(){
+    var m = $('domMsg'); m.textContent = 'Looking it up\u2026'; m.className = 'msg';
+    API.post('/api/owner/organisations/' + encodeURIComponent(domOrg.id) + '/domain/check').then(function(r){
+      if(r.data.ok){ domOrg.domainVerified = true; m.textContent = 'Confirmed. This address now opens the organisation in its own look, and links in its emails use it.'; m.className = 'msg ok'; return; }
+      m.textContent = r.data.message || 'It does not point here yet.'; m.className = 'msg err';
+    }).catch(function(){ m.textContent = 'No connection. Please try again.'; m.className = 'msg err'; });
+  });
 
   // ---- Plan dialog ----
   var PLAN_META = null, planOrg = null;
@@ -251,6 +333,9 @@
         link.addEventListener('click', function(){ copyLink(o, link); });
         acts.appendChild(link);
       }
+      var domBtn = el('button', null, o.customDomain ? (o.domainVerified ? 'Web address \u2713' : 'Web address (unconfirmed)') : 'Web address'); domBtn.type = 'button';
+      domBtn.addEventListener('click', function(){ openDomain(o); });
+      acts.appendChild(domBtn);
       var planBtn = el('button', null, 'Plan'); planBtn.type = 'button';
       planBtn.addEventListener('click', function(){ openPlan(o); });
       acts.appendChild(planBtn);
@@ -283,8 +368,10 @@
 
   function load(){
     loadHealth();
+    loadRequests();
     return API.get('/api/owner/organisations').then(function(r){
       if(r.status !== 200 || !r.data.ok){ $('list').innerHTML = '<p class="empty">Could not load organisations.</p>'; return; }
+      platformHostName = r.data.platformHost || '';
       render(r.data.organisations);
     }).catch(function(){ $('list').innerHTML = '<p class="empty">No connection. Reload to try again.</p>'; });
   }

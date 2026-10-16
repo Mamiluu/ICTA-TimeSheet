@@ -17,6 +17,15 @@ export const loginLimiter = rateLimit({
   message: { ok: false, error: 'TOO_MANY_ATTEMPTS', message: 'Too many login attempts. Try again later.' }
 });
 
+// A request to join is a public form, so it is slow by design: a handful an hour from one place.
+export const signupLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: Number(process.env.SIGNUP_RATE_LIMIT) || 6,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: 'TOO_MANY_ATTEMPTS', message: 'Too many requests from here. Please try again later.' }
+});
+
 export const forgotPasswordLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   limit: 5,

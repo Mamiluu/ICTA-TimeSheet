@@ -244,6 +244,37 @@ export async function sendAttendanceConfirmationEmail(toEmail, details, brandIn 
 // inbox the application cannot edit: the hash below is the audit chain's
 // latest entry at send time, so a later check can show whether anything up to
 // it was changed or removed. There is nothing to click.
+// Asks someone who has requested an organisation to confirm the email address. Sent in the
+// platform's default look: there is no organisation yet.
+export async function sendSignupVerifyEmail(toEmail, verifyUrl, contactName, brandIn = null) {
+  const brand = brandOf(brandIn);
+  devLogLink(`signup confirmation for ${toEmail}`, verifyUrl);
+  const html = wrapHtml(
+    brand,
+    `
+    <p style="font-size:13.5px;color:#333;">Hello ${escapeHtml(contactName)},</p>
+    <p style="font-size:13.5px;color:#333;">We received a request to add your organisation to the platform. Please confirm that this email address is yours. We review confirmed requests and write back to you.</p>
+    <p style="margin:22px 0;"><a href="${verifyUrl}" style="background:${brand.accent};color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Confirm my email address</a></p>
+    <p style="font-size:11.5px;color:#888;">The link works for two days. If you did not ask for this, you can ignore this email.</p>
+  `
+  );
+  await sendViaBrevo({ to: toEmail, subject: 'Confirm your request', html, brand, kind: 'signup' });
+}
+
+export async function sendSignupDeclinedEmail(toEmail, contactName, organisationName, reason, brandIn = null) {
+  const brand = brandOf(brandIn);
+  const html = wrapHtml(
+    brand,
+    `
+    <p style="font-size:13.5px;color:#333;">Hello ${escapeHtml(contactName)},</p>
+    <p style="font-size:13.5px;color:#333;">Thank you for asking to add <strong>${escapeHtml(organisationName)}</strong>. We are not able to go ahead with it at the moment.</p>
+    <p style="font-size:13.5px;color:#333;">${escapeHtml(reason)}</p>
+    <p style="font-size:13.5px;color:#333;">You are welcome to reply to this email, or to ask again later.</p>
+  `
+  );
+  await sendViaBrevo({ to: toEmail, subject: 'About your request', html, brand, kind: 'signup' });
+}
+
 export async function sendChainAnchorEmail(toEmail, head, brandIn = null) {
   const brand = brandOf(brandIn);
   devLogLink(`chain anchor for ${toEmail}`, head.hash);
