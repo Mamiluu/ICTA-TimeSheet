@@ -499,7 +499,7 @@
     function tile(l, v, s, cls){ var t = el('div', 'h' + (cls ? ' ' + cls : '')); t.appendChild(el('div', 'l', l)); t.appendChild(el('div', 'v', v)); if(s) t.appendChild(el('div', 's', s)); return t; }
     box.appendChild(tile('Database', d.database.ok ? 'Working' : 'Down', d.database.ms + ' ms to answer', d.database.ok ? 'ok' : 'bad'));
     var m = d.emails24h;
-    box.appendChild(tile('Emails, 24 hours', m.sent + ' sent', m.failed ? m.failed + ' failed' : 'none failed', m.failed ? 'bad' : 'ok'));
+    box.appendChild(m.failed ? tile('Emails, 24 hours', m.failed + ' failed', m.sent + ' sent', 'bad') : tile('Emails, 24 hours', m.sent + ' sent', 'none failed', 'ok'));
     box.appendChild(tile('Audit anchor', d.lastAnchorAt ? ago(d.lastAnchorAt) : 'Never sent', 'last copy emailed'));
     var up = Math.round(d.uptimeSeconds / 3600 * 10) / 10;
     box.appendChild(tile('Server', 'Up ' + (up < 1 ? Math.round(d.uptimeSeconds / 60) + ' min' : up + ' h'), (d.lastMigration ? 'Database version ' + d.lastMigration.name.slice(0, 14) + ' · ' : '') + d.node));
