@@ -200,6 +200,45 @@ async function main() {
   expect('B can revoke it', (await B.orgAdmin.post(`/platform/support/${ask.data.grant.id}/revoke`)).data.ok === true);
   expect('the view closes straight away', (await owner.get(`/owner/support/${B.org.id}/departments`)).status === 403);
 
+  // Each organisation has its own audit chain and its own anchor
+  const headA = (await A.orgAdmin.get('/platform/anchor')).data.head;
+  const headB = (await B.orgAdmin.get('/platform/anchor')).data.head;
+  expect('each organisation has its own chain head', headA && headB && headA.hash !== headB.hash);
+  expect("an anchor kept from B is not found in A's chain", (await A.orgAdmin.post('/platform/anchor/check', { hash: headB.hash })).data.found === false);
+  const own = (await A.orgAdmin.post('/platform/anchor/check', { hash: headA.hash })).data;
+  expect("A's own anchor checks out against its own chain", own.found === true && own.intactUpToAnchor === true && own.hashMismatches === 0 && own.linkBreaks === 0);
+  const bOwn = (await B.orgAdmin.post('/platform/anchor/check', { hash: headB.hash })).data;
+  expect("B's own anchor checks out against its own chain", bOwn.found === true && bOwn.intactUpToAnchor === true && bOwn.linkBreaks === 0);
+  const aOnly = await A.orgAdmin.get('/platform/audit?pageSize=100');
+  expect("A's chain holds only A's entries (every prevHash is A's)", aOnly.data.entries.every((e) => !e.actor || !String(e.actor.email).includes('.b.' + stamp)));
+
+  // Plans and modules
+  const planB = await owner.put(`/owner/organisations/${B.org.id}/plan`, { plan: 'STARTER' });
+  expect('owner can put B on the Starter plan', planB.data.ok === true && planB.data.plan.plan === 'STARTER');
+  expect('an org admin cannot change its own plan', refused(await B.orgAdmin.put(`/owner/organisations/${B.org.id}/plan`, { plan: 'FULL' })));
+  expect('a plan must be a real one', refused(await owner.put(`/owner/organisations/${B.org.id}/plan`, { plan: 'GOLD' })));
+  const bPlan = (await B.orgAdmin.get('/platform/plan')).data;
+  expect("B sees what its plan includes", bPlan.modules.find((m) => m.key === 'PAYMENT').on === false && bPlan.modules.find((m) => m.key === 'ATTENDANCE').on === true);
+  expect('A keeps everything', (await A.orgAdmin.get('/platform/plan')).data.modules.every((m) => m.on));
+  const t0 = new Date(Date.now() + 60 * 1000), t1 = new Date(t0.getTime() + 3600 * 1000);
+  const dutyBody = { timezone: 'Africa/Nairobi', startAt: t0.toISOString(), endAt: t1.toISOString(), locationType: 'PHYSICAL', address: 'x', kind: 'DUTY_ROLL', name: 'Plan check', authorisedBy: 'D', authorityRef: 'R', days: [{ startAt: t0.toISOString(), endAt: t1.toISOString(), place: 'P' }] };
+  expect("B cannot create a payment sheet once payments are off", refused(await B.prep.client.post('/admin/events', dutyBody)));
+  expect("B cannot open its existing payment sheet either", notFoundOrRefused(await B.prep.client.get(`/admin/events/${B.duty.id}/duty`)));
+  expect("B's authoriser cannot review payment sheets", refused(await B.auth.client.get('/duty-review/queue')));
+  expect('B cannot give a new admin payment access', refused(await B.superAdmin.post('/superadmin/admins', { email: `pay.${stamp}@fence.test`, county: 'Nairobi', access: 'PAYMENT' })));
+  expect('B cannot use door scanning', refused(await B.prep.client.post(`/admin/events/${B.att.id}/door-checkins`, { scans: [] })));
+  expect('B can still make an attendance sheet', (await B.prep.client.post('/admin/events', { timezone: 'Africa/Nairobi', startAt: t0.toISOString(), endAt: t1.toISOString(), locationType: 'PHYSICAL', address: 'x', name: 'Allowed' })).data.ok === true);
+  expect("A can still create a payment sheet", (await A.prep.client.post('/admin/events', { ...dutyBody, name: 'A payment sheet' })).data.ok === true);
+  await owner.put(`/owner/organisations/${B.org.id}/plan`, { plan: 'CUSTOM', modules: ['ATTENDANCE', 'CERTIFICATES'], maxAdmins: 3, maxEventsPerMonth: 100 });
+  const seat = await B.superAdmin.post('/superadmin/admins', { email: `seat.${stamp}@fence.test`, county: 'Nakuru' });
+  expect('B cannot add an administrator past its limit', seat.data && seat.data.error === 'PLAN_LIMIT');
+  await owner.put(`/owner/organisations/${B.org.id}/plan`, { plan: 'CUSTOM', modules: ['ATTENDANCE', 'CERTIFICATES'], maxAdmins: 50, maxEventsPerMonth: 1 });
+  const over = await B.prep.client.post('/admin/events', { timezone: 'Africa/Nairobi', startAt: t0.toISOString(), endAt: t1.toISOString(), locationType: 'PHYSICAL', address: 'x', name: 'One too many' });
+  expect('B cannot create more events than its monthly limit', over.data && over.data.error === 'PLAN_LIMIT');
+  expect("A is not held to B's limits", (await A.prep.client.post('/admin/events', { ...dutyBody, name: 'A again' })).data.ok === true);
+  await owner.put(`/owner/organisations/${B.org.id}/plan`, { plan: 'PILOT' });
+  expect('putting B back on the Pilot plan restores everything', (await B.orgAdmin.get('/platform/plan')).data.modules.every((m) => m.on));
+
   // The owner sees counts only
   const list = await owner.get('/owner/organisations');
   const text = JSON.stringify(list.data);

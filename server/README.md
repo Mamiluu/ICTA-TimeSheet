@@ -98,6 +98,18 @@ A `render.yaml` blueprint at the repo root does most of this for you.
   they can end it at any time, and the view covers only their departments, administrators, overview
   and activity log, never attendee records and never a change. The request, the approval and every
   page opened are written to the organisation's own audit trail.
+- Audit chains: each organisation has its own hash chain (the owner has one of their own), so an
+  organisation verifies and anchors its own trail and nothing of anyone else's is in it. Entries
+  hash their metadata as the database stores it (`hashVersion` 2). Entries from before that
+  (version 1) hashed a date inside metadata as an empty object, so they are also accepted with dates
+  left out; any other change to them is still caught. A link from an organisation's first entries
+  back to an entry now held by another chain (from when there was one chain for everyone) is
+  recognised as that old join, not a break.
+- Plans and modules: the owner sets each organisation's plan (Pilot, Starter, Standard, Full or
+  Custom) at `owner.html`, which switches modules on or off (attendance sheets, payment sheets, door
+  scanning, certificates) and sets limits (administrators, events per month). A module that is off is
+  refused on the server and left out of the pages; limits stop the next thing, and nothing already
+  created is removed. The organisation sees its plan on its overview page.
 - Roles: `OWNER` (the platform operator), `PLATFORM_ADMIN` (shown as "Organisation admin"; an
   organisation's own top account) (departments and their super admins, organisation-wide
   totals, audit trail and integrity checks; never attendee details) →

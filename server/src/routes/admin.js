@@ -19,6 +19,9 @@ import { notifyDaySigned } from './public.js';
 import { kindsFor, canAccessKind, cleanAuthority } from '../lib/duty.js';
 import { registerDutyRoutes } from './adminDuty.js';
 import { sheetIsOpen } from '../lib/duty.js';
+import { hasModule } from '../lib/plans.js';
+import { eventLimitRefusal } from '../lib/orgPlan.js';
+import { orgBaseUrl } from '../lib/tenantHost.js';
 import QRCode from 'qrcode';
 
 export const adminRouter = Router();
@@ -179,6 +182,8 @@ adminRouter.post('/events', ah(async (req, res) => {
     const noPlace = days.findIndex((d) => !d.place);
     if (noPlace !== -1) return res.status(400).json({ ok: false, error: 'PLACE_REQUIRED', message: `Say where the team works on day ${noPlace + 1}.` });
   }
+  const full = await eventLimitRefusal(req.user.organisationId);
+  if (full) return res.status(409).json({ ok: false, error: 'PLAN_LIMIT', message: full });
   if (startAt.getTime() < Date.now()) {
     return res.status(400).json({ ok: false, error: 'PAST_DATE', message: 'Event start can\'t be in the past.' });
   }
@@ -187,7 +192,7 @@ adminRouter.post('/events', ah(async (req, res) => {
     data: {
       slug: eventSlugId(f.name), name: f.name, description: f.description,
       startAt, endAt, timezone: f.timezone,
-      locationType: f.locationType, address: f.address, latitude: f.latitude, longitude: f.longitude, meetingLink: f.meetingLink, certificatesEnabled: kind === 'DUTY_ROLL' ? false : f.certificatesEnabled,
+      locationType: f.locationType, address: f.address, latitude: f.latitude, longitude: f.longitude, meetingLink: f.meetingLink, certificatesEnabled: kind === 'DUTY_ROLL' || !hasModule(req.user.organisation, 'CERTIFICATES') ? false : f.certificatesEnabled,
       kind, authorisedBy: authority.authorisedBy, authorityRef: authority.authorityRef,
       county: req.user.county, ownerId: req.user.id, departmentId: req.user.departmentId, organisationId: req.user.organisationId,
       days: { create: days.map((d, i) => ({ position: i + 1, startAt: d.startAt, endAt: d.endAt, place: d.place })) }
@@ -217,6 +222,12 @@ async function findOwnEvent(req) {
 
 registerDutyRoutes(adminRouter, findOwnEvent);
 
+// Door scanning is a module the organisation can have switched off.
+adminRouter.use(['/events/:id/days/:dayId/door-checkin', '/events/:id/door-checkins', '/events/:id/door-roster'], (req, res, next) => {
+  if (hasModule(req.user.organisation, 'DOOR_SCAN')) return next();
+  res.status(403).json({ ok: false, error: 'MODULE_OFF', message: 'Door scanning is not part of your organisation\'s plan.' });
+});
+
 // Rendered entirely on this server (the `qrcode` package, a local library
 // with no network calls of its own) rather than by pointing an <img> at a
 // third-party QR-rendering API -- the previous approach handed every
@@ -232,7 +243,7 @@ adminRouter.get('/events/:id/qr', ah(async (req, res) => {
 
   // A payment sheet has its own signing page; everything else uses the attendance page.
   const page = event.kind === 'DUTY_ROLL' ? 'duty-sign.html' : 'index.html';
-  const url = `${process.env.PUBLIC_APP_URL}/${page}?event=${encodeURIComponent(event.slug)}`;
+  const url = `${await orgBaseUrl(event.organisationId)}/${page}?event=${encodeURIComponent(event.slug)}`;
   const png = await QRCode.toBuffer(url, { width: 180, margin: 1 });
   res.set('Content-Type', 'image/png');
   res.set('Cache-Control', 'private, max-age=3600');
@@ -411,7 +422,7 @@ adminRouter.post('/events/:id/days/:dayId/seal', ah(async (req, res) => {
     code,
     digest,
     sealedAt: seal.createdAt,
-    verifyUrl: `${process.env.PUBLIC_APP_URL}/verify.html?code=${code}`
+    verifyUrl: `${await orgBaseUrl(event.organisationId)}/verify.html?code=${code}`
   });
 }));
 
@@ -462,7 +473,7 @@ export async function sealWholeEvent(event, req) {
     digest,
     dayCount: days.length,
     sealedAt: seal.createdAt,
-    verifyUrl: `${process.env.PUBLIC_APP_URL}/verify.html?code=${code}`
+    verifyUrl: `${await orgBaseUrl(event.organisationId)}/verify.html?code=${code}`
   };
 }
 
@@ -503,7 +514,7 @@ adminRouter.get('/events/:id/claim-pack', ah(async (req, res) => {
     matrix: data.matrix,
     findings: data.findings,
     retiredCount: data.retiredCount,
-    seal: seal ? { code: seal.id, sealedAt: seal.createdAt, verifyUrl: `${process.env.PUBLIC_APP_URL}/verify.html?code=${seal.id}` } : null,
+    seal: seal ? { code: seal.id, sealedAt: seal.createdAt, verifyUrl: `${await orgBaseUrl(event.organisationId)}/verify.html?code=${seal.id}` } : null,
     approval: approval
       ? { by: approval.actorEmail, at: approval.createdAt, note: approval.metadata?.note || '', sealCode: approval.metadata?.sealCode || null }
       : null

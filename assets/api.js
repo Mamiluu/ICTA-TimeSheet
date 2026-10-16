@@ -143,6 +143,7 @@ var AUDIT_ACTION_META = {
   SUPPORT_REVOKED: { label: 'Support access revoked', tone: 'neutral' },
   SUPPORT_ENDED: { label: 'Support access ended', tone: 'neutral' },
   SUPPORT_VIEWED: { label: 'Support viewed a page', tone: 'info' },
+  ORG_PLAN_CHANGED: { label: 'Plan changed', tone: 'warning' },
   ORG_PAYMENT_RECORDED: { label: 'Recorded payment', tone: 'positive' },
   ORG_BILLING_OFF: { label: 'Turned billing off', tone: 'neutral' },
   ORG_BRANDING_UPDATED: { label: 'Updated branding', tone: 'neutral' },
@@ -276,6 +277,8 @@ function auditSummary(e){
       return (m.hours || '?') + ' hours';
     case 'SUPPORT_VIEWED':
       return escapeHtml(String(m.page || '').replace(/^\//, ''));
+    case 'ORG_PLAN_CHANGED':
+      return escapeHtml(((m.from && m.from.plan) || '?') + ' → ' + ((m.to && m.to.plan) || '?'));
     case 'ORG_PAYMENT_RECORDED':
       return escapeHtml(m.name || '') + ' — ' + (m.months || '?') + (m.months === 1 ? ' month' : ' months') + ', paid until ' + escapeHtml(m.paidUntil || '');
     case 'ORG_BRANDING_UPDATED':

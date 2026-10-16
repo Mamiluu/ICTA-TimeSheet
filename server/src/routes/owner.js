@@ -16,6 +16,9 @@ import { brandFromOrg, emailBrand } from '../lib/brand.js';
 import { lastAnchorAt } from '../lib/anchor.js';
 import { supportState, isOpenState, cleanSupportRequest, supportAllowed } from '../lib/support.js';
 import { platformRouter } from './platform.js';
+import { PLANS, MODULES, cleanPlanInput } from '../lib/plans.js';
+import { invalidatePlanCache } from '../lib/orgPlan.js';
+import { baseUrlFor } from '../lib/tenantHost.js';
 
 // The platform owner's console. It answers "who is using the platform and is it
 // healthy": organisations, counts, activity. Deliberately nothing here returns an
@@ -25,8 +28,8 @@ export const ownerRouter = Router();
 ownerRouter.use(requireRole('OWNER'));
 
 // The page opens in the organisation's own look because the link names it.
-function activationUrl(raw, slug) {
-  return `${process.env.PUBLIC_APP_URL}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(slug)}`;
+function activationUrl(raw, org) {
+  return `${baseUrlFor(org)}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(org.slug)}`;
 }
 
 function isUnique(err) {
@@ -60,6 +63,10 @@ ownerRouter.get('/organisations', ah(async (req, res) => {
         createdAt: o.createdAt,
         paidUntil: o.paidUntil,
         billing: billingState(o.paidUntil),
+        modules: o.modules,
+        maxAdmins: o.maxAdmins,
+        maxEventsPerMonth: o.maxEventsPerMonth,
+        adminSeats: mine.filter((u) => (u.role === 'SUPER_ADMIN' || u.role === 'COUNTY_ADMIN') && u.status !== 'DISABLED').reduce((n, u) => n + u._count._all, 0),
         departments: by(departments, o.id, (r) => r._count._all) || 0,
         orgAdmins: count('PLATFORM_ADMIN'),
         orgAdminsActive: count('PLATFORM_ADMIN', 'ACTIVE'),
@@ -104,10 +111,29 @@ ownerRouter.post('/organisations', ah(async (req, res) => {
   }
 
   const raw = await issueToken(admin.id, 'ACTIVATION');
-  const url = activationUrl(raw, org.slug);
+  const url = activationUrl(raw, org);
   sendActivationEmail(admin.email, url, null, null, org.name, emailBrand(brandFromOrg(org))).catch((err) => logger.error('sendActivationEmail failed', { toEmail: admin.email, stack: err.stack }));
   await writeAudit({ actorId: req.user.id, action: 'ORG_CREATE', targetType: 'Organisation', targetId: org.id, metadata: { name: org.name, slug: org.slug }, req });
   res.json({ ok: true, organisation: { id: org.id, name: org.name, slug: org.slug }, activationUrl: url });
+}));
+
+// The plans on offer and the modules they switch on, so the console never has its own copy.
+ownerRouter.get('/plans', (req, res) => {
+  res.json({ ok: true, plans: Object.entries(PLANS).map(([key, p]) => ({ key, ...p })), modules: Object.entries(MODULES).map(([key, label]) => ({ key, label })) });
+});
+
+// Sets what an organisation has switched on and its limits. The new rules apply on the next
+// thing anyone there does; nothing already created is removed.
+ownerRouter.put('/organisations/:id/plan', ah(async (req, res) => {
+  const org = await prisma.organisation.findUnique({ where: { id: req.params.id } });
+  if (!org) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const parsed = cleanPlanInput(req.body);
+  if (parsed.error) return res.status(400).json({ ok: false, error: 'INVALID_PLAN', message: parsed.error });
+  await prisma.organisation.update({ where: { id: org.id }, data: parsed.value });
+  invalidatePlanCache();
+  const was = { plan: org.plan, modules: org.modules, maxAdmins: org.maxAdmins, maxEventsPerMonth: org.maxEventsPerMonth };
+  await writeAudit({ actorId: req.user.id, action: 'ORG_PLAN_CHANGED', targetType: 'Organisation', targetId: org.id, metadata: { name: org.name, from: was, to: parsed.value }, req, organisationId: org.id });
+  res.json({ ok: true, plan: parsed.value });
 }));
 
 // Records that an organisation has paid, for a number of whole months. Money itself is
@@ -166,7 +192,7 @@ ownerRouter.post('/organisations/:id/activation-link', ah(async (req, res) => {
   if (!admin) return res.status(409).json({ ok: false, error: 'NOT_PENDING', message: 'This organisation has no administrator waiting to activate.' });
   const raw = await issueToken(admin.id, 'ACTIVATION');
   await writeAudit({ actorId: req.user.id, action: 'ORG_ACTIVATION_LINK_VIEWED', targetType: 'Organisation', targetId: org.id, req });
-  res.json({ ok: true, url: activationUrl(raw, org.slug), email: admin.email });
+  res.json({ ok: true, url: activationUrl(raw, org), email: admin.email });
 }));
 
 // ---- Health and usage: counts only ------------------------------------------

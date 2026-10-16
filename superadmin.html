@@ -348,6 +348,15 @@
   });
   window.addEventListener('hashchange', function(){ showView(location.hash.replace('#', '')); });
 
+  // What the organisation has switched on: payment features are left out when payment sheets are not part of its plan.
+  function applyModules(mods){
+    if(mods.indexOf('PAYMENT') !== -1) return;
+    Array.prototype.forEach.call(document.querySelectorAll('#newAccess option[value=PAYMENT], #newAccess option[value=BOTH]'), function(o){ o.remove(); });
+    Array.prototype.forEach.call(document.querySelectorAll('input[name=accessOpt][value=PAYMENT], input[name=accessOpt][value=BOTH]'), function(r){ r.closest('label').style.display = 'none'; });
+    var nav = document.querySelector('a[href="duty-review.html"]');
+    if(nav){ nav.style.display = 'none'; if(nav.previousElementSibling && nav.previousElementSibling.className === 'nav-group') nav.previousElementSibling.style.display = 'none'; }
+  }
+
   function requireSession(){
     return API.get('/api/auth/me').then(function(r){
       if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return null; }
@@ -356,6 +365,7 @@
       whoEmail.title = r.data.user.email;
       document.getElementById('userAvatar').textContent = (r.data.user.email || 'S').charAt(0).toUpperCase();
       document.getElementById('profEmail').textContent = r.data.user.email;
+      applyModules(r.data.user.modules || ['ATTENDANCE', 'PAYMENT', 'DOOR_SCAN', 'CERTIFICATES']);
       var dept = r.data.user.department ? r.data.user.department.name : '';
       if(dept){
         document.getElementById('whoDept').textContent = dept;

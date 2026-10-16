@@ -62,3 +62,26 @@ describe('walkChain positions', () => {
     assert.deepEqual(r.mismatchAt, [3]);
   });
 });
+
+describe('walkChain across the split into per-organisation chains', () => {
+  test('a link back to an entry that belongs to another chain is the old join, not a break', () => {
+    const c = build(4);
+    // The third entry was written when there was one chain for everyone and points at an entry now held elsewhere.
+    const other = 'hash-of-an-entry-in-another-chain';
+    c[2].prevHash = other;
+    c[2].hash = hashToken(entryHashInput(c[2]));
+    c[3].prevHash = c[2].hash;
+    c[3].hash = hashToken(entryHashInput(c[3]));
+    assert.equal(walkChain(c).linkBreaks.length, 1, 'counted as a break without knowing about the other chain');
+    assert.equal(walkChain(c, new Set([other])).linkBreaks.length, 0);
+  });
+
+  test('a link to something that exists nowhere is still a break', () => {
+    const c = build(4);
+    c[2].prevHash = 'deleted-entry-hash';
+    c[2].hash = hashToken(entryHashInput(c[2]));
+    c[3].prevHash = c[2].hash;
+    c[3].hash = hashToken(entryHashInput(c[3]));
+    assert.equal(walkChain(c, new Set(['some-other-hash'])).linkBreaks.length, 1);
+  });
+});

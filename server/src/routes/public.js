@@ -19,6 +19,8 @@ import { maskName } from '../lib/mask.js';
 import { walletEntry } from '../lib/wallet.js';
 import { certificateEligible, loadCertificateSnapshot, certificateStillHolds, publicCertificateView } from '../lib/certificate.js';
 import { canAccessKind, dayStatus, STAGE_LABEL } from '../lib/duty.js';
+import { moduleOn } from '../lib/orgPlan.js';
+import { orgBaseUrl } from '../lib/tenantHost.js';
 import { newSealCode, SEAL_CODE_PATTERN, buildDaySnapshot, buildEventSnapshot, summarizeSnapshot, digestOf } from '../lib/seal.js';
 
 // Fire-and-forget, same discipline as writeAudit's own .catch(() => {})
@@ -30,8 +32,8 @@ import { newSealCode, SEAL_CODE_PATTERN, buildDaySnapshot, buildEventSnapshot, s
 // multi-day event so the receipt says which day was recorded.
 function sendConfirmationIfEmailed(row, event, day, dayCount, recordedAt) {
   if (!row.email || !isValidEmailShape(row.email)) return;
-  brandForOrgId(event.organisationId)
-    .then((brand) =>
+  Promise.all([brandForOrgId(event.organisationId), orgBaseUrl(event.organisationId)])
+    .then(([brand, base]) =>
       sendAttendanceConfirmationEmail(
         row.email,
         {
@@ -42,7 +44,7 @@ function sendConfirmationIfEmailed(row, event, day, dayCount, recordedAt) {
     endAt: day ? day.endAt : event.endAt,
     dayPosition: day ? day.position : undefined,
     dayCount,
-    passUrl: dayCount > 1 ? `${process.env.PUBLIC_APP_URL}/index.html?event=${encodeURIComponent(event.slug)}&pass=${encodeURIComponent(row.clientId)}` : undefined,
+    passUrl: dayCount > 1 ? `${base}/index.html?event=${encodeURIComponent(event.slug)}&pass=${encodeURIComponent(row.clientId)}` : undefined,
     timezone: event.timezone,
     locationType: event.locationType,
     address: event.address,
@@ -394,7 +396,7 @@ publicRouter.post('/events/:slug/attendance/:rowId/request-signature', attendanc
 
   res.json({
     ok: true,
-    link: `${process.env.PUBLIC_APP_URL}/sign.html?token=${encodeURIComponent(raw)}`,
+    link: `${await orgBaseUrl(event.organisationId)}/sign.html?token=${encodeURIComponent(raw)}`,
     expiresAt
   });
 }));
@@ -445,10 +447,10 @@ publicRouter.get('/seals/:code', attendanceLimiter, ah(async (req, res) => {
 publicRouter.get('/seals/:code/qr', attendanceLimiter, ah(async (req, res) => {
   const code = String(req.params.code || '').toUpperCase();
   if (!SEAL_CODE_PATTERN.test(code)) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
-  const seal = await prisma.sheetSeal.findUnique({ where: { id: code }, select: { id: true } });
+  const seal = await prisma.sheetSeal.findUnique({ where: { id: code }, select: { id: true, event: { select: { organisationId: true } } } });
   if (!seal) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
 
-  const png = await QRCode.toBuffer(`${process.env.PUBLIC_APP_URL}/verify.html?code=${code}`, { width: 120, margin: 1 });
+  const png = await QRCode.toBuffer(`${await orgBaseUrl(seal.event.organisationId)}/verify.html?code=${code}`, { width: 120, margin: 1 });
   res.set('Content-Type', 'image/png');
   res.set('Cache-Control', 'public, max-age=86400');
   res.send(png);
@@ -481,7 +483,7 @@ publicRouter.post(
         prisma.sessionSignature.count({ where: { attendanceId: attendee.id } }),
         prisma.attendanceCertificate.findFirst({ where: { attendanceId: attendee.id }, orderBy: { issuedAt: 'desc' }, select: { id: true } })
       ]);
-      const certificateReady = attendee.status !== 'RETIRED' && signedCount > 0 && certificateEligible(event, days);
+      const certificateReady = attendee.status !== 'RETIRED' && signedCount > 0 && certificateEligible(event, days) && (await moduleOn(event.organisationId, 'CERTIFICATES'));
       events.push(walletEntry({ event, attendee, days, signedCount, certificate, certificateReady }));
     }
     events.sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
@@ -503,7 +505,7 @@ publicRouter.post('/events/:slug/certificate', attendanceLimiter, ah(async (req,
     : null;
   if (!attendee) return res.json({ ok: false, error: 'NOT_FOUND', message: 'Open this page on the device you signed in on, or use your personal pass link.' });
   if (attendee.status === 'RETIRED') return res.json({ ok: false, error: 'RETIRED', message: 'This entry has been retired, so no certificate can be issued.' });
-  if (!event.certificatesEnabled) return res.json({ ok: false, error: 'DISABLED', message: 'The organiser has not enabled certificates for this event.' });
+  if (!event.certificatesEnabled || !(await moduleOn(event.organisationId, 'CERTIFICATES'))) return res.json({ ok: false, error: 'DISABLED', message: 'The organiser has not enabled certificates for this event.' });
 
   const { days, snapshot } = await loadCertificateSnapshot(event, attendee);
   if (!certificateEligible(event, days)) {
@@ -559,9 +561,9 @@ publicRouter.get('/certificates/:code', attendanceLimiter, ah(async (req, res) =
 publicRouter.get('/certificates/:code/qr', attendanceLimiter, ah(async (req, res) => {
   const code = String(req.params.code || '').toUpperCase();
   if (!SEAL_CODE_PATTERN.test(code)) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
-  const cert = await prisma.attendanceCertificate.findUnique({ where: { id: code }, select: { id: true } });
+  const cert = await prisma.attendanceCertificate.findUnique({ where: { id: code }, select: { id: true, event: { select: { organisationId: true } } } });
   if (!cert) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
-  const png = await QRCode.toBuffer(`${process.env.PUBLIC_APP_URL}/certificate.html?code=${code}`, { width: 240, margin: 1 });
+  const png = await QRCode.toBuffer(`${await orgBaseUrl(cert.event.organisationId)}/certificate.html?code=${code}`, { width: 240, margin: 1 });
   res.set('Content-Type', 'image/png');
   res.set('Cache-Control', 'public, max-age=86400');
   res.send(png);
@@ -747,7 +749,7 @@ publicRouter.post('/events/:slug/pass-qr', attendanceLimiter, ah(async (req, res
   const clientId = String(req.body.clientId || '');
   const row = clientId ? await prisma.attendance.findUnique({ where: { eventId_clientId: { eventId: event.id, clientId } }, select: { id: true } }) : null;
   if (!row) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
-  const url = `${process.env.PUBLIC_APP_URL}/index.html?event=${encodeURIComponent(event.slug)}&pass=${encodeURIComponent(clientId)}`;
+  const url = `${await orgBaseUrl(event.organisationId)}/index.html?event=${encodeURIComponent(event.slug)}&pass=${encodeURIComponent(clientId)}`;
   const png = await QRCode.toBuffer(url, { width: 220, margin: 1 });
   res.set('Content-Type', 'image/png');
   res.set('Cache-Control', 'no-store');

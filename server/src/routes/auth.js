@@ -14,6 +14,7 @@ import { ah } from '../lib/asyncHandler.js';
 import { logger } from '../lib/logger.js';
 import { publicUser, departmentPaused, organisationSuspended } from '../lib/userView.js';
 import { brandForOrgId, brandFromOrg, emailBrand } from '../lib/brand.js';
+import { baseUrlFor } from '../lib/tenantHost.js';
 
 export const authRouter = Router();
 
@@ -32,6 +33,11 @@ authRouter.post('/login', loginLimiter, ah(async (req, res) => {
   // Said only after the password is right, so it cannot be used to find out which emails exist.
   if (departmentPaused(user)) {
     return res.status(403).json({ ok: false, error: 'DEPARTMENT_PAUSED', message: "Your department's access has been paused. Please contact the platform administrator." });
+  }
+
+  // On an organisation's own address only its own people can sign in (the owner can anywhere).
+  if (req.hostOrg && user.role !== 'OWNER' && user.organisationId !== req.hostOrg.id) {
+    return res.status(401).json({ ok: false, error: 'INVALID_CREDENTIALS' });
   }
 
   if (organisationSuspended(user)) {
@@ -119,7 +125,7 @@ authRouter.post('/forgot-password', forgotPasswordLimiter, ah(async (req, res) =
     const user = await prisma.user.findUnique({ where: { email }, include: { organisation: true } });
     if (user && user.status === 'ACTIVE') {
       const raw = await issueToken(user.id, 'PASSWORD_RESET');
-      const resetUrl = `${process.env.PUBLIC_APP_URL}/reset-password.html?token=${encodeURIComponent(raw)}${user.organisationId ? '&org=' + encodeURIComponent(user.organisation.slug) : ''}`;
+      const resetUrl = `${baseUrlFor(user.organisation)}/reset-password.html?token=${encodeURIComponent(raw)}${user.organisationId ? '&org=' + encodeURIComponent(user.organisation.slug) : ''}`;
       (user.organisationId ? brandForOrgId(user.organisationId) : Promise.resolve(brandFromOrg(null)))
         .then((brand) => sendPasswordResetEmail(user.email, resetUrl, emailBrand(brand)))
         .catch((err) => logger.error('sendPasswordResetEmail failed', { stack: err.stack }));

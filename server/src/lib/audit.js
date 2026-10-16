@@ -21,6 +21,31 @@ export function canonicalJson(value) {
   return JSON.stringify(value === undefined ? null : value);
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
+
+// What the old code effectively hashed for a date inside metadata: nothing, an empty object.
+// Only used to recognise entries written before that was fixed.
+function blindDates(value) {
+  if (Array.isArray(value)) return value.map(blindDates);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, blindDates(v)]));
+  return typeof value === 'string' && ISO_DATE.test(value) ? {} : value;
+}
+
+// Metadata as the database will hand it back: dates become text, undefined disappears.
+// Hashing this, not the raw object, is what lets an entry be verified after it is stored.
+export function normaliseMetadata(metadata) {
+  return metadata === undefined || metadata === null ? metadata : JSON.parse(JSON.stringify(metadata));
+}
+
+// Whether an entry's stored hash matches its own fields. Entries from before hashVersion 2 are
+// also accepted if they match with dates left out, which is how they were hashed.
+export function hashMatches(entry) {
+  if (entry.hash == null) return false;
+  if (hashToken(entryHashInput(entry)) === entry.hash) return true;
+  if (entry.hashVersion !== 1) return false;
+  return hashToken(entryHashInput({ ...entry, metadata: blindDates(entry.metadata) })) === entry.hash;
+}
+
 export function entryHashInput(entry) {
   return canonicalJson({
     prevHash: entry.prevHash ?? null,
@@ -42,8 +67,11 @@ export function entryHashInput(entry) {
 // (e.g. the MAX_ATTENDANCE_PER_EVENT check in public.js) -- the goal is
 // tamper *evidence*, not strict linearizability. A fork is still visible
 // to a verifier, just not prevented.
-async function nextHash(entry) {
-  const latest = await prisma.auditLog.findFirst({ orderBy: { createdAt: 'desc' }, select: { hash: true } });
+// Each organisation has its own chain (and the platform owner has one of their own), so an
+// organisation can verify its trail without anyone else's entries in it, and its anchor
+// copies say nothing about another organisation.
+async function nextHash(entry, organisationId) {
+  const latest = await prisma.auditLog.findFirst({ where: { organisationId }, orderBy: { createdAt: 'desc' }, select: { hash: true } });
   const prevHash = latest ? latest.hash : null;
   return { prevHash, hash: hashToken(entryHashInput({ ...entry, prevHash })) };
 }
@@ -55,18 +83,21 @@ export async function writeAudit({ actorId, action, targetType, targetId, metada
     ? await prisma.user.findUnique({ where: { id: actorId }, select: { email: true, role: true, county: true, organisationId: true } })
     : null;
   const createdAt = new Date();
-  const { prevHash, hash } = await nextHash({ actorId, action, targetType, targetId, metadata, createdAt });
+  const orgId = organisationId !== undefined ? organisationId : actor ? actor.organisationId : null;
+  const stored = normaliseMetadata(metadata);
+  const { prevHash, hash } = await nextHash({ actorId, action, targetType, targetId, metadata: stored, createdAt }, orgId);
   return prisma.auditLog.create({
     data: {
       actorId,
       actorEmail: actor ? actor.email : null,
       actorRole: actor ? actor.role : null,
       actorCounty: actor ? actor.county : null,
-      organisationId: organisationId !== undefined ? organisationId : actor ? actor.organisationId : null,
+      organisationId: orgId,
       action,
       targetType: targetType || null,
       targetId: targetId || null,
-      metadata: metadata ?? undefined,
+      metadata: stored ?? undefined,
+      hashVersion: 2,
       ip: req ? req.ip : null,
       userAgent: req ? req.get('user-agent') || null : null,
       createdAt,
@@ -83,5 +114,5 @@ export async function writeAudit({ actorId, action, targetType, targetId, metada
 // by the /attendance/:rowId/history endpoint (public.js) to attach a
 // verified flag per entry rather than shipping this logic to the client.
 export function verifyChain(entries) {
-  return entries.map((e) => e.hash != null && hashToken(entryHashInput(e)) === e.hash);
+  return entries.map((e) => hashMatches(e));
 }

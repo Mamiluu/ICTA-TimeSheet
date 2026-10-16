@@ -39,6 +39,23 @@ test('access: who sees which kind of event', () => {
   assert.deepEqual(kindsFor(null), []);
 });
 
+test('access: what the organisation has switched on caps what a person can reach', () => {
+  const admin = { role: 'COUNTY_ADMIN', access: 'BOTH' };
+  assert.deepEqual(kindsFor({ ...admin, organisation: { modules: ['ATTENDANCE'] } }), ['ATTENDANCE']);
+  assert.deepEqual(kindsFor({ ...admin, organisation: { modules: ['PAYMENT'] } }), ['DUTY_ROLL']);
+  assert.deepEqual(kindsFor({ ...admin, organisation: { modules: ['ATTENDANCE', 'PAYMENT'] } }), ['ATTENDANCE', 'DUTY_ROLL']);
+  assert.deepEqual(
+    kindsFor({ role: 'SUPER_ADMIN', organisation: { modules: ['ATTENDANCE'] } }),
+    ['ATTENDANCE'],
+    'even a department super admin'
+  );
+  assert.deepEqual(
+    kindsFor({ ...admin, organisation: null }),
+    ['ATTENDANCE', 'DUTY_ROLL'],
+    'with no organisation loaded nothing is taken away'
+  );
+});
+
 test('access: an event with no kind counts as an attendance sheet', () => {
   assert.equal(canAccessKind({ role: 'COUNTY_ADMIN', access: 'ATTENDANCE' }, undefined), true);
   assert.equal(canAccessKind({ role: 'COUNTY_ADMIN', access: 'PAYMENT' }, 'ATTENDANCE'), false);

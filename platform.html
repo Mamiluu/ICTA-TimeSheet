@@ -161,6 +161,10 @@
 
     <!-- Overview -->
     <section class="view" data-view="overview" data-title="Overview">
+      <div class="sheet wide" id="planCard" hidden>
+        <h2 class="section">Your plan</h2>
+        <div id="planWrap"></div>
+      </div>
       <div class="sheet wide">
         <h2 class="section">The whole organisation at a glance</h2>
         <p class="help">Totals only. Names, phone numbers and signatures stay inside each department.</p>
@@ -486,7 +490,7 @@
     }).catch(function(){ insightsWrap.innerHTML = '<p class="empty">' + NET_ERR + '</p>'; });
   }
 
-  // --- Departments ---
+  // Departments
   var deptList = document.getElementById('deptList');
   var deptSearch = document.getElementById('deptSearch');
   var deptCache = [];
@@ -874,6 +878,20 @@
     }).catch(function(){ say('bad', NET_ERR); });
   });
 
+  // --- Plan: what the organisation can use, and how much of it is used ---
+  function loadPlan(){
+    API.get('/api/platform/plan').then(function(r){
+      if(r.status !== 200 || !r.data.ok) return;
+      var d = r.data, wrap = $('planWrap'); wrap.textContent = '';
+      var mods = el('div'); mods.style.cssText = 'display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;';
+      d.modules.forEach(function(m){ mods.appendChild(el('span', 'pill ' + (m.on ? 'active' : 'disabled'), m.label + (m.on ? '' : ' (not included)'))); });
+      wrap.appendChild(mods);
+      function use(label, u){ return label + ': ' + u.used + (u.limit ? ' of ' + u.limit : '') + (u.limit ? '' : ' (no limit)'); }
+      wrap.appendChild(el('p', 'help', use('Administrators', d.admins) + '   ·   ' + use('Events created this month', d.eventsThisMonth)));
+      $('planCard').hidden = false;
+    }).catch(function(){});
+  }
+
   // --- Support access ---
   var SUPPORT_STATE = { PENDING: ['pending', 'Waiting for you'], ACTIVE: ['active', 'Active'], ENDED: ['disabled', 'Ended'], DENIED: ['disabled', 'Declined'], REVOKED: ['disabled', 'Ended early'], LAPSED: ['disabled', 'Not answered'] };
   function loadSupport(){
@@ -996,6 +1014,7 @@
     showView(location.hash.replace('#', ''));
     refreshAll();
     loadSupport();
+    loadPlan();
   });
 })();
 </script>

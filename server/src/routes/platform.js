@@ -18,6 +18,9 @@ import { cleanBranding } from '../lib/brandInput.js';
 import { brandFromOrg, brandForOrgId, emailBrand, invalidateBrandCache } from '../lib/brand.js';
 import { detectImage, MAX_LOGO_BYTES } from '../lib/imageSniff.js';
 import { supportState } from '../lib/support.js';
+import { baseUrlFor } from '../lib/tenantHost.js';
+import { adminSeatRefusal, adminSeatsUsed, eventsThisMonth, orgPlanFor } from '../lib/orgPlan.js';
+import { MODULES } from '../lib/plans.js';
 import { chainHead, lastAnchorAt, sendAnchor, checkAnchor } from '../lib/anchor.js';
 import { DEFAULT_DEPARTMENTS, MAX_SUPER_ADMINS_PER_DEPARTMENT, cleanDepartmentName, departmentSlug } from '../lib/departments.js';
 
@@ -40,8 +43,8 @@ function publicSuperAdmin(u) {
   };
 }
 
-function activationUrl(raw, slug) {
-  return `${process.env.PUBLIC_APP_URL}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(slug)}`;
+function activationUrl(raw, org) {
+  return `${baseUrlFor(org)}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(org.slug)}`;
 }
 
 function sendActivationBestEffort(user, url, departmentName) {
@@ -217,6 +220,8 @@ platformRouter.post('/super-admins', ah(async (req, res) => {
   const dept = await prisma.department.findFirst({ where: { id: String(req.body.departmentId || ''), organisationId: req.user.organisationId } });
   if (!dept) return res.status(400).json({ ok: false, error: 'INVALID_DEPARTMENT' });
 
+  const seats = await adminSeatRefusal(req.user.organisationId);
+  if (seats) return res.status(409).json({ ok: false, error: 'PLAN_LIMIT', message: seats });
   const live = await prisma.user.count({ where: { role: 'SUPER_ADMIN', departmentId: dept.id, status: { not: 'DISABLED' } } });
   if (live >= MAX_SUPER_ADMINS_PER_DEPARTMENT) {
     return res.status(409).json({ ok: false, error: 'SUPER_ADMIN_CAP_REACHED', cap: MAX_SUPER_ADMINS_PER_DEPARTMENT });
@@ -234,7 +239,7 @@ platformRouter.post('/super-admins', ah(async (req, res) => {
   }
 
   const raw = await issueToken(admin.id, 'ACTIVATION');
-  const url = activationUrl(raw, req.user.organisation.slug);
+  const url = activationUrl(raw, req.user.organisation);
   sendActivationBestEffort(admin, url, dept.name);
   await writeAudit({ actorId: req.user.id, action: 'SUPER_ADMIN_CREATE', targetType: 'User', targetId: admin.id, metadata: { department: dept.name }, req });
 
@@ -249,7 +254,7 @@ platformRouter.post('/super-admins/:id/activation-link', ah(async (req, res) => 
 
   const raw = await issueToken(admin.id, 'ACTIVATION');
   await writeAudit({ actorId: req.user.id, action: 'SUPER_ADMIN_ACTIVATION_LINK_VIEWED', targetType: 'User', targetId: admin.id, req });
-  res.json({ ok: true, url: activationUrl(raw, req.user.organisation.slug) });
+  res.json({ ok: true, url: activationUrl(raw, req.user.organisation) });
 }));
 
 platformRouter.post('/super-admins/:id/disable', ah(async (req, res) => {
@@ -275,13 +280,15 @@ platformRouter.post('/super-admins/:id/reactivate', ah(async (req, res) => {
     return res.status(409).json({ ok: false, error: 'SUPER_ADMIN_CAP_REACHED', cap: MAX_SUPER_ADMINS_PER_DEPARTMENT });
   }
 
+  const seatsBack = await adminSeatRefusal(req.user.organisationId);
+  if (seatsBack) return res.status(409).json({ ok: false, error: 'PLAN_LIMIT', message: seatsBack });
   const updated = await prisma.user.update({
     where: { id: admin.id },
     data: { status: 'PENDING', passwordHash: null, disabledAt: null },
     include: { department: true }
   });
   const raw = await issueToken(updated.id, 'ACTIVATION');
-  sendActivationBestEffort(updated, activationUrl(raw, req.user.organisation.slug), updated.department?.name);
+  sendActivationBestEffort(updated, activationUrl(raw, req.user.organisation), updated.department?.name);
   await writeAudit({ actorId: req.user.id, action: 'SUPER_ADMIN_REACTIVATE', targetType: 'User', targetId: updated.id, req });
   res.json({ ok: true, admin: publicSuperAdmin(updated) });
 }));
@@ -318,18 +325,18 @@ platformRouter.get('/audit', ah((req, res) => {
 // See lib/anchor.js: the chain head is emailed to the platform admin daily,
 // and any kept hash can be checked against the live chain here.
 platformRouter.get('/anchor', ah(async (req, res) => {
-  const [head, last] = await Promise.all([chainHead(), lastAnchorAt()]);
+  const [head, last] = await Promise.all([chainHead(req.user.organisationId), lastAnchorAt(req.user.organisationId)]);
   res.json({ ok: true, head, lastAnchorAt: last });
 }));
 
 platformRouter.post('/anchor', ah(async (req, res) => {
   // Each anchor adds an audit row and an email per recipient, so a manual
   // send is limited to once every 5 minutes.
-  const last = await lastAnchorAt();
+  const last = await lastAnchorAt(req.user.organisationId);
   if (last && Date.now() - last.getTime() < 5 * 60 * 1000) {
     return res.json({ ok: false, error: 'TOO_SOON', message: 'An anchor was sent a moment ago. Wait a few minutes before sending another.' });
   }
-  const result = await sendAnchor({ actorId: req.user.id, req });
+  const result = await sendAnchor({ actorId: req.user.id, req, organisationId: req.user.organisationId });
   if (!result.head) return res.json({ ok: false, error: 'EMPTY_CHAIN', message: 'There are no chained entries to anchor yet.' });
   if (!result.sent) return res.json({ ok: false, error: 'NOT_DELIVERED', message: 'The email could not be sent, so no anchor was recorded. Check the email settings and try again.' });
   res.json({ ok: true, sent: result.sent, head: result.head });
@@ -338,7 +345,21 @@ platformRouter.post('/anchor', ah(async (req, res) => {
 platformRouter.post('/anchor/check', ah(async (req, res) => {
   const hash = String(req.body.hash || '').trim().toLowerCase();
   if (!/^[0-9a-f]{64}$/.test(hash)) return res.status(400).json({ ok: false, error: 'INVALID_HASH', message: 'Paste the full 64-character hash from the anchor email.' });
-  res.json({ ok: true, ...(await checkAnchor(hash)) });
+  res.json({ ok: true, ...(await checkAnchor(hash, req.user.organisationId)) });
+}));
+
+// ---- What the organisation's plan includes ----------------------------------------
+
+platformRouter.get('/plan', ah(async (req, res) => {
+  const orgId = req.user.organisationId;
+  const [plan, admins, events] = await Promise.all([orgPlanFor(orgId), adminSeatsUsed(orgId), eventsThisMonth(orgId)]);
+  res.json({
+    ok: true,
+    plan: plan.plan,
+    modules: Object.entries(MODULES).map(([key, label]) => ({ key, label, on: !plan.modules || plan.modules.includes(key) })),
+    admins: { used: admins, limit: plan.maxAdmins ?? null },
+    eventsThisMonth: { used: events, limit: plan.maxEventsPerMonth ?? null }
+  });
 }));
 
 // ---- How the organisation looks ---------------------------------------------

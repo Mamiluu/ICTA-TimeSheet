@@ -9,6 +9,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { attachUser } from './middleware/auth.js';
+import { attachHostOrg } from './lib/tenantHost.js';
 import { authRouter } from './routes/auth.js';
 import { superadminRouter } from './routes/superadmin.js';
 import { platformRouter } from './routes/platform.js';
@@ -57,6 +58,7 @@ app.use(cors({ origin: process.env.PUBLIC_APP_URL, credentials: true }));
 app.use(express.json({ limit: '2mb' })); // signatures are base64 data URLs, larger than a typical JSON body
 app.use(cookieParser());
 app.use(requestLogger);
+app.use(attachHostOrg);
 app.use(attachUser);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));

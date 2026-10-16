@@ -13,6 +13,9 @@ import { KENYA_COUNTIES, MAX_ACTIVE_COUNTY_ADMINS } from '../lib/constants.js';
 import { pagedAudit } from '../lib/auditPage.js';
 import { ACCESS_LEVELS, PAYMENT_ROLES } from '../lib/duty.js';
 import { brandForOrgId, emailBrand } from '../lib/brand.js';
+import { baseUrlFor } from '../lib/tenantHost.js';
+import { adminSeatRefusal } from '../lib/orgPlan.js';
+import { hasModule } from '../lib/plans.js';
 import { isValidEmailShape } from '../lib/normalize.js';
 import { ah } from '../lib/asyncHandler.js';
 import { logger } from '../lib/logger.js';
@@ -115,6 +118,9 @@ superadminRouter.post('/admins', ah(async (req, res) => {
   // Which kinds of event this person may use. Attendance sheets unless told otherwise.
   const access = req.body.access === undefined ? 'ATTENDANCE' : req.body.access;
   if (!ACCESS_LEVELS.includes(access)) return res.status(400).json({ ok: false, error: 'INVALID_ACCESS' });
+  const seats = await adminSeatRefusal(req.user.organisationId);
+  if (seats) return res.status(409).json({ ok: false, error: 'PLAN_LIMIT', message: seats });
+  if (access !== 'ATTENDANCE' && !hasModule(req.user.organisation, 'PAYMENT')) return res.status(403).json({ ok: false, error: 'MODULE_OFF', message: 'Payment sheets are not part of your organisation\'s plan.' });
   const paymentRole = req.body.paymentRole === undefined ? 'PREPARER' : req.body.paymentRole;
   if (!PAYMENT_ROLES.includes(paymentRole)) return res.status(400).json({ ok: false, error: 'INVALID_PAYMENT_ROLE' });
   if (!county || !KENYA_COUNTIES.includes(county)) {
@@ -154,7 +160,7 @@ superadminRouter.post('/admins', ah(async (req, res) => {
   }
 
   const raw = await issueToken(admin.id, 'ACTIVATION');
-  const activateUrl = `${process.env.PUBLIC_APP_URL}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(req.user.organisation.slug)}`;
+  const activateUrl = `${baseUrlFor(req.user.organisation)}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(req.user.organisation.slug)}`;
   sendActivationEmailBestEffort(admin.email, activateUrl, admin.county, admin.organisationId);
   await writeAudit({ actorId: req.user.id, action: 'ADMIN_CREATE', targetType: 'User', targetId: admin.id, metadata: { county, access, paymentRole }, req });
 
@@ -175,7 +181,7 @@ superadminRouter.post('/admins/:id/activation-link', ah(async (req, res) => {
   if (admin.status !== 'PENDING') return res.status(409).json({ ok: false, error: 'NOT_PENDING' });
 
   const raw = await issueToken(admin.id, 'ACTIVATION');
-  const activateUrl = `${process.env.PUBLIC_APP_URL}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(req.user.organisation.slug)}`;
+  const activateUrl = `${baseUrlFor(req.user.organisation)}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(req.user.organisation.slug)}`;
   await writeAudit({ actorId: req.user.id, action: 'ADMIN_ACTIVATION_LINK_VIEWED', targetType: 'User', targetId: admin.id, req });
 
   res.json({ ok: true, url: activateUrl });
@@ -221,6 +227,8 @@ superadminRouter.post('/admins/:id/reactivate', ah(async (req, res) => {
   if (activeCount >= MAX_ACTIVE_COUNTY_ADMINS) {
     return res.status(409).json({ ok: false, error: 'COUNTY_CAP_REACHED', activeCount, cap: MAX_ACTIVE_COUNTY_ADMINS });
   }
+  const seatsBack = await adminSeatRefusal(req.user.organisationId);
+  if (seatsBack) return res.status(409).json({ ok: false, error: 'PLAN_LIMIT', message: seatsBack });
 
   let updated;
   try {
@@ -236,7 +244,7 @@ superadminRouter.post('/admins/:id/reactivate', ah(async (req, res) => {
   }
 
   const raw = await issueToken(updated.id, 'ACTIVATION');
-  const activateUrl = `${process.env.PUBLIC_APP_URL}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(req.user.organisation.slug)}`;
+  const activateUrl = `${baseUrlFor(req.user.organisation)}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(req.user.organisation.slug)}`;
   sendActivationEmailBestEffort(updated.email, activateUrl, updated.county, updated.organisationId);
   await writeAudit({ actorId: req.user.id, action: 'ADMIN_REACTIVATE', targetType: 'User', targetId: updated.id, req });
 

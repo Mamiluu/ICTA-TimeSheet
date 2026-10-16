@@ -25,7 +25,8 @@ describe('publicUser', () => {
       access: 'BOTH',
       paymentRole: null,
       department: { id: 'd1', name: 'Finance & Accounting' },
-      organisation: null
+      organisation: null,
+      modules: ['ATTENDANCE', 'PAYMENT', 'DOOR_SCAN', 'CERTIFICATES']
     });
     assert.doesNotMatch(JSON.stringify(v), /secret-hash|slug/);
   });
@@ -45,6 +46,11 @@ describe('publicUser', () => {
     const org = { id: 'o1', name: 'ICT Authority', shortName: 'ICTA', status: 'ACTIVE', slug: 'icta' };
     assert.deepEqual(publicUser({ ...user, organisation: org }).organisation, { id: 'o1', name: 'ICT Authority', shortName: 'ICTA' });
     assert.equal(publicUser({ ...user, role: 'OWNER', department: null }).organisation, null);
+  });
+
+  test('carries what the organisation has switched on', () => {
+    const org = { id: 'o1', name: 'X', shortName: null, status: 'ACTIVE', modules: ['ATTENDANCE'] };
+    assert.deepEqual(publicUser({ ...user, organisation: org }).modules, ['ATTENDANCE']);
   });
 
   test('an account with no department, such as the platform admin, has none', () => {

@@ -5,6 +5,7 @@
 // and the department they belong to. Never a password hash or a token. Used by
 // login and /me so both always agree.
 import { accessOf } from './duty.js';
+import { MODULE_KEYS } from './plans.js';
 
 export function publicUser(u) {
   return {
@@ -17,7 +18,9 @@ export function publicUser(u) {
     // For an account with payment access: prepares, certifies (authorising officer) or verifies (finance).
     paymentRole: u.role === 'COUNTY_ADMIN' ? u.paymentRole || 'PREPARER' : null,
     department: u.department ? { id: u.department.id, name: u.department.name } : null,
-    organisation: u.organisation ? { id: u.organisation.id, name: u.organisation.name, shortName: u.organisation.shortName } : null
+    organisation: u.organisation ? { id: u.organisation.id, name: u.organisation.name, shortName: u.organisation.shortName } : null,
+    // What the organisation has switched on, so the pages can leave out what is not theirs.
+    modules: u.organisation && Array.isArray(u.organisation.modules) ? u.organisation.modules : MODULE_KEYS
   };
 }
 

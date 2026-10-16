@@ -93,6 +93,8 @@ export async function resolveBrand(req) {
       if (orgId) return brandForOrgId(orgId);
     }
   }
+  // An organisation's own address answers in its look, ahead of anything else about the person.
+  if (req.hostOrg) return brandForOrgId(req.hostOrg.id);
   if (req.user && req.user.organisationId) return brandForOrgId(req.user.organisationId);
   return brandForSlug(DEFAULT_ORG_SLUG);
 }

@@ -613,7 +613,18 @@
     document.getElementById('userAvatar').textContent = (user.email || 'A').charAt(0).toUpperCase();
     document.getElementById('profEmail').textContent = user.email;
     document.getElementById('profCounty').textContent = user.county;
-    if(user.access) applyAccess(user.access);
+    // What the organisation has switched on: a feature that is off is left out, not greyed.
+    var mods = user.modules || ['ATTENDANCE', 'PAYMENT', 'DOOR_SCAN', 'CERTIFICATES'];
+    var hasAtt = mods.indexOf('ATTENDANCE') !== -1, hasPay = mods.indexOf('PAYMENT') !== -1;
+    var access = user.access;
+    if(access === 'BOTH' && !hasPay) access = 'ATTENDANCE';
+    else if(access === 'BOTH' && !hasAtt) access = 'PAYMENT';
+    else if(access === 'PAYMENT' && !hasPay) access = 'ATTENDANCE';
+    else if(access === 'ATTENDANCE' && !hasAtt) access = 'PAYMENT';
+    certificatesModule = mods.indexOf('CERTIFICATES') !== -1;
+    var doorNav = document.querySelector('[data-nav="door"]');
+    if(doorNav) doorNav.style.display = mods.indexOf('DOOR_SCAN') !== -1 ? '' : 'none';
+    if(access) applyAccess(access);
     // Authorising officers and finance review payment sheets sent up from the department.
     var reviewer = user.access && user.access !== 'ATTENDANCE' && (user.paymentRole === 'AUTHORISER' || user.paymentRole === 'FINANCE');
     document.getElementById('navReview').style.display = reviewer ? '' : 'none';
@@ -994,6 +1005,7 @@
   var scheduleMode = 'DAILY';
   var eventKind = 'ATTENDANCE';
   var userAccess = 'ATTENDANCE';
+  var certificatesModule = true;
   var dayPlaces = [];
   var scheduleBox = document.getElementById('scheduleBox');
   var scheduleTitle = document.getElementById('scheduleTitle');
@@ -1128,7 +1140,7 @@
     document.getElementById('kindHelp').textContent = KIND_HELP[kind];
     var duty = kind === 'DUTY_ROLL';
     document.getElementById('dutyBox').style.display = duty ? '' : 'none';
-    document.getElementById('newCertificates').closest('label').style.display = duty ? 'none' : '';
+    document.getElementById('newCertificates').closest('label').style.display = duty || !certificatesModule ? 'none' : '';
     if(!editingEventId){
       formTitle.textContent = duty ? 'Create a payment sheet' : 'Create a new event';
       createBtn.textContent = duty ? 'Create payment sheet' : 'Create event';

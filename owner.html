@@ -44,6 +44,14 @@
   .pill.ok{ background:#e0f1e6; color:var(--ok); }
   .pill.bad{ background:#f6e1e5; color:var(--bad); }
   .pill.warn{ background:#fdf0d4; color:var(--warn); }
+  dialog.plan{ border:1px solid var(--rule); border-radius:14px; padding:22px 24px; width:min(520px, 94vw); box-shadow:0 18px 50px rgba(20,24,34,.25); background:var(--paper); color:var(--ink); }
+  dialog.plan::backdrop{ background:rgba(20,24,34,.45); }
+  dialog.plan h3{ margin:0 0 2px; font-size:18px; font-family:Georgia,serif; font-weight:400; }
+  .mods{ display:grid; grid-template-columns:1fr 1fr; gap:6px 14px; margin:6px 0 14px; }
+  .mods label{ display:flex; gap:8px; align-items:center; font-weight:400; font-size:14px; margin:0; }
+  .mods input{ width:auto; }
+  .lims{ display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; margin-bottom:6px; }
+  .dlg-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:14px; }
   .acts{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
   .form{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px 12px; align-items:end; }
   .help{ color:var(--muted); font-size:12.5px; margin:8px 0 0; }
@@ -83,6 +91,22 @@
     <h2>Customers</h2>
     <div id="list"><p class="empty">Loading…</p></div>
   </div>
+
+  <dialog class="plan" id="planDlg" aria-labelledby="planTitle">
+    <h3 id="planTitle">Plan</h3>
+    <p class="m" id="planWho" style="color:var(--muted); font-size:13px; margin:0 0 12px;"></p>
+    <label for="planKey">Plan</label>
+    <select id="planKey" style="width:100%; padding:9px 10px; border:1px solid #bfb7a4; border-radius:9px; font:inherit; margin-bottom:12px;"></select>
+    <label>What they can use</label>
+    <div class="mods" id="planMods"></div>
+    <div class="lims">
+      <div><label for="planAdmins">Administrators allowed</label><input type="number" id="planAdmins" min="1" placeholder="no limit"></div>
+      <div><label for="planEvents">Events a month</label><input type="number" id="planEvents" min="1" placeholder="no limit"></div>
+    </div>
+    <p class="help" style="margin:4px 0 0;">Applies to what they do from now on. Nothing they have already created is removed.</p>
+    <p class="msg err" id="planErr" style="display:none;"></p>
+    <div class="dlg-actions"><button type="button" id="planCancel">Cancel</button><button type="button" class="primary" id="planSave">Save plan</button></div>
+  </dialog>
 
   <div class="card">
     <h2>Add an organisation</h2>
@@ -140,6 +164,57 @@
     return line;
   }
 
+  function planLine(o){
+    var line = el('div', 'm');
+    var mods = (o.modules || []).length;
+    line.textContent = 'Plan ' + o.plan.toLowerCase() + ' · ' + mods + ' of ' + (PLAN_META ? PLAN_META.modules.length : 4) + ' modules · administrators ' + o.adminSeats + (o.maxAdmins ? ' of ' + o.maxAdmins : '') + ' · events a month ' + (o.maxEventsPerMonth ? 'limit ' + o.maxEventsPerMonth : 'unlimited');
+    return line;
+  }
+
+  // ---- Plan dialog ----
+  var PLAN_META = null, planOrg = null;
+  API.get('/api/owner/plans').then(function(r){ if(r.status === 200 && r.data.ok) PLAN_META = r.data; });
+  var dlg = $('planDlg');
+  function fillFromPlan(){
+    var key = $('planKey').value;
+    var p = PLAN_META.plans.filter(function(x){ return x.key === key; })[0];
+    if(!p) return;
+    Array.prototype.forEach.call($('planMods').querySelectorAll('input'), function(c){ c.checked = p.modules.indexOf(c.value) !== -1; });
+    $('planAdmins').value = p.maxAdmins == null ? '' : p.maxAdmins;
+    $('planEvents').value = p.maxEventsPerMonth == null ? '' : p.maxEventsPerMonth;
+  }
+  function openPlan(o){
+    if(!PLAN_META){ window.alert('Still loading. Try again in a moment.'); return; }
+    planOrg = o;
+    $('planWho').textContent = o.name;
+    var sel = $('planKey'); sel.textContent = '';
+    PLAN_META.plans.forEach(function(p){ var op = el('option', null, p.label); op.value = p.key; sel.appendChild(op); });
+    var cu = el('option', null, 'Custom'); cu.value = 'CUSTOM'; sel.appendChild(cu);
+    sel.value = o.plan;
+    var box = $('planMods'); box.textContent = '';
+    PLAN_META.modules.forEach(function(m){
+      var l = el('label'); var c = document.createElement('input'); c.type = 'checkbox'; c.value = m.key; c.checked = (o.modules || []).indexOf(m.key) !== -1;
+      l.appendChild(c); l.appendChild(document.createTextNode(m.label)); box.appendChild(l);
+    });
+    $('planAdmins').value = o.maxAdmins == null ? '' : o.maxAdmins;
+    $('planEvents').value = o.maxEventsPerMonth == null ? '' : o.maxEventsPerMonth;
+    $('planErr').style.display = 'none';
+    if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+  }
+  $('planKey').addEventListener('change', function(){ if(this.value !== 'CUSTOM') fillFromPlan(); });
+  $('planCancel').addEventListener('click', function(){ if(dlg.close) dlg.close(); else dlg.removeAttribute('open'); });
+  $('planSave').addEventListener('click', function(){
+    var btn = this, err = $('planErr'); err.style.display = 'none';
+    var mods = Array.prototype.filter.call($('planMods').querySelectorAll('input'), function(c){ return c.checked; }).map(function(c){ return c.value; });
+    btn.disabled = true;
+    API.put('/api/owner/organisations/' + encodeURIComponent(planOrg.id) + '/plan', { plan: $('planKey').value, modules: mods, maxAdmins: $('planAdmins').value === '' ? null : Number($('planAdmins').value), maxEventsPerMonth: $('planEvents').value === '' ? null : Number($('planEvents').value) }).then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ err.textContent = r.data.message || 'Could not save the plan.'; err.style.display = ''; return; }
+      if(dlg.close) dlg.close(); else dlg.removeAttribute('open');
+      load();
+    }).catch(function(){ btn.disabled = false; err.textContent = 'No connection. Please try again.'; err.style.display = ''; });
+  });
+
   function render(orgs){
     var stats = $('stats'); stats.textContent = '';
     var active = orgs.filter(function(o){ return o.status === 'ACTIVE'; }).length;
@@ -159,6 +234,7 @@
       head.appendChild(el('span', 'pill ' + (o.status === 'ACTIVE' ? 'ok' : 'bad'), o.status === 'ACTIVE' ? 'Active' : 'Suspended'));
       left.appendChild(head);
       left.appendChild(billingLine(o));
+      left.appendChild(planLine(o));
       left.appendChild(el('div', 'm', o.slug + ' · ' + o.plan.toLowerCase() + ' plan · added ' + new Date(o.createdAt).toLocaleDateString('en-GB')));
       left.appendChild(el('div', 'm', 'Last activity ' + ago(o.lastActivityAt) + ' · last login ' + ago(o.lastLoginAt) + (o.orgAdminsActive === 0 ? ' · administrator has not activated yet' : '')));
       row.appendChild(left);
@@ -175,6 +251,9 @@
         link.addEventListener('click', function(){ copyLink(o, link); });
         acts.appendChild(link);
       }
+      var planBtn = el('button', null, 'Plan'); planBtn.type = 'button';
+      planBtn.addEventListener('click', function(){ openPlan(o); });
+      acts.appendChild(planBtn);
       var pay = el('button', (o.billing && o.billing.state === 'OVERDUE') ? 'primary' : null, 'Record payment'); pay.type = 'button';
       pay.addEventListener('click', function(){ recordPayment(o, pay); });
       acts.appendChild(pay);

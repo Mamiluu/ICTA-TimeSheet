@@ -29,6 +29,10 @@ model Organisation {
   slug      String    @unique
   status    OrgStatus @default(ACTIVE)
   plan      String    @default("PILOT")
+  // What the organisation has switched on, and how much of it. Null limits mean no limit.
+  modules           String[] @default(["ATTENDANCE", "PAYMENT", "DOOR_SCAN", "CERTIFICATES"])
+  maxAdmins         Int?
+  maxEventsPerMonth Int?
   createdAt DateTime  @default(now())
 
   // Billing is kept by hand by the platform owner: the date until which the organisation
@@ -50,6 +54,12 @@ model Organisation {
   logo        OrganisationLogo?
   supportAccesses SupportAccess[]
 
+  // The organisation's own web address (for example attend.theirname.go.ke). It is only used to
+  // recognise the organisation once domainVerifiedAt is set, which happens when the owner has
+  // confirmed that the address really points at this platform.
+  customDomain     String?   @unique
+  domainVerifiedAt DateTime?
+
   departments  Department[]
   users        User[]
   events       Event[]
@@ -60,6 +70,29 @@ model Organisation {
 // only works if the organisation's own administrator approves it, for a limited time, and
 // the view is read-only and never includes attendee records. status is REQUESTED,
 // APPROVED, DENIED or REVOKED; whether an approval has run out is worked out from expiresAt.
+// Someone asking for their organisation to be added to the platform. Nothing is created until
+// they have confirmed their email address and the platform owner has approved the request.
+// status is UNVERIFIED, PENDING, APPROVED or DECLINED.
+model OrganisationRequest {
+  id               String    @id @default(uuid())
+  organisationName String
+  contactName      String
+  contactEmail     String
+  phone            String?
+  message          String?
+  status           String    @default("UNVERIFIED")
+  tokenHash        String?   @unique
+  emailVerifiedAt  DateTime?
+  decidedById      String?
+  decidedAt        DateTime?
+  declineReason    String?
+  organisationId   String?
+  createdAt        DateTime  @default(now())
+
+  @@index([status, createdAt])
+  @@index([contactEmail])
+}
+
 model SupportAccess {
   id               String       @id @default(uuid())
   organisationId   String
@@ -499,6 +532,10 @@ model AuditLog {
   actorEmail  String?
   actorRole   Role?
   actorCounty String?
+
+  // 1 for entries written before metadata was normalised before hashing (a date inside
+  // metadata was hashed as an empty object, so it could never be verified later); 2 after.
+  hashVersion Int @default(1)
 
   // The organisation the entry belongs to; null for the platform owner's own actions.
   organisationId String?

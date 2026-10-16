@@ -2,6 +2,7 @@
 // Proprietary and confidential. See LICENSE in the repository root.
 
 import { normalizePhone } from './normalize.js';
+import { hasModule } from './plans.js';
 import { dayOpensAt, dayClosesAt } from './days.js';
 
 // ---- Who may see which kind of event --------------------------------------
@@ -17,10 +18,14 @@ export function accessOf(user) {
 
 export function kindsFor(user) {
   const a = accessOf(user);
-  if (a === 'BOTH') return ['ATTENDANCE', 'DUTY_ROLL'];
-  if (a === 'PAYMENT') return ['DUTY_ROLL'];
-  if (a === 'ATTENDANCE') return ['ATTENDANCE'];
-  return [];
+  let kinds = [];
+  if (a === 'BOTH') kinds = ['ATTENDANCE', 'DUTY_ROLL'];
+  else if (a === 'PAYMENT') kinds = ['DUTY_ROLL'];
+  else if (a === 'ATTENDANCE') kinds = ['ATTENDANCE'];
+  // What the organisation has switched on caps what any one person can reach.
+  const org = user && user.organisation;
+  if (org) kinds = kinds.filter((k) => hasModule(org, k === 'DUTY_ROLL' ? 'PAYMENT' : 'ATTENDANCE'));
+  return kinds;
 }
 
 export function canAccessKind(user, kind) {

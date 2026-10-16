@@ -9,6 +9,7 @@ import { loadRoll, loadFindings, withoutHashes } from '../lib/dutyRoll.js';
 import { countFindings } from '../lib/dutyChecks.js';
 import { approvalCheck, canAccessKind, STAGE_LABEL } from '../lib/duty.js';
 import { sealWholeEvent } from './admin.js';
+import { hasModule } from '../lib/plans.js';
 
 // Where authorising officers and finance review the sheets sent up from their
 // department. A department super admin can do both jobs; a county admin only the
@@ -20,6 +21,7 @@ dutyReviewRouter.use((req, res, next) => {
   if (!u) return res.status(401).json({ ok: false, error: 'NOT_AUTHENTICATED' });
   const reviewer = u.role === 'SUPER_ADMIN' || (u.role === 'COUNTY_ADMIN' && canAccessKind(u, 'DUTY_ROLL') && ['AUTHORISER', 'FINANCE'].includes(u.paymentRole));
   if (!reviewer || !u.departmentId) return res.status(403).json({ ok: false, error: 'FORBIDDEN' });
+  if (!hasModule(u.organisation, 'PAYMENT')) return res.status(403).json({ ok: false, error: 'MODULE_OFF', message: 'Payment sheets are not part of your organisation\'s plan.' });
   next();
 });
 
