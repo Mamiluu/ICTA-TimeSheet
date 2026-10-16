@@ -120,6 +120,7 @@ test('branding input: a full, valid form is kept and tidied', () => {
     address: 'Stima Plaza\nKolobot Road',
     phone: '+254 20 3201000',
     website: 'https://www.kplc.co.ke',
+    footerLine: null,
     accentColor: '#006600'
   });
 });
@@ -133,4 +134,12 @@ test('branding input: refuses what it cannot print or trust', () => {
   assert.match(cleanBranding({ website: 'https://a.com/<script>' }).error, /http/);
   assert.match(cleanBranding({ accentColor: '#ffff00' }).error, /too light/);
   assert.match(cleanBranding({ accentColor: 'nope' }).error, /six hexadecimal/);
+});
+
+test('the line at the foot of payment sheets: ICT Authority has its own, others only what they set', () => {
+  assert.match(brandFromOrg(null).footerLine, /State Corporation/);
+  assert.equal(brandFromOrg({ slug: 'kplc', name: 'Kenya Power' }).footerLine, '');
+  assert.equal(brandFromOrg({ slug: 'kplc', name: 'Kenya Power', footerLine: 'Licensed by EPRA' }).footerLine, 'Licensed by EPRA');
+  assert.equal(cleanBranding({ footerLine: '  Licensed   by EPRA ' }).value.footerLine, 'Licensed by EPRA');
+  assert.ok(cleanBranding({ footerLine: 'x'.repeat(141) }).error);
 });

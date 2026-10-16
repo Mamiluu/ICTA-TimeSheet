@@ -166,7 +166,9 @@
   .sheet-page td.sno{ text-align:center; }
   .sheet-page td.sig{ height:9.4mm; padding:1px; text-align:center; }
   .sheet-page td.sig img{ max-width:96%; max-height:8.4mm; }
-  .sheet-page .xout{ background:linear-gradient(to top right, transparent calc(50% - .7px), #000 50%, transparent calc(50% + .7px)); }
+  /* A cell nobody signed is struck through corner to corner; a row nobody uses is struck through along its middle. */
+  .sheet-page td.sig.xout{ background:linear-gradient(to top right, transparent calc(50% - .7px), #000 50%, transparent calc(50% + .7px)); }
+  .sheet-page tr.unused td{ background:linear-gradient(#000, #000) center / 100% 1px no-repeat; }
   .sheet-page td.nm, .sheet-page td.og{ font-size:10.5px; }
   .sheet-page .dayhead small{ display:block; font-weight:400; font-size:8px; line-height:1.15; }
   .sheet-page .signoff{ display:flex; gap:22px; align-items:flex-end; margin-top:10px; font-size:10px; }
@@ -178,7 +180,7 @@
   .sheet-page .band{ margin:auto -7mm 0; padding:7px 12px; background:var(--paper-accent, #c8102e); color:#fff; text-align:center; font-size:11.5px; font-weight:700; letter-spacing:.01em; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   .sheet-page .band.plain{ background:none; padding:0; border-top:2px solid var(--paper-accent, #c8102e); margin-top:auto; }
   .sheet-page .gap{ flex:1; min-height:4mm; }
-  .sheet-page th, .sheet-page .xout, .sheet-page .band{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .sheet-page th, .sheet-page td, .sheet-page .band{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 
   @media print{
     html, body{ background:#fff !important; }
@@ -310,8 +312,6 @@
 
     <p class="footer-note">© 2026 Asya Hafidh. All rights reserved.</p>
   </main>
-</div>
-
 <dialog id="previewDlg" aria-label="Preview of the paper payment sheet">
   <div class="pv-head">
     <strong>The paper sheet, as it prints</strong>
@@ -320,6 +320,9 @@
   </div>
   <div class="pv-body" id="pvBody"></div>
 </dialog>
+</div>
+
+
 
 <div id="printArea" aria-hidden="true"></div>
 
@@ -657,17 +660,17 @@
       var tb = document.createElement('tbody');
       var rowTotal = Math.max(rows.length, 10);
       for(var n = 0; n < rowTotal; n++){
-        var r = rows[n]; var tr = document.createElement('tr');
-        tr.appendChild(el('td', 'sno' + (r ? '' : ' xout'), String(n + 1) + '.'));
-        tr.appendChild(el('td', 'nm' + (r ? '' : ' xout'), r ? r.name : ''));
-        tr.appendChild(el('td', 'og' + (r ? '' : ' xout'), r ? (r.organisation || (r.payeeType === 'STAFF' ? brand.orgName : '')) : ''));
+        var r = rows[n]; var tr = document.createElement('tr'); if(!r) tr.className = 'unused';
+        tr.appendChild(el('td', 'sno', String(n + 1) + '.'));
+        tr.appendChild(el('td', 'nm', r ? r.name : ''));
+        tr.appendChild(el('td', 'og', r ? (r.organisation || (r.payeeType === 'STAFF' ? brand.orgName : '')) : ''));
         chunk.forEach(function(d){
           var td = el('td', 'sig'); var cell = r ? r.cells.filter(function(c){ return c.dayId === d.id; })[0] : null;
           if(cell && cell.status === 'SIGNED' && cell.signature){ var im = document.createElement('img'); im.src = cell.signature; im.alt = 'signature'; td.appendChild(im); }
-          else if(!r || (cell && cell.status === 'ABSENT')) td.className = 'sig xout';
+          else if(r && cell && cell.status === 'ABSENT') td.className = 'sig xout';
           tr.appendChild(td);
         });
-        if(last) tr.appendChild(el('td', 'sno' + (r ? '' : ' xout'), r ? String(r.daysSigned) : ''));
+        if(last) tr.appendChild(el('td', 'sno', r ? String(r.daysSigned) : ''));
         tb.appendChild(tr);
       }
       t.appendChild(tb); pg.appendChild(t);
