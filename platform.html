@@ -556,6 +556,9 @@
     var viewBtn = el('button', null, 'Audit trail'); viewBtn.type = 'button';
     viewBtn.addEventListener('click', function(){ document.getElementById('auditDept').value = d.id; auditPage = 1; currentView = null; showView('audit'); });
     actions.appendChild(viewBtn);
+    var delBtn = el('button', 'danger', 'Delete'); delBtn.type = 'button'; delBtn.title = 'Delete ' + d.name;
+    delBtn.addEventListener('click', function(){ deleteDept(d, delBtn); });
+    actions.appendChild(delBtn);
 
     var more = el('details', 'ev-more');
     var sum = el('summary', null, 'More'); sum.setAttribute('aria-label', 'More actions for ' + d.name);
@@ -640,11 +643,28 @@
     }).catch(function(){ window.alert(NET_ERR); });
   }
 
-  function setDeptActive(d, active, btn){
+  function deleteDept(d, btn){
+    if(d.events || d.superAdmins || d.countyAdmins){
+      // Its sheets, seals and activity log point at it, so it cannot be erased. Pausing is the way to retire it.
+      var has = [d.events ? plural(d.events, 'event') : '', d.superAdmins ? plural(d.superAdmins, 'super admin') : '', d.countyAdmins ? plural(d.countyAdmins, 'county admin') : ''].filter(Boolean).join(', ');
+      if(d.active && window.confirm(d.name + ' has ' + has + ', and their records must be kept, so it cannot be erased.\n\nPause it instead? Nobody in it will be able to log in until you resume it.')) setDeptActive(d, false, btn, true);
+      else if(!d.active) window.alert(d.name + ' has ' + has + ', so it cannot be erased. It is already paused.');
+      return;
+    }
+    if(!window.confirm('Delete ' + d.name + ' for good? It has no events and no people, so nothing else is affected. This cannot be undone.')) return;
+    btn.disabled = true;
+    API.del('/api/platform/departments/' + d.id).then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ window.alert(r.data.message || 'Could not delete the department.'); return; }
+      refreshAll();
+    }).catch(function(){ btn.disabled = false; window.alert(NET_ERR); });
+  }
+
+  function setDeptActive(d, active, btn, confirmed){
     var msg = active
       ? 'Resume ' + d.name + '? Its people will be able to log in again.'
       : 'Pause ' + d.name + '? Everyone in it is signed out and cannot log in until you resume it. Nothing is deleted.';
-    if(!window.confirm(msg)) return;
+    if(!confirmed && !window.confirm(msg)) return;
     btn.disabled = true;
     API.patch('/api/platform/departments/' + d.id, { active: active }).then(function(r){
       btn.disabled = false;

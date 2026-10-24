@@ -204,6 +204,36 @@ platformRouter.patch('/departments/:id', ah(async (req, res) => {
   res.json({ ok: true, department: updated });
 }));
 
+// Deletes a department that was never used. One with any person (even a disabled account) or any
+// event (even a deleted one, which is only hidden) is refused, because the records point at it and
+// must keep their place. Pausing is the way to switch off a department that has history.
+platformRouter.delete('/departments/:id', ah(async (req, res) => {
+  const dept = await prisma.department.findFirst({ where: { id: req.params.id, organisationId: req.user.organisationId } });
+  if (!dept) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+  const [people, events] = await Promise.all([
+    prisma.user.count({ where: { departmentId: dept.id } }),
+    prisma.event.count({ where: { departmentId: dept.id } })
+  ]);
+  if (people || events) {
+    return res.status(409).json({
+      ok: false,
+      error: 'NOT_EMPTY',
+      message: `${dept.name} cannot be deleted because it has ${people ? (people === 1 ? '1 person' : people + ' people') : ''}${people && events ? ' and ' : ''}${events ? (events === 1 ? '1 event' : events + ' events') : ''} linked to it. Pause it instead.`
+    });
+  }
+
+  try {
+    await prisma.department.delete({ where: { id: dept.id } });
+  } catch (err) {
+    // Something was linked to it between the check and the delete.
+    if (err && err.code === 'P2003') return res.status(409).json({ ok: false, error: 'NOT_EMPTY', message: `${dept.name} has records linked to it, so it cannot be deleted. Pause it instead.` });
+    throw err;
+  }
+  await writeAudit({ actorId: req.user.id, action: 'DEPARTMENT_DELETE', targetType: 'Department', targetId: dept.id, metadata: { name: dept.name }, req });
+  res.json({ ok: true });
+}));
+
 // ---- Department super admins ----------------------------------------------
 
 platformRouter.get('/super-admins', ah(async (req, res) => {
