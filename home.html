@@ -45,7 +45,10 @@
 
   /* ---------- hero ---------- */
   .hero{ padding:30px 0 84px; }
-  .hero .w{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.06fr); gap:30px 52px; align-items:center; }
+  .hero .w{ text-align:center; padding:56px 0 30px; }
+  .hero .eyebrow, .hero .go, .hero .tiny{ justify-content:center; }
+  .hero .lede{ margin-left:auto; margin-right:auto; }
+  .hero h1{ margin-left:auto; margin-right:auto; max-width:14ch; }
   .eyebrow{ display:inline-flex; align-items:center; gap:10px; font-size:14.5px; color:var(--soft); margin:0 0 20px; }
   .eyebrow i{ width:30px; height:2px; background:var(--ink); display:block; }
   h1{ font-size:clamp(38px, 4.9vw, 62px); line-height:1.06; letter-spacing:-.035em; margin:0 0 22px; font-weight:700; }
@@ -55,42 +58,6 @@
   .tiny{ margin:26px 0 0; font-size:14.5px; color:var(--soft); display:flex; gap:10px; align-items:center; }
   .tiny svg{ width:18px; height:18px; stroke:var(--ok); fill:none; stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; flex:none; }
 
-  /* the live register */
-  .reg{ background:#fff; border:2px solid var(--ink); border-radius:24px; box-shadow:9px 9px 0 var(--peach), 9px 9px 0 2px var(--ink); padding:20px 20px 18px; position:relative; transform:rotate(1deg); }
-  .reg .top{ display:flex; align-items:center; gap:12px; padding:0 4px 14px; border-bottom:2px dashed #e7e0cf; margin-bottom:16px; }
-  .reg .top b{ font-size:16px; letter-spacing:-.01em; display:block; line-height:1.25; }
-  .reg .top small{ color:var(--soft); font-size:13px; }
-  .live{ margin-left:auto; display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; padding:5px 11px; border-radius:99px; background:var(--mint); color:#17694a; white-space:nowrap; }
-  .live::before{ content:""; width:8px; height:8px; border-radius:50%; background:var(--ok); animation:blink 1.6s ease-in-out infinite; }
-  @keyframes blink{ 50%{ opacity:.25; } }
-  .grid{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; }
-  .tile{ position:relative; border-radius:16px; padding:10px 6px 8px; text-align:center; background:var(--bg,#f6f2e8); border:2px solid transparent; transition:transform .35s cubic-bezier(.2,1.4,.4,1), opacity .35s, border-color .2s; }
-  .tile .face{ display:block; width:68%; margin:0 auto 4px; }
-  .tile .face svg{ width:100%; height:auto; display:block; }
-  .tile b{ display:block; font-size:13.5px; line-height:1.2; }
-  .tile small{ display:block; font-size:11.5px; color:var(--soft); font-variant-numeric:tabular-nums; min-height:1.3em; }
-  .tile .tick{ position:absolute; top:6px; right:6px; width:22px; height:22px; border-radius:50%; background:var(--ok); display:grid; place-items:center; transform:scale(0); transition:transform .3s cubic-bezier(.2,1.6,.4,1); }
-  .tile .tick svg{ width:12px; height:12px; stroke:#fff; fill:none; stroke-width:3.4; stroke-linecap:round; stroke-linejoin:round; }
-  .tile.out{ opacity:.0; transform:scale(.82) translateY(8px); }
-  .tile.in{ opacity:1; transform:none; }
-  .tile.in .tick{ transform:scale(1); }
-  .tile.empty{ background:transparent; border:2px dashed #d9d1be; }
-  .tile.empty .face{ opacity:.28; filter:grayscale(1); }
-  .tile.empty small{ color:#a39b86; }
-  .tile.empty .tick{ display:none; }
-  .tile.ghost{ background:transparent; border:2px dashed var(--bad); }
-  .tile.ghost .face{ opacity:.5; filter:grayscale(1); }
-  .tile.ghost .tick{ background:var(--bad); }
-  .tile.ghost small{ color:var(--bad); font-weight:700; }
-  .tile.shake{ animation:shake .5s; }
-  @keyframes shake{ 20%{ transform:translateX(-5px) rotate(-2deg); } 40%{ transform:translateX(5px) rotate(2deg); } 60%{ transform:translateX(-4px); } 80%{ transform:translateX(3px); } }
-  .reg .foot{ display:flex; align-items:center; gap:16px; margin-top:16px; padding:0 4px; font-size:14px; color:var(--soft); flex-wrap:wrap; }
-  .reg .foot b{ color:var(--ink); font-size:20px; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
-  .reg .foot .turned{ color:var(--bad); }
-  .seal{ margin-left:auto; display:inline-flex; align-items:center; gap:8px; font-family:ui-monospace,Consolas,monospace; font-size:13px; font-weight:700; border:2px solid var(--ok); color:var(--ok); border-radius:10px; padding:4px 10px; transform:rotate(-3deg) scale(.6); opacity:0; transition:opacity .3s, transform .35s cubic-bezier(.2,1.6,.4,1); }
-  .seal.show{ opacity:1; transform:rotate(-3deg) scale(1); }
-  .seal svg{ width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:3.2; stroke-linecap:round; stroke-linejoin:round; }
-
   footer{ border-top:1px solid var(--line); padding:22px 0 30px; font-size:14px; color:var(--soft); }
   footer .w{ display:flex; gap:10px 24px; flex-wrap:wrap; }
   footer a{ text-decoration:none; } footer a:hover{ color:var(--ink); text-decoration:underline; }
@@ -99,10 +66,9 @@
   @media (max-width:960px){
     header nav{ display:none; }
     .hero .w{ grid-template-columns:minmax(0,1fr); }
-    .reg{ max-width:560px; width:100%; margin:0 auto; }
     h1{ max-width:16ch; }
   }
-  @media (max-width:520px){ header .r .login{ display:none; } .btn{ padding:14px 22px; } .grid{ gap:8px; } .tile b{ font-size:12px; } .reg{ box-shadow:6px 6px 0 var(--peach), 6px 6px 0 2px var(--ink); } }
+  @media (max-width:520px){ header .r .login{ display:none; } .btn{ padding:14px 22px; } }
   @media (prefers-reduced-motion:reduce){ *{ animation:none !important; transition:none !important; } }
 </style>
 </head>
@@ -133,12 +99,6 @@
         </div>
         <p class="tiny"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>No app to install. A link and a phone are enough.</p>
       </div>
-
-      <div class="reg" aria-label="A register filling up as people sign. Two places stay empty, and someone who is not on the list is turned away.">
-        <div class="top"><div><b>County Skills Training</b><small>Day 3 &middot; Kisumu</small></div><span class="live">Signing open</span></div>
-        <div class="grid" id="grid"></div>
-        <div class="foot"><span><b id="nSigned">0</b> signed</span><span class="turned"><b id="nOut">0</b> turned away</span><span class="seal" id="seal"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>Sealed 7K2M-9QXA</span></div>
-      </div>
     </div>
   </section>
 </main>
@@ -150,95 +110,6 @@
   </div>
 </footer>
 
-<script>
-(function(){
-  var $ = function(id){ return document.getElementById(id); };
-  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Flat, friendly faces built from a few shapes: skin, hair style, shirt.
-  function face(skin, hair, style, shirt){
-    var h = '<svg viewBox="0 0 100 100" aria-hidden="true">'
-      + '<path d="M12 100C12 76 30 68 50 68s38 8 38 32z" fill="' + shirt + '"/>'
-      + '<rect x="42" y="58" width="16" height="16" rx="6" fill="' + skin + '"/>';
-    if(style === 'afro') h += '<circle cx="50" cy="34" r="29" fill="' + hair + '"/>';
-    if(style === 'bun') h += '<circle cx="50" cy="12" r="10" fill="' + hair + '"/>';
-    h += '<circle cx="50" cy="42" r="23" fill="' + skin + '"/>';
-    if(style === 'afro') h += '<path d="M28 40C30 22 70 22 72 40C64 31 36 31 28 40z" fill="' + hair + '"/>';
-    if(style === 'short') h += '<path d="M27 40C24 16 76 14 73 40C65 29 35 29 27 40z" fill="' + hair + '"/>';
-    if(style === 'bun') h += '<path d="M27 40C25 16 75 16 73 40C64 28 36 28 27 40z" fill="' + hair + '"/>';
-    if(style === 'scarf') h += '<path d="M25 46C20 14 80 12 75 46L75 54C68 42 32 42 25 54z" fill="' + hair + '"/><circle cx="73" cy="52" r="7" fill="' + hair + '"/>';
-    if(style === 'cap') h += '<path d="M26 38C28 14 72 14 74 38z" fill="' + hair + '"/><rect x="22" y="36" width="40" height="7" rx="3.5" fill="' + hair + '"/>';
-    if(style === 'fade') h += '<path d="M28 38C28 20 72 20 72 38C66 31 34 31 28 38z" fill="' + hair + '"/>';
-    h += '<circle cx="42" cy="45" r="2.4" fill="#2b1810"/><circle cx="58" cy="45" r="2.4" fill="#2b1810"/>'
-      + '<path d="M43 53q7 6 14 0" fill="none" stroke="#2b1810" stroke-width="2.8" stroke-linecap="round"/></svg>';
-    return h;
-  }
-  var TICK = '<i class="tick"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></i>';
-  var people = [
-    ['Ruth',    '08:02', '#8d5a3b', '#1c1e23', 'afro',  '#ffc94d', '#fde9c8'],
-    ['Otieno',  '08:07', '#6b4226', '#1c1e23', 'fade',  '#5bb5a2', '#d6efe9'],
-    ['Amina',   '08:11', '#a0643c', '#7a3b8f', 'scarf', '#e8837a', '#fbdcd8'],
-    ['Wilfred', '08:15', '#c68642', '#1c1e23', 'short', '#6c7de0', '#dcdffa'],
-    ['Faith',   '08:21', '#7a4a2e', '#1c1e23', 'bun',   '#ffc94d', '#fdeec4'],
-    ['Hassan',  null,    '#8d5a3b', '#1c1e23', 'cap',   '#5bb5a2', '#e3e0d6'],
-    ['Sarah',   '08:26', '#e0ac69', '#3b2415', 'short', '#e8837a', '#fbdcd8'],
-    ['Juma',    '08:31', '#5a3a24', '#1c1e23', 'afro',  '#6c7de0', '#dcdffa'],
-    ['Grace',   '08:34', '#8d5a3b', '#1c1e23', 'scarf', '#5bb5a2', '#d6efe9'],
-    ['?',       null,    '#bdb6a4', '#8a8372', 'short', '#cfc8b6', '#efeadc'],
-    ['Peter',   null,    '#8d5a3b', '#1c1e23', 'short', '#ffc94d', '#e3e0d6'],
-    ['Njeri',   '08:40', '#6b4226', '#1c1e23', 'bun',   '#e8837a', '#fbdcd8']
-  ];
-  var ghostIndex = 9;                       // the slot a name-that-was-never-there tries to take
-  var emptyIdx = { 5: 1, 10: 1 };           // two people who simply never came: left empty, never filled in
-
-  var grid = $('grid'), tiles = [];
-  people.forEach(function(p, i){
-    var t = document.createElement('div');
-    t.className = 'tile out' + (emptyIdx[i] ? ' empty' : '');
-    t.style.setProperty('--bg', p[6]);
-    t.innerHTML = '<span class="face">' + face(p[2], p[3], p[4], p[5]) + '</span><b>' + (i === ghostIndex ? '' : p[0]) + '</b><small>' + (p[1] || (emptyIdx[i] ? 'not here' : '')) + '</small>' + TICK;
-    grid.appendChild(t); tiles.push(t);
-  });
-
-  var timers = [], signed = 0, out = 0;
-  function at(ms, fn){ timers.push(setTimeout(fn, ms)); }
-  function count(){ $('nSigned').textContent = signed; $('nOut').textContent = out; }
-
-  function finalState(){
-    tiles.forEach(function(t, i){
-      if(i === ghostIndex) return;
-      t.classList.remove('out'); t.classList.add('in');
-    });
-    tiles[ghostIndex].className = 'tile out';
-    signed = people.filter(function(p, i){ return p[1]; }).length; out = 1; count(); $('seal').classList.add('show');
-  }
-
-  function run(){
-    timers.forEach(clearTimeout); timers = [];
-    signed = 0; out = 0; count(); $('seal').classList.remove('show');
-    tiles.forEach(function(t, i){ t.className = 'tile out' + (emptyIdx[i] ? ' empty' : ''); t.querySelector('small').textContent = people[i][1] || (emptyIdx[i] ? 'not here' : ''); if(i === ghostIndex){ t.querySelector('b').textContent = ''; } });
-    var step = 0;
-    people.forEach(function(p, i){
-      if(i === ghostIndex) return;
-      var delay = 500 + step * 520; step++;
-      at(delay, function(){
-        tiles[i].classList.remove('out'); tiles[i].classList.add('in');
-        if(p[1]){ signed++; count(); }
-      });
-    });
-    // the one who was never on the list tries to get in
-    var gT = 500 + step * 520 + 500;
-    at(gT, function(){
-      var t = tiles[ghostIndex]; t.className = 'tile in ghost';
-      t.querySelector('b').textContent = 'Not on the list'; t.querySelector('small').textContent = 'turned away';
-    });
-    at(gT + 300, function(){ tiles[ghostIndex].classList.add('shake'); out = 1; count(); });
-    at(gT + 2300, function(){ $('seal').classList.add('show'); });
-    at(gT + 7000, run);
-  }
-
-  if(reduce) finalState(); else run();
-})();
-</script>
 </body>
 </html>
