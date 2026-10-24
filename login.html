@@ -4,61 +4,79 @@
   Proprietary and confidential. See LICENSE in the repository root.
   Unauthorized copying, modification, or distribution is prohibited.
 -->
-<meta charset="UTF-8">
-<link rel="apple-touch-icon" href="assets/icta_logo_cropped.png">
-<link rel="icon" href="assets/icta_logo_cropped.png">
-<title>ICT Authority : Admin Login</title>
-<script src="assets/brand.js"></script>
-<link rel="stylesheet" href="assets/theme.css">
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Log in to Daymark</title>
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg" id="favicon">
+<link rel="apple-touch-icon" href="assets/daymark-180.png">
+<link rel="preload" href="assets/fonts/bricolage.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-  body{ justify-content:center; min-height:100vh; }
-  .links{ display:flex; justify-content:space-between; font-size:12.5px; margin-top:6px; }
+  @font-face{ font-family:"Bricolage Grotesque"; src:url(assets/fonts/bricolage.woff2) format("woff2"); font-weight:200 800; font-display:swap; }
+  @font-face{ font-family:"Figtree"; src:url(assets/fonts/figtree.woff2) format("woff2"); font-weight:300 900; font-display:swap; }
+  :root{
+    --ui:"Figtree", "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+    --display:"Bricolage Grotesque", "Figtree", "Segoe UI", system-ui, sans-serif;
+    --ink:#1c1e23; --soft:#5d6472; --line:#e4e1d8; --sun:#ffd36b; --bad:#c9243c;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{ margin:0; font-family:var(--ui); font-size:16px; line-height:1.5; color:var(--ink); background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px 16px; -webkit-font-smoothing:antialiased; }
+  a{ color:inherit; }
+  :focus-visible{ outline:2px solid var(--ink); outline-offset:3px; border-radius:8px; }
+
+  .box{ width:min(420px, 100%); }
+  .brand{ display:flex; align-items:center; justify-content:center; gap:10px; text-decoration:none; font-family:var(--display); font-weight:700; font-size:22px; letter-spacing:-.02em; margin:0 0 22px; min-height:40px; }
+  .brand img{ width:36px; height:36px; display:block; object-fit:contain; border-radius:8px; }
+
+  .card{ border:1.5px solid var(--line); border-radius:20px; padding:26px 26px 22px; box-shadow:0 18px 40px -28px rgba(28,30,35,.35); }
+  h1{ font-family:var(--display); font-size:26px; letter-spacing:-.03em; line-height:1.1; font-weight:760; margin:0 0 4px; }
+  .sub{ color:var(--soft); margin:0 0 20px; font-size:15.5px; }
+
+  .field{ margin-bottom:14px; position:relative; }
+  label{ display:block; font-weight:700; font-size:13.5px; margin-bottom:5px; }
+  input{ width:100%; font:inherit; font-size:16px; padding:11px 13px; border:1.5px solid #d9d6cb; border-radius:11px; background:#fff; color:var(--ink); transition:border-color .15s, box-shadow .15s; }
+  input:hover{ border-color:#b9b5a6; }
+  input:focus{ outline:none; border-color:var(--ink); box-shadow:3px 3px 0 var(--sun); }
+  ::placeholder{ color:#a9a595; }
+  .pw input{ padding-right:68px; }
+  .show{ position:absolute; right:8px; top:30px; background:none; border:0; font:inherit; font-size:13.5px; font-weight:700; color:var(--soft); cursor:pointer; padding:6px 8px; border-radius:8px; }
+  .show:hover{ color:var(--ink); background:#f4f2ea; }
+
+  .btn{ width:100%; display:inline-flex; justify-content:center; align-items:center; gap:9px; font:inherit; font-size:16px; font-weight:700; padding:13px 22px; border-radius:13px; background:var(--ink); color:#fff; border:2px solid var(--ink); cursor:pointer; box-shadow:3px 3px 0 var(--sun); transition:transform .12s, box-shadow .12s; margin-top:4px; }
+  .btn:hover:not(:disabled){ transform:translate(2px,2px); box-shadow:1px 1px 0 var(--sun); }
+  .btn:disabled{ opacity:.55; cursor:default; }
+  .msg{ margin:12px 0 0; font-size:14.5px; color:var(--bad); font-weight:700; }
+  .msg:empty{ display:none; }
+  .links{ display:flex; justify-content:space-between; gap:12px; margin-top:16px; font-size:14px; }
+  .links a{ color:var(--soft); } .links a:hover{ color:var(--ink); }
+  .fine{ margin:18px 0 0; font-size:13px; color:var(--soft); text-align:center; }
+  .fine a{ color:var(--soft); }
+  [hidden]{ display:none !important; }
+  @media (max-width:420px){ .card{ padding:22px 18px 18px; } }
+  @media (prefers-reduced-motion:reduce){ *{ transition:none !important; } }
 </style>
+</head>
+<body>
 
-<div class="preloader" id="preloader" role="status" aria-live="polite" aria-label="Loading">
-  <div class="preloader-mark">
-    <svg class="preloader-ring" viewBox="0 0 120 120" aria-hidden="true">
-      <circle class="preloader-ring-track" cx="60" cy="60" r="54"></circle>
-      <circle class="preloader-ring-draw" cx="60" cy="60" r="54"></circle>
-    </svg>
-    <img class="preloader-logo" src="assets/icta_logo_cropped.png" alt="">
+<div class="box">
+  <a class="brand" id="brand" href="home.html"><img id="brandLogo" src="assets/daymark-mark.svg" alt="" width="36" height="36"><span id="brandName">Daymark</span></a>
+  <div class="card" id="loginPanel">
+    <h1>Log in</h1>
+    <p class="sub">Use the email and password you were given.</p>
+
+    <div class="field"><label for="email">Email</label><input type="email" id="email" autocomplete="username" placeholder="you@yourorganisation.go.ke"></div>
+    <div class="field pw"><label for="password">Password</label><input type="password" id="password" autocomplete="current-password" placeholder="Your password"><button type="button" class="show" id="showBtn" aria-label="Show password">Show</button></div>
+
+    <button class="btn" id="loginBtn">Log in</button>
+    <p class="msg" id="loginError" role="alert" hidden></p>
+
+    <div class="links"><a href="forgot-password.html">Forgot password?</a><a href="signup.html">Add your organisation</a></div>
   </div>
-  <div class="preloader-caption">
-    <span class="preloader-org">ICT Authority</span>
-    <span class="preloader-title">Admin Login</span>
-  </div>
+  <p class="fine">&copy; 2026 Asya Hafidh. All rights reserved. &middot; <a href="privacy.html" target="_blank" rel="noopener">Privacy policy</a></p>
 </div>
-<script>
-  (function(){
-    document.addEventListener('DOMContentLoaded', function(){
-      var pre = document.getElementById('preloader');
-      if(!pre) return;
-      setTimeout(function(){
-        pre.classList.add('preloader-hide');
-        setTimeout(function(){ pre.remove(); }, 500);
-      }, 2000);
-    });
-  })();
-</script>
-
-<div class="sheet" id="loginPanel">
-  <h1 class="title">ICT Authority : Admin Login</h1>
-  <p class="sub">Sign in with your admin email and password.</p>
-
-  <label for="email">Email</label>
-  <input type="email" id="email" autocomplete="username" placeholder="you@example.com">
-
-  <label for="password">Password</label>
-  <input type="password" id="password" autocomplete="current-password" placeholder="Password">
-
-  <button class="primary" id="loginBtn" style="width:100%;">Log in</button>
-  <p class="error" id="loginError" style="display:none;"></p>
-
-  <div class="links">
-    <a href="forgot-password.html">Forgot password?</a>
-  </div>
-</div>
-<p class="footer-note">© 2026 Asya Hafidh. All rights reserved. · <a href="privacy.html" target="_blank" rel="noopener">Privacy policy</a></p>
 
 <script src="assets/api.js"></script>
 <script>
@@ -70,37 +88,59 @@
 
   function redirectFor(role){ location.href = homeFor(role); }
 
+  // On an organisation's own web address the page wears that organisation's name and logo.
+  // Everywhere else it is plain Daymark, because many organisations use this one page.
+  API.get('/api/branding').then(function(r){
+    if(r.status !== 200 || !r.data || !r.data.viaHost || !r.data.orgName) return;
+    document.getElementById('brandName').textContent = r.data.orgName;
+    if(r.data.logoUrl){ document.getElementById('brandLogo').src = r.data.logoUrl; document.getElementById('favicon').href = r.data.logoUrl; }
+    document.title = 'Log in to ' + r.data.orgName;
+  }).catch(function(){});
+
   // If already logged in, skip the form entirely.
   API.get('/api/auth/me').then(function(r){
     if(r.status === 200 && r.data.ok) redirectFor(r.data.user.role);
   });
 
+  document.getElementById('showBtn').addEventListener('click', function(){
+    var shown = password.type === 'text';
+    password.type = shown ? 'password' : 'text';
+    this.textContent = shown ? 'Show' : 'Hide';
+    this.setAttribute('aria-label', shown ? 'Show password' : 'Hide password');
+  });
+
+  function fail(text){ loginError.textContent = text; loginError.hidden = false; }
+
   function submit(){
     var e = email.value.trim(), p = password.value;
-    loginError.style.display = 'none';
-    if(!e || !p){
-      loginError.textContent = 'Enter your email and password.';
-      loginError.style.display = '';
-      return;
-    }
+    loginError.hidden = true;
+    if(!e || !p){ fail('Enter your email and password.'); return; }
     loginBtn.disabled = true;
     API.post('/api/auth/login', { email: e, password: p }).then(function(r){
-      if(r.status === 200 && r.data.ok) return redirectFor(r.data.user.role);
+      if(r.status === 200 && r.data.ok){
+        // Keep this person's organisation look for the next page, replacing whatever the last
+        // person on this device had, so the dashboard's loading screen is theirs from the start.
+        var role = r.data.user.role;
+        return API.get('/api/branding').then(function(b){
+          try{ if(b.status === 200 && b.data && b.data.ok) localStorage.setItem('brand:v1:session', JSON.stringify(b.data)); else localStorage.removeItem('brand:v1:session'); }catch(e){}
+        }).catch(function(){ try{ localStorage.removeItem('brand:v1:session'); }catch(e){} }).then(function(){ redirectFor(role); });
+      }
       loginBtn.disabled = false;
       if(r.status === 429 || r.data.error === 'DEPARTMENT_PAUSED' || r.data.error === 'ORGANISATION_SUSPENDED'){
-        loginError.textContent = r.data.message || 'Too many attempts. Try again later.';
+        fail(r.data.message || 'Too many attempts. Try again later.');
       } else {
-        loginError.textContent = 'Incorrect email or password.';
+        fail('Incorrect email or password.');
       }
-      loginError.style.display = '';
     }).catch(function(){
       loginBtn.disabled = false;
-      loginError.textContent = 'Network error — could not reach the backend.';
-      loginError.style.display = '';
+      fail('Network error. Could not reach the server.');
     });
   }
 
   loginBtn.addEventListener('click', submit);
+  email.addEventListener('keydown', function(e){ if(e.key === 'Enter') password.focus(); });
   password.addEventListener('keydown', function(e){ if(e.key === 'Enter') submit(); });
 })();
 </script>
+</body>
+</html>

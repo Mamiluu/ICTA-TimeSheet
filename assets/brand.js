@@ -73,6 +73,11 @@
     if(b.logoUrl){
       Array.prototype.forEach.call(document.querySelectorAll('link[rel~="icon"], link[rel="apple-touch-icon"]'), function(l){ l.setAttribute('href', b.logoUrl); });
     }
+    // The loading screen starts as plain Daymark and takes the organisation's name and logo
+    // as soon as they are known, so nobody sees another organisation's mark while a page opens.
+    var pl = document.querySelector('.preloader-logo'), po = document.querySelector('.preloader-org');
+    if(pl && b.logoUrl && pl.id !== 'preloaderLogo') pl.setAttribute('src', b.logoUrl);
+    if(po) po.textContent = b.orgName;
     if(b.orgName !== DEFAULT_NAME && document.title.indexOf(DEFAULT_NAME) !== -1) document.title = swapName(document.title);
     if(document.body) walk(document.body);
     window.ORG_BRAND = b;

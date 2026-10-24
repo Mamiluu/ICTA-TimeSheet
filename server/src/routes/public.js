@@ -186,7 +186,9 @@ function canManageEvent(user, event) {
 // anyone at the venue to read.
 publicRouter.get('/branding', ah(async (req, res) => {
   res.set('Cache-Control', 'no-cache');
-  res.json({ ok: true, ...(await resolveBrand(req)) });
+  // viaHost: the person arrived on an organisation's own web address, so its look is the right one
+  // for the log in page. Anywhere else the platform's own name belongs there.
+  res.json({ ok: true, viaHost: Boolean(req.hostOrg), ...(await resolveBrand(req)) });
 }));
 
 // An organisation's logo: the image it uploaded, ICT Authority's own file when it
