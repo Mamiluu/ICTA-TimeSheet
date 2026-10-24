@@ -9,18 +9,36 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Daymark: everyone who was there, nothing that wasn't</title>
 <meta name="description" content="Daymark is the attendance register that proves itself. People sign on their own phone, the sheet is sealed, and anyone can check it.">
-<meta name="theme-color" content="#fbf8f2">
+<meta name="theme-color" content="#ffffff">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link rel="apple-touch-icon" href="assets/daymark-180.png">
+<link rel="preload" href="assets/fonts/bricolage.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+  @font-face{ font-family:"Bricolage Grotesque"; src:url(assets/fonts/bricolage.woff2) format("woff2"); font-weight:200 800; font-display:swap; }
+  @font-face{ font-family:"Figtree"; src:url(assets/fonts/figtree.woff2) format("woff2"); font-weight:300 900; font-display:swap; }
   :root{
-    --ui:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif;
-    --paper:#fbf8f2; --ink:#1c1e23; --soft:#5d6472; --line:#ece6d8;
+    --ui:"Figtree", "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+    --display:"Bricolage Grotesque", "Figtree", "Segoe UI", system-ui, sans-serif;
+    --paper:#ffffff; --ink:#1c1e23; --soft:#5d6472; --line:#ece6d8;
     --peach:#ffe3d1; --mint:#cfeee0; --lav:#dcd6fb; --sun:#ffd36b; --ok:#1f8f63; --bad:#d6334a;
   }
   *{ box-sizing:border-box; }
   html{ scroll-behavior:smooth; }
-  body{ margin:0; font-family:var(--ui); font-size:17px; line-height:1.6; color:var(--ink); background:var(--paper); }
+  body{ margin:0; font-family:var(--ui); font-size:17.5px; line-height:1.6; color:var(--ink); background:#fff; position:relative; overflow-x:hidden; -webkit-font-smoothing:antialiased; }
+  /* white stays the main colour; soft shades drift in from the corners and melt into each other */
+  body::before{ content:""; position:absolute; left:0; right:0; top:0; height:980px; z-index:-1; pointer-events:none;
+    background:
+      radial-gradient(560px 400px at 10% 6%, rgba(255,198,170,.78), transparent 70%),
+      radial-gradient(620px 440px at 90% 2%, rgba(196,182,255,.72), transparent 70%),
+      radial-gradient(560px 420px at 82% 66%, rgba(170,222,255,.62), transparent 70%),
+      radial-gradient(520px 380px at 14% 74%, rgba(176,236,208,.62), transparent 70%),
+      radial-gradient(440px 320px at 50% 34%, rgba(255,232,160,.5), transparent 74%);
+    -webkit-mask-image:linear-gradient(#000 62%, transparent); mask-image:linear-gradient(#000 62%, transparent);
+    animation:drift 16s ease-in-out infinite alternate; }
+  body::after{ content:""; position:absolute; left:0; right:0; top:0; height:760px; z-index:-1; pointer-events:none;
+    background-image:radial-gradient(rgba(28,30,35,.16) 1px, transparent 1.2px); background-size:26px 26px;
+    -webkit-mask-image:radial-gradient(60% 55% at 50% 38%, #000, transparent 78%); mask-image:radial-gradient(60% 55% at 50% 38%, #000, transparent 78%); }
+  @keyframes drift{ from{ transform:translate3d(0,0,0) scale(1); } to{ transform:translate3d(0,14px,0) scale(1.05); } }
   a{ color:inherit; }
   :focus-visible{ outline:2px solid var(--ink); outline-offset:3px; border-radius:8px; }
   .w{ width:min(1180px, 100% - 44px); margin:0 auto; }
@@ -28,7 +46,7 @@
   /* ---------- top bar ---------- */
   header{ position:relative; z-index:5; }
   header .w{ display:flex; align-items:center; gap:34px; height:88px; }
-  .brand{ display:flex; align-items:center; gap:12px; text-decoration:none; font-weight:700; font-size:22px; letter-spacing:-.015em; }
+  .brand{ display:flex; align-items:center; gap:12px; text-decoration:none; font-family:var(--display); font-weight:700; font-size:24px; letter-spacing:-.02em; }
   .brand img{ width:38px; height:38px; display:block; }
   header nav{ display:flex; gap:28px; font-size:15.5px; margin-left:10px; }
   header nav a{ text-decoration:none; color:var(--soft); padding:6px 0; border-bottom:2px solid transparent; }
@@ -51,7 +69,7 @@
   .hero h1{ margin-left:auto; margin-right:auto; max-width:14ch; }
   .eyebrow{ display:inline-flex; align-items:center; gap:10px; font-size:14.5px; color:var(--soft); margin:0 0 20px; }
   .eyebrow i{ width:30px; height:2px; background:var(--ink); display:block; }
-  h1{ font-size:clamp(38px, 4.9vw, 62px); line-height:1.06; letter-spacing:-.035em; margin:0 0 22px; font-weight:700; }
+  h1{ font-family:var(--display); font-size:clamp(42px, 6vw, 80px); line-height:1.02; letter-spacing:-.032em; word-spacing:.06em; margin:0 0 24px; font-weight:760; }
   h1 .hl{ background:linear-gradient(transparent 62%, var(--sun) 62%, var(--sun) 90%, transparent 90%); padding:0 4px; margin:0 -4px; -webkit-box-decoration-break:clone; box-decoration-break:clone; }
   .lede{ font-size:clamp(18px, 1.7vw, 20px); color:var(--soft); max-width:40ch; margin:0 0 32px; }
   .go{ display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
