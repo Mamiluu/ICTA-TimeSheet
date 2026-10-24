@@ -82,7 +82,9 @@ A `render.yaml` blueprint at the repo root does most of this for you.
 - Branding: each organisation sets its own name, address, phone, website, the line in the band at the
   foot of printed payment sheets (`footerLine`; ICT Authority's default is its State Corporation
   statement, other organisations print none until they set one; migration
-  `20261024090000_brand_footer_line`), accent colour (checked for
+  `20261024090000_brand_footer_line`), how its printed sheets are laid out (logo and address position
+  left, centre or right; logo size; one of eight fonts; text size; migration
+  `20261025090000_sheet_layout`; the choices are keys the pages turn into CSS, never free text), accent colour (checked for
   readable contrast with white text) and logo (PNG, JPEG or WebP up to 300 KB, judged by its bytes;
   SVG is refused because it can carry script) at `platform.html`, Branding. Without a logo an
   organisation gets a round badge with its initials. `GET /api/branding` returns the look for the
