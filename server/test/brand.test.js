@@ -174,7 +174,7 @@ test('sheet layout: only the offered choices are accepted, and an empty choice m
 
 test('sheet layout reaches the pages with ICT Authority style defaults', () => {
   const d = brandFromOrg(null).sheet;
-  assert.deepEqual(d, { logoAlign: 'RIGHT', addressAlign: 'LEFT', logoSize: 'MEDIUM', font: 'ARIAL', fontSize: 'MEDIUM' });
+  assert.deepEqual(d, { custom: false, logoAlign: 'RIGHT', addressAlign: 'LEFT', logoSize: 'MEDIUM', font: 'ARIAL', fontSize: 'MEDIUM' });
   const own = brandFromOrg({
     slug: 'kplc',
     name: 'Kenya Power',
@@ -183,5 +183,12 @@ test('sheet layout reaches the pages with ICT Authority style defaults', () => {
     sheetFont: 'GEORGIA',
     sheetFontSize: 'LARGE'
   }).sheet;
-  assert.deepEqual(own, { logoAlign: 'CENTER', addressAlign: 'CENTER', logoSize: 'MEDIUM', font: 'GEORGIA', fontSize: 'LARGE' });
+  assert.deepEqual(own, {
+    custom: true,
+    logoAlign: 'CENTER',
+    addressAlign: 'CENTER',
+    logoSize: 'MEDIUM',
+    font: 'GEORGIA',
+    fontSize: 'LARGE'
+  });
 });

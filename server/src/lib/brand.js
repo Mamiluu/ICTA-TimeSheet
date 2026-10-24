@@ -43,6 +43,7 @@ export function brandFromOrg(org) {
     website: (org && org.website) || (isDefault ? BRANDING.website : ''),
     footerLine: (org && org.footerLine) || (isDefault ? BRANDING.footerLine : ''),
     sheet: {
+      custom: Boolean(org && (org.logoAlign || org.addressAlign || org.logoSize || org.sheetFont || org.sheetFontSize)),
       logoAlign: (org && org.logoAlign) || SHEET_DEFAULTS.logoAlign,
       addressAlign: (org && org.addressAlign) || SHEET_DEFAULTS.addressAlign,
       logoSize: (org && org.logoSize) || SHEET_DEFAULTS.logoSize,

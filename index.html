@@ -13,6 +13,7 @@
 <link rel="icon" href="assets/icta_logo_cropped.png">
 <title>ICT Authority : Attendance Sheet</title>
 <script src="assets/brand.js"></script>
+<script src="assets/sheetstyle.js"></script>
 <style>
   /* ---------------------------------------------------------------------
      Design language: the plain paper register. This replaces a physical
@@ -97,10 +98,14 @@
     gap:16px;
     margin-bottom:16px;
   }
-  .letterhead .addr{ font-size:12px; line-height:1.5; color:var(--ink); }
-  .letterhead .addr .org{ font-weight:bold; font-size:13px; color:var(--ink); font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; letter-spacing:.2px; }
+  .letterhead .addr{ font-size:calc(12px * var(--sfs, 1)); line-height:1.5; color:var(--ink); }
+  .letterhead .addr .org{ font-weight:bold; font-size:calc(13px * var(--sfs, 1)); color:var(--ink); font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; letter-spacing:.2px; }
   .letterhead .addr a{ color:var(--ink); text-decoration:underline; }
-  .letterhead .logo img{ height:56px; display:block; }
+  .letterhead .logo img{ height:calc(56px * var(--lsc, 1)); max-width:220px; object-fit:contain; display:block; }
+  /* Once an organisation has chosen a font and text size for its sheet, they apply to the whole sheet. */
+  #sheet.styled .letterhead, #sheet.styled .letterhead .addr .org, #sheet.styled h1.title, #sheet.styled .event-box, #sheet.styled .event-box .field-desc, #sheet.styled table.roster{ font-family:var(--sfont); }
+  #sheet.styled table.roster th, #sheet.styled table.roster td{ font-size:calc(12px * var(--sfs, 1)); }
+  #sheet.styled .event-box .field-value{ font-size:calc(13px * var(--sfs, 1)); }
 
   h1.title{
     text-align:center;
@@ -1091,7 +1096,17 @@
   // load turns out to have an event at all, so even the "no event
   // selected" notice reflects the right org if this deployment is ever
   // rebranded via env vars.
+  function applySheetStyle(b){
+    if(!b.sheet || !b.sheet.custom || typeof sheetStyle !== 'function') return;
+    var st = sheetStyle(b.sheet), sheet = document.getElementById('sheet'), box = document.querySelector('#sheet .letterhead');
+    if(!sheet || !box) return;
+    sheet.classList.add('styled');
+    applySheetVars(sheet, st);
+    layoutLetterhead(box, box.querySelector('.addr'), box.querySelector('.logo'), st);
+  }
+
   function applyBranding(b){
+    applySheetStyle(b);
     var orgEl = document.getElementById('brandOrgName');
     var addrEl = document.getElementById('brandAddressLines');
     var phoneEl = document.getElementById('brandPhoneLine');
