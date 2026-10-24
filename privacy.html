@@ -23,7 +23,7 @@
 </style>
 
 <div class="sheet wide">
-  <a class="back-link" href="javascript:history.back()">&larr; Back</a>
+  <a class="back-link" id="backLink" href="home.html">&larr; Back</a>
   <h1 class="title" id="brandOrgName">ICT Authority</h1>
   <p class="sub" id="brandSubtitle">Attendance Sheet — Privacy Policy</p>
   <p class="updated">Last updated: 3 September 2026</p>
@@ -102,6 +102,13 @@
 <script src="assets/api.js"></script>
 <script>
 (function(){
+  // Go back to the page the reader came from. If this page was opened on its own, in a new tab
+  // or from a bookmark, there is nothing to go back to, so the link goes to the home page.
+  var back = document.getElementById('backLink');
+  back.addEventListener('click', function(e){
+    var came = document.referrer && document.referrer.indexOf(location.origin) === 0;
+    if(came && history.length > 1){ e.preventDefault(); history.back(); }
+  });
   // Same pattern as index.html's letterhead and admin.html/superadmin.html's
   // topbar (see applyTopbarBranding in assets/api.js) -- falls back to the
   // page's own built-in defaults if this deployment hasn't configured
