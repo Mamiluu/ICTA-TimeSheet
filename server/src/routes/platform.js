@@ -373,7 +373,7 @@ platformRouter.get('/branding', ah(async (req, res) => {
   res.json({
     ok: true,
     organisation: { name: org.name, slug: org.slug },
-    branding: { displayName: org.displayName, address: org.address, phone: org.phone, website: org.website, footerLine: org.footerLine, accentColor: org.accentColor, hasLogo: !!org.logoMime },
+    branding: { displayName: org.displayName, address: org.address, phone: org.phone, website: org.website, footerLine: org.footerLine, logoAlign: org.logoAlign, addressAlign: org.addressAlign, logoSize: org.logoSize, sheetFont: org.sheetFont, sheetFontSize: org.sheetFontSize, accentColor: org.accentColor, hasLogo: !!org.logoMime },
     brand: brandFromOrg(org)
   });
 }));

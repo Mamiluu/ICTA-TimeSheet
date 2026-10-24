@@ -5,6 +5,7 @@ import { prisma } from './prisma.js';
 import { BRANDING } from './branding.js';
 import { darken, wash } from './color.js';
 import { SEAL_CODE_PATTERN } from './seal.js';
+import { SHEET_DEFAULTS } from './brandInput.js';
 
 // The organisation whose look is used when a page does not say whose it is. Anything an
 // organisation has not filled in falls back to the platform defaults in lib/branding.js,
@@ -41,6 +42,13 @@ export function brandFromOrg(org) {
     phone: (org && org.phone) || (isDefault ? BRANDING.phone : ''),
     website: (org && org.website) || (isDefault ? BRANDING.website : ''),
     footerLine: (org && org.footerLine) || (isDefault ? BRANDING.footerLine : ''),
+    sheet: {
+      logoAlign: (org && org.logoAlign) || SHEET_DEFAULTS.logoAlign,
+      addressAlign: (org && org.addressAlign) || SHEET_DEFAULTS.addressAlign,
+      logoSize: (org && org.logoSize) || SHEET_DEFAULTS.logoSize,
+      font: (org && org.sheetFont) || SHEET_DEFAULTS.sheetFont,
+      fontSize: (org && org.sheetFontSize) || SHEET_DEFAULTS.sheetFontSize
+    },
     accent,
     accentDark: darken(accent, 0.2),
     accentWash: wash(accent, 0.92),

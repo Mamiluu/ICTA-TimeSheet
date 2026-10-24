@@ -11,6 +11,21 @@ function trimmed(v) {
     .trim();
 }
 
+// The choices an organisation has for how its printed sheets look. The page maps each key to
+// real CSS, so nothing the admin types ever reaches a stylesheet.
+export const SHEET_OPTIONS = {
+  align: ['LEFT', 'CENTER', 'RIGHT'],
+  size: ['SMALL', 'MEDIUM', 'LARGE'],
+  font: ['ARIAL', 'TIMES', 'GEORGIA', 'VERDANA', 'TAHOMA', 'TREBUCHET', 'CALIBRI', 'COURIER']
+};
+export const SHEET_DEFAULTS = { logoAlign: 'RIGHT', addressAlign: 'LEFT', logoSize: 'MEDIUM', sheetFont: 'ARIAL', sheetFontSize: 'MEDIUM' };
+
+function pick(value, allowed) {
+  const v = String(value ?? '').trim().toUpperCase();
+  if (!v) return { value: null };
+  return allowed.includes(v) ? { value: v } : { error: true };
+}
+
 // Validates what an organisation admin types into the branding form. An empty field
 // means "use the default", stored as null. Returns { value } or { error }.
 export function cleanBranding(body) {
@@ -40,6 +55,19 @@ export function cleanBranding(body) {
   const footerLine = trimmed(body.footerLine);
   if (footerLine.length > 140) return { error: 'The line at the foot of printed sheets can be at most 140 characters.' };
   out.footerLine = footerLine || null;
+
+  const checks = [
+    ['logoAlign', SHEET_OPTIONS.align, 'The logo position'],
+    ['addressAlign', SHEET_OPTIONS.align, 'The address position'],
+    ['logoSize', SHEET_OPTIONS.size, 'The logo size'],
+    ['sheetFont', SHEET_OPTIONS.font, 'The font'],
+    ['sheetFontSize', SHEET_OPTIONS.size, 'The font size']
+  ];
+  for (const [key, allowed, label] of checks) {
+    const r = pick(body[key], allowed);
+    if (r.error) return { error: `${label} is not one of the choices on offer.` };
+    out[key] = r.value;
+  }
 
   const accent = trimmed(body.accentColor);
   if (accent) {
