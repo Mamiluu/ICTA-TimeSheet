@@ -79,10 +79,25 @@
   .logo-box{ width:120px; height:120px; border:1px dashed var(--c-line-strong); border-radius:var(--r-md); display:flex; align-items:center; justify-content:center; background:#fff; }
   .logo-box img{ max-width:96px; max-height:96px; object-fit:contain; }
   .letter-prev{ border:1px solid var(--c-line); border-radius:var(--r-md); padding:16px 18px; background:#fff; max-width:420px; }
-  .lp-top{ display:flex; justify-content:space-between; gap:14px; align-items:flex-start; }
-  .lp-text{ font-size:12px; color:#444; line-height:1.45; }
-  .lp-text strong{ display:block; font-size:14px; color:#111; }
-  .lp-top img{ width:44px; height:44px; object-fit:contain; }
+  .lp-top{ display:flex; justify-content:space-between; gap:14px; align-items:flex-start; font-family:var(--sfont, inherit); }
+  .lp-text{ font-size:calc(12px * var(--sfs, 1)); color:#444; line-height:1.45; }
+  .lp-text strong{ display:block; font-size:calc(14px * var(--sfs, 1)); color:#111; }
+  .lp-top img{ height:calc(44px * var(--lsc, 1)); width:auto; max-width:150px; object-fit:contain; }
+  .lp-sheet{ margin-top:14px; font-family:var(--sfont, inherit); font-size:calc(11px * var(--sfs, 1)); color:#222; }
+  .lp-sheet .t{ text-align:center; font-weight:700; letter-spacing:.14em; margin-bottom:6px; }
+  .lp-sheet .g{ display:grid; grid-template-columns:44px 1fr 1fr; border:1px solid #222; }
+  .lp-sheet .g span{ padding:4px 6px; border:1px solid #222; margin:-1px 0 0 -1px; }
+  .lp-sheet .g .h{ background:#dcdcdc; font-weight:700; text-align:center; }
+  .sheetopts{ border:1px solid var(--c-line); border-radius:var(--r-md); padding:14px 16px 4px; margin:2px 0 16px; background:var(--c-soft); }
+  .sheetopts .so-title{ font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--c-muted); font-weight:700; margin-bottom:10px; }
+  .so-row{ display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:12px; flex-wrap:wrap; }
+  .so-row > span{ font-size:13.5px; font-weight:600; }
+  .sseg{ display:inline-flex; border:1px solid var(--c-line-strong); border-radius:var(--r-md); overflow:hidden; background:#fff; }
+  .sseg button{ margin:0; border:0; border-radius:0; background:transparent; padding:7px 14px; font-family:var(--ui-font); font-size:13px; font-weight:600; color:var(--c-muted); cursor:pointer; }
+  .sseg button + button{ border-left:1px solid var(--c-line); }
+  .sseg button:hover{ background:var(--c-soft); color:var(--c-text); }
+  .sseg button.on{ background:var(--c-text); color:#fff; }
+  .so-row select{ margin:0; width:auto; min-width:190px; padding:7px 10px; }
   .lp-bar{ height:3px; width:64px; background:var(--c-accent); margin:12px 0; }
   .lp-row{ display:flex; gap:14px; align-items:center; font-size:12.5px; }
   .lp-btn{ background:var(--c-accent); color:#fff; padding:7px 14px; border-radius:6px; font-weight:600; }
@@ -302,6 +317,14 @@
             </div>
             <label for="bFooter" style="margin-top:12px;">Line at the foot of payment sheets <span class="opt">(for example your legal status)</span></label>
             <input type="text" id="bFooter" maxlength="140" autocomplete="off" style="width:100%; margin-bottom:12px;">
+            <div class="sheetopts">
+              <div class="so-title">How the printed sheet is laid out</div>
+              <div class="so-row"><span>Logo position</span><div class="sseg" data-k="logoAlign"><button type="button" data-v="LEFT">Left</button><button type="button" data-v="CENTER">Centre</button><button type="button" data-v="RIGHT">Right</button></div></div>
+              <div class="so-row"><span>Address position</span><div class="sseg" data-k="addressAlign"><button type="button" data-v="LEFT">Left</button><button type="button" data-v="CENTER">Centre</button><button type="button" data-v="RIGHT">Right</button></div></div>
+              <div class="so-row"><span>Logo size</span><div class="sseg" data-k="logoSize"><button type="button" data-v="SMALL">Small</button><button type="button" data-v="MEDIUM">Medium</button><button type="button" data-v="LARGE">Large</button></div></div>
+              <div class="so-row"><span>Font</span><select id="bFont" aria-label="Font"></select></div>
+              <div class="so-row"><span>Text size</span><div class="sseg" data-k="sheetFontSize"><button type="button" data-v="SMALL">Small</button><button type="button" data-v="MEDIUM">Medium</button><button type="button" data-v="LARGE">Large</button></div></div>
+            </div>
             <label for="bColour">Accent colour</label>
             <div class="colour-row">
               <input type="color" id="bColourPick" aria-label="Pick a colour">
@@ -322,7 +345,8 @@
             <p class="note err" id="bLogoErr" style="display:none;"></p>
             <h2 class="section" style="margin-top:22px;">Preview</h2>
             <div class="letter-prev" id="prev">
-              <div class="lp-top"><div class="lp-text"><strong id="pName"></strong><div id="pAddr"></div><div id="pContact"></div></div><img id="pLogo" alt="" width="44" height="44"></div>
+              <div class="lp-top" id="lpTop"><div class="lp-text" id="lpText"><strong id="pName"></strong><div id="pAddr"></div><div id="pContact"></div></div><img id="pLogo" alt="" width="44" height="44"></div>
+              <div class="lp-sheet"><div class="t">ATTENDANCE SHEET</div><div class="g"><span class="h">S/NO.</span><span class="h">NAME</span><span class="h">ORGANISATION</span><span>1.</span><span>Ruth Njoroge</span><span>Your organisation</span></div></div>
               <div class="lp-bar"></div>
               <div class="lp-row"><span class="lp-btn">Activate your account</span><span class="lp-link">A link in your colour</span></div>
             </div>
@@ -348,6 +372,7 @@
 </div>
 
 <script src="assets/api.js"></script>
+<script src="assets/sheetstyle.js"></script>
 <script>
 (function(){
   applyTopbarBranding('Platform Admin');
@@ -943,6 +968,8 @@
   // --- Branding ---
   var bEls = { name: $('bName'), addr: $('bAddress'), phone: $('bPhone'), site: $('bSite'), footer: $('bFooter'), colour: $('bColour'), pick: $('bColourPick') };
   var currentBrand = null;
+  var sheetSel = { logoAlign: 'RIGHT', addressAlign: 'LEFT', logoSize: 'MEDIUM', sheetFont: 'ARIAL', sheetFontSize: 'MEDIUM' };
+  var bFont = null;
   function $(id){ return document.getElementById(id); }
 
   function luminance(hex){
@@ -963,6 +990,13 @@
     if(ok) bEls.pick.value = hex;
     $('pName').textContent = bEls.name.value.trim() || (currentBrand ? currentBrand.orgName : '');
     $('pAddr').textContent = bEls.addr.value.split(/\r?\n/).map(function(l){ return l.trim(); }).filter(Boolean).join(' · ');
+    var st = sheetStyle({ logoAlign: sheetSel.logoAlign, addressAlign: sheetSel.addressAlign, logoSize: sheetSel.logoSize, font: sheetSel.sheetFont, fontSize: sheetSel.sheetFontSize });
+    applySheetVars($('prev'), st);
+    layoutLetterhead($('lpTop'), $('lpText'), $('pLogo'), st);
+    Array.prototype.forEach.call(document.querySelectorAll('.sseg'), function(g){
+      Array.prototype.forEach.call(g.querySelectorAll('button'), function(b){ b.classList.toggle('on', b.getAttribute('data-v') === sheetSel[g.getAttribute('data-k')]); });
+    });
+    if(bFont) bFont.value = sheetSel.sheetFont;
     $('pContact').textContent = [bEls.phone.value.trim() ? 'Tel: ' + bEls.phone.value.trim() : '', bEls.site.value.trim().replace(/^https?:\/\//, '')].filter(Boolean).join(' · ');
   }
 
@@ -970,6 +1004,7 @@
     currentBrand = r.brand;
     var b = r.branding || {};
     bEls.name.value = b.displayName || ''; bEls.addr.value = b.address || ''; bEls.phone.value = b.phone || ''; bEls.site.value = b.website || ''; bEls.footer.value = b.footerLine || ''; bEls.colour.value = b.accentColor || '';
+    ['logoAlign', 'addressAlign', 'logoSize', 'sheetFont', 'sheetFontSize'].forEach(function(k){ if(b[k]) sheetSel[k] = b[k]; });
     $('bLogoImg').src = r.brand.logoUrl; $('pLogo').src = r.brand.logoUrl;
     $('bLogoRemove').style.display = b.hasLogo ? '' : 'none';
     renderPreview();
@@ -979,12 +1014,19 @@
   }
   ['name', 'addr', 'phone', 'site', 'footer', 'colour'].forEach(function(k){ bEls[k].addEventListener('input', renderPreview); });
   bEls.pick.addEventListener('input', function(){ bEls.colour.value = bEls.pick.value; renderPreview(); });
+  // the layout choices
+  bFont = $('bFont');
+  SHEET_FONTS.forEach(function(f){ var o = document.createElement('option'); o.value = f.key; o.textContent = f.label; bFont.appendChild(o); });
+  bFont.addEventListener('change', function(){ sheetSel.sheetFont = bFont.value; renderPreview(); });
+  Array.prototype.forEach.call(document.querySelectorAll('.sseg'), function(g){
+    g.addEventListener('click', function(e){ var b = e.target.closest ? e.target.closest('button') : null; if(!b) return; sheetSel[g.getAttribute('data-k')] = b.getAttribute('data-v'); renderPreview(); });
+  });
   $('bColourReset').addEventListener('click', function(){ bEls.colour.value = ''; renderPreview(); });
 
   $('bSave').addEventListener('click', function(){
     var btn = this, err = $('bErr'), ok = $('bOk'); err.style.display = 'none'; ok.style.display = 'none';
     btn.disabled = true;
-    API.put('/api/platform/branding', { displayName: bEls.name.value, address: bEls.addr.value, phone: bEls.phone.value, website: bEls.site.value, footerLine: bEls.footer.value, accentColor: bEls.colour.value }).then(function(r){
+    API.put('/api/platform/branding', { displayName: bEls.name.value, address: bEls.addr.value, phone: bEls.phone.value, website: bEls.site.value, footerLine: bEls.footer.value, accentColor: bEls.colour.value, logoAlign: sheetSel.logoAlign, addressAlign: sheetSel.addressAlign, logoSize: sheetSel.logoSize, sheetFont: sheetSel.sheetFont, sheetFontSize: sheetSel.sheetFontSize }).then(function(r){
       btn.disabled = false;
       if(!r.data.ok){ err.textContent = r.data.message || 'Could not save.'; err.style.display = ''; return; }
       ok.textContent = 'Saved. Your pages and emails now use this look.'; ok.style.display = '';

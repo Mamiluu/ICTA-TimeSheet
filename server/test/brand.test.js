@@ -110,6 +110,11 @@ test('branding input: empty fields mean use the default', () => {
     phone: null,
     website: null,
     footerLine: null,
+    logoAlign: null,
+    addressAlign: null,
+    logoSize: null,
+    sheetFont: null,
+    sheetFontSize: null,
     accentColor: null
   });
 });
@@ -128,6 +133,11 @@ test('branding input: a full, valid form is kept and tidied', () => {
     phone: '+254 20 3201000',
     website: 'https://www.kplc.co.ke',
     footerLine: null,
+    logoAlign: null,
+    addressAlign: null,
+    logoSize: null,
+    sheetFont: null,
+    sheetFontSize: null,
     accentColor: '#006600'
   });
 });
@@ -149,4 +159,29 @@ test('the line at the foot of payment sheets: ICT Authority has its own, others 
   assert.equal(brandFromOrg({ slug: 'kplc', name: 'Kenya Power', footerLine: 'Licensed by EPRA' }).footerLine, 'Licensed by EPRA');
   assert.equal(cleanBranding({ footerLine: '  Licensed   by EPRA ' }).value.footerLine, 'Licensed by EPRA');
   assert.ok(cleanBranding({ footerLine: 'x'.repeat(141) }).error);
+});
+
+test('sheet layout: only the offered choices are accepted, and an empty choice means the default', () => {
+  const ok = cleanBranding({ logoAlign: 'center', addressAlign: 'LEFT', logoSize: 'large', sheetFont: 'times', sheetFontSize: 'small' });
+  assert.deepEqual(
+    [ok.value.logoAlign, ok.value.addressAlign, ok.value.logoSize, ok.value.sheetFont, ok.value.sheetFontSize],
+    ['CENTER', 'LEFT', 'LARGE', 'TIMES', 'SMALL']
+  );
+  assert.ok(cleanBranding({ logoAlign: 'DIAGONAL' }).error);
+  assert.ok(cleanBranding({ sheetFont: 'Comic Sans; color:red' }).error);
+  assert.equal(cleanBranding({ logoSize: '' }).value.logoSize, null);
+});
+
+test('sheet layout reaches the pages with ICT Authority style defaults', () => {
+  const d = brandFromOrg(null).sheet;
+  assert.deepEqual(d, { logoAlign: 'RIGHT', addressAlign: 'LEFT', logoSize: 'MEDIUM', font: 'ARIAL', fontSize: 'MEDIUM' });
+  const own = brandFromOrg({
+    slug: 'kplc',
+    name: 'Kenya Power',
+    logoAlign: 'CENTER',
+    addressAlign: 'CENTER',
+    sheetFont: 'GEORGIA',
+    sheetFontSize: 'LARGE'
+  }).sheet;
+  assert.deepEqual(own, { logoAlign: 'CENTER', addressAlign: 'CENTER', logoSize: 'MEDIUM', font: 'GEORGIA', fontSize: 'LARGE' });
 });
