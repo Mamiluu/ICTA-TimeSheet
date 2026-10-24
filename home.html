@@ -62,8 +62,8 @@
   .btn svg{ width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
 
   /* ---------- hero ---------- */
-  .hero{ padding:30px 0 84px; }
-  .hero .w{ text-align:center; padding:56px 0 30px; }
+  .hero{ padding:0 0 70px; }
+  .hero .w{ text-align:center; padding:28px 0 30px; }
   .hero .eyebrow, .hero .go, .hero .tiny{ justify-content:center; }
   .hero .lede{ margin-left:auto; margin-right:auto; max-width:42ch; }
   .hero h1{ margin-left:auto; margin-right:auto; max-width:12ch; }
@@ -76,18 +76,51 @@
   .tiny{ margin:26px 0 0; font-size:14.5px; color:var(--soft); display:flex; gap:10px; align-items:center; }
   .tiny svg{ width:18px; height:18px; stroke:var(--ok); fill:none; stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; flex:none; }
 
+  /* ---------- three steps ---------- */
+  .steps{ padding:30px 0 120px; }
+  .steps h2{ font-family:var(--display); font-size:clamp(30px, 4vw, 50px); line-height:1.05; letter-spacing:-.03em; font-weight:760; text-align:center; margin:0 auto 14px; max-width:22ch; text-wrap:balance; }
+  .steps .intro{ text-align:center; color:var(--soft); margin:0 auto 54px; max-width:38ch; font-size:18px; }
+  .cards{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:24px; }
+  .card{ background:#fff; border:1.5px solid #ece6d8; border-radius:28px; overflow:hidden; box-shadow:0 18px 40px -26px rgba(28,30,35,.35); display:flex; flex-direction:column; transition:transform .25s, box-shadow .25s; }
+  .card:hover{ transform:translateY(-4px); box-shadow:0 26px 48px -26px rgba(28,30,35,.4); }
+  .card .pic{ height:250px; display:grid; place-items:center; }
+  .card .pic svg{ width:100%; height:100%; display:block; }
+  .card.c1 .pic{ background:#ffe7d8; } .card.c2 .pic{ background:#e6e0ff; } .card.c3 .pic{ background:#d7f1e5; }
+  .card .txt{ padding:24px 28px 32px; }
+  .card .n{ display:inline-grid; place-items:center; width:30px; height:30px; border-radius:50%; background:var(--ink); color:#fff; font-size:14px; font-weight:700; margin-bottom:12px; }
+  .card h3{ font-family:var(--display); font-size:27px; letter-spacing:-.025em; line-height:1.1; margin:0 0 8px; font-weight:740; }
+  .card p{ margin:0; color:var(--soft); font-size:17px; line-height:1.5; }
+
+  .reveal{ opacity:0; transform:translateY(22px); transition:opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
+  .reveal.in{ opacity:1; transform:none; }
+  .reveal.d1{ transition-delay:.1s; } .reveal.d2{ transition-delay:.2s; }
+
+  /* little scenes */
+  .s-sig{ stroke-dasharray:300; stroke-dashoffset:300; animation:sig 6s ease-in-out infinite; }
+  @keyframes sig{ 0%,8%{ stroke-dashoffset:300; } 42%,90%{ stroke-dashoffset:0; } 100%{ stroke-dashoffset:0; } }
+  .s-ok{ transform-box:fill-box; transform-origin:center; animation:okpop 6s ease-in-out infinite; }
+  @keyframes okpop{ 0%,46%{ transform:scale(0); opacity:0; } 56%{ transform:scale(1.18); opacity:1; } 62%,92%{ transform:scale(1); opacity:1; } 100%{ opacity:0; } }
+  .s-stamp{ transform-box:fill-box; transform-origin:center; animation:thump 5.5s cubic-bezier(.3,1.5,.5,1) infinite; }
+  @keyframes thump{ 0%,12%{ transform:scale(2.1) rotate(-14deg); opacity:0; } 24%{ transform:scale(.94) rotate(-8deg); opacity:1; } 30%,88%{ transform:scale(1) rotate(-8deg); opacity:1; } 100%{ opacity:0; } }
+  .s-code{ animation:fadein 5.5s ease-in-out infinite; }
+  @keyframes fadein{ 0%,28%{ opacity:0; } 40%,88%{ opacity:1; } 100%{ opacity:0; } }
+  .s-type{ clip-path:inset(0 100% 0 0); animation:typing 6s steps(9) infinite; }
+  @keyframes typing{ 0%,6%{ clip-path:inset(0 100% 0 0); } 40%,100%{ clip-path:inset(0 0 0 0); } }
+  .s-match{ transform-box:fill-box; transform-origin:left center; animation:match 6s ease-in-out infinite; }
+  @keyframes match{ 0%,44%{ transform:scale(.6); opacity:0; } 54%{ transform:scale(1.06); opacity:1; } 60%,92%{ transform:scale(1); opacity:1; } 100%{ opacity:0; } }
   footer{ border-top:1px solid var(--line); padding:22px 0 30px; font-size:14px; color:var(--soft); }
   footer .w{ display:flex; gap:10px 24px; flex-wrap:wrap; }
   footer a{ text-decoration:none; } footer a:hover{ color:var(--ink); text-decoration:underline; }
   footer .sp{ margin-left:auto; display:flex; gap:22px; }
 
   @media (max-width:960px){
+    .cards{ grid-template-columns:minmax(0,1fr); max-width:520px; margin:0 auto; }
     header nav{ display:none; }
     .hero .w{ grid-template-columns:minmax(0,1fr); }
     h1{ max-width:16ch; }
   }
   @media (max-width:520px){ header .r .login{ display:none; } .btn{ padding:14px 22px; } }
-  @media (prefers-reduced-motion:reduce){ *{ animation:none !important; transition:none !important; } }
+  @media (prefers-reduced-motion:reduce){ .reveal{ opacity:1; transform:none; } *{ animation:none !important; transition:none !important; } }
 </style>
 </head>
 <body>
@@ -119,7 +152,59 @@
       </div>
     </div>
   </section>
-</main>
+
+  <section class="steps" id="how">
+    <div class="w">
+      <h2 class="reveal">Three steps. Nothing to learn.</h2>
+      <p class="intro reveal d1">If you can share a link, you can run an event.</p>
+      <div class="cards">
+        <article class="card c1 reveal">
+          <div class="pic" aria-hidden="true">
+            <svg viewBox="0 0 400 250">
+              <rect x="146" y="22" width="108" height="214" rx="20" fill="#1c1e23"/>
+              <rect x="152" y="28" width="96" height="202" rx="15" fill="#fff"/>
+              <rect x="186" y="33" width="28" height="5" rx="2.5" fill="#1c1e23"/>
+              <rect x="162" y="50" width="52" height="6" rx="3" fill="#cfc8b6"/><rect x="162" y="62" width="76" height="8" rx="4" fill="#1c1e23"/>
+              <rect x="162" y="80" width="16" height="13" rx="5" fill="#cfeee0"/><rect x="182" y="80" width="16" height="13" rx="5" fill="#cfeee0"/><rect x="202" y="80" width="16" height="13" rx="5" fill="#1c1e23"/><rect x="222" y="80" width="16" height="13" rx="5" fill="#efe9dc"/>
+              <rect x="162" y="104" width="76" height="66" rx="10" fill="#fbf8f2" stroke="#cfc8b6" stroke-width="1.5" stroke-dasharray="4 4"/>
+              <path class="s-sig" d="M170 154c6-34 14-36 17-14s9 24 15-8 14-32 19-4 10 12 14-12" fill="none" stroke="#1d2b6e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="162" y="182" width="76" height="26" rx="9" fill="#1c1e23"/><rect x="186" y="192" width="28" height="6" rx="3" fill="#fff"/>
+              <g class="s-ok"><circle cx="262" cy="70" r="17" fill="#1f8f63"/><path d="M254 70l6 6 11-12" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></g>
+            </svg>
+          </div>
+          <div class="txt"><span class="n">1</span><h3>Sign</h3><p>Each person signs for the day on their own phone.</p></div>
+        </article>
+
+        <article class="card c2 reveal d1">
+          <div class="pic" aria-hidden="true">
+            <svg viewBox="0 0 400 250">
+              <g transform="translate(112 30) rotate(-3)">
+                <rect width="176" height="196" rx="12" fill="#fff" stroke="#d9d2f2" stroke-width="2"/>
+                <rect x="16" y="18" width="70" height="9" rx="4.5" fill="#1c1e23"/><rect x="16" y="34" width="44" height="6" rx="3" fill="#cfc8b6"/>
+                <g fill="#e8e3f6"><rect x="16" y="58" width="60" height="7" rx="3.5"/><rect x="16" y="78" width="50" height="7" rx="3.5"/><rect x="16" y="98" width="64" height="7" rx="3.5"/></g>
+                <g fill="none" stroke="#1d2b6e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M96 62c5-8 9-8 10-1s5 5 9-2 7-6 9 0"/><path d="M96 82c6-7 9-6 11 0s5 4 9-2 6-5 8 1"/><path d="M96 102c5-8 10-7 11 0s6 5 10-2 7-6 10 1"/></g>
+                <g class="s-stamp"><g transform="translate(112 142)"><circle r="34" fill="rgba(255,255,255,.9)" stroke="#6a3df5" stroke-width="4"/><circle r="27" fill="none" stroke="#6a3df5" stroke-width="1.6" stroke-dasharray="2 4"/><path d="M-13 1l8 8 17-18" fill="none" stroke="#6a3df5" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+                <text class="s-code" x="16" y="178" font-size="13" font-weight="700" fill="#6a3df5" font-family="ui-monospace, Consolas, monospace" letter-spacing="1.5">7K2M 9QXA</text>
+              </g>
+            </svg>
+          </div>
+          <div class="txt"><span class="n">2</span><h3>Seal</h3><p>The finished sheet gets a code made from everything on it.</p></div>
+        </article>
+
+        <article class="card c3 reveal d2">
+          <div class="pic" aria-hidden="true">
+            <svg viewBox="0 0 400 250">
+              <rect x="64" y="52" width="272" height="56" rx="28" fill="#fff" stroke="#1c1e23" stroke-width="2.5"/>
+              <text class="s-type" x="96" y="87" font-size="21" font-weight="700" fill="#1c1e23" font-family="ui-monospace, Consolas, monospace" letter-spacing="3">7K2M 9QXA</text>
+              <circle cx="304" cy="80" r="17" fill="#1c1e23"/><path d="M298 80h12M305 74l6 6-6 6" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <g class="s-match"><rect x="102" y="140" width="196" height="46" rx="23" fill="#fff" stroke="#1f8f63" stroke-width="2.5"/><circle cx="128" cy="163" r="13" fill="#1f8f63"/><path d="M122 163l4.5 4.5 8-9" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><text x="152" y="169" font-size="16" font-weight="700" fill="#1c1e23" font-family="Figtree, Segoe UI, sans-serif">Matches the record</text></g>
+            </svg>
+          </div>
+          <div class="txt"><span class="n">3</span><h3>Check</h3><p>Anyone can type the code and see if the sheet is still the same.</p></div>
+        </article>
+      </div>
+    </div>
+  </section></main>
 
 <footer>
   <div class="w">
@@ -127,6 +212,15 @@
     <div class="sp"><a href="login.html">Log in</a><a href="wallet.html">My events</a><a href="privacy.html">Privacy policy</a></div>
   </div>
 </footer>
+
+<script>
+(function(){
+  var items = document.querySelectorAll(".reveal");
+  if(!("IntersectionObserver" in window)){ items.forEach(function(n){ n.classList.add("in"); }); return; }
+  var io = new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } }); }, { threshold: .15 });
+  items.forEach(function(n){ io.observe(n); });
+})();
+</script>
 
 
 </body>
