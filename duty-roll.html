@@ -152,16 +152,17 @@
   /* ---- The paper payment form: A4 landscape, nine days to a page ---- */
   #printArea{ display:none; }
   @page{ size:A4 landscape; margin:8mm; }
-  .sheet-page{ width:281mm; min-height:192mm; background:#fff; color:#000; font-family:Arial, Helvetica, sans-serif; padding:6mm 7mm 0; box-sizing:border-box; display:flex; flex-direction:column; }
-  .sheet-page .lh{ display:flex; justify-content:space-between; align-items:flex-start; gap:20px; }
-  .sheet-page .lh .addr{ color:#1d4f86; font-size:10.5px; line-height:1.4; max-width:62%; }
-  .sheet-page .lh .addr strong{ display:block; font-size:13px; letter-spacing:.01em; margin-bottom:1px; }
-  .sheet-page .lh img{ height:58px; max-width:150px; object-fit:contain; }
-  .sheet-page h3.ttl{ text-align:center; margin:6px 0 8px; font-size:16px; letter-spacing:.14em; font-weight:700; }
+  .sheet-page{ width:281mm; min-height:192mm; background:#fff; color:#000; font-family:var(--sfont, Arial, Helvetica, sans-serif); padding:6mm 7mm 0; box-sizing:border-box; display:flex; flex-direction:column; }
+  .sheet-page .lh{ display:flex; justify-content:space-between; align-items:flex-start; gap:20px; /* the grid in layoutLetterhead replaces this once the page knows the organisation's choices */ }
+  .sheet-page .lh .addr{ color:#1d4f86; font-size:calc(10.5px * var(--sfs, 1)); line-height:1.4; }
+  .sheet-page .lh .addr strong{ display:block; font-size:calc(13px * var(--sfs, 1)); letter-spacing:.01em; margin-bottom:1px; }
+  .sheet-page .lh .logo{ line-height:0; }
+  .sheet-page .lh img{ height:calc(58px * var(--lsc, 1)); max-width:200px; object-fit:contain; }
+  .sheet-page h3.ttl{ text-align:center; margin:6px 0 8px; font-size:calc(16px * var(--sfs, 1)); letter-spacing:.14em; font-weight:700; }
   .sheet-page table{ width:100%; min-width:0; border-collapse:collapse; border:1.2px solid #000; table-layout:fixed; }
-  .sheet-page th, .sheet-page td{ border:1px solid #000; padding:3px 6px; font-size:10.5px; color:#000; vertical-align:middle; white-space:normal; text-transform:none; letter-spacing:0; line-height:1.25; }
-  .sheet-page th{ background:#d9d9d9; font-weight:700; text-align:center; font-size:10.5px; }
-  .sheet-page table.hdr td{ font-size:11px; padding:4px 7px; height:7mm; }
+  .sheet-page th, .sheet-page td{ border:1px solid #000; padding:3px 6px; font-size:calc(10.5px * var(--sfs, 1)); color:#000; vertical-align:middle; white-space:normal; text-transform:none; letter-spacing:0; line-height:1.25; }
+  .sheet-page th{ background:#d9d9d9; font-weight:700; text-align:center; font-size:calc(10.5px * var(--sfs, 1)); }
+  .sheet-page table.hdr td{ font-size:calc(11px * var(--sfs, 1)); padding:4px 7px; height:7mm; }
   .sheet-page table.hdr td.k{ font-weight:700; width:15%; background:#fff; }
   .sheet-page td.sno{ text-align:center; }
   .sheet-page td.sig{ height:var(--rowh, 15mm); padding:1px; text-align:center; }
@@ -169,16 +170,16 @@
   /* A cell nobody signed is struck through corner to corner; a row nobody uses is struck through along its middle. */
   .sheet-page td.sig.xout{ background:linear-gradient(to top right, transparent calc(50% - .7px), #000 50%, transparent calc(50% + .7px)); }
   .sheet-page tr.unused td{ background:linear-gradient(#000, #000) center / 100% 1px no-repeat; }
-  .sheet-page td.nm, .sheet-page td.og{ font-size:10.5px; }
+  .sheet-page td.nm, .sheet-page td.og{ font-size:calc(10.5px * var(--sfs, 1)); }
   .sheet-page .dayhead small{ display:block; font-weight:400; font-size:8px; line-height:1.15; }
-  .sheet-page .signoff{ display:flex; gap:22px; align-items:flex-end; margin-top:10px; font-size:10px; }
+  .sheet-page .signoff{ display:flex; gap:22px; align-items:flex-end; margin-top:10px; font-size:calc(10px * var(--sfs, 1)); }
   .sheet-page .signoff .blk{ flex:1; border-top:1px solid #000; padding-top:3px; margin-top:20px; }
   .sheet-page .signoff .blk small{ display:block; color:#333; font-size:9px; }
   .sheet-page .seal{ display:flex; align-items:center; gap:8px; font-size:9px; max-width:62mm; }
   .sheet-page .seal img{ width:15mm; height:15mm; }
   .sheet-page .gen{ margin-top:6px; font-size:8.5px; color:#444; }
   .sheet-page .bandrow{ margin-top:auto; text-align:center; padding-bottom:5mm; }
-  .sheet-page .band{ display:inline-block; padding:3px 10px; background:var(--paper-accent, #c8102e); color:#fff; font-size:11.5px; letter-spacing:.01em; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .sheet-page .band{ display:inline-block; padding:3px 10px; background:var(--paper-accent, #c8102e); color:#fff; font-size:calc(11.5px * var(--sfs, 1)); letter-spacing:.01em; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   .sheet-page .band.plain{ display:none; }
   .sheet-page .gap{ flex:1; min-height:4mm; }
   .sheet-page th, .sheet-page td, .sheet-page .band{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
@@ -328,13 +329,14 @@
 <div id="printArea" aria-hidden="true"></div>
 
 <script src="assets/api.js"></script>
+<script src="assets/sheetstyle.js"></script>
 <script>
 (function(){
   applyTopbarBranding('Payment sheet');
   var $ = function(id){ return document.getElementById(id); };
   var eventId = new URLSearchParams(location.search).get('event') || '';
   var roll = null, printData = null, openQueries = 0;
-  var brand = { orgName: 'ICT Authority', logo: 'assets/icta_logo_cropped.png', address: [], phone: '', website: '', footerLine: '', accent: '#c8102e' };
+  var brand = { orgName: '', logo: 'assets/daymark-mark.svg', address: [], phone: '', website: '', footerLine: '', accent: '#c8102e', sheet: null };
 
   function el(tag, cls, text){ var n = document.createElement(tag); if(cls) n.className = cls; if(text != null) n.textContent = text; return n; }
   function money(n){ return 'KES ' + Number(n || 0).toLocaleString('en-KE'); }
@@ -350,7 +352,7 @@
     if(r.status !== 200 || !r.data || !r.data.orgName) return;
     var d = r.data;
     brand.orgName = d.orgName; brand.logo = d.logoUrl || brand.logo; brand.address = d.addressLines || [];
-    brand.phone = d.phone || ''; brand.website = d.website || ''; brand.footerLine = d.footerLine || ''; brand.accent = d.accent || brand.accent;
+    brand.phone = d.phone || ''; brand.website = d.website || ''; brand.footerLine = d.footerLine || ''; brand.accent = d.accent || brand.accent; brand.sheet = d.sheet || null;
   }).catch(function(){});
 
   function requireSession(){
@@ -632,13 +634,15 @@
       var pg = el('section', 'sheet-page');
 
       // Letterhead: the address block on the left, the logo on the right.
+      var st = sheetStyle(brand.sheet); applySheetVars(pg, st);
       var lh = el('div', 'lh'); var addr = el('div', 'addr');
       addr.appendChild(el('strong', null, brand.orgName));
       brand.address.forEach(function(l){ addr.appendChild(el('div', null, l)); });
       var contact = [brand.phone ? 'Tel: ' + brand.phone : '', brand.website ? brand.website.replace(/^https?:\/\//i, '') : ''].filter(Boolean).join('   ');
       if(contact) addr.appendChild(el('div', null, contact));
       lh.appendChild(addr);
-      var img = document.createElement('img'); img.src = brand.logo; img.alt = ''; lh.appendChild(img);
+      var logoBox = el('div', 'logo'); var img = document.createElement('img'); img.src = brand.logo; img.alt = ''; logoBox.appendChild(img); lh.appendChild(logoBox);
+      layoutLetterhead(lh, addr, logoBox, st);
       pg.appendChild(lh);
       pg.appendChild(el('h3', 'ttl', 'ATTENDANCE SHEET'));
 
