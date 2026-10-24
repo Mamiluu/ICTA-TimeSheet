@@ -7,75 +7,152 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Add your organisation</title>
-<meta name="description" content="Ask to use the digital attendance register for your organisation.">
+<title>Add your organisation to Daymark</title>
+<meta name="description" content="Ask to add your organisation. We confirm your email, review the request, and set you up with your own name, logo and colours.">
+<meta name="theme-color" content="#ffffff">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link rel="apple-touch-icon" href="assets/daymark-180.png">
+<link rel="preload" href="assets/fonts/bricolage.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-  :root{ --ink:#1b1a18; --muted:#6a655b; --rule:#d9d2c3; --paper:#fffdf8; --page:#ebe7de; --accent:#c8102e; --ok:#14683a; --bad:#9d1230; }
-  @media (prefers-color-scheme: dark){ :root{ --page:#1d1c1a; } }
+  @font-face{ font-family:"Bricolage Grotesque"; src:url(assets/fonts/bricolage.woff2) format("woff2"); font-weight:200 800; font-display:swap; }
+  @font-face{ font-family:"Figtree"; src:url(assets/fonts/figtree.woff2) format("woff2"); font-weight:300 900; font-display:swap; }
+  :root{
+    --ui:"Figtree", "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+    --display:"Bricolage Grotesque", "Figtree", "Segoe UI", system-ui, sans-serif;
+    --ink:#1c1e23; --soft:#5d6472; --line:#e7e0d0; --sun:#ffd36b; --ok:#1f8f63; --bad:#c9243c;
+  }
   *{ box-sizing:border-box; }
-  body{ margin:0; background:var(--page); color:var(--ink); font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; font-size:15px; line-height:1.55; }
-  main{ max-width:560px; margin:0 auto; padding:40px 18px 50px; }
-  .brand{ display:flex; align-items:center; gap:12px; margin-bottom:26px; }
-  .brand img{ width:42px; height:42px; object-fit:contain; background:#fff; border-radius:9px; padding:3px; }
-  .brand span{ font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); font-weight:700; }
-  h1{ font-family:Georgia, "Times New Roman", serif; font-weight:400; font-size:clamp(28px, 6vw, 38px); line-height:1.15; margin:0 0 10px; }
-  .lede{ color:var(--muted); margin:0 0 22px; }
-  .card{ background:var(--paper); border:1px solid var(--rule); border-radius:14px; padding:20px 20px 18px; box-shadow:0 1px 2px rgba(0,0,0,.05); }
-  label{ display:block; font-weight:700; font-size:13px; margin:14px 0 5px; }
-  label:first-of-type{ margin-top:0; }
-  .opt{ font-weight:400; color:var(--muted); }
-  input, textarea{ width:100%; font:inherit; font-size:15px; padding:11px 12px; border:1px solid #bfb7a4; border-radius:10px; background:#fff; color:var(--ink); }
-  textarea{ min-height:84px; resize:vertical; }
-  input:focus-visible, textarea:focus-visible, button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
-  button{ font:inherit; font-weight:700; font-size:15px; padding:12px 18px; border-radius:10px; border:1px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; margin-top:18px; width:100%; }
-  button:disabled{ opacity:.6; cursor:default; }
-  .msg{ margin:14px 0 0; font-size:14px; }
-  .msg.err{ color:var(--bad); }
-  .msg.ok{ color:var(--ok); font-weight:700; }
+  body{ margin:0; font-family:var(--ui); font-size:17px; line-height:1.55; color:var(--ink); background:#fff; position:relative; overflow-x:hidden; min-height:100vh; -webkit-font-smoothing:antialiased; }
+  body::before{ content:""; position:absolute; inset:0 0 auto 0; height:900px; z-index:-1; pointer-events:none;
+    background:
+      radial-gradient(560px 400px at 8% 6%, rgba(255,198,170,.7), transparent 70%),
+      radial-gradient(620px 440px at 94% 4%, rgba(196,182,255,.65), transparent 70%),
+      radial-gradient(520px 400px at 86% 70%, rgba(170,222,255,.55), transparent 70%),
+      radial-gradient(500px 380px at 10% 78%, rgba(176,236,208,.55), transparent 70%);
+    -webkit-mask-image:linear-gradient(#000 60%, transparent); mask-image:linear-gradient(#000 60%, transparent); }
+  a{ color:inherit; }
+  :focus-visible{ outline:2px solid var(--ink); outline-offset:3px; border-radius:8px; }
+  .w{ width:min(1120px, 100% - 44px); margin:0 auto; }
+
+  header .w{ display:flex; align-items:center; height:88px; }
+  .brand{ display:flex; align-items:center; gap:12px; text-decoration:none; font-family:var(--display); font-weight:700; font-size:24px; letter-spacing:-.02em; }
+  .brand img{ width:38px; height:38px; display:block; }
+  header .back{ margin-left:auto; color:var(--soft); text-decoration:none; font-size:15.5px; }
+  header .back:hover{ color:var(--ink); text-decoration:underline; }
+
+  main .w{ display:grid; grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr); gap:30px 70px; align-items:start; padding:26px 0 90px; }
+  .intro h1{ font-family:var(--display); font-size:clamp(36px, 4.6vw, 58px); line-height:1.03; letter-spacing:-.035em; font-weight:760; margin:0 0 18px; }
+  .intro h1 .hl{ background:linear-gradient(transparent 62%, var(--sun) 62%, var(--sun) 90%, transparent 90%); padding:0 4px; margin:0 -4px; -webkit-box-decoration-break:clone; box-decoration-break:clone; }
+  .intro p.lede{ color:var(--soft); font-size:19px; max-width:34ch; margin:0 0 34px; }
+  .path{ list-style:none; margin:0; padding:0; position:relative; max-width:36ch; }
+  .path::before{ content:""; position:absolute; left:15px; top:16px; bottom:16px; width:2px; background:repeating-linear-gradient(#cfc7b2 0 5px, transparent 5px 10px); }
+  .path li{ position:relative; padding:0 0 22px 52px; font-size:17.5px; line-height:1.4; }
+  .path li:last-child{ padding-bottom:0; }
+  .path li b{ display:block; font-family:var(--display); font-size:19px; letter-spacing:-.015em; margin-bottom:2px; }
+  .path li span{ color:var(--soft); font-size:16px; }
+  .path li::before{ content:attr(data-n); position:absolute; left:0; top:0; width:32px; height:32px; border-radius:50%; background:#fff; border:2px solid var(--ink); display:grid; place-items:center; font-weight:700; font-size:14.5px; }
+  .path li.now::before{ background:var(--ink); color:#fff; box-shadow:3px 3px 0 var(--sun); }
+
+  .formcard{ background:#fff; border:2px solid var(--ink); border-radius:26px; padding:32px 32px 30px; box-shadow:8px 8px 0 var(--sun), 8px 8px 0 2px var(--ink); }
+  .formcard h2{ font-family:var(--display); font-size:25px; letter-spacing:-.025em; margin:0 0 4px; font-weight:740; }
+  .formcard .sub{ color:var(--soft); margin:0 0 24px; font-size:16px; }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:0 16px; }
+  .field{ margin-bottom:18px; }
+  label{ display:block; font-weight:700; font-size:15px; margin-bottom:7px; }
+  .opt{ font-weight:400; color:var(--soft); }
+  input, textarea{ width:100%; font:inherit; font-size:16.5px; padding:13px 15px; border:2px solid #d9d2bf; border-radius:13px; background:#fff; color:var(--ink); transition:border-color .15s, box-shadow .15s; }
+  textarea{ min-height:96px; resize:vertical; }
+  input:hover, textarea:hover{ border-color:#b8b09b; }
+  input:focus, textarea:focus{ outline:none; border-color:var(--ink); box-shadow:3px 3px 0 var(--sun); }
+  ::placeholder{ color:#a29b88; }
   .hp{ position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
-  .steps{ margin:22px 0 0; padding:0; list-style:none; font-size:13.5px; color:var(--muted); }
-  .steps li{ padding:5px 0 5px 24px; position:relative; }
-  .steps li::before{ content:attr(data-n); position:absolute; left:0; top:5px; width:17px; height:17px; border-radius:50%; background:#e3dccb; color:var(--ink); font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; }
-  a{ color:var(--accent); }
+  .btn{ width:100%; margin-top:6px; display:inline-flex; justify-content:center; align-items:center; gap:10px; font:inherit; font-size:17px; font-weight:700; padding:16px 26px; border-radius:15px; background:var(--ink); color:#fff; border:2px solid var(--ink); cursor:pointer; box-shadow:4px 4px 0 var(--sun); transition:transform .12s, box-shadow .12s; }
+  .btn:hover:not(:disabled){ transform:translate(2px,2px); box-shadow:2px 2px 0 var(--sun); }
+  .btn:disabled{ opacity:.55; cursor:default; }
+  .btn svg{ width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
+  .msg{ margin:14px 0 0; font-size:15.5px; min-height:0; }
+  .msg:empty{ display:none; }
+  .msg.err{ color:var(--bad); font-weight:700; }
+  .fine{ margin:18px 0 0; font-size:14.5px; color:var(--soft); text-align:center; }
+  .fine a{ color:var(--ink); font-weight:600; }
+
+  /* after sending, and the email confirmation page */
+  .done{ text-align:center; padding:18px 6px 6px; }
+  .done .badge{ width:84px; height:84px; border-radius:50%; background:#cfeee0; display:grid; place-items:center; margin:0 auto 20px; }
+  .done .badge svg{ width:40px; height:40px; stroke:var(--ok); fill:none; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
+  .done .badge.bad{ background:#ffdfe3; } .done .badge.bad svg{ stroke:var(--bad); }
+  .done h2{ margin-bottom:10px; }
+  .done p{ color:var(--soft); margin:0 auto 22px; max-width:36ch; }
+  .done a.btn{ width:auto; text-decoration:none; display:inline-flex; }
+  .center{ max-width:560px; margin:0 auto; padding:30px 0 100px; }
   [hidden]{ display:none !important; }
+
+  @media (max-width:900px){
+    main .w{ grid-template-columns:minmax(0,1fr); padding-bottom:70px; }
+    .intro p.lede{ max-width:40ch; margin-bottom:26px; }
+    .path{ display:none; }
+  }
+  @media (max-width:520px){ .row2{ grid-template-columns:1fr; } .formcard{ padding:24px 20px 24px; border-radius:22px; box-shadow:6px 6px 0 var(--sun), 6px 6px 0 2px var(--ink); } header .back{ display:none; } }
+  @media (prefers-reduced-motion:reduce){ *{ transition:none !important; } }
 </style>
 </head>
 <body>
-<main>
-  <div class="brand"><img src="assets/daymark-mark.svg" alt="" style="background:none;padding:0;"><span>Daymark</span></div>
 
-  <div id="formView">
-    <h1>Add your organisation</h1>
-    <p class="lede">Tell us who you are. We confirm your email address, review the request, and then set you up with your own name, logo and colours.</p>
-    <form class="card" id="form" novalidate>
-      <label for="organisationName">Organisation name</label>
-      <input type="text" id="organisationName" maxlength="100" autocomplete="organization" required>
-      <label for="contactName">Your name</label>
-      <input type="text" id="contactName" maxlength="80" autocomplete="name" required>
-      <label for="contactEmail">Your work email</label>
-      <input type="email" id="contactEmail" maxlength="120" autocomplete="email" required>
-      <label for="phone">Phone <span class="opt">(optional)</span></label>
-      <input type="tel" id="phone" maxlength="30" autocomplete="tel">
-      <label for="message">What will you use it for? <span class="opt">(optional)</span></label>
-      <textarea id="message" maxlength="500" placeholder="e.g. Staff trainings across our regional offices"></textarea>
-      <div class="hp" aria-hidden="true"><label for="website">Leave this empty</label><input type="text" id="website" tabindex="-1" autocomplete="off"></div>
-      <button type="submit" id="send">Send my request</button>
-      <p class="msg" id="msg" role="status" aria-live="polite"></p>
-    </form>
-    <ol class="steps">
-      <li data-n="1">You confirm your email address.</li>
-      <li data-n="2">We review the request and write to you.</li>
-      <li data-n="3">You get a link to set your password and set up your people.</li>
-    </ol>
-    <p class="lede" style="margin-top:22px; font-size:13.5px;">Already registered? <a href="login.html">Log in</a></p>
+<header>
+  <div class="w">
+    <a class="brand" href="home.html"><img src="assets/daymark-mark.svg" alt="" width="38" height="38">Daymark</a>
+    <a class="back" href="home.html">Back to the home page</a>
+  </div>
+</header>
+
+<main>
+  <div class="w" id="formView">
+    <div class="intro">
+      <h1>Let's set up <span class="hl">your organisation.</span></h1>
+      <p class="lede">Tell us who you are. We will write to you once we have looked at your request.</p>
+      <ol class="path">
+        <li class="now" data-n="1"><b>Send the request</b><span>It takes about a minute.</span></li>
+        <li data-n="2"><b>Confirm your email</b><span>We send you a link to click.</span></li>
+        <li data-n="3"><b>We review it</b><span>Then we write to you.</span></li>
+        <li data-n="4"><b>You are in</b><span>Set a password, add your people, and make it yours with your own logo and colours.</span></li>
+      </ol>
+    </div>
+
+    <div class="formcard" id="card">
+      <div id="formBox">
+        <h2>Your details</h2>
+        <p class="sub">Only the first three are required.</p>
+        <form id="form" novalidate>
+          <div class="field"><label for="organisationName">Organisation name</label><input type="text" id="organisationName" maxlength="100" autocomplete="organization" placeholder="e.g. County Health Department" required></div>
+          <div class="row2">
+            <div class="field"><label for="contactName">Your name</label><input type="text" id="contactName" maxlength="80" autocomplete="name" required></div>
+            <div class="field"><label for="phone">Phone <span class="opt">(optional)</span></label><input type="tel" id="phone" maxlength="30" autocomplete="tel"></div>
+          </div>
+          <div class="field"><label for="contactEmail">Your work email</label><input type="email" id="contactEmail" maxlength="120" autocomplete="email" placeholder="name@yourorganisation.go.ke" required></div>
+          <div class="field"><label for="message">What will you use it for? <span class="opt">(optional)</span></label><textarea id="message" maxlength="500" placeholder="e.g. Staff trainings across our regional offices"></textarea></div>
+          <div class="hp" aria-hidden="true"><label for="website">Leave this empty</label><input type="text" id="website" tabindex="-1" autocomplete="off"></div>
+          <button type="submit" class="btn" id="send">Send my request <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          <p class="msg" id="msg" role="status" aria-live="polite"></p>
+        </form>
+        <p class="fine">Already registered? <a href="login.html">Log in</a></p>
+      </div>
+
+      <div class="done" id="doneBox" hidden>
+        <div class="badge"><svg viewBox="0 0 24 24"><path d="M3 7l9 6 9-6M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></div>
+        <h2>Check your email</h2>
+        <p id="doneText"></p>
+        <a class="btn" href="home.html">Back to the home page</a>
+      </div>
+    </div>
   </div>
 
-  <div id="verifyView" hidden>
-    <h1 id="verifyTitle">Confirming…</h1>
-    <p class="lede" id="verifyText"></p>
-    <p><a href="home.html">Back to the home page</a></p>
+  <div class="w" id="verifyView" hidden>
+    <div class="center formcard done">
+      <div class="badge" id="vBadge"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></div>
+      <h2 id="verifyTitle">Confirming your email</h2>
+      <p id="verifyText">One moment.</p>
+      <a class="btn" href="home.html">Back to the home page</a>
+    </div>
   </div>
 </main>
 
@@ -92,10 +169,15 @@
 
   if(token){
     $('formView').hidden = true; $('verifyView').hidden = false;
+    var xmark = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
     post('/api/signup/verify', { token: token }).then(function(d){
       $('verifyTitle').textContent = d.ok ? 'Email confirmed' : 'This link did not work';
       $('verifyText').textContent = d.message || '';
-    }).catch(function(){ $('verifyTitle').textContent = 'No connection'; $('verifyText').textContent = 'Please try again when you have signal.'; });
+      if(!d.ok){ $('vBadge').className = 'badge bad'; $('vBadge').innerHTML = xmark; }
+    }).catch(function(){
+      $('verifyTitle').textContent = 'No connection'; $('verifyText').textContent = 'Please try again when you have signal.';
+      $('vBadge').className = 'badge bad'; $('vBadge').innerHTML = xmark;
+    });
     return;
   }
 
@@ -111,9 +193,12 @@
     post('/api/signup', body).then(function(d){
       btn.disabled = false;
       if(!d.ok){ say(d.message || 'Could not send your request.', 'err'); return; }
-      say(d.message, 'ok');
-      $('form').querySelectorAll('input, textarea').forEach(function(el){ el.value = ''; });
-      btn.disabled = true;
+      say('');
+      $('doneText').textContent = d.message || 'We have sent you a link. Click it to confirm your email address.';
+      $('formBox').hidden = true; $('doneBox').hidden = false;
+      var items = document.querySelectorAll('.path li');
+      if(items.length > 1){ items[0].classList.remove('now'); items[1].classList.add('now'); }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }).catch(function(){ btn.disabled = false; say('No connection. Please try again.', 'err'); });
   });
 })();
