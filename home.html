@@ -7,10 +7,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sign Sheet: attendance you can prove</title>
+<title>Daymark: attendance you can prove</title>
 <meta name="description" content="People sign for the day on their own phone. Sealed sheets show any change. Payment sheets go through the authorising officer and finance before anyone is paid.">
 <meta name="theme-color" content="#14161b">
-<link rel="icon" href="assets/icta_logo_cropped.png">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="apple-touch-icon" href="assets/daymark-180.png">
 <style>
   :root{
     --ui:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif;
@@ -36,8 +37,7 @@
   header.bar{ position:sticky; top:0; z-index:50; background:rgba(20,22,27,.96); border-bottom:1px solid #1f232b; }
   header.bar .w{ display:flex; align-items:center; gap:28px; height:64px; }
   .brand{ display:flex; align-items:center; gap:11px; text-decoration:none; color:#fff; font-weight:700; font-size:17px; }
-  .mark{ width:32px; height:32px; border-radius:8px; background:var(--red); display:grid; place-items:center; flex:none; }
-  .mark svg{ width:18px; height:18px; stroke:#fff; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .mark{ width:34px; height:34px; display:block; flex:none; }
   header.bar nav{ display:flex; gap:4px; margin-left:8px; }
   header.bar nav a{ color:#c9cfdb; text-decoration:none; font-size:14.5px; padding:8px 12px; border-radius:var(--r2); }
   header.bar nav a:hover{ background:var(--navy2); color:#fff; }
@@ -239,7 +239,7 @@
 
 <header class="bar">
   <div class="w">
-    <a class="brand" href="#top"><span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17.5l9 5 9-5"/></svg></span>Sign Sheet</a>
+    <a class="brand" href="#top"><img class="mark" src="assets/daymark-mark.svg" alt="" width="34" height="34">Daymark</a>
     <nav aria-label="Sections">
       <a href="#how">How it works</a><a href="#try">Try it</a><a href="#features">Features</a><a href="#payment">Payment sheets</a><a href="#faq">Questions</a>
     </nav>

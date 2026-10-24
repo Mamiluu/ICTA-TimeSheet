@@ -1,73 +1,84 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sign Sheet logo options, round 2</title>
+<title>Daymark logo options</title>
 <style>
   :root{ --navy:#14161b; --paper:#f3f4f6; --line:#e6e8ec; --muted:#6a7080; }
   *{ box-sizing:border-box; }
   body{ margin:0; background:var(--paper); font-family:"Trebuchet MS",Tahoma,Verdana,Arial,sans-serif; color:#1c1e23; padding:34px 28px 60px; }
-  h1{ margin:0 0 4px; font-size:26px; } p.s{ margin:0 0 26px; color:var(--muted); max-width:90ch; }
+  h1{ margin:0 0 4px; font-size:26px; } p.s{ margin:0 0 26px; color:var(--muted); max-width:92ch; }
   .grid{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:18px; max-width:1260px; }
   .opt{ background:#fff; border:1px solid var(--line); border-radius:16px; overflow:hidden; box-shadow:0 1px 3px rgba(20,24,34,.07); }
   .opt h2{ margin:0; padding:16px 20px 2px; font-size:18px; } .opt .d{ padding:0 20px 14px; color:var(--muted); font-size:13.5px; min-height:62px; }
   .big{ display:grid; place-items:center; height:230px; border-top:1px solid var(--line); background:linear-gradient(180deg,#fff,#f7f8fa); }
-  .big svg{ width:168px; height:168px; filter:drop-shadow(0 14px 22px rgba(60,40,120,.22)); }
+  .big svg{ width:168px; height:168px; filter:drop-shadow(0 14px 22px rgba(60,40,120,.2)); }
   .row{ display:grid; grid-template-columns:1fr 1fr; }
   .tile{ height:112px; display:grid; place-items:center; border-top:1px solid var(--line); }
   .tile.dk{ background:var(--navy); } .tile.lt{ background:#fff; }
-  .lock{ display:flex; align-items:center; gap:11px; font-weight:700; font-size:23px; letter-spacing:-.015em; }
-  .lock svg{ width:42px; height:42px; } .dk .lock{ color:#fff; }
+  .lock{ display:flex; align-items:center; gap:11px; font-weight:700; font-size:24px; letter-spacing:-.02em; }
+  .lock svg{ width:40px; height:40px; } .dk .lock{ color:#fff; }
   .sm{ display:flex; gap:16px; align-items:center; justify-content:center; padding:16px; border-top:1px solid var(--line); background:var(--paper); }
   .sm span{ font-size:11px; color:var(--muted); }
 </style></head><body>
-<h1>Sign Sheet: logo ideas, round 2</h1>
-<p class="s">Colour is now part of the idea: blended gradients, soft depth, one shape you could recognise from across a room. Each is drawn as vector paths, so it stays sharp from a 16 px browser tab to a billboard.</p>
+<h1>Daymark: three logo ideas</h1>
+<p class="s">None of these is a circle or an S, so none resembles the Sajili badge. A daymark is the fixed beacon on a coast that sailors steer by, and also simply a mark for the day. All three are drawn as vector shapes with blended colour.</p>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
-    <linearGradient id="gCoral" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff8a5c"/><stop offset="1" stop-color="#e0245e"/></linearGradient>
-    <linearGradient id="gViolet" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b06bff"/><stop offset="1" stop-color="#5b3df5"/></linearGradient>
-    <linearGradient id="gCyan" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2fe0c0"/><stop offset="1" stop-color="#1d7fe0"/></linearGradient>
-    <linearGradient id="gRibbon" gradientUnits="userSpaceOnUse" x1="14" y1="10" x2="50" y2="56"><stop offset="0" stop-color="#ff7a45"/><stop offset=".35" stop-color="#e0245e"/><stop offset=".68" stop-color="#7c4dff"/><stop offset="1" stop-color="#1fb8e8"/></linearGradient>
-    <linearGradient id="gLoop" gradientUnits="userSpaceOnUse" x1="8" y1="46" x2="56" y2="14"><stop offset="0" stop-color="#ffb347"/><stop offset=".4" stop-color="#ff4d7d"/><stop offset=".75" stop-color="#9a5cff"/><stop offset="1" stop-color="#3fd0ff"/></linearGradient>
-    <linearGradient id="gTile" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#241a4d"/><stop offset="1" stop-color="#0f1226"/></linearGradient>
+    <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb347"/><stop offset="1" stop-color="#ff6a3d"/></linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff5d78"/><stop offset="1" stop-color="#d81e5b"/></linearGradient>
+    <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c05bff"/><stop offset="1" stop-color="#7a3df5"/></linearGradient>
+    <linearGradient id="g4" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b7bff"/><stop offset="1" stop-color="#2f63e8"/></linearGradient>
+    <linearGradient id="g5" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2fd6d0"/><stop offset="1" stop-color="#1196c8"/></linearGradient>
+    <linearGradient id="gD" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff8a4c"/><stop offset=".45" stop-color="#e0245e"/><stop offset="1" stop-color="#6a3df5"/></linearGradient>
+    <linearGradient id="gHalfA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb347"/><stop offset="1" stop-color="#e0245e"/></linearGradient>
+    <linearGradient id="gHalfB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a4dff"/><stop offset="1" stop-color="#1fb8e8"/></linearGradient>
 
-    <!-- D: three sign-offs converge on one verified record -->
-    <symbol id="d" viewBox="0 0 64 64">
-      <circle cx="23.5" cy="25" r="17" fill="url(#gCoral)" opacity=".92"/>
-      <circle cx="40.5" cy="25" r="17" fill="url(#gViolet)" opacity=".86"/>
-      <circle cx="32" cy="40" r="17" fill="url(#gCyan)" opacity=".86"/>
-      <path d="M24.5 32.5l5.8 5.8 10.2-12.2" fill="none" stroke="#fff" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- 1: the beacon, a tower built from five days, the top one lit -->
+    <symbol id="m1" viewBox="0 0 64 64">
+      <path d="M26 6h12l2 9H24z" fill="url(#g1)"/>
+      <path d="M23.4 17.6h17.2l2.2 9.4H21.2z" fill="url(#g2)"/>
+      <path d="M20.4 29.6h23.2l2.4 9.6H18z" fill="url(#g3)"/>
+      <path d="M17.2 41.8h29.6l2.6 9.6H14.6z" fill="url(#g4)"/>
+      <path d="M13.8 54h36.4l1.4 4.6a1 1 0 0 1-1 1.4H13.4a1 1 0 0 1-1-1.4z" fill="url(#g5)"/>
+      <path d="M28 10.5l2.8 2.8 5.2-6" transform="translate(-2 1)" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
     </symbol>
 
-    <!-- E: a ribbon folded into an S -->
-    <symbol id="e" viewBox="0 0 64 64">
-      <path d="M45 17C41 7 19 8 19.5 20.5 20 33 44 30.5 44.5 43.5 45 56 22 57 17.5 46" fill="none" stroke="url(#gRibbon)" stroke-width="10.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M45 17C41 7 19 8 19.5 20.5 20 33 44 30.5 44.5 43.5 45 56 22 57 17.5 46" fill="none" stroke="#fff" stroke-opacity=".38" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" transform="translate(-1.6 -1.8)"/>
+    <!-- 2: a D drawn as stacked day bars; the last bar kicks up into a tick -->
+    <symbol id="m2" viewBox="0 0 64 64">
+      <path d="M12 10h17c14 0 23 9 23 22S43 54 29 54H12z" fill="none"/>
+      <path d="M12 12h16.5c7 0 12.4 2.6 15.6 6.8H12z" fill="url(#gD)"/>
+      <path d="M12 22.4h33.6c1.5 2.1 2.4 4.6 2.7 7.4H12z" fill="url(#gD)" opacity=".92"/>
+      <path d="M12 33.4h36.2c-.2 2.6-1 5-2.4 7.2H12z" fill="url(#gD)" opacity=".84"/>
+      <path d="M12 44h30.6C39 49.4 33.4 52 27 52H12z" fill="url(#gD)" opacity=".76"/>
+      <path d="M23 39.5l5 5 11.5-13" fill="none" stroke="#fff" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
     </symbol>
 
-    <!-- F: one continuous signature that ends in a seal dot, on a dark tile -->
-    <symbol id="f" viewBox="0 0 64 64">
-      <rect width="64" height="64" rx="16" fill="url(#gTile)"/>
-      <path d="M11 44C16 20 25 13 29 21c4 9-9 18-7 9 2-9 17-18 24-8 4 6 1 14 6 18" fill="none" stroke="url(#gLoop)" stroke-width="5.4" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="53.5" cy="47.5" r="4.6" fill="url(#gLoop)"/>
+    <!-- 3: the dayboard, a navigation marker; two halves meet and a tick is cut through it -->
+    <symbol id="m3" viewBox="0 0 64 64">
+      <path d="M32 4L60 32 32 60 4 32z" fill="none"/>
+      <path d="M32 4L60 32H32z" fill="url(#gHalfA)"/>
+      <path d="M60 32L32 60V32z" fill="url(#gHalfB)"/>
+      <path d="M32 60L4 32h28z" fill="url(#gHalfA)" opacity=".78"/>
+      <path d="M4 32L32 4v28z" fill="url(#gHalfB)" opacity=".78"/>
+      <path d="M21.5 33l7.5 7.5L43.5 24" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
     </symbol>
   </defs>
 </svg>
 
 <div class="grid">
-  <div class="opt"><h2>D. Three become one</h2><div class="d">Attendee, officer and finance each sign off. Three translucent circles overlap, their colours blend, and a tick sits in the middle where they agree. The idea is the product.</div>
-    <div class="big"><svg><use href="#d"/></svg></div>
-    <div class="row"><div class="tile dk"><div class="lock"><svg><use href="#d"/></svg>Sign Sheet</div></div><div class="tile lt"><div class="lock"><svg><use href="#d"/></svg>Sign Sheet</div></div></div>
-    <div class="sm"><svg width="16" height="16"><use href="#d"/></svg><svg width="24" height="24"><use href="#d"/></svg><svg width="32" height="32"><use href="#d"/></svg><svg width="48" height="48"><use href="#d"/></svg><span>16 / 24 / 32 / 48 px</span></div></div>
+  <div class="opt"><h2>1. The beacon</h2><div class="d">A tower of five stacked bands, one for each day, tapering up to a lit top. Like the striped markers on a coast. Colours blend from orange through magenta and violet to teal.</div>
+    <div class="big"><svg><use href="#m1"/></svg></div>
+    <div class="row"><div class="tile dk"><div class="lock"><svg><use href="#m1"/></svg>Daymark</div></div><div class="tile lt"><div class="lock"><svg><use href="#m1"/></svg>Daymark</div></div></div>
+    <div class="sm"><svg width="16" height="16"><use href="#m1"/></svg><svg width="24" height="24"><use href="#m1"/></svg><svg width="32" height="32"><use href="#m1"/></svg><svg width="48" height="48"><use href="#m1"/></svg><span>16 / 24 / 32 / 48 px</span></div></div>
 
-  <div class="opt"><h2>E. The ribbon S</h2><div class="d">One thick ribbon folded into an S, shading from orange through magenta and violet to cyan. A pale edge gives it a fold. Pure letterform, very recognisable.</div>
-    <div class="big"><svg><use href="#e"/></svg></div>
-    <div class="row"><div class="tile dk"><div class="lock"><svg><use href="#e"/></svg>Sign Sheet</div></div><div class="tile lt"><div class="lock"><svg><use href="#e"/></svg>Sign Sheet</div></div></div>
-    <div class="sm"><svg width="16" height="16"><use href="#e"/></svg><svg width="24" height="24"><use href="#e"/></svg><svg width="32" height="32"><use href="#e"/></svg><svg width="48" height="48"><use href="#e"/></svg><span>16 / 24 / 32 / 48 px</span></div></div>
+  <div class="opt"><h2>2. The striped D</h2><div class="d">The letter D built from four day-bars, each a shade darker, with a white tick running through them. A confident monogram with the days built in.</div>
+    <div class="big"><svg><use href="#m2"/></svg></div>
+    <div class="row"><div class="tile dk"><div class="lock"><svg><use href="#m2"/></svg>Daymark</div></div><div class="tile lt"><div class="lock"><svg><use href="#m2"/></svg>Daymark</div></div></div>
+    <div class="sm"><svg width="16" height="16"><use href="#m2"/></svg><svg width="24" height="24"><use href="#m2"/></svg><svg width="32" height="32"><use href="#m2"/></svg><svg width="48" height="48"><use href="#m2"/></svg><span>16 / 24 / 32 / 48 px</span></div></div>
 
-  <div class="opt"><h2>F. One line, sealed</h2><div class="d">A single continuous signature in a glowing gradient on a dark app tile, ending in a solid dot like a seal. Looks like a modern app icon.</div>
-    <div class="big"><svg><use href="#f"/></svg></div>
-    <div class="row"><div class="tile dk"><div class="lock"><svg><use href="#f"/></svg>Sign Sheet</div></div><div class="tile lt"><div class="lock"><svg><use href="#f"/></svg>Sign Sheet</div></div></div>
-    <div class="sm"><svg width="16" height="16"><use href="#f"/></svg><svg width="24" height="24"><use href="#f"/></svg><svg width="32" height="32"><use href="#f"/></svg><svg width="48" height="48"><use href="#f"/></svg><span>16 / 24 / 32 / 48 px</span></div></div>
+  <div class="opt"><h2>3. The dayboard</h2><div class="d">A diamond like the navigation boards sailors steer by, in four blended colours, with a tick cut through the centre. Simple, geometric, easy to stamp on paper.</div>
+    <div class="big"><svg><use href="#m3"/></svg></div>
+    <div class="row"><div class="tile dk"><div class="lock"><svg><use href="#m3"/></svg>Daymark</div></div><div class="tile lt"><div class="lock"><svg><use href="#m3"/></svg>Daymark</div></div></div>
+    <div class="sm"><svg width="16" height="16"><use href="#m3"/></svg><svg width="24" height="24"><use href="#m3"/></svg><svg width="32" height="32"><use href="#m3"/></svg><svg width="48" height="48"><use href="#m3"/></svg><span>16 / 24 / 32 / 48 px</span></div></div>
 </div>
 </body></html>
