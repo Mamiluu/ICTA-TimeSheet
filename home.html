@@ -7,458 +7,164 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Daymark: attendance you can prove</title>
-<meta name="description" content="People sign for the day on their own phone. Sealed sheets show any change. Payment sheets go through the authorising officer and finance before anyone is paid.">
+<title>Daymark: attendance that can't be quietly changed</title>
+<meta name="description" content="Sign on a phone. Seal the sheet. Anyone can check it. Daymark is digital attendance and payment sheets with a seal that shows any change.">
 <meta name="theme-color" content="#14161b">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link rel="apple-touch-icon" href="assets/daymark-180.png">
 <style>
   :root{
     --ui:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif;
-    --navy:#14161b; --navy2:#1d2129; --navy3:#2a2f3a;
-    --text:#1c1e23; --muted:#6a7080; --faint:#9aa1af;
-    --line:#e6e8ec; --line2:#d3d7de; --soft:#f7f8fa; --bg:#f3f4f6;
-    --red:#c8102e; --red-d:#a60d26; --red-w:#fdecef;
-    --ok:#0b6b36; --ok-w:#e8f6ee; --warn:#8a5a00; --warn-w:#fff3d4;
-    --r:14px; --r2:9px;
-    --sh1:0 1px 2px rgba(20,24,34,.05), 0 1px 3px rgba(20,24,34,.06);
-    --sh2:0 10px 30px rgba(20,24,34,.14), 0 2px 6px rgba(20,24,34,.06);
-    --sh3:0 30px 70px -20px rgba(0,0,0,.55);
+    --navy:#14161b; --navy2:#1d2129; --line:#e6e8ec; --text:#1c1e23; --muted:#6a7080;
+    --red:#c8102e; --red-d:#a60d26; --ok:#0b6b36; --bg:#f3f4f6;
   }
   *{ box-sizing:border-box; }
-  html{ scroll-behavior:smooth; scroll-padding-top:76px; }
+  html{ scroll-behavior:smooth; }
   body{ margin:0; font-family:var(--ui); font-size:16px; line-height:1.6; color:var(--text); background:var(--bg); }
   a{ color:inherit; }
-  img,svg{ max-width:100%; }
-  :focus-visible{ outline:2px solid var(--red); outline-offset:2px; border-radius:6px; }
+  :focus-visible{ outline:2px solid #ff6b82; outline-offset:3px; border-radius:6px; }
   .w{ width:min(1180px, 100% - 44px); margin:0 auto; }
 
-  /* ---------- header ---------- */
-  header.bar{ position:sticky; top:0; z-index:50; background:rgba(20,22,27,.96); border-bottom:1px solid #1f232b; }
-  header.bar .w{ display:flex; align-items:center; gap:28px; height:64px; }
-  .brand{ display:flex; align-items:center; gap:11px; text-decoration:none; color:#fff; font-weight:700; font-size:17px; }
-  .mark{ width:34px; height:34px; display:block; flex:none; }
-  header.bar nav{ display:flex; gap:4px; margin-left:8px; }
-  header.bar nav a{ color:#c9cfdb; text-decoration:none; font-size:14.5px; padding:8px 12px; border-radius:var(--r2); }
-  header.bar nav a:hover{ background:var(--navy2); color:#fff; }
-  header.bar .cta{ margin-left:auto; display:flex; gap:10px; align-items:center; }
-  .btn{ display:inline-flex; align-items:center; gap:8px; font:inherit; font-size:14.5px; font-weight:600; padding:10px 18px; border-radius:var(--r2); border:1px solid var(--line2); background:#fff; color:var(--text); text-decoration:none; cursor:pointer; line-height:1.2; }
-  .btn:hover{ background:var(--soft); }
-  .btn.red{ background:var(--red); border-color:var(--red); color:#fff; box-shadow:0 1px 2px rgba(200,16,46,.35); }
-  .btn.red:hover{ background:var(--red-d); }
-  .btn.dark{ background:transparent; border-color:#3a4150; color:#e6e9f0; }
-  .btn.dark:hover{ background:var(--navy2); }
-  .btn.lg{ padding:14px 24px; font-size:15.5px; }
-  .btn.sm{ padding:7px 12px; font-size:13px; }
-  .btn:disabled{ opacity:.45; cursor:not-allowed; }
-  .btn svg{ width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+  /* ---------- the one screen ---------- */
+  .stage{ background:var(--navy); color:#fff; min-height:100vh; min-height:100svh; position:relative; overflow:hidden; display:flex; flex-direction:column; }
+  header{ position:relative; z-index:3; }
+  header .w{ display:flex; align-items:center; gap:22px; height:84px; }
+  .brand{ display:flex; align-items:center; gap:12px; text-decoration:none; font-weight:700; font-size:21px; letter-spacing:-.01em; color:#fff; }
+  .brand img{ width:38px; height:38px; display:block; }
+  header .r{ margin-left:auto; display:flex; align-items:center; gap:22px; font-size:15px; }
+  header .r a.t{ color:#c9cfdb; text-decoration:none; } header .r a.t:hover{ color:#fff; }
+  .btn{ display:inline-flex; align-items:center; gap:9px; font:inherit; font-size:15.5px; font-weight:700; padding:13px 24px; border-radius:10px; border:1px solid transparent; background:var(--red); color:#fff; text-decoration:none; cursor:pointer; line-height:1.2; box-shadow:0 1px 2px rgba(200,16,46,.4); }
+  .btn:hover{ background:var(--red-d); }
+  .btn.sm{ padding:10px 18px; font-size:14.5px; }
+  .btn svg{ width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2.3; stroke-linecap:round; stroke-linejoin:round; }
 
-  /* ---------- hero ---------- */
-  .hero{ background:var(--navy); color:#fff; padding:70px 0 0; position:relative; z-index:1; }
-  .hero .top{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,.9fr); gap:40px; align-items:center; position:relative; }
-  .eyebrow{ font-size:12.5px; letter-spacing:.14em; text-transform:uppercase; color:#ff8095; font-weight:700; margin:0 0 16px; }
-  h1{ font-size:clamp(36px, 5vw, 58px); line-height:1.06; letter-spacing:-.025em; margin:0 0 20px; font-weight:700; }
-  .hero p.lead{ font-size:clamp(17px, 1.7vw, 19.5px); color:#b4bccb; max-width:52ch; margin:0 0 28px; }
-  .hero .go{ display:flex; gap:12px; flex-wrap:wrap; }
-  .hero .facts{ list-style:none; margin:0 0 22px; padding:0; display:grid; gap:12px; color:#c9cfdb; font-size:15px; }
-  .hero .facts li{ display:grid; grid-template-columns:26px 1fr; gap:12px; align-items:start; }
-  .hero .facts i{ width:24px; height:24px; border-radius:50%; background:rgba(255,107,130,.16); display:grid; place-items:center; margin-top:1px; }
-  .hero .facts svg{ width:13px; height:13px; stroke:#ff6b82; fill:none; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
+  .hero{ position:relative; z-index:2; flex:1; display:grid; grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr); align-items:center; gap:30px; padding-bottom:50px; }
+  h1{ font-size:clamp(38px, 5.4vw, 70px); line-height:1.04; letter-spacing:-.03em; margin:0 0 20px; font-weight:700; max-width:11ch; }
+  .sub{ font-size:clamp(17px, 1.7vw, 20px); color:#b4bccb; margin:0 0 30px; max-width:30ch; }
+  .go{ display:flex; gap:20px; align-items:center; flex-wrap:wrap; }
+  .go a.l{ color:#c9cfdb; font-size:15px; } .go a.l:hover{ color:#fff; }
 
-  /* the browser window holding the real dashboard */
-  .shot{ position:relative; margin-top:56px; margin-bottom:-110px; z-index:2; }
-  .win{ color:var(--text); background:#fff; border-radius:16px 16px 0 0; box-shadow:var(--sh3); overflow:hidden; border:1px solid #2a2f3a; border-bottom:0; }
-  .win .chrome{ display:flex; align-items:center; gap:7px; background:#e9ebef; padding:10px 14px; border-bottom:1px solid var(--line2); }
-  .win .chrome i{ width:11px; height:11px; border-radius:50%; background:#c4c9d2; }
-  .win .chrome span{ margin-left:12px; flex:1; max-width:380px; background:#fff; border-radius:6px; font-size:12px; color:var(--muted); padding:4px 12px; }
-  .app{ display:grid; grid-template-columns:200px minmax(0,1fr); min-height:420px; }
-  .app .side{ background:#14161b; padding:16px 12px; color:#c9cfdb; font-size:13px; }
-  .app .side .sb{ display:flex; gap:9px; align-items:center; color:#fff; font-weight:700; padding:2px 6px 14px; }
-  .app .side .sb i{ width:26px; height:26px; border-radius:7px; background:var(--red); display:block; }
-  .app .side .us{ display:flex; gap:9px; align-items:center; padding:8px; border:1px solid #242934; background:#171a20; border-radius:9px; margin-bottom:14px; }
-  .app .side .us b{ width:28px; height:28px; border-radius:50%; background:var(--red); color:#fff; display:grid; place-items:center; font-size:12px; }
-  .app .side .us small{ display:block; color:#78808f; font-size:11px; }
-  .app .side .g{ font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:#78808f; font-weight:700; padding:10px 8px 6px; }
-  .app .side .it{ display:flex; gap:10px; align-items:center; padding:9px 10px; border-radius:8px; color:#c9cfdb; position:relative; }
-  .app .side .it svg{ width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
-  .app .side .it.on{ background:rgba(200,16,46,.16); color:#fff; font-weight:600; }
-  .app .side .it.on svg{ stroke:#ff6b82; }
-  .app .main{ background:var(--bg); padding:18px 20px 0; min-width:0; }
-  .app .main h4{ margin:0 0 12px; font-size:18px; }
-  .tiles{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; }
-  .tile{ background:#fff; border:1px solid var(--line); border-radius:var(--r2); padding:12px 14px; box-shadow:var(--sh1); }
-  .tile .l{ font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:700; }
-  .tile .v{ font-size:25px; font-weight:700; letter-spacing:-.02em; line-height:1.15; }
-  .tile .s{ font-size:11.5px; color:var(--muted); }
-  .mix{ display:flex; height:6px; border-radius:99px; overflow:hidden; background:#eceef2; margin:6px 0 4px; }
-  .mix i{ display:block; height:100%; } .mix i.p{ background:var(--red); } .mix i.v{ background:#2f6fd0; }
-  .card{ background:#fff; border:1px solid var(--line); border-radius:var(--r2); box-shadow:var(--sh1); margin-top:10px; }
-  .card .h{ padding:10px 14px; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:700; border-bottom:1px solid var(--line); }
-  .rw{ display:grid; grid-template-columns:minmax(0,1.6fr) 1fr 90px; gap:10px; padding:9px 14px; font-size:12.5px; border-top:1px solid var(--line); align-items:center; }
-  .rw:first-of-type{ border-top:0; }
-  .rw span.m{ color:var(--muted); }
-  .chip{ font-size:11px; font-weight:700; padding:2px 9px; border-radius:99px; justify-self:start; display:inline-block; }
-  .chip.ok{ background:var(--ok-w); color:var(--ok); } .chip.warn{ background:var(--warn-w); color:var(--warn); } .chip.red{ background:var(--red-w); color:var(--red-d); }
-
-  /* ---------- sections ---------- */
-  section{ padding:84px 0 0; }
-  section.first{ padding-top:170px; }
-  .sh{ max-width:62ch; margin:0 0 36px; }
-  .kicker{ font-size:12.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--red); font-weight:700; margin:0 0 10px; }
-  h2{ font-size:clamp(26px, 3.4vw, 40px); line-height:1.12; letter-spacing:-.02em; margin:0 0 12px; }
-  .sh p{ margin:0; color:var(--muted); font-size:17.5px; }
-
-  .grid3{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:16px; }
-  .grid4{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:16px; }
-  .cardx{ background:#fff; border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--sh1); padding:24px; transition:box-shadow .2s, border-color .2s; }
-  .cardx:hover{ box-shadow:var(--sh2); border-color:var(--line2); }
-  .cardx .ic{ width:42px; height:42px; border-radius:11px; background:var(--red-w); display:grid; place-items:center; margin-bottom:16px; }
-  .cardx .ic svg{ width:21px; height:21px; stroke:var(--red); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
-  .cardx h3{ margin:0 0 6px; font-size:18px; letter-spacing:-.01em; line-height:1.25; }
-  .cardx p{ margin:0; color:var(--muted); font-size:15px; }
-  .step .no{ font-size:12px; font-weight:700; color:var(--red); letter-spacing:.1em; margin-bottom:12px; display:block; }
-  .step .ui{ margin-top:18px; border:1px solid var(--line); border-radius:var(--r2); background:var(--soft); padding:12px; font-size:12.5px; min-height:112px; }
-  .step .ui .ln{ display:flex; justify-content:space-between; gap:8px; padding:6px 9px; background:#fff; border:1px solid var(--line); border-radius:7px; margin-bottom:6px; }
-  .step .ui .ln span{ color:var(--faint); }
-  .step .ui .gob{ display:inline-block; background:var(--red); color:#fff; font-weight:700; padding:6px 12px; border-radius:7px; font-size:12px; margin-top:2px; }
-  .step .ui .link{ background:#fff; border:1px solid var(--line); border-radius:7px; padding:8px 10px; font-family:ui-monospace,Consolas,monospace; font-size:11.5px; display:flex; justify-content:space-between; gap:8px; }
-  .step .ui .link b{ font-family:var(--ui); background:var(--navy); color:#fff; padding:1px 8px; border-radius:5px; font-size:11px; }
-  .step .ui .qrl{ display:flex; gap:12px; align-items:center; }
-  .qrm{ display:grid; grid-template-columns:repeat(7,1fr); gap:1.5px; width:56px; flex:none; background:#fff; padding:4px; border:1px solid var(--line); border-radius:6px; }
-  .qrm i{ aspect-ratio:1; background:var(--navy); border-radius:1px; } .qrm i.o{ background:transparent; }
-  .ph{ background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px 10px; text-align:center; }
-  .ph .pad{ height:46px; border:1.5px dashed var(--line2); border-radius:7px; margin:6px 0; position:relative; }
-  .ph .pad svg{ position:absolute; inset:0; width:100%; height:100%; } .ph .pad path{ stroke:#1d2b6e; stroke-width:2; fill:none; stroke-linecap:round; }
-
-  /* the live seal demo */
-  .demo{ display:grid; grid-template-columns:minmax(0,1.65fr) minmax(0,1fr); gap:18px; align-items:start; }
-  .paper-card{ background:#fff; border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--sh1); padding:20px; }
-  .sheet{ background:#fffefb; color:#000; font-family:Arial,Helvetica,sans-serif; padding:18px 20px 16px; border:1px solid #e4e1d6; position:relative; }
-  .sheet .lh{ display:flex; justify-content:space-between; font-size:10.5px; line-height:1.4; color:#1d4f86; }
-  .sheet .lh b{ display:block; color:#000; font-size:12.5px; }
-  .sheet .lh .lg{ font-weight:900; font-style:italic; font-size:24px; letter-spacing:-.05em; color:#000; text-align:right; line-height:1; }
-  .sheet .lh .lg small{ display:block; font-size:8px; font-weight:400; letter-spacing:.04em; color:var(--red); }
-  .sheet h5{ text-align:center; font-size:13px; letter-spacing:.2em; margin:8px 0 7px; }
+  /* the D: four day bars that bleed off the right edge, with the demo sheet on top */
+  .dshape{ position:absolute; right:-120px; top:56%; transform:translateY(-50%); height:min(100vh, 860px); -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 30%); mask-image:linear-gradient(90deg, transparent 0, #000 30%); aspect-ratio:500/520; z-index:1; pointer-events:none; }
+  .dshape svg{ width:100%; height:100%; display:block; }
+  .demo{ position:relative; z-index:3; justify-self:center; width:min(560px, 100%); }
+  .sheet{ background:#fffefb; color:#000; font-family:Arial,Helvetica,sans-serif; padding:18px 20px 16px; box-shadow:0 30px 60px -18px rgba(0,0,0,.6); transform:rotate(-1.6deg); position:relative; border-radius:3px; }
+  .sheet .lh{ display:flex; justify-content:space-between; align-items:flex-start; }
+  .sheet .lh b{ font-size:12px; } .sheet .lh small{ display:block; font-size:10px; color:#1d4f86; line-height:1.35; }
+  .sheet .lh img{ width:26px; height:26px; }
+  .sheet h5{ text-align:center; font-size:12.5px; letter-spacing:.2em; margin:8px 0 8px; }
   .sheet table{ width:100%; border-collapse:collapse; border:1.5px solid #000; font-size:11.5px; table-layout:fixed; }
-  .sheet th, .sheet td{ border:1px solid #000; padding:3px 6px; height:32px; vertical-align:middle; }
+  .sheet th, .sheet td{ border:1px solid #000; padding:3px 6px; height:31px; vertical-align:middle; }
   .sheet th{ background:#d9d9d9; font-size:10.5px; height:24px; }
-  .sheet table.hd td{ height:23px; font-size:11px; } .sheet table.hd td.k{ font-weight:700; width:17%; }
-  .sheet .scroll{ overflow-x:auto; margin-top:9px; }
   .sheet td.nm{ color:#1d2b6e; font-style:italic; font-size:13px; }
-  .sheet td.nm input{ width:100%; border:0; background:transparent; font:inherit; color:#1d2b6e; padding:0; }
-  .sheet td.nm input:focus{ outline:none; background:#fff8c4; }
   .sheet td.sg{ text-align:center; padding:1px; }
-  .sheet td.sg img, .sheet td.sg svg{ max-width:100%; max-height:28px; }
-  .sheet td.sg svg path{ stroke:#1d2b6e; fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+  .sheet td.sg svg{ max-width:100%; max-height:26px; width:100%; } .sheet td.sg svg path{ stroke:#1d2b6e; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
   .sheet td.blank{ background:linear-gradient(#000,#000) center/100% 1px no-repeat; }
-  .sheet tr.touched td{ outline:2px solid var(--red); outline-offset:-2px; background-color:#fff0f0; }
-  .sheet .foot{ text-align:center; margin-top:12px; } .sheet .foot span{ background:var(--red); color:#fff; font-size:9.5px; padding:2px 8px; }
-  .stamp{ position:absolute; right:22px; bottom:44px; border:3px solid var(--red); color:var(--red); font-family:ui-monospace,Consolas,monospace; font-weight:700; text-transform:uppercase; letter-spacing:.12em; padding:6px 12px 5px; transform:rotate(-8deg); background:rgba(255,255,255,.9); opacity:0; pointer-events:none; text-align:center; transition:opacity .25s; font-size:14px; }
+  .sheet tr.hit td{ outline:2px solid var(--red); outline-offset:-2px; background-color:#fff0f0; }
+  .stamp{ position:absolute; right:18px; bottom:20px; border:3px solid var(--ok); color:var(--ok); font-family:ui-monospace,Consolas,monospace; font-weight:700; text-transform:uppercase; letter-spacing:.1em; padding:6px 12px 5px; transform:rotate(-7deg); background:rgba(255,255,255,.92); opacity:0; text-align:center; font-size:14px; transition:opacity .25s; }
   .stamp small{ display:block; font-size:12px; letter-spacing:.06em; font-weight:400; }
-  .stamp.show{ opacity:1; } .stamp.ok{ color:var(--ok); border-color:var(--ok); }
-  .msg{ margin-top:14px; padding:12px 14px; border-radius:var(--r2); background:#fff; border:1px solid var(--line); border-left:4px solid var(--navy3); font-size:14.5px; }
-  .msg.bad{ border-left-color:var(--red); background:var(--red-w); } .msg.good{ border-left-color:var(--ok); background:var(--ok-w); }
-  .msg code{ font-family:ui-monospace,Consolas,monospace; font-size:13.5px; }
-  .ctl{ background:#fff; border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--sh1); padding:20px; }
-  .ctl .stp{ padding-left:34px; position:relative; margin-bottom:18px; } .ctl .stp:last-child{ margin-bottom:0; }
-  .ctl .stp::before{ content:attr(data-n); position:absolute; left:0; top:0; width:24px; height:24px; border-radius:50%; background:var(--navy); color:#fff; text-align:center; font-size:12.5px; font-weight:700; line-height:24px; }
-  .ctl .stp.off{ opacity:.45; }
-  .ctl label{ display:block; font-weight:700; font-size:14px; margin-bottom:6px; }
-  .ctl input[type=text]{ width:100%; font:inherit; font-size:14.5px; padding:9px 11px; border:1px solid var(--line2); border-radius:var(--r2); background:#fff; }
-  .ctl input[type=text]:focus{ outline:none; border-color:var(--red); box-shadow:0 0 0 3px rgba(200,16,46,.2); }
-  .padbox{ position:relative; border:1.5px dashed var(--line2); border-radius:var(--r2); height:108px; background:#fff; touch-action:none; }
-  .padbox canvas{ width:100%; height:100%; display:block; cursor:crosshair; touch-action:none; }
-  .padbox .phd{ position:absolute; left:10px; top:8px; font-size:12px; color:var(--faint); pointer-events:none; }
-  .lnk{ background:none; border:0; padding:0; font:inherit; font-size:13px; color:var(--muted); text-decoration:underline; cursor:pointer; } .lnk:disabled{ opacity:.4; cursor:not-allowed; }
-  .rw2{ display:flex; gap:12px; flex-wrap:wrap; margin-top:8px; align-items:center; }
-  .cheats{ display:grid; gap:8px; justify-items:start; }
+  .stamp.show{ opacity:1; } .stamp.bad{ color:var(--red); border-color:var(--red); }
+  .dock{ margin-top:22px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; min-height:48px; }
+  .dock .btn{ background:#fff; color:var(--navy); box-shadow:0 6px 18px rgba(0,0,0,.3); } .dock .btn:hover{ background:#f1f2f5; }
+  .dock .hint{ text-shadow:0 1px 8px rgba(0,0,0,.45); color:#e9ecf3; font-size:14.5px; max-width:34ch; line-height:1.4; }
+  .dock .hint b{ font-family:ui-monospace,Consolas,monospace; font-weight:700; }
 
-  /* payment */
-  .pay{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.1fr); gap:30px; align-items:center; }
-  .tick{ list-style:none; margin:20px 0 26px; padding:0; display:grid; gap:12px; }
-  .tick li{ display:grid; grid-template-columns:24px 1fr; gap:12px; font-size:15.5px; color:var(--muted); }
-  .tick li::before{ content:""; width:22px; height:22px; border-radius:50%; margin-top:1px; background:var(--ok-w) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230b6b36' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4 8-9'/%3E%3C/svg%3E") center/12px no-repeat; }
-  .tick b{ color:var(--text); }
-  .track{ display:flex; list-style:none; margin:4px 0 0; padding:0; }
-  .track li{ flex:1; text-align:center; position:relative; font-size:12px; color:var(--faint); font-weight:600; }
-  .track li::before{ content:""; position:absolute; top:12px; left:-50%; width:100%; height:2px; background:var(--line2); }
-  .track li:first-child::before{ display:none; }
-  .track .d{ width:26px; height:26px; border-radius:50%; margin:0 auto 5px; border:2px solid var(--line2); background:#fff; position:relative; z-index:1; display:grid; place-items:center; font-size:12px; color:transparent; }
-  .track li.done{ color:var(--ok); } .track li.done::before, .track li.now::before{ background:var(--ok); }
-  .track li.done .d{ background:var(--ok); border-color:var(--ok); color:#fff; }
-  .track li.now{ color:var(--text); } .track li.now .d{ border-color:var(--red); box-shadow:0 0 0 4px rgba(200,16,46,.14); }
-  .track li.now .d::after{ content:""; width:8px; height:8px; border-radius:50%; background:var(--red); }
-  .stackcard{ background:#fff; border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--sh2); padding:20px; }
-  .stackcard h6{ margin:0 0 4px; font-size:16px; } .stackcard .meta{ font-size:12.5px; color:var(--muted); margin-bottom:16px; }
-  .find{ display:grid; grid-template-columns:24px 1fr; gap:10px; padding:11px 0; border-top:1px solid var(--line); font-size:13px; }
-  .find i{ width:22px; height:22px; border-radius:50%; display:grid; place-items:center; font-style:normal; font-size:12px; font-weight:700; }
-  .find.r i{ background:var(--red-w); color:var(--red-d); } .find.n i{ background:var(--warn-w); color:var(--warn); }
-  .find b{ display:block; line-height:1.3; } .find span{ color:var(--muted); font-size:12.5px; }
-  .decide{ display:flex; gap:8px; margin-top:12px; justify-content:flex-end; }
+  /* ---------- the three lines ---------- */
+  .three{ background:#fff; border-bottom:1px solid var(--line); }
+  .three .w{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); }
+  .three .it{ padding:38px 34px 38px 34px; border-left:1px solid var(--line); }
+  .three .it:first-child{ border-left:0; padding-left:0; }
+  .three b{ display:block; font-size:19px; letter-spacing:-.01em; margin-bottom:4px; }
+  .three span{ color:var(--muted); font-size:15.5px; }
 
-  .vbox{ background:var(--navy); color:#fff; border-radius:var(--r); padding:34px 36px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:28px; align-items:center; box-shadow:var(--sh2); }
-  .vbox h2{ margin:0 0 8px; font-size:28px; } .vbox p{ margin:0; color:#b4bccb; }
-  .vbox form{ display:flex; gap:8px; }
-  .vbox input{ flex:1; min-width:0; font-family:ui-monospace,Consolas,monospace; font-size:17px; letter-spacing:.08em; text-transform:uppercase; padding:12px 14px; border:1px solid #3a4150; border-radius:var(--r2); background:var(--navy2); color:#fff; }
-  .vbox input:focus{ outline:none; border-color:#ff6b82; box-shadow:0 0 0 3px rgba(255,107,130,.25); }
-  .vbox input::placeholder{ color:#6d7586; }
+  /* ---------- check a record ---------- */
+  .check{ padding:56px 0; }
+  .check .w{ display:flex; align-items:center; gap:26px 40px; flex-wrap:wrap; }
+  .check h2{ margin:0; font-size:24px; letter-spacing:-.015em; flex:1 1 280px; line-height:1.25; }
+  .check form{ display:flex; gap:8px; flex:1 1 380px; }
+  .check input{ flex:1; min-width:0; font-family:ui-monospace,Consolas,monospace; font-size:17px; letter-spacing:.08em; text-transform:uppercase; padding:13px 14px; border:1px solid #d3d7de; border-radius:10px; background:#fff; }
+  .check input:focus{ outline:none; border-color:var(--red); box-shadow:0 0 0 3px rgba(200,16,46,.2); }
 
-  details{ background:#fff; border:1px solid var(--line); border-radius:var(--r2); margin-bottom:10px; box-shadow:var(--sh1); }
-  summary{ cursor:pointer; list-style:none; padding:16px 20px; font-weight:700; font-size:16px; display:flex; justify-content:space-between; gap:16px; }
-  summary::-webkit-details-marker{ display:none; }
-  summary::after{ content:"+"; color:var(--red); font-size:22px; line-height:1; }
-  details[open] summary::after{ content:"\2212"; }
-  details p{ margin:0; padding:0 20px 18px; color:var(--muted); max-width:70ch; }
-
-  .end{ background:var(--navy); color:#fff; margin-top:90px; padding:70px 0; text-align:center; }
-  .end h2{ margin:0 auto 12px; max-width:20ch; } .end p{ color:#b4bccb; max-width:52ch; margin:0 auto 26px; }
-  .end .go{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
-  footer{ background:#0f1115; color:#8d95a5; font-size:14px; padding:24px 0 34px; }
-  footer .w{ display:flex; gap:10px 26px; flex-wrap:wrap; }
+  footer{ background:#0f1115; color:#8d95a5; font-size:14px; padding:26px 0 34px; }
+  footer .w{ display:flex; gap:10px 26px; flex-wrap:wrap; align-items:center; }
   footer a{ color:#8d95a5; text-decoration:none; } footer a:hover{ color:#fff; }
-  footer .sp{ margin-left:auto; display:flex; gap:20px; flex-wrap:wrap; }
+  footer .sp{ margin-left:auto; display:flex; gap:22px; flex-wrap:wrap; }
 
-  @media (max-width:980px){
-    .hero .top, .pay, .demo, .vbox{ grid-template-columns:minmax(0,1fr); }
-    .grid3, .grid4{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
-    .app{ grid-template-columns:minmax(0,1fr); } .app .side{ display:none; }
-    header.bar nav{ display:none; }
-    section.first{ padding-top:150px; } section{ padding-top:64px; }
+  @media (max-width:900px){
+    .hero{ grid-template-columns:minmax(0,1fr); padding-top:6px; gap:34px; }
+    h1{ max-width:14ch; } .sub{ max-width:36ch; }
+    .dshape{ right:-30%; top:auto; bottom:-8%; transform:none; height:68%; opacity:.9; }
+    .three .w{ grid-template-columns:minmax(0,1fr); }
+    .three .it, .three .it:first-child{ border-left:0; padding:22px 0; border-top:1px solid var(--line); } .three .it:first-child{ border-top:0; }
+    header .r a.t{ display:none; }
   }
-  @media (max-width:600px){
-    .grid3, .grid4{ grid-template-columns:minmax(0,1fr); }
-    header.bar .cta .btn:not(.red){ display:none; }
-    .tiles{ grid-template-columns:minmax(0,1fr); } .rw{ grid-template-columns:minmax(0,1fr) 80px; } .rw span.m{ display:none; }
-    .vbox{ padding:24px 20px; } .vbox form{ flex-direction:column; }
-    .shot{ margin-bottom:-70px; } section.first{ padding-top:120px; }
-  }
-  @media (prefers-reduced-motion:reduce){ html{ scroll-behavior:auto; } *{ transition:none !important; } }
+  @media (max-width:900px){ .stage{ min-height:0; } .hero{ align-content:start; padding-bottom:44px; } }
+  @media (max-width:520px){ .check form{ flex-direction:column; } .sheet{ transform:none; } .dshape{ display:none; } }
+  @media (prefers-reduced-motion:reduce){ html{ scroll-behavior:auto; } .stamp{ transition:none; } }
 </style>
 </head>
 <body>
 
-<header class="bar">
-  <div class="w">
-    <a class="brand" href="#top"><img class="mark" src="assets/daymark-mark.svg" alt="" width="34" height="34">Daymark</a>
-    <nav aria-label="Sections">
-      <a href="#how">How it works</a><a href="#try">Try it</a><a href="#features">Features</a><a href="#payment">Payment sheets</a><a href="#faq">Questions</a>
-    </nav>
-    <div class="cta"><a class="btn dark" href="login.html">Log in</a><a class="btn red" href="signup.html">Get started</a></div>
+<div class="stage">
+  <div class="dshape" aria-hidden="true">
+    <svg viewBox="0 0 500 520" preserveAspectRatio="xMaxYMid meet">
+      <defs>
+        <linearGradient id="gd" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="500" y2="520">
+          <stop offset="0" stop-color="#ff8a4c"/><stop offset=".45" stop-color="#e0245e"/><stop offset="1" stop-color="#6a3df5"/>
+        </linearGradient>
+      </defs>
+      <path d="M0 0H230A257 257 0 0 1 446.2 118H0Z" fill="url(#gd)"/>
+      <path d="M0 132H454.6A257 257 0 0 1 486.9 250H0Z" fill="url(#gd)" opacity=".92"/>
+      <path d="M0 264H486.9A257 257 0 0 1 454.6 382H0Z" fill="url(#gd)" opacity=".84"/>
+      <path d="M0 396H446.2A257 257 0 0 1 230 514H0Z" fill="url(#gd)" opacity=".76"/>
+    </svg>
   </div>
-</header>
 
-<main id="top">
-<!-- ================= HERO ================= -->
-<div class="hero">
-  <div class="w">
-    <div class="top">
-      <div>
-        <p class="eyebrow">Digital attendance and payment sheets</p>
-        <h1>Attendance you can prove.</h1>
-        <p class="lead">People sign for the day on their own phone. When the sheet is sealed, any change shows. And when the sheet decides who gets paid, it goes through the authorising officer and finance first.</p>
-        <div class="go">
-          <a class="btn red lg" href="signup.html">Add your organisation <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-          <a class="btn dark lg" href="#verify">Check a record</a>
-        </div>
-      </div>
-      <ul class="facts">
-        <li><i><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></i><span>No app to install. A link and a phone are enough.</span></li>
-        <li><i><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></i><span>One signature for every day, on the day.</span></li>
-        <li><i><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></i><span>Prints as the paper form your office already uses.</span></li>
-        <li><i><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></i><span>Door scanning that keeps working without signal.</span></li>
-      </ul>
+  <header>
+    <div class="w">
+      <a class="brand" href="#top"><img src="assets/daymark-mark.svg" alt="" width="38" height="38">Daymark</a>
+      <div class="r"><a class="t" href="#verify">Check a record</a><a class="t" href="login.html">Log in</a><a class="btn sm" href="signup.html">Get started</a></div>
+    </div>
+  </header>
+
+  <main class="w hero" id="top">
+    <div>
+      <h1>Attendance that can't be quietly changed.</h1>
+      <p class="sub">Sign on a phone. Seal the sheet. Anyone can check it.</p>
+      <div class="go"><a class="btn" href="signup.html">Add your organisation <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><a class="l" href="#verify">Check a record</a></div>
     </div>
 
-    <div class="shot" aria-hidden="true">
-      <div class="win">
-        <div class="chrome"><i></i><i></i><i></i><span>yourorganisation.sign.example/admin</span></div>
-        <div class="app">
-          <div class="side">
-            <div class="sb"><i></i>Your organisation</div>
-            <div class="us"><b>A</b><div>admin@yourorg<small>Mombasa county &middot; Training</small></div></div>
-            <div class="g">Main</div>
-            <div class="it on"><svg viewBox="0 0 24 24"><path d="M3 12l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></svg>Dashboard</div>
-            <div class="it"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 10h18"/></svg>Events</div>
-            <div class="g">Manage</div>
-            <div class="it"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New event</div>
-            <div class="it"><svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg>Door scan</div>
-          </div>
-          <div class="main">
-            <h4>Dashboard</h4>
-            <div class="tiles">
-              <div class="tile"><div class="l">Meetings</div><div class="v">128</div><div class="mix"><i class="p" style="width:67%"></i><i class="v" style="width:33%"></i></div><div class="s">86 in person &middot; 42 online</div></div>
-              <div class="tile"><div class="l">Attendance</div><div class="v">3,007</div><div class="s">3,000 active &middot; 5 retired</div></div>
-              <div class="tile"><div class="l">Consent rate</div><div class="v">87%</div><div class="s">of 2,300 with an answer</div></div>
-            </div>
-            <div class="card"><div class="h">Recent events</div>
-              <div class="rw"><b>County Digital Skills Training</b><span class="m">Kisumu &middot; 5 days</span><span class="chip ok">Sealed</span></div>
-              <div class="rw"><b>Budget Retreat 2026/27</b><span class="m">Mombasa &middot; 3 days</span><span class="chip warn">Collecting</span></div>
-              <div class="rw"><b>Stakeholder Workshop</b><span class="m">Online</span><span class="chip red">Needs you</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ================= HOW ================= -->
-<section class="first" id="how">
-  <div class="w">
-    <div class="sh"><p class="kicker">How it works</p><h2>From invitation to sealed record in four steps.</h2><p>No training day needed. If you can share a link, you can run an event.</p></div>
-    <div class="grid4">
-      <div class="cardx step"><span class="no">STEP 1</span><h3>Create the event</h3><p>Name it, set the days and the venue, and add the people if it is a payment sheet.</p>
-        <div class="ui"><div class="ln">Event <span>Digital Skills Training</span></div><div class="ln">Days <span>5</span></div><span class="gob">Create event</span></div></div>
-      <div class="cardx step"><span class="no">STEP 2</span><h3>Share one link</h3><p>Post it in the group chat, or show the QR code at the door. Only people on the list can sign.</p>
-        <div class="ui"><div class="link">sign.example/e/skills <b>Copy</b></div><div class="qrl" style="margin-top:10px;"><div class="qrm" id="qr1"></div><span style="color:var(--muted);">Show this at the venue</span></div></div></div>
-      <div class="cardx step"><span class="no">STEP 3</span><h3>Everyone signs on their phone</h3><p>Each person signs for the day on the day. You watch the roll fill up, and each day closes on time.</p>
-        <div class="ui"><div class="ph"><small style="color:var(--muted);">Day 3 of 5</small><div class="pad"><svg viewBox="0 0 100 46"><path d="M8 30 C14 6,22 6,24 22 S34 40,42 18 S58 8,60 26 S74 34,86 12"/></svg></div><span style="display:block;background:var(--red);color:#fff;font-weight:700;padding:6px;border-radius:7px;font-size:12px;">Sign for today</span></div></div></div>
-      <div class="cardx step"><span class="no">STEP 4</span><h3>Seal it and prove it</h3><p>The finished sheet is sealed. Its QR lets anyone confirm the paper matches the record.</p>
-        <div class="ui"><div class="qrl"><div class="qrm" id="qr2"></div><div><b style="font-family:ui-monospace,Consolas,monospace;">7K2M-9QXA</b><div class="chip ok" style="margin-top:6px;">Matches the record</div></div></div></div></div>
-    </div>
-  </div>
-</section>
-
-<!-- ================= TRY IT ================= -->
-<section id="try">
-  <div class="w">
-    <div class="sh"><p class="kicker">Try it</p><h2>Sign a sheet, then try to cheat it.</h2><p>This is a real seal running in your browser. Nothing you type is sent anywhere.</p></div>
     <div class="demo">
-      <div>
-        <div class="paper-card">
-          <div class="sheet">
-            <div class="lh"><div><b>Your organisation</b>Street and building<br>PO Box 00100, City</div><div class="lg">LOGO<small>your logo here</small></div></div>
-            <h5>ATTENDANCE SHEET</h5>
-            <table class="hd">
-              <tr><td class="k">DATE:</td><td>Day 1 of 3</td><td class="k">CONVENER:</td><td>Eng. J. Kamau</td></tr>
-              <tr><td class="k">TIME:</td><td>08:00 &ndash; 17:00</td><td class="k">LOCATION:</td><td>Kisumu</td></tr>
-              <tr><td class="k">SUBJECT:</td><td colspan="3">County digital skills training</td></tr>
-            </table>
-            <div class="scroll"><table id="roll"></table></div>
-            <div class="foot"><span>Your organisation's own line goes here</span></div>
-            <div class="stamp" id="stamp"></div>
-          </div>
-        </div>
-        <div class="msg" id="msg" role="status" aria-live="polite">Two people have already signed. Add yourself on the right.</div>
+      <div class="sheet" id="sheet" aria-label="A sample attendance sheet you can seal and try to change">
+        <div class="lh"><div><b>Your organisation</b><small>Attendance sheet &middot; Day 1</small></div><img src="assets/daymark-mark.svg" alt=""></div>
+        <h5>ATTENDANCE SHEET</h5>
+        <table id="roll"></table>
+        <div class="stamp" id="stamp"></div>
       </div>
-
-      <div class="ctl">
-        <div class="stp" data-n="1" id="st1"><label for="myName">Your name</label><input type="text" id="myName" maxlength="28" placeholder="e.g. Amina Said" autocomplete="off"></div>
-        <div class="stp off" data-n="2" id="st2"><label>Sign with your finger or mouse</label>
-          <div class="padbox"><canvas id="pad" aria-label="Signature pad"></canvas><span class="phd" id="ph">sign here</span></div>
-          <div class="rw2"><button type="button" class="lnk" id="clear">Clear</button><button type="button" class="lnk" id="sample">Use a sample signature</button></div>
-          <div class="rw2"><button type="button" class="btn red" id="signBtn" disabled>Sign for Day 1 and seal</button></div>
-        </div>
-        <div class="stp off" data-n="3" id="st3"><label>Now try to cheat</label>
-          <div class="cheats">
-            <button type="button" class="btn sm" id="c1" disabled>Change one letter in a name</button>
-            <button type="button" class="btn sm" id="c2" disabled>Add a name that was never there</button>
-            <button type="button" class="btn sm" id="c3" disabled>Swap someone's signature</button>
-            <button type="button" class="lnk" id="undo" disabled>Undo what I did</button>
-          </div>
-        </div>
-      </div>
+      <div class="dock"><button type="button" class="btn" id="act">Seal this sheet</button><span class="hint" id="hint">Four people signed today.</span></div>
     </div>
-  </div>
-</section>
-
-<!-- ================= FEATURES ================= -->
-<section id="features">
-  <div class="w">
-    <div class="sh"><p class="kicker">What is inside</p><h2>Everything an attendance office needs.</h2><p>Built around how paper registers are used in real offices, then made hard to fake.</p></div>
-    <div class="grid3">
-      <div class="cardx"><div class="ic"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 10h18M8 3v4M16 3v4"/></svg></div><h3>One signature for every day</h3><p>Multi-day events get a column for each day. Missed days stay visibly empty instead of being filled in later.</p></div>
-      <div class="cardx"><div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3zM9 12l2 2 4-4"/></svg></div><h3>Sealed sheets</h3><p>Every finished sheet carries a QR that anyone can scan to check it against the record.</p></div>
-      <div class="cardx"><div class="ic"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></div><h3>A tamper-evident log</h3><p>Every sign-in, change and approval is written to a chain where each entry fingerprints the one before it.</p></div>
-      <div class="cardx"><div class="ic"><svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg></div><h3>Door scanning</h3><p>Scan passes at the entrance. It keeps working when the signal drops and catches up when it returns.</p></div>
-      <div class="cardx"><div class="ic"><svg viewBox="0 0 24 24"><path d="M12 15a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM8.5 13.5L7 21l5-3 5 3-1.5-7.5"/></svg></div><h3>Certificates</h3><p>When an event ends, attendees can collect a certificate that can itself be verified.</p></div>
-      <div class="cardx"><div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg></div><h3>Your name and colours</h3><p>Your logo, letterhead, accent colour and printed footer line, on your own web address if you wish.</p></div>
-    </div>
-  </div>
-</section>
-
-<!-- ================= PAYMENT ================= -->
-<section id="payment">
-  <div class="w">
-    <div class="pay">
-      <div>
-        <p class="kicker">Payment sheets</p>
-        <h2>Nobody is paid until the right people have signed off.</h2>
-        <p style="color:var(--muted);font-size:17.5px;margin:0;">When people are paid for the days they attend, the sheet is the evidence. It prints as the form you already use, and behind it is an approval path paper can't give you.</p>
-        <ul class="tick">
-          <li><span><b>Prints like your paper sheet.</b> Letterhead, nine days to a page, unused rows struck through, your own footer line.</span></li>
-          <li><span><b>A real approval path.</b> Prepared, certified by the authorising officer, verified by finance. Each step is sealed.</span></li>
-          <li><span><b>Automatic checks.</b> Odd rates, late additions and gaps are flagged for the approver to look at.</span></li>
-          <li><span><b>Access you control.</b> Only the people you give payment access to can see or prepare a sheet.</span></li>
-        </ul>
-        <a class="btn red lg" href="signup.html">Set up payment sheets</a>
-      </div>
-      <div class="stackcard" aria-hidden="true">
-        <h6>Digital Skills Roll-out Training</h6><div class="meta">Authorised by Eng. J. Kamau &middot; Ref ICTA/HR/2026/114</div>
-        <ol class="track">
-          <li class="done"><span class="d">&#10003;</span>Collecting<br>signatures</li>
-          <li class="done"><span class="d">&#10003;</span>Authorising<br>officer</li>
-          <li class="now"><span class="d"></span>Verified by<br>finance</li>
-          <li><span class="d"></span>Ready<br>to pay</li>
-        </ol>
-        <div style="margin-top:18px;">
-          <div class="find r"><i>!</i><div><b>Look at this: rate differs</b><span>Otieno has a different rate from the other 11 people.</span></div></div>
-          <div class="find n"><i>i</i><div><b>One person added late</b><span>Added on day 3, with a reason on record.</span></div></div>
-        </div>
-        <div class="decide"><span class="btn sm">Send back</span><span class="btn sm red">Verify for payment</span></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ================= VERIFY ================= -->
-<section id="verify">
-  <div class="w">
-    <div class="vbox">
-      <div><h2>Holding a printed sheet or certificate?</h2><p>Type the code under its QR. You will see whether it still matches the original record. No account needed.</p></div>
-      <form id="vform"><input id="vcode" type="text" maxlength="20" autocomplete="off" placeholder="7K2M-9QXA" aria-label="Code printed on the sheet"><button class="btn red" type="submit">Check</button></form>
-    </div>
-  </div>
-</section>
-
-<!-- ================= TRUST ================= -->
-<section id="trust">
-  <div class="w">
-    <div class="sh"><p class="kicker">Trust</p><h2>Careful with people's information, by design.</h2><p>Attendance records hold names, phone numbers and signatures. We treat that as a duty.</p></div>
-    <div class="grid3">
-      <div class="cardx"><div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3z"/></svg></div><h3>Records that show tampering</h3><p>Sealed sheets, a chained activity log and an integrity check on every report mean quiet edits do not go unnoticed.</p></div>
-      <div class="cardx"><div class="ic"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg></div><h3>Every organisation is fenced off</h3><p>Each organisation's people, events and records are kept apart. One organisation can never see another's.</p></div>
-      <div class="cardx"><div class="ic"><svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></div><h3>Support only with your consent</h3><p>The platform team can look inside only if your administrator approves it, for a set time, read-only, and never at attendee records.</p></div>
-    </div>
-  </div>
-</section>
-
-<!-- ================= FAQ ================= -->
-<section id="faq">
-  <div class="w" style="max-width:860px;">
-    <div class="sh"><p class="kicker">Questions</p><h2>Straight answers.</h2></div>
-    <details><summary>Do people need to install an app?</summary><p>No. They open a link in the phone's browser, type the number they were registered with, and sign.</p></details>
-    <details><summary>What if there is no signal at the door?</summary><p>Door scanning keeps working without signal and sends what it collected once the phone is back online.</p></details>
-    <details><summary>Can a signature be added after the day is over?</summary><p>Not by itself. A day closes when its hours end. The organiser can reopen it for a stated period, and the reopening is written to the record with a reason.</p></details>
-    <details><summary>Who can see our people's details?</summary><p>Only people inside your organisation, and only what their access allows. Another organisation can never see yours. The platform team can look inside only if your administrator approves it, read-only, and never at attendee records.</p></details>
-    <details><summary>Can we use our own name, logo and colours?</summary><p>Yes. Your letterhead, logo, colours and the line at the foot of printed sheets are yours, and you can use your own web address.</p></details>
-    <details><summary>What does it cost?</summary><p>Organisations are added on a plan the platform owner sets. Ask to add yours and you will get an answer by email.</p></details>
-  </div>
-</section>
-
-<div class="end">
-  <div class="w">
-    <h2>Ready to put the clipboard down?</h2>
-    <p>Ask to add your organisation. We confirm your email, review the request, and set you up with your own name, logo and colours.</p>
-    <div class="go"><a class="btn red lg" href="signup.html">Add your organisation</a><a class="btn dark lg" href="login.html">Log in</a><a class="btn dark lg" href="wallet.html">My events</a></div>
-  </div>
+  </main>
 </div>
-</main>
+
+<section class="three">
+  <div class="w">
+    <div class="it"><b>Sign on any phone</b><span>No app. One signature a day.</span></div>
+    <div class="it"><b>Sealed and checkable</b><span>Change one letter and the seal breaks.</span></div>
+    <div class="it"><b>Paid after approval</b><span>Officer and finance sign off first.</span></div>
+  </div>
+</section>
+
+<section class="check" id="verify">
+  <div class="w">
+    <h2>Holding a printed sheet? Check it.</h2>
+    <form id="vform"><input id="vcode" type="text" maxlength="20" autocomplete="off" placeholder="7K2M-9QXA" aria-label="Code printed on the sheet"><button class="btn" type="submit">Check</button></form>
+  </div>
+</section>
 
 <footer>
   <div class="w">
     <span>&copy; 2026 Asya Hafidh. All rights reserved.</span>
-    <div class="sp"><a href="login.html">Log in</a><a href="verify.html">Verify a record</a><a href="wallet.html">My events</a><a href="privacy.html">Privacy policy</a></div>
+    <div class="sp"><a href="login.html">Log in</a><a href="wallet.html">My events</a><a href="privacy.html">Privacy policy</a></div>
   </div>
 </footer>
 
@@ -466,19 +172,6 @@
 (function(){
   var $ = function(id){ return document.getElementById(id); };
 
-  // Decorative QR tiles
-  function qr(host, n){
-    if(!host) return; var s = '';
-    for(var y = 0; y < n; y++) for(var x = 0; x < n; x++){
-      var c = (x < 3 && y < 3) || (x > n - 4 && y < 3) || (x < 3 && y > n - 4);
-      var on = c ? !(x % (n - 3) === 1 && y % (n - 3) === 1) : ((x * 7 + y * 13 + x * y) % 5 < 2);
-      s += '<i class="' + (on ? '' : 'o') + '"></i>';
-    }
-    host.innerHTML = s;
-  }
-  qr($('qr1'), 7); qr($('qr2'), 7);
-
-  // ---- A sealed sheet: the code is a SHA-256 of what is on it. ----
   function sha(text){
     if(window.crypto && crypto.subtle && window.TextEncoder){
       return crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)).then(function(buf){
@@ -492,115 +185,59 @@
   function code(hex){ var s = hex.slice(0, 8).toUpperCase(); return s.slice(0, 4) + '-' + s.slice(4); }
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
-  var SAMPLE = 'M6 30 C10 8,16 6,18 20 S24 34,32 14 S46 4,48 22 S58 30,66 12 C70 4,78 8,74 22 S88 28,96 10';
   var pens = [
     'M4 22 C 10 4, 16 4, 18 16 S 26 28, 32 12 S 44 6, 46 20 S 58 22, 66 8',
     'M5 24 C 14 24, 12 6, 22 8 S 24 26, 34 14 S 48 20, 52 8 S 62 18, 70 12',
-    'M4 14 C 12 2, 20 26, 28 12 S 40 2, 48 18 S 60 24, 68 6'
+    'M4 14 C 12 2, 20 26, 28 12 S 40 2, 48 18 S 60 24, 68 6',
+    'M6 20 C 12 6, 18 6, 20 18 S 30 26, 36 10 S 50 12, 54 22 S 64 16, 70 6'
   ];
-  var penPath = { pen0: pens[0], pen1: pens[1], pen2: pens[2], forged: pens[2] };
-  function pen(d){ return '<svg viewBox="0 0 100 34" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><path d="' + d + '"/></svg>'; }
+  function pen(i){ return '<svg viewBox="0 0 100 34" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><path d="' + pens[i % pens.length] + '"/></svg>'; }
 
   var base = [
-    { name: 'Ruth Njoroge', org: 'MoE', sig: ['pen0', null, null] },
-    { name: 'Sarah Wangui', org: 'ICTA', sig: ['pen1', null, null] }
+    { name: 'Ruth Njoroge', org: 'MoE', pen: 0 },
+    { name: 'Sarah Wangui', org: 'ICTA', pen: 1 },
+    { name: 'Wilfred Koko', org: 'ICTA', pen: 2 },
+    { name: 'Faith Chebet', org: 'MoH', pen: 3 }
   ];
-  var rows = JSON.parse(JSON.stringify(base)), mine = null, sealed = null, touched = [], undoState = null;
+  var rows = JSON.parse(JSON.stringify(base)), sealed = null, phase = 0, hit = -1;
 
   function render(){
-    var t = $('roll'), h = '<tr><th style="width:9%">S/NO.</th><th style="width:30%">NAME</th><th style="width:19%">ORGANISATION</th><th>Day 1</th><th>Day 2</th><th>Day 3</th></tr>';
+    var h = '<tr><th style="width:9%">S/NO.</th><th style="width:38%">NAME</th><th style="width:20%">ORG.</th><th>Day 1</th></tr>';
     rows.forEach(function(r, i){
-      h += '<tr' + (touched.indexOf(i) > -1 ? ' class="touched"' : '') + '><td>' + (i + 1) + '.</td><td class="nm">' + esc(r.name) + '</td><td>' + esc(r.org) + '</td>';
-      r.sig.forEach(function(s){
-        if(s && s.slice(0, 4) === 'img:' && mine) h += '<td class="sg"><img alt="signature" src="' + mine.dataUrl + '"></td>';
-        else if(s) h += '<td class="sg">' + pen(penPath[s] || pens[2]) + '</td>';
-        else h += '<td class="sg"></td>';
+      h += '<tr' + (i === hit ? ' class="hit"' : '') + '><td>' + (i + 1) + '.</td><td class="nm">' + esc(r.name) + '</td><td>' + esc(r.org) + '</td><td class="sg">' + pen(r.pen) + '</td></tr>';
+    });
+    h += '<tr><td>5.</td><td class="blank"></td><td class="blank"></td><td class="blank"></td></tr>';
+    $('roll').innerHTML = h;
+  }
+  function canonical(){ return rows.map(function(r){ return r.name + '|' + r.org + '|' + r.pen; }).join('\n'); }
+  function stamp(bad, big, small){ var s = $('stamp'); s.className = 'stamp show' + (bad ? ' bad' : ''); s.innerHTML = big + '<small>' + small + '</small>'; }
+  function hint(html){ $('hint').innerHTML = html; }
+
+  // one button, three moments: seal it, try to change it, start again
+  $('act').addEventListener('click', function(){
+    var btn = this;
+    if(phase === 0){
+      sha(canonical()).then(function(hex){
+        sealed = code(hex); phase = 1;
+        stamp(false, 'Sealed', sealed);
+        hint('Sealed as <b>' + sealed + '</b>. Now try to change a name.');
+        btn.textContent = 'Change one letter';
       });
-      h += '</tr>';
-    });
-    if(!mine){
-      h += '<tr><td>' + (rows.length + 1) + '.</td><td class="nm"><input id="liveName" type="text" maxlength="28" placeholder="your name" aria-label="Your name on the sheet" value="' + esc($('myName').value) + '"></td><td>You</td><td class="sg"></td><td class="sg"></td><td class="sg"></td></tr>';
+    } else if(phase === 1){
+      rows[0].name = 'Ruth Njorogi'; hit = 0; render();
+      sha(canonical()).then(function(hex){
+        phase = 2;
+        stamp(true, 'Does not match', code(hex));
+        hint('One letter changed, and the seal stopped matching.');
+        btn.textContent = 'Start again';
+      });
+    } else {
+      rows = JSON.parse(JSON.stringify(base)); hit = -1; sealed = null; phase = 0; render();
+      $('stamp').className = 'stamp';
+      hint('Four people signed today.');
+      btn.textContent = 'Seal this sheet';
     }
-    for(var k = rows.length + (mine ? 0 : 1); k < 5; k++) h += '<tr><td>' + (k + 1) + '.</td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td></tr>';
-    t.innerHTML = h;
-    var live = $('liveName');
-    if(live) live.addEventListener('input', function(){ $('myName').value = live.value; sync(); });
-  }
-  function canonical(){
-    return rows.map(function(r){ return r.name + '|' + r.org + '|' + r.sig.map(function(s){ return s || '-'; }).join(','); }).join('\n');
-  }
-
-  // ---- signature pad ----
-  var cv = $('pad'), ctx = cv.getContext('2d'), drawing = false, inked = false;
-  function fit(){
-    var r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1;
-    cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d);
-    ctx.setTransform(d, 0, 0, d, 0, 0); ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1d2b6e';
-    inked = false; $('ph').style.display = '';
-  }
-  function pos(e){ var r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
-  cv.addEventListener('pointerdown', function(e){ if(mine) return; drawing = true; try{ cv.setPointerCapture(e.pointerId); }catch(x){} var p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); });
-  cv.addEventListener('pointermove', function(e){ if(!drawing) return; var p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); inked = true; $('ph').style.display = 'none'; sync(); });
-  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(n){ cv.addEventListener(n, function(){ drawing = false; }); });
-  $('clear').addEventListener('click', function(){ if(!mine){ fit(); sync(); } });
-  $('sample').addEventListener('click', function(){
-    if(mine) return; fit();
-    var p = new Path2D(SAMPLE), r = cv.getBoundingClientRect();
-    ctx.save(); ctx.scale(r.width / 100 * .9, r.height / 40 * .8); ctx.translate(4, 5); ctx.lineWidth = 2.6; ctx.stroke(p); ctx.restore();
-    inked = true; $('ph').style.display = 'none'; sync();
   });
-  window.addEventListener('resize', function(){ if(!mine && !inked) fit(); });
-
-  function setStep(i, on){ $('st' + i).classList.toggle('off', !on); }
-  function sync(){
-    var named = $('myName').value.trim().length > 1;
-    setStep(2, named || inked);
-    $('signBtn').disabled = !(named && inked) || !!mine;
-    ['c1', 'c2', 'c3'].forEach(function(id){ $(id).disabled = !sealed; });
-    $('undo').disabled = !undoState;
-    setStep(3, !!sealed);
-  }
-  $('myName').addEventListener('input', function(){ var l = $('liveName'); if(l && l.value !== this.value) l.value = this.value; sync(); });
-
-  function say(text, cls){ var m = $('msg'); m.innerHTML = text; m.className = 'msg' + (cls ? ' ' + cls : ''); }
-  function stamp(kind, big, small){
-    var s = $('stamp'); s.className = 'stamp show' + (kind === 'ok' ? ' ok' : '');
-    s.innerHTML = big + '<small>' + small + '</small>';
-  }
-
-  $('signBtn').addEventListener('click', function(){
-    var name = $('myName').value.trim();
-    var dataUrl = cv.toDataURL('image/png');
-    sha(dataUrl).then(function(hex){
-      mine = { dataUrl: dataUrl };
-      rows.push({ name: name, org: 'You', sig: ['img:' + hex.slice(0, 12), null, null] });
-      render();
-      return sha(canonical());
-    }).then(function(hex){
-      sealed = code(hex);
-      stamp('ok', 'Sealed', sealed);
-      say('Sealed. The code <code>' + sealed + '</code> now stands for exactly what is on this sheet. Now try to change something.', 'good');
-      sync();
-    });
-  });
-
-  function recheck(what){
-    sha(canonical()).then(function(hex){
-      var now = code(hex);
-      if(now === sealed){
-        stamp('ok', 'Sealed', sealed);
-        say('Back to how it was sealed. The code matches again: <code>' + sealed + '</code>.', 'good');
-      } else {
-        stamp('bad', 'Does not match', now);
-        say(what + ' Sealed code was <code>' + sealed + '</code>. The sheet now works out to <code>' + now + '</code>. That is how anyone checking would know.', 'bad');
-      }
-    });
-  }
-  function snapshot(){ undoState = { rows: JSON.parse(JSON.stringify(rows)) }; }
-  $('c1').addEventListener('click', function(){ snapshot(); rows[0].name = 'Ruth Njorogi'; touched = [0]; render(); sync(); recheck('One letter changed: Njoroge became Njorogi.'); });
-  $('c2').addEventListener('click', function(){ snapshot(); rows.push({ name: 'Peter Kamau', org: 'MoE', sig: ['forged', null, null] }); touched = [rows.length - 1]; render(); sync(); recheck('A name that was never there was added.'); });
-  $('c3').addEventListener('click', function(){ snapshot(); rows[1].sig[0] = 'pen2'; touched = [1]; render(); sync(); recheck('Sarah\'s signature was swapped for another.'); });
-  $('undo').addEventListener('click', function(){ if(!undoState) return; rows = undoState.rows; touched = []; undoState = null; render(); sync(); recheck(''); });
 
   $('vform').addEventListener('submit', function(e){
     e.preventDefault();
@@ -608,7 +245,7 @@
     location.href = 'verify.html' + (v ? '?code=' + encodeURIComponent(v.toUpperCase()) : '');
   });
 
-  render(); fit(); sync();
+  render();
 })();
 </script>
 </body>
