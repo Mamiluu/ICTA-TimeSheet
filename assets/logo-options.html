@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign Sheet logo options</title>
+<style>
+  :root{ --navy:#14161b; --red:#c8102e; --paper:#f3f4f6; --line:#e6e8ec; --muted:#6a7080; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--paper); font-family:"Trebuchet MS",Tahoma,Verdana,Arial,sans-serif; color:#1c1e23; padding:34px 28px 60px; }
+  h1{ margin:0 0 4px; font-size:26px; } p.s{ margin:0 0 26px; color:var(--muted); }
+  .grid{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:18px; max-width:1240px; }
+  .opt{ background:#fff; border:1px solid var(--line); border-radius:16px; overflow:hidden; box-shadow:0 1px 3px rgba(20,24,34,.07); }
+  .opt h2{ margin:0; padding:16px 20px 2px; font-size:18px; } .opt .d{ padding:0 20px 14px; color:var(--muted); font-size:13.5px; }
+  .big{ display:grid; place-items:center; height:210px; background:#fff; border-top:1px solid var(--line); }
+  .big svg{ width:150px; height:150px; }
+  .row{ display:grid; grid-template-columns:1fr 1fr; }
+  .tile{ height:116px; display:grid; place-items:center; border-top:1px solid var(--line); }
+  .tile.dk{ background:var(--navy); } .tile.rd{ background:var(--red); } .tile.lt{ background:#fff; }
+  .lock{ display:flex; align-items:center; gap:12px; font-weight:700; font-size:24px; letter-spacing:-.01em; }
+  .lock svg{ width:42px; height:42px; }
+  .dk .lock{ color:#fff; }
+  .sm{ display:flex; gap:14px; align-items:center; justify-content:center; padding:16px; border-top:1px solid var(--line); background:var(--paper); }
+  .sm svg{ display:block; } .sm span{ font-size:11px; color:var(--muted); }
+  .fav{ display:flex; align-items:center; gap:8px; background:#dfe2e8; border-radius:10px 10px 0 0; padding:6px 12px; font-size:12px; color:#333; }
+</style></head><body>
+<h1>Sign Sheet: three logo ideas</h1>
+<p class="s">Each one is a single idea, drawn from strokes so it stays sharp at 16 px and in one colour. Red is the brand red from your dashboard.</p>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <!-- A: the signature that ends in a tick, on a sheet -->
+    <symbol id="a" viewBox="0 0 64 64">
+      <path d="M17 6h22l11 11v38a3 3 0 0 1-3 3H17a3 3 0 0 1-3-3V9a3 3 0 0 1 3-3z" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M39 6v12a2 2 0 0 0 2 2h9" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+      <path d="M20 40c2.6-9 6.5-9 7 -1s5 7 6.5-1l5 8 8.5-14" fill="none" stroke="#c8102e" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <!-- B: the seal; an S drawn as a signature inside a notary ring -->
+    <symbol id="b" viewBox="0 0 64 64">
+      <circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" stroke-width="4"/>
+      <circle cx="32" cy="32" r="22.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="1.2 3.2" stroke-linecap="round"/>
+      <path d="M41 22.5c-2.5-4.5-14-5-15.5 1.5C24 30 41 31 40 39c-1 6.5-13 6.5-17.5 1" fill="none" stroke="#c8102e" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M38 47l3.2 3.2L47 43" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="translate(-4 -2)"/>
+    </symbol>
+    <!-- C: days; two signed, today still open -->
+    <symbol id="c" viewBox="0 0 64 64">
+      <rect x="4" y="21" width="16" height="22" rx="4" fill="currentColor"/>
+      <rect x="24" y="21" width="16" height="22" rx="4" fill="currentColor"/>
+      <rect x="45" y="22.5" width="14" height="19" rx="3.5" fill="none" stroke="#c8102e" stroke-width="3.6" stroke-dasharray="4.5 3.2" stroke-linecap="round"/>
+      <path d="M8.2 32.5l3.3 3.3 5-6" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M28.2 32.5l3.3 3.3 5-6" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M12 52h40" stroke="#c8102e" stroke-width="3.6" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="grid">
+  <div class="opt"><h2>A. Signed sheet</h2><div class="d">A sheet with a signature whose last stroke turns into a tick. "Signed, then confirmed" in one line.</div>
+    <div class="big" style="color:#14161b"><svg><use href="#a"/></svg></div>
+    <div class="row"><div class="tile dk"><div class="lock" style="color:#fff"><svg style="color:#fff"><use href="#a"/></svg>Sign Sheet</div></div><div class="tile lt"><div class="lock"><svg style="color:#14161b"><use href="#a"/></svg>Sign Sheet</div></div></div>
+    <div class="sm"><svg width="16" height="16" style="color:#14161b"><use href="#a"/></svg><svg width="24" height="24" style="color:#14161b"><use href="#a"/></svg><svg width="32" height="32" style="color:#14161b"><use href="#a"/></svg><span>16 / 24 / 32 px</span></div></div>
+
+  <div class="opt"><h2>B. The seal</h2><div class="d">A notary-style ring around a signature drawn as an S. The seal is the heart of the product, so it is the logo.</div>
+    <div class="big" style="color:#14161b"><svg><use href="#b"/></svg></div>
+    <div class="row"><div class="tile dk"><div class="lock" style="color:#fff"><svg style="color:#fff"><use href="#b"/></svg>Sign Sheet</div></div><div class="tile lt"><div class="lock"><svg style="color:#14161b"><use href="#b"/></svg>Sign Sheet</div></div></div>
+    <div class="sm"><svg width="16" height="16" style="color:#14161b"><use href="#b"/></svg><svg width="24" height="24" style="color:#14161b"><use href="#b"/></svg><svg width="32" height="32" style="color:#14161b"><use href="#b"/></svg><span>16 / 24 / 32 px</span></div></div>
+
+  <div class="opt"><h2>C. The days</h2><div class="d">Two days signed, today still open (dashed), and the struck-through line from your paper form underneath. Attendance by day.</div>
+    <div class="big" style="color:#14161b"><svg><use href="#c"/></svg></div>
+    <div class="row"><div class="tile dk"><div class="lock" style="color:#fff"><svg style="color:#fff"><use href="#c"/></svg>Sign Sheet</div></div><div class="tile lt"><div class="lock"><svg style="color:#14161b"><use href="#c"/></svg>Sign Sheet</div></div></div>
+    <div class="sm"><svg width="16" height="16" style="color:#14161b"><use href="#c"/></svg><svg width="24" height="24" style="color:#14161b"><use href="#c"/></svg><svg width="32" height="32" style="color:#14161b"><use href="#c"/></svg><span>16 / 24 / 32 px</span></div></div>
+</div>
+</body></html>
