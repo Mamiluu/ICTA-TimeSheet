@@ -76,35 +76,15 @@
   .tiny{ margin:26px 0 0; font-size:14.5px; color:var(--soft); display:flex; gap:10px; align-items:center; }
   .tiny svg{ width:18px; height:18px; stroke:var(--ok); fill:none; stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; flex:none; }
 
-    /* ---------- what is different ---------- */
-  .why{ padding:40px 0 40px; }
-  .why .w{ display:grid; grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr); gap:30px 90px; align-items:start; }
-  .why .lead{ position:sticky; top:40px; }
-  .why .kick{ font-size:14.5px; color:var(--soft); margin:0 0 16px; }
-  .why h2{ font-family:var(--display); font-size:clamp(34px, 4.2vw, 56px); line-height:1.02; letter-spacing:-.035em; font-weight:760; margin:0 0 20px; }
-  .why .lead p{ color:var(--soft); font-size:18px; max-width:30ch; margin:0 0 26px; }
-  .list{ list-style:none; margin:0; padding:0; counter-reset:f; }
-  .list li{ counter-increment:f; display:grid; grid-template-columns:64px minmax(0,1fr); gap:0 12px; padding:28px 0; border-top:1.5px solid var(--ink); }
-  .list li:last-child{ border-bottom:1.5px solid var(--ink); }
-  .list li::before{ content:counter(f, decimal-leading-zero); font-family:var(--display); font-size:22px; font-weight:700; color:#b9b09a; letter-spacing:-.02em; padding-top:4px; }
-  .list h3{ font-family:var(--display); font-size:26px; line-height:1.12; letter-spacing:-.025em; font-weight:740; margin:0 0 8px; }
-  .list p{ margin:0; color:var(--soft); font-size:17px; max-width:50ch; }
-
-  .vs{ padding:70px 0 120px; }
-  .vs h2{ font-family:var(--display); font-size:clamp(28px, 3.4vw, 44px); line-height:1.05; letter-spacing:-.03em; font-weight:760; margin:0 0 10px; max-width:20ch; text-wrap:balance; }
-  .vs .sub{ color:var(--soft); margin:0 0 30px; font-size:18px; max-width:46ch; }
-  .tbl{ width:100%; border-collapse:collapse; font-size:17px; background:#fff; border:1.5px solid var(--ink); border-radius:20px; overflow:hidden; box-shadow:7px 7px 0 var(--sun), 7px 7px 0 1.5px var(--ink); }
-  .tbl th, .tbl td{ padding:16px 22px; text-align:left; border-bottom:1px solid #ece6d8; }
-  .tbl tr:last-child td{ border-bottom:0; }
-  .tbl thead th{ font-family:var(--display); font-size:19px; font-weight:740; background:#faf6ea; border-bottom:1.5px solid var(--ink); }
-  .tbl thead th:last-child{ background:var(--sun); }
-  .tbl td:nth-child(2), .tbl td:nth-child(3), .tbl th:nth-child(2), .tbl th:nth-child(3){ text-align:center; width:20%; }
-  .tbl .y, .tbl .n{ display:inline-grid; place-items:center; width:28px; height:28px; border-radius:50%; }
-  .tbl .y{ background:#d7f1e5; } .tbl .n{ background:#f4efe3; }
-  .tbl svg{ width:14px; height:14px; fill:none; stroke-width:3.2; stroke-linecap:round; stroke-linejoin:round; }
-  .tbl .y svg{ stroke:#1f8f63; } .tbl .n svg{ stroke:#a39b86; }
-  .tbl td:first-child{ font-weight:600; }
-  .tbl tr.mine td{ background:#fffbea; }
+      /* ---------- features: short and simple ---------- */
+  .features{ padding:60px 0 120px; }
+  .features h2{ font-family:var(--display); font-size:clamp(30px, 3.6vw, 46px); line-height:1.05; letter-spacing:-.03em; font-weight:760; margin:0 0 52px; text-align:center; }
+  .feat{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:40px; text-align:center; }
+  .feat .ic{ width:76px; height:76px; border-radius:50%; display:grid; place-items:center; margin:0 auto 20px; }
+  .feat .ic svg{ width:34px; height:34px; fill:none; stroke:var(--ink); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .feat .a .ic{ background:#ffe3d1; } .feat .b .ic{ background:#e1dbff; } .feat .c .ic{ background:#cfeee0; }
+  .feat h3{ font-family:var(--display); font-size:26px; letter-spacing:-.025em; font-weight:740; margin:0 0 8px; line-height:1.15; }
+  .feat p{ margin:0 auto; color:var(--soft); font-size:18px; max-width:25ch; line-height:1.5; }
 
   .reveal{ opacity:0; transform:translateY(22px); transition:opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
   .reveal.in{ opacity:1; transform:none; }
@@ -115,8 +95,7 @@
   footer .sp{ margin-left:auto; display:flex; gap:22px; }
 
   @media (max-width:960px){
-    .why .w{ grid-template-columns:minmax(0,1fr); gap:34px; } .why .lead{ position:static; }
-    .tbl th, .tbl td{ padding:13px 12px; font-size:15.5px; }
+    .feat{ grid-template-columns:minmax(0,1fr); gap:36px; }
     header nav{ display:none; }
     .hero .w{ grid-template-columns:minmax(0,1fr); }
     h1{ max-width:16ch; }
@@ -131,8 +110,7 @@
   <div class="w">
     <a class="brand" href="#top"><img src="assets/daymark-mark.svg" alt="" width="38" height="38">Daymark</a>
     <nav aria-label="Main">
-      <a href="#why">Why Daymark</a>
-      <a href="#compare">How we compare</a>
+      <a href="#features">Features</a>
       <a href="verify.html">Check a record</a>
     </nav>
     <div class="r"><a class="login" href="login.html">Log in</a><a class="btn sm" href="signup.html">Get started</a></div>
@@ -155,44 +133,28 @@
     </div>
   </section>
 
-    <section class="why" id="why">
+      <section class="features" id="features">
     <div class="w">
-      <div class="lead reveal">
-        <p class="kick">Why Daymark</p>
-        <h2>Most registers collect names. Daymark keeps them honest.</h2>
-        <p>A signature on a phone is easy. Proving afterwards that nothing changed is the hard part.</p>
+      <h2 class="reveal">What you get</h2>
+      <div class="feat">
+        <div class="a reveal">
+          <div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M10 6h4M9.5 15c1.2-3 2.2-3 2.5-.5s1.4 2 2.5-.5"/></svg></div>
+          <h3>Sign on a phone</h3>
+          <p>Everyone signs for the day on their own phone.</p>
+        </div>
+        <div class="b reveal d1">
+          <div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 3v5.5c0 4.6-3.1 7.6-7.5 9.5-4.4-1.9-7.5-4.9-7.5-9.5V6z"/><path d="M8.5 12l2.4 2.4 4.6-5"/></svg></div>
+          <h3>Sealed sheets</h3>
+          <p>Every finished sheet gets a code anyone can check.</p>
+        </div>
+        <div class="c reveal d2">
+          <div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="12" r="2.4"/><circle cx="6" cy="18" r="2.4"/><path d="M8.2 7.1l7.6 3.8M8.2 16.9l7.6-3.8"/></svg></div>
+          <h3>Paid after approval</h3>
+          <p>Pay sheets go to your officer and finance first.</p>
+        </div>
       </div>
-      <ol class="list">
-        <li class="reveal"><div><h3>A seal anyone can check</h3><p>Every finished sheet gets a code. Type it into the Check a record page and see at once whether anything changed. No account needed.</p></div></li>
-        <li class="reveal"><div><h3>A log that shows tampering</h3><p>Every sign in, change and approval is chained to the one before it. Edit an old entry and everything after it stops matching.</p></div></li>
-        <li class="reveal"><div><h3>One signature a day, on the day</h3><p>Each day opens and closes on its own. A missed day stays empty. Reopening a day needs a reason, and that reason is recorded.</p></div></li>
-        <li class="reveal"><div><h3>Payment sheets that need sign off</h3><p>When attendance decides pay, the sheet goes from the preparer to the authorising officer to finance. Each step is sealed, odd rates are flagged, and it prints like your paper form.</p></div></li>
-        <li class="reveal"><div><h3>Door scanning without signal</h3><p>Scan passes at the entrance even when the network drops. It catches up once the phone is back online.</p></div></li>
-        <li class="reveal"><div><h3>Yours, with your name on it</h3><p>Your logo, colours, letterhead and web address. Your departments, and your say over who sees attendance, payment, or both.</p></div></li>
-      </ol>
     </div>
-  </section>
-
-  <section class="vs" id="compare">
-    <div class="w">
-      <h2 class="reveal">Where Daymark goes further.</h2>
-      <p class="sub reveal d1">Collecting signatures is where any digital register starts. The rest is what you need when someone asks you to prove it.</p>
-      <table class="tbl reveal d2">
-        <thead><tr><th></th><th>A basic register</th><th>Daymark</th></tr></thead>
-        <tbody>
-        <tr><td>People sign on their own phone</td><td><span class="y"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></td><td><span class="y"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></td></tr>
-        <tr><td>A link or QR code to share</td><td><span class="y"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></td><td><span class="y"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></td></tr>
-        <tr><td>A printable attendance list</td><td><span class="y"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></td><td><span class="y"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></td></tr>
-        <tr class="mine"><td>A sealed record anyone can check</td><td><span class="n"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span></td><td><span class="y"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></td></tr>
-        <tr class="mine"><td>A log that shows tampering</td><td><span class="n"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span></td><td><span class="y"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></td></tr>
-        <tr class="mine"><td>Payment sheets with approval</td><td><span class="n"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span></td><td><span class="y"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></td></tr>
-        <tr class="mine"><td>Door scanning without signal</td><td><span class="n"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span></td><td><span class="y"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></td></tr>
-        <tr class="mine"><td>Your own branding and web address</td><td><span class="n"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span></td><td><span class="y"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span></td></tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-</main>
+  </section></main>
 
 <footer>
   <div class="w">
