@@ -125,6 +125,7 @@ platformRouter.get('/departments', ah(async (req, res) => {
       name: d.name,
       slug: d.slug,
       active: d.active,
+      financeEmail: d.financeEmail,
       createdAt: d.createdAt,
       superAdmins: count('SUPER_ADMIN'),
       activeSuperAdmins: count('SUPER_ADMIN', 'ACTIVE'),
@@ -185,6 +186,11 @@ platformRouter.patch('/departments/:id', ah(async (req, res) => {
     if (typeof req.body.active !== 'boolean') return res.status(400).json({ ok: false, error: 'INVALID_ACTIVE' });
     data.active = req.body.active;
   }
+  if (req.body.financeEmail !== undefined) {
+    const fe = String(req.body.financeEmail || '').trim().toLowerCase();
+    if (fe && !isValidEmailShape(fe)) return res.status(400).json({ ok: false, error: 'INVALID_EMAIL', message: 'Enter a valid email address, or leave it empty to remove it.' });
+    data.financeEmail = fe || null;
+  }
   if (!Object.keys(data).length) return res.status(400).json({ ok: false, error: 'NOTHING_TO_UPDATE' });
 
   let updated;
@@ -197,6 +203,9 @@ platformRouter.patch('/departments/:id', ah(async (req, res) => {
 
   if (data.name && data.name !== dept.name) {
     await writeAudit({ actorId: req.user.id, action: 'DEPARTMENT_RENAME', targetType: 'Department', targetId: dept.id, metadata: { from: dept.name, to: data.name }, req });
+  }
+  if (data.financeEmail !== undefined && data.financeEmail !== dept.financeEmail) {
+    await writeAudit({ actorId: req.user.id, action: 'DEPARTMENT_FINANCE_EMAIL', targetType: 'Department', targetId: dept.id, metadata: { name: updated.name, set: Boolean(data.financeEmail) }, req });
   }
   if (data.active !== undefined && data.active !== dept.active) {
     await writeAudit({ actorId: req.user.id, action: data.active ? 'DEPARTMENT_RESUME' : 'DEPARTMENT_PAUSE', targetType: 'Department', targetId: dept.id, metadata: { name: updated.name }, req });

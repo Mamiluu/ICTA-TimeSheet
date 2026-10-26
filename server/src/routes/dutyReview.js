@@ -10,6 +10,7 @@ import { countFindings } from '../lib/dutyChecks.js';
 import { approvalCheck, canAccessKind, STAGE_LABEL } from '../lib/duty.js';
 import { sealWholeEvent } from './admin.js';
 import { hasModule } from '../lib/plans.js';
+import { notifyDuty } from '../lib/dutyNotify.js';
 
 // Where authorising officers and finance review the sheets sent up from their
 // department. A department super admin can do both jobs; a county admin only the
@@ -25,7 +26,7 @@ dutyReviewRouter.use((req, res, next) => {
   next();
 });
 
-const NEXT_STEP = { SUBMITTED: 'CERTIFY', CERTIFIED: 'VERIFY' };
+const NEXT_STEP = { SUBMITTED: 'CERTIFY', CERTIFIED: 'VERIFY', VERIFIED: 'PAY' };
 
 async function findSheet(req) {
   return prisma.event.findFirst({
@@ -36,7 +37,7 @@ async function findSheet(req) {
 
 function flags(user, event, approvals) {
   const can = (step) => approvalCheck({ user, event, step, approvals }).ok;
-  return { canCertify: can('CERTIFY'), canVerify: can('VERIFY'), canReturn: can('RETURN') };
+  return { canCertify: can('CERTIFY'), canVerify: can('VERIFY'), canReturn: can('RETURN'), canPay: can('PAY') };
 }
 
 dutyReviewRouter.get('/queue', ah(async (req, res) => {
@@ -60,6 +61,9 @@ dutyReviewRouter.get('/queue', ah(async (req, res) => {
       stage: ev.dutyStage,
       stageLabel: STAGE_LABEL[ev.dutyStage],
       submittedAt: submitted ? submitted.createdAt : null,
+      paid: Boolean(ev.paidAt),
+      paidAt: ev.paidAt,
+      paidReference: ev.paidReference,
       people: roll.totals.people,
       amount: roll.totals.amount,
       waitingForMe: !!step && approvalCheck({ user: req.user, event: ev, step, approvals: ev.dutyApprovals }).ok
@@ -90,6 +94,10 @@ dutyReviewRouter.get('/sheets/:id', ah(async (req, res) => {
       authorisedBy: event.authorisedBy,
       authorityRef: event.authorityRef
     },
+    paid: Boolean(event.paidAt),
+    paidAt: event.paidAt,
+    paidReference: event.paidReference,
+    paidBy: event.paidByEmail,
     stage: event.dutyStage,
     stageLabel: STAGE_LABEL[event.dutyStage],
     days: roll.days.map((d) => ({ id: d.id, position: d.position, startAt: d.startAt, endAt: d.endAt, place: d.place })),
@@ -155,6 +163,7 @@ async function act(req, res, step) {
       metadata: { name: event.name, ...(sealCode ? { sealCode } : {}), ...(note ? { note } : {}), ...(seen ? { review: seen.review, notes: seen.notes, acknowledged: seen.review > 0 } : {}) },
       req
     });
+    notifyDuty(event, step === 'CERTIFY' ? 'CERTIFIED' : step === 'VERIFY' ? 'VERIFIED' : 'RETURNED', { actorEmail: req.user.email, note: note || null });
     res.json({ ok: true, stage: to, sealCode });
   } catch (err) {
     // Put the sheet back where it was rather than leave it half-approved.
@@ -162,6 +171,28 @@ async function act(req, res, step) {
     throw err;
   }
 }
+
+// Finance marks a verified sheet as paid, with the payment reference. The sheet stays verified; the
+// payment is recorded beside it, in its history and in the audit trail.
+dutyReviewRouter.post('/sheets/:id/paid', ah(async (req, res) => {
+  const event = await findSheet(req);
+  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const approvals = await prisma.dutyApproval.findMany({ where: { eventId: event.id }, orderBy: { createdAt: 'asc' } });
+  const check = approvalCheck({ user: req.user, event, step: 'PAY', approvals });
+  if (!check.ok) return res.status(check.error === 'WRONG_STAGE' || check.error === 'ALREADY_PAID' ? 409 : 403).json({ ok: false, error: check.error, message: check.message });
+
+  const reference = String(req.body.reference || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  if (reference.length < 3) return res.status(400).json({ ok: false, error: 'REFERENCE_REQUIRED', message: 'Enter the payment reference, for example the voucher or transfer number.' });
+
+  const paidAt = new Date();
+  // Claim it first so two people pressing the button together cannot both record a payment.
+  const claimed = await prisma.event.updateMany({ where: { id: event.id, dutyStage: 'VERIFIED', paidAt: null }, data: { paidAt, paidReference: reference, paidByEmail: req.user.email } });
+  if (claimed.count === 0) return res.status(409).json({ ok: false, error: 'ALREADY_PAID', message: 'Someone else has just recorded the payment. Reload to see it.' });
+  await prisma.dutyApproval.create({ data: { eventId: event.id, step: 'PAID', byId: req.user.id, byEmail: req.user.email, note: reference } });
+  await writeAudit({ actorId: req.user.id, action: 'DUTY_ROLL_PAID', targetType: 'Event', targetId: event.id, metadata: { name: event.name, reference }, req });
+  notifyDuty(event, 'PAID', { actorEmail: req.user.email, reference });
+  res.json({ ok: true, paidAt, reference });
+}));
 
 dutyReviewRouter.post('/sheets/:id/certify', ah((req, res) => act(req, res, 'CERTIFY')));
 dutyReviewRouter.post('/sheets/:id/verify', ah((req, res) => act(req, res, 'VERIFY')));

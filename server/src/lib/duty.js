@@ -176,7 +176,7 @@ const isFinance = (u) => u.role === 'SUPER_ADMIN' || (u.role === 'COUNTY_ADMIN' 
 const no = (error, message) => ({ ok: false, error, message });
 
 // Decides whether this person may take this step on this sheet right now.
-// step is SUBMIT, CERTIFY, VERIFY or RETURN. approvals are the sheet's earlier
+// step is SUBMIT, CERTIFY, VERIFY, RETURN or PAY. approvals are the sheet's earlier
 // steps, oldest first. The rules keep three different people involved: whoever
 // prepared the sheet cannot certify or verify it, and whoever certified it
 // cannot verify it.
@@ -207,6 +207,14 @@ export function approvalCheck({ user, event, step, approvals = [] }) {
     if (!isFinance(user)) return no('NOT_FINANCE', 'Only finance can do this.');
     if (!notPrepared(user)) return no('CONFLICT', 'You prepared this sheet, so someone else has to verify it.');
     if (step === 'VERIFY' && user.id === lastBy(approvals, 'CERTIFIED')) return no('CONFLICT', 'You certified this sheet, so someone else has to verify it.');
+    return { ok: true };
+  }
+
+  if (step === 'PAY') {
+    if (stage !== 'VERIFIED') return no('WRONG_STAGE', 'This sheet has not been verified by finance yet.');
+    if (event.paidAt) return no('ALREADY_PAID', 'This sheet has already been marked as paid.');
+    if (!isFinance(user)) return no('NOT_FINANCE', 'Only finance can mark a sheet as paid.');
+    if (!notPrepared(user)) return no('CONFLICT', 'You prepared this sheet, so someone else has to mark it as paid.');
     return { ok: true };
   }
 

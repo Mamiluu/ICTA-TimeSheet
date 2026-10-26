@@ -290,3 +290,37 @@ export async function sendChainAnchorEmail(toEmail, head, brandIn = null) {
   `);
   await sendViaBrevo({ to: toEmail, subject: `${brand.orgName} audit anchor — ${head.count} entries`, html, brand, kind: 'anchor' });
 }
+// Told to the person who has to act next on a payment sheet, or to the preparer when it comes
+// back or is paid. Carries the sheet's name and one button, never the names or pay of the people on it.
+const DUTY_COPY = {
+  SUBMITTED: { subject: 'A payment sheet is waiting for you to certify', heading: 'Ready for certification', body: 'A payment sheet has been sent up and is waiting for you to certify it.', button: 'Review the sheet' },
+  CERTIFIED: { subject: 'A payment sheet is waiting for finance', heading: 'Ready for verification', body: 'The authorising officer has certified a payment sheet. It is now with finance to verify for payment.', button: 'Review the sheet' },
+  RETURNED: { subject: 'A payment sheet was sent back to you', heading: 'Sent back for changes', body: 'A payment sheet you prepared has been sent back. Make the changes below, then send it again.', button: 'Open the sheet' },
+  VERIFIED: { subject: 'A payment sheet is verified and ready to pay', heading: 'Verified for payment', body: 'Finance has verified a payment sheet. It is ready to be paid.', button: 'Open the sheet' },
+  PAID: { subject: 'A payment sheet has been marked as paid', heading: 'Marked as paid', body: 'Finance has marked a payment sheet as paid.', button: 'Open the sheet' }
+};
+
+export async function sendDutyStepEmail(toEmail, d, brandIn = null) {
+  const brand = brandOf(brandIn);
+  const copy = DUTY_COPY[d.kind];
+  if (!copy) throw new Error('Unknown payment sheet email kind');
+  devLogLink(`payment sheet ${d.kind} for ${toEmail}`, d.url);
+  const rows = [
+    ['Sheet', d.eventName],
+    d.department ? ['Department', d.department] : null,
+    d.authorityRef ? ['Reference', d.authorityRef] : null,
+    d.people != null ? ['People', String(d.people)] : null,
+    d.amount != null ? ['Total', 'KES ' + Number(d.amount).toLocaleString('en-KE')] : null,
+    d.reference ? ['Payment reference', d.reference] : null
+  ].filter(Boolean);
+  const table = rows.map(([k, v]) => `<tr><td style="padding:3px 14px 3px 0;color:#888;">${escapeHtml(k)}</td><td><strong>${escapeHtml(v)}</strong></td></tr>`).join('');
+  const html = wrapHtml(brand, `
+    <p style="font-size:15px;font-weight:700;color:#1a1a1a;margin:0 0 6px;">${escapeHtml(copy.heading)}</p>
+    <p style="font-size:13.5px;color:#333;">${escapeHtml(copy.body)}</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:13px;color:#1a1a1a;margin:14px 0;">${table}</table>
+    ${d.note ? `<p style="font-size:13px;color:#333;background:#f4f4f4;padding:10px 12px;border-radius:4px;">&ldquo;${escapeHtml(d.note)}&rdquo;</p>` : ''}
+    <p style="margin:22px 0;"><a href="${escapeHtml(d.url)}" style="background:${brand.accent};color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">${escapeHtml(copy.button)}</a></p>
+    <p style="font-size:11.5px;color:#888;">You need to be logged in. If the button does not work, copy this link: ${escapeHtml(d.url)}</p>
+  `);
+  await sendViaBrevo({ to: toEmail, subject: copy.subject, html, brand, kind: 'payment' });
+}

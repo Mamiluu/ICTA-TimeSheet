@@ -8,6 +8,7 @@ import { writeAudit } from '../lib/audit.js';
 import { ah } from '../lib/asyncHandler.js';
 import { MAX_ATTENDANCE_PER_EVENT } from '../lib/constants.js';
 import { cleanPayee, buildPayCsv, MAX_RATE_PER_DAY, sheetIsOpen, approvalCheck, STAGE_LABEL } from '../lib/duty.js';
+import { notifyDuty } from '../lib/dutyNotify.js';
 import { loadRoll, loadFindings, withoutHashes } from '../lib/dutyRoll.js';
 import { dayClosesAt } from '../lib/days.js';
 
@@ -215,6 +216,7 @@ export function registerDutyRoutes(router, findOwnEvent) {
       prisma.dutyApproval.create({ data: { eventId: event.id, step: 'SUBMITTED', byId: req.user.id, byEmail: req.user.email, note: note || null } })
     ]);
     await writeAudit({ actorId: req.user.id, action: 'DUTY_ROLL_SUBMITTED', targetType: 'Event', targetId: event.id, metadata: { name: event.name, people: roll.rows.length, amount: roll.totals.amount, ...(unfinished ? { early: true, reason: note } : {}) }, req });
+    notifyDuty(event, 'SUBMITTED', { actorEmail: req.user.email, note: note || null, people: roll.rows.length, amount: roll.totals.amount });
     res.json({ ok: true });
   }));
 

@@ -397,6 +397,10 @@ model Event {
   // Where a payment sheet is in its approval: collecting signatures, submitted by the
   // preparer, certified by the authorising officer, verified by finance.
   dutyStage    DutyStage @default(OPEN)
+  // Set when finance marks a verified payment sheet as paid, with the payment reference.
+  paidAt        DateTime?
+  paidReference String?
+  paidByEmail   String?
   dutyApprovals DutyApproval[]
   dutyQueries  DutyQuery[]
 
@@ -602,6 +606,9 @@ model Department {
   name           String
   slug           String
   active         Boolean      @default(true)
+  // A shared finance mailbox. It is told when a payment sheet reaches finance, besides any
+  // people in the department who hold the finance role.
+  financeEmail   String?
   createdAt      DateTime     @default(now())
 
   users  User[]
