@@ -9,7 +9,7 @@
 // queue -- the Background Sync API this might otherwise reach for isn't
 // supported in Safari/iOS as of this writing, which is exactly the device
 // class a walk-in attendee is most likely holding.
-const CACHE_VERSION = 'v38';
+const CACHE_VERSION = 'v39';
 const SHELL_CACHE = 'icta-shell-' + CACHE_VERSION;
 // admin.html and its scripts are here so the door scanner can open with no signal.
 // Nothing under /api/ is ever cached, so what the page shows is still live data
@@ -64,7 +64,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Scripts and styles are fetched fresh when there is a connection, and the saved copy is only the
+  // fallback for when there is none. Serving the saved copy first meant a page that had just been
+  // updated could run an older script (for example, one that did not yet know how to put the
+  // organisation's logo on the loading screen) until the next visit.
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(event.request)
+      .then((res) => {
+        if (res && res.ok && url.origin === self.location.origin) {
+          const copy = res.clone();
+          caches.open(SHELL_CACHE).then((cache) => cache.put(event.request, copy)).catch(() => {});
+        }
+        return res;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
