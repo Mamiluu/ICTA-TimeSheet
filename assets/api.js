@@ -129,6 +129,8 @@ var AUDIT_ACTION_META = {
   DUTY_ROLL_CERTIFIED: { label: 'Certified payment sheet', tone: 'positive' },
   DUTY_ROLL_VERIFIED: { label: 'Verified payment sheet', tone: 'positive' },
   DUTY_ROLL_RETURNED: { label: 'Returned payment sheet', tone: 'warning' },
+  DUTY_ROLL_PAID: { label: 'Marked payment sheet as paid', tone: 'positive' },
+  DEPARTMENT_FINANCE_EMAIL: { label: 'Changed department finance email', tone: 'neutral' },
   DUTY_QUERY_RAISED: { label: 'Question raised', tone: 'neutral' },
   DUTY_QUERY_RESOLVED: { label: 'Question answered', tone: 'positive' },
   SUPER_ADMIN_CREATE: { label: 'Created super admin', tone: 'positive' },
@@ -238,7 +240,7 @@ function auditSummary(e){
     case 'CLAIM_PACK_GENERATED':
       return '“' + escapeHtml(m.name || '') + '” — ' + (m.rowCount != null ? m.rowCount : '?') + (m.rowCount === 1 ? ' person' : ' people');
     case 'CLAIM_PACK_APPROVED':
-      return 'Sealed ' + escapeHtml(m.sealCode || '') + ' · ' + (m.people != null ? m.people : '?') + ' people · ' + (m.review || 0) + (m.review === 1 ? ' item' : ' items') + ' reviewed' + (m.note ? ' — “' + escapeHtml(m.note) + '”' : '');
+      return 'Sealed ' + escapeHtml(m.sealCode || '') + ' · ' + (m.people != null ? m.people : '?') + ' people · ' + (m.review || 0) + (m.review === 1 ? ' item' : ' items') + ' reviewed' + (m.reference ? ' · reference ' + escapeHtml(m.reference) : '') + (m.note ? ' — “' + escapeHtml(m.note) + '”' : '');
     case 'DOOR_ROSTER_DOWNLOADED':
       return 'Guest list saved for offline door scanning — ' + (m.rowCount != null ? m.rowCount : '?') + (m.rowCount === 1 ? ' person' : ' people');
     case 'CHAIN_ANCHORED':
@@ -259,6 +261,7 @@ function auditSummary(e){
     case 'DUTY_ROLL_CERTIFIED':
     case 'DUTY_ROLL_VERIFIED':
     case 'DUTY_ROLL_RETURNED':
+    case 'DUTY_ROLL_PAID':
       return '“' + escapeHtml(m.name || '') + '”' + (m.sealCode ? ' · seal ' + escapeHtml(m.sealCode) : '') + (m.review ? ' · ' + m.review + (m.review === 1 ? ' item' : ' items') + ' reviewed' : '') + (m.note ? ' — “' + escapeHtml(m.note) + '”' : '');
     case 'DUTY_ROLL_REVIEWED':
     case 'DUTY_QUERY_RESOLVED':

@@ -79,6 +79,13 @@ A `render.yaml` blueprint at the repo root does most of this for you.
   the API, has every account of one try to reach the other's data, and fails on anything that
   is not refused. Run it against a test database after any change that touches who can see what
   (start the server with `LOGIN_RATE_LIMIT=100`).
+- Payment sheet follow up: when a sheet is sent, certified, sent back, verified or paid, the next person is
+  emailed (`lib/dutyNotify.js`): officers when it is sent, finance when it is certified, the preparer when it
+  is returned, verified or paid. People are found from their payment role; a department can also set a shared
+  finance mailbox (`Department.financeEmail`, platform page, Departments, More). With nobody in a role, the
+  department's super admins are told. Finance records payment with `POST /api/duty-review/sheets/:id/paid`
+  (a reference is required; the preparer cannot do it); it is stored on the event (`paidAt`, `paidReference`)
+  and migration `20261026090000_payment_followup` adds the columns.
 - Page addresses: pages are reached without the file extension (`/login`, `/admin`, `/verify?code=...`).
   The attendee sign in page, `index.html`, is `/attend`. The old `.html` addresses still answer, with a
   redirect that keeps the query string, because they are in emails and printed QR codes. The list of

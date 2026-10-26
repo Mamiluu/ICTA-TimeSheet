@@ -276,3 +276,55 @@ test('the sheet is only editable while it is open', () => {
   assert.equal(sheetIsOpen({ dutyStage: 'VERIFIED' }), false);
   assert.ok(STAGE_LABEL.CERTIFIED);
 });
+
+import { pickRecipients } from '../src/lib/dutyNotify.js';
+
+test('marking a sheet as paid: only finance, only once, never the preparer', () => {
+  const verified = (extra = {}) => ({ ...sheet('VERIFIED'), ...extra });
+  assert.equal(step(person('fin', 'COUNTY_ADMIN', 'FINANCE'), verified(), 'PAY').ok, true);
+  assert.equal(step(person('boss', 'SUPER_ADMIN', 'PREPARER'), verified(), 'PAY').ok, true, 'a super admin can');
+  assert.equal(step(person('auth', 'COUNTY_ADMIN', 'AUTHORISER'), verified(), 'PAY').error, 'NOT_FINANCE');
+  assert.equal(
+    step(person('prep', 'COUNTY_ADMIN', 'FINANCE'), verified(), 'PAY').error,
+    'CONFLICT',
+    'the preparer cannot mark their own sheet as paid'
+  );
+  assert.equal(step(person('fin', 'COUNTY_ADMIN', 'FINANCE'), verified({ paidAt: new Date() }), 'PAY').error, 'ALREADY_PAID');
+  assert.equal(step(person('fin', 'COUNTY_ADMIN', 'FINANCE'), sheet('CERTIFIED'), 'PAY').error, 'WRONG_STAGE');
+});
+
+const people = [
+  { email: 'Boss@x.go.ke', role: 'SUPER_ADMIN', paymentRole: 'PREPARER', access: 'BOTH' },
+  { email: 'officer@x.go.ke', role: 'COUNTY_ADMIN', paymentRole: 'AUTHORISER', access: 'PAYMENT' },
+  { email: 'fin@x.go.ke', role: 'COUNTY_ADMIN', paymentRole: 'FINANCE', access: 'BOTH' },
+  { email: 'prep@x.go.ke', role: 'COUNTY_ADMIN', paymentRole: 'PREPARER', access: 'PAYMENT' },
+  { email: 'att@x.go.ke', role: 'COUNTY_ADMIN', paymentRole: 'FINANCE', access: 'ATTENDANCE' }
+];
+
+test('who is emailed when a payment sheet moves', () => {
+  const pick = (kind, extra = {}) =>
+    pickRecipients({ kind, users: people, preparerEmail: 'prep@x.go.ke', financeEmail: null, actorEmail: 'nobody@x.go.ke', ...extra });
+  assert.deepEqual(pick('SUBMITTED'), ['officer@x.go.ke']);
+  assert.deepEqual(pick('CERTIFIED'), ['fin@x.go.ke'], 'finance only, and not someone without payment access');
+  assert.deepEqual(
+    pick('CERTIFIED', { financeEmail: 'Finance@x.go.ke' }),
+    ['fin@x.go.ke', 'finance@x.go.ke'],
+    'the shared finance mailbox is told too'
+  );
+  assert.deepEqual(pick('RETURNED'), ['prep@x.go.ke']);
+  assert.deepEqual(pick('VERIFIED'), ['fin@x.go.ke', 'prep@x.go.ke']);
+  assert.deepEqual(pick('PAID'), ['prep@x.go.ke']);
+});
+
+test('emails fall back to the super admins when nobody holds the role, and skip whoever acted', () => {
+  const noOfficer = people.filter((p) => p.paymentRole !== 'AUTHORISER');
+  assert.deepEqual(pickRecipients({ kind: 'SUBMITTED', users: noOfficer, preparerEmail: 'prep@x.go.ke', actorEmail: 'x' }), [
+    'boss@x.go.ke'
+  ]);
+  assert.deepEqual(
+    pickRecipients({ kind: 'SUBMITTED', users: people, preparerEmail: 'prep@x.go.ke', actorEmail: 'OFFICER@x.go.ke' }),
+    [],
+    'the person who just acted is not emailed'
+  );
+  assert.deepEqual(pickRecipients({ kind: 'PAID', users: people, preparerEmail: null, actorEmail: 'x' }), []);
+});

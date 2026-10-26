@@ -234,6 +234,7 @@
           <button type="button" id="returnBtn" hidden>Send back</button>
           <button type="button" class="good" id="certifyBtn" hidden>Certify this sheet</button>
           <button type="button" class="good" id="verifyBtn" hidden>Verify for payment</button>
+          <button type="button" class="good" id="payBtn" hidden>Mark as paid</button>
         </div>
         <p class="say" id="actMsg" role="status" aria-live="polite"></p>
       </div>
@@ -287,15 +288,15 @@
 
   // ---- The list ----
   // Where a sheet is on its way: three steps in the list, four on the sheet itself.
-  function track(stage, big){
+  function track(stage, big, paid){
     var ol = el('ol', 'track' + (big ? ' big' : ''));
     var labels, states;
     if(big){
-      labels = ['Collecting signatures', 'Authorising officer', 'Finance', 'Verified'];
-      var at = { OPEN: 0, SUBMITTED: 1, CERTIFIED: 2, VERIFIED: 4 }[stage];
+      labels = ['Collecting signatures', 'Authorising officer', 'Finance', 'Verified', 'Paid'];
+      var at = { OPEN: 0, SUBMITTED: 1, CERTIFIED: 2, VERIFIED: paid ? 5 : 4 }[stage];
       states = labels.map(function(x, i){ return i < at ? 'done' : (i === at ? 'now' : ''); });
     } else {
-      labels = ['Submitted', stage === 'SUBMITTED' ? 'Officer' : 'Certified', stage === 'VERIFIED' ? 'Verified' : 'Finance'];
+      labels = ['Submitted', stage === 'SUBMITTED' ? 'Officer' : 'Certified', stage === 'VERIFIED' ? (paid ? 'Paid' : 'Verified') : 'Finance'];
       states = { SUBMITTED: ['done', 'now', ''], CERTIFIED: ['done', 'done', 'now'], VERIFIED: ['done', 'done', 'done'] }[stage] || ['now', '', ''];
     }
     labels.forEach(function(s, i){
@@ -308,24 +309,25 @@
   }
 
   function groups(){
-    var by = { waiting: [], officer: [], finance: [], done: [] };
+    var by = { waiting: [], officer: [], finance: [], done: [], toPay: [] };
     sheets.forEach(function(s){
       if(s.waitingForMe) by.waiting.push(s);
       if(s.stage === 'SUBMITTED') by.officer.push(s);
       if(s.stage === 'CERTIFIED') by.finance.push(s);
       if(s.stage === 'VERIFIED') by.done.push(s);
+      if(s.stage === 'VERIFIED' && !s.paid) by.toPay.push(s);
     });
     return by;
   }
 
   function renderTiles(by){
     var t = $('tiles'); t.textContent = '';
-    var total = sheets.reduce(function(n, s){ return n + (s.stage === 'VERIFIED' ? 0 : s.amount); }, 0);
+    var total = by.toPay.reduce(function(n, s){ return n + s.amount; }, 0);
     function tile(label, value, sub, hot){ var d = el('div', 'tile' + (hot ? ' hot' : '')); d.appendChild(el('div', 'l', label)); d.appendChild(el('div', 'v', String(value))); if(sub) d.appendChild(el('div', 's', sub)); return d; }
     t.appendChild(tile('Waiting for you', by.waiting.length, by.waiting.length ? 'needs your decision' : 'all caught up', by.waiting.length > 0));
     t.appendChild(tile('With the officer', by.officer.length, 'to be certified'));
     t.appendChild(tile('With finance', by.finance.length, 'to be verified'));
-    t.appendChild(tile('Still to be paid', money(total).replace('KES ', ''), 'KES, across ' + plural(sheets.filter(function(s){ return s.stage !== 'VERIFIED'; }).length, 'open sheet')));
+    t.appendChild(tile('Still to be paid', money(total).replace('KES ', ''), by.toPay.length ? 'KES, across ' + plural(by.toPay.length, 'verified sheet') : 'nothing verified is unpaid', false));
     ['segWaiting', 'segAll', 'segOfficer', 'segFinance', 'segDone'].forEach(function(id, i){ $(id).textContent = [by.waiting, sheets, by.officer, by.finance, by.done][i].length; });
     [['navWaiting', by.waiting.length, true], ['navAll', sheets.length, false], ['navDone', by.done.length, false]].forEach(function(x){
       var b = $(x[0]); b.hidden = !x[1]; b.textContent = String(x[1]); b.classList.toggle('hot', !!x[2] && x[1] > 0);
@@ -353,7 +355,7 @@
     var m = el('div', 'm');
     [s.county + ' county', 'Prepared by ' + s.preparedBy, s.authorityRef, s.submittedAt ? 'Sent ' + ago(s.submittedAt) : ''].forEach(function(x){ if(x) m.appendChild(el('span', null, x)); });
     left.appendChild(m); r.appendChild(left);
-    r.appendChild(track(s.stage, false));
+    r.appendChild(track(s.stage, false, s.paid));
     var f = el('div', 'fig'); f.appendChild(el('div', 'amt', money(s.amount))); f.appendChild(el('div', 'ppl', plural(s.people, 'person', 'people'))); r.appendChild(f);
     var b = el('button', 'go' + (s.waitingForMe ? ' primary' : ''), s.waitingForMe ? 'Review' : 'Open'); b.type = 'button';
     b.addEventListener('click', function(){ location.hash = 'sheet=' + s.id; });
@@ -391,7 +393,7 @@
 
   // ---- One sheet ----
   var CELL = { SIGNED: '✓', OPEN: 'open', UPCOMING: '–', ABSENT: '✕' };
-  var STEP_WORD = { SUBMITTED: 'Submitted', CERTIFIED: 'Certified', VERIFIED: 'Verified', RETURNED: 'Sent back' };
+  var STEP_WORD = { SUBMITTED: 'Submitted', CERTIFIED: 'Certified', VERIFIED: 'Verified', PAID: 'Marked as paid', RETURNED: 'Sent back' };
 
   function renderFindings(list){
     var w = $('checksWrap'); w.textContent = '';
@@ -408,10 +410,10 @@
     current = d;
     $('sName').textContent = d.event.name;
     var chips = $('sChips'); chips.textContent = '';
-    [['County', d.event.county], ['Prepared by', d.event.preparedBy], ['Authorised by', d.event.authorisedBy], ['Reference', d.event.authorityRef]].forEach(function(c){
+    [['County', d.event.county], ['Prepared by', d.event.preparedBy], ['Authorised by', d.event.authorisedBy], ['Reference', d.event.authorityRef]].concat(d.paid ? [['Paid', (d.paidReference || '') + ' · ' + when(d.paidAt, d.event.timezone)]] : []).forEach(function(c){
       var s = el('span', 'chip'); s.appendChild(document.createTextNode(c[0] + ' ')); s.appendChild(el('b', null, c[1] || '—')); chips.appendChild(s);
     });
-    var tk = $('sTrack'); tk.replaceWith(Object.assign(track(d.stage, true), { id: 'sTrack' }));
+    var tk = $('sTrack'); tk.replaceWith(Object.assign(track(d.stage, true, d.paid), { id: 'sTrack' }));
 
     var tl = $('timeline'); tl.textContent = '';
     d.approvals.slice().reverse().forEach(function(a){
@@ -454,16 +456,17 @@
     renderFindings(d.findings);
 
     var needAck = (d.findings || []).some(function(f){ return f.severity === 'review'; });
-    var canAct = d.canCertify || d.canVerify || d.canReturn;
+    var canAct = d.canCertify || d.canVerify || d.canReturn || d.canPay;
+    $('note').placeholder = d.canPay ? 'Payment reference, for example the voucher or transfer number' : 'Add a note (needed if you send it back)';
     $('ack').checked = false;
     $('ackRow').style.display = needAck && (d.canCertify || d.canVerify) ? 'flex' : 'none';
-    $('certifyBtn').hidden = !d.canCertify; $('verifyBtn').hidden = !d.canVerify; $('returnBtn').hidden = !d.canReturn;
+    $('certifyBtn').hidden = !d.canCertify; $('verifyBtn').hidden = !d.canVerify; $('returnBtn').hidden = !d.canReturn; $('payBtn').hidden = !d.canPay;
     $('decide').classList.toggle('none', !canAct);
     var body = $('decideBody'), quiet = body.querySelector('.quiet');
     if(quiet) quiet.remove();
     $('note').hidden = !canAct;
     if(!canAct){
-      var q = el('span', 'quiet', d.stage === 'VERIFIED' ? 'This sheet is fully approved and sealed.' : 'Nothing for you to do on this sheet at this stage. Whoever prepared or certified it cannot approve the next step.');
+      var q = el('span', 'quiet', d.paid ? 'Paid. Reference ' + d.paidReference + ', recorded by ' + d.paidBy + '.' : d.stage === 'VERIFIED' ? 'This sheet is fully approved and sealed. It is waiting for finance to record the payment.' : 'Nothing for you to do on this sheet at this stage. Whoever prepared or certified it cannot approve the next step.');
       body.insertBefore(q, body.firstChild);
     }
     var m = $('actMsg'); m.textContent = flash || ''; m.className = 'say' + (flash ? ' ok' : ''); flash = null;
@@ -484,21 +487,23 @@
   function act(path, confirmText, needNote){
     var note = $('note').value.trim(), m = $('actMsg');
     if(path !== 'return' && $('ackRow').style.display === 'flex' && !$('ack').checked){ m.textContent = 'Tick the box to confirm you have looked at the items marked for review.'; m.className = 'say err'; return; }
+    if(path === 'paid' && note.length < 3){ m.textContent = 'Type the payment reference in the box first.'; m.className = 'say err'; return; }
     if(needNote && note.length < 5){ m.textContent = 'Say what needs to be fixed, so the preparer knows.'; m.className = 'say err'; return; }
     if(!window.confirm(confirmText)) return;
-    var btns = ['certifyBtn', 'verifyBtn', 'returnBtn'];
+    var btns = ['certifyBtn', 'verifyBtn', 'returnBtn', 'payBtn'];
     btns.forEach(function(b){ $(b).disabled = true; });
     m.textContent = 'Saving…'; m.className = 'say';
-    API.post('/api/duty-review/sheets/' + encodeURIComponent(current.id) + '/' + path, { note: note, acknowledge: $('ack').checked }).then(function(r){
+    API.post('/api/duty-review/sheets/' + encodeURIComponent(current.id) + '/' + path, path === 'paid' ? { reference: note } : { note: note, acknowledge: $('ack').checked }).then(function(r){
       btns.forEach(function(b){ $(b).disabled = false; });
       if(!r.data.ok){ m.textContent = r.data.message || 'Could not save your decision.'; m.className = 'say err'; return; }
       $('note').value = '';
-      flash = path === 'return' ? 'Sent back to the preparer.' : 'Recorded.';
+      flash = path === 'return' ? 'Sent back to the preparer.' : path === 'paid' ? 'Marked as paid.' : 'Recorded.';
       openSheet(current.id);
     }).catch(function(){ btns.forEach(function(b){ $(b).disabled = false; }); m.textContent = 'No connection. Please try again.'; m.className = 'say err'; });
   }
   $('certifyBtn').addEventListener('click', function(){ act('certify', 'Certify this sheet? It is sealed as you see it now, and it goes to finance.', false); });
   $('verifyBtn').addEventListener('click', function(){ act('verify', 'Verify this sheet for payment?', false); });
+  $('payBtn').addEventListener('click', function(){ act('paid', 'Record this sheet as paid, with the reference you typed? This cannot be undone.', false); });
   $('returnBtn').addEventListener('click', function(){ act('return', 'Send this sheet back to the preparer? Its approval starts again.', true); });
 
   function route(){

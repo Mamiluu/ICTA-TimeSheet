@@ -542,7 +542,7 @@
     var text = el('div'); text.style.minWidth = '0';
     var nm = el('div', 'adm-email', d.name); nm.title = d.name;
     text.appendChild(nm);
-    text.appendChild(el('div', 'adm-county', plural(d.events, 'event') + ' · ' + plural(d.countyAdmins, 'county admin')));
+    text.appendChild(el('div', 'adm-county', plural(d.events, 'event') + ' · ' + plural(d.countyAdmins, 'county admin') + (d.financeEmail ? ' · finance: ' + d.financeEmail : '')));
     who.appendChild(text);
 
     var state = el('div', 'adm-state');
@@ -565,6 +565,7 @@
     more.appendChild(sum);
     var menu = el('div', 'ev-menu');
     menu.appendChild(menuItem('Rename', function(){ renameDept(d); }));
+    menu.appendChild(menuItem(d.financeEmail ? 'Change finance email' : 'Set finance email', function(){ setFinanceEmail(d); }));
     menu.appendChild(menuItem(d.active ? 'Pause department' : 'Resume department', function(b){ setDeptActive(d, !d.active, b); }, d.active ? 'danger' : ''));
     more.appendChild(menu);
     actions.appendChild(more);
@@ -633,6 +634,15 @@
       refreshAll();
     }).catch(function(){ btn.disabled = false; window.alert(NET_ERR); });
   });
+
+  function setFinanceEmail(d){
+    var v = window.prompt('A shared finance mailbox for ' + d.name + '. It is told whenever a payment sheet reaches finance, besides the people who hold the finance role. Leave empty to remove it.', d.financeEmail || '');
+    if(v == null) return;
+    API.patch('/api/platform/departments/' + d.id, { financeEmail: v }).then(function(r){
+      if(!r.data.ok){ window.alert(r.data.message || 'Could not save the finance email.'); return; }
+      refreshAll();
+    }).catch(function(){ window.alert(NET_ERR); });
+  }
 
   function renameDept(d){
     var name = window.prompt('New name for this department:', d.name);
