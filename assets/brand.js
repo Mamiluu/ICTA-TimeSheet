@@ -81,6 +81,7 @@
     if(b.orgName !== DEFAULT_NAME && document.title.indexOf(DEFAULT_NAME) !== -1) document.title = swapName(document.title);
     if(document.body) walk(document.body);
     window.ORG_BRAND = b;
+    release();
     document.dispatchEvent(new CustomEvent('brand:ready', { detail: b }));
   }
 
@@ -96,6 +97,12 @@
   try{ cached = JSON.parse(localStorage.getItem(cacheKey) || 'null'); }catch(e){}
   if(cached){ brand = cached; setColours(cached); }
 
+  // Until the organisation is known, the loading screen shows only its ring, never a name or a logo
+  // that might be somebody else's. It is released when the answer arrives, or after a few seconds.
+  var root = document.documentElement;
+  function release(){ root.classList.remove('brand-wait'); }
+  if(!cached){ root.classList.add('brand-wait'); setTimeout(release, 3500); }
+
   function start(){
     if(cached) apply(cached);
     watch();
@@ -105,9 +112,9 @@
   fetch('/api/branding' + (ctx.length ? '?' + ctx.join('&') : ''), { credentials: 'include' })
     .then(function(r){ return r.json(); })
     .then(function(b){
-      if(!b || !b.ok) return;
+      if(!b || !b.ok){ release(); return; }
       try{ localStorage.setItem(cacheKey, JSON.stringify(b)); }catch(e){}
       if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ apply(b); }); else apply(b);
     })
-    .catch(function(){ /* keep the page as written */ });
+    .catch(function(){ /* keep the page as written */ release(); });
 })();

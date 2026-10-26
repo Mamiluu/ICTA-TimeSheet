@@ -164,6 +164,7 @@ td.actions button{ font-size:11px; padding:4px 8px; margin-right:4px; }
    (see any of login.html/admin.html/etc.) but all share these rules and
    this stylesheet's own tokens, rather than importing index.html's
    serif letterhead type where these simpler admin pages never use it. */
+.brand-wait .preloader-logo, .brand-wait .preloader-org{ visibility:hidden !important; }
 .preloader{
   position:fixed; inset:0; z-index:9999;
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px;
