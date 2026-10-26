@@ -19,7 +19,7 @@
   :root{
     --ui:"Figtree", "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
     --display:"Bricolage Grotesque", "Figtree", "Segoe UI", system-ui, sans-serif;
-    --ink:#1c1e23; --soft:#5d6472; --line:#e4e1d8; --sun:#ffd36b; --ok:#1f8f63; --bad:#c9243c;
+    --ink:#1c1e23; --soft:#5d6472; --line:#e4e1d8; --ok:#1f8f63; --bad:#c9243c;
   }
   *{ box-sizing:border-box; }
   html,body{ height:100%; }
@@ -42,14 +42,14 @@
   input, textarea{ width:100%; font:inherit; font-size:16px; padding:10px 13px; border:1.5px solid #d9d6cb; border-radius:11px; background:#fff; color:var(--ink); transition:border-color .15s, box-shadow .15s; }
   textarea{ min-height:68px; resize:vertical; }
   input:hover, textarea:hover{ border-color:#b9b5a6; }
-  input:focus, textarea:focus{ outline:none; border-color:var(--ink); box-shadow:3px 3px 0 var(--sun); }
+  input:focus, textarea:focus{ outline:none; border-color:var(--ink); box-shadow:0 0 0 3px rgba(28,30,35,.12); }
   ::placeholder{ color:#a9a595; }
   .hp{ position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
   .addnote{ background:none; border:0; padding:0; font:inherit; font-size:14px; color:var(--soft); text-decoration:underline; cursor:pointer; margin:0 0 14px; }
   .addnote:hover{ color:var(--ink); }
 
-  .btn{ width:100%; display:inline-flex; justify-content:center; align-items:center; gap:9px; font:inherit; font-size:16px; font-weight:700; padding:13px 22px; border-radius:13px; background:var(--ink); color:#fff; border:2px solid var(--ink); cursor:pointer; box-shadow:3px 3px 0 var(--sun); transition:transform .12s, box-shadow .12s; text-decoration:none; }
-  .btn:hover:not(:disabled){ transform:translate(2px,2px); box-shadow:1px 1px 0 var(--sun); }
+  .btn{ width:100%; display:inline-flex; justify-content:center; align-items:center; gap:9px; font:inherit; font-size:16px; font-weight:700; padding:13px 22px; border-radius:13px; background:var(--ink); color:#fff; border:2px solid var(--ink); cursor:pointer; transition:background .15s; text-decoration:none; }
+  .btn:hover:not(:disabled){ background:#000; }
   .btn:disabled{ opacity:.55; cursor:default; }
   .btn svg{ width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
   .msg{ margin:12px 0 0; font-size:14.5px; }

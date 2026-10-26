@@ -20,7 +20,7 @@
     --ui:"Figtree", "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
     --display:"Bricolage Grotesque", "Figtree", "Segoe UI", system-ui, sans-serif;
     --paper:#ffffff; --ink:#1c1e23; --soft:#5d6472; --line:#ece6d8;
-    --peach:#ffe3d1; --mint:#cfeee0; --lav:#dcd6fb; --sun:#ffd36b; --ok:#1f8f63; --bad:#d6334a;
+    --peach:#ffe3d1; --mint:#cfeee0; --lav:#dcd6fb; --ok:#1f8f63; --bad:#d6334a;
   }
   *{ box-sizing:border-box; }
   html{ scroll-behavior:smooth; }
@@ -31,8 +31,7 @@
       radial-gradient(560px 400px at 10% 6%, rgba(255,198,170,.78), transparent 70%),
       radial-gradient(620px 440px at 90% 2%, rgba(196,182,255,.72), transparent 70%),
       radial-gradient(560px 420px at 82% 66%, rgba(170,222,255,.62), transparent 70%),
-      radial-gradient(520px 380px at 14% 74%, rgba(176,236,208,.62), transparent 70%),
-      radial-gradient(440px 320px at 50% 34%, rgba(255,232,160,.5), transparent 74%);
+      radial-gradient(520px 380px at 14% 74%, rgba(176,236,208,.62), transparent 70%);
     -webkit-mask-image:linear-gradient(#000 62%, transparent); mask-image:linear-gradient(#000 62%, transparent);
     animation:drift 16s ease-in-out infinite alternate; }
   body::after{ content:""; position:absolute; left:0; right:0; top:0; height:760px; z-index:-1; pointer-events:none;
@@ -70,8 +69,7 @@
   .eyebrow{ display:inline-flex; align-items:center; gap:10px; font-size:14.5px; color:var(--soft); margin:0 0 20px; }
   
   h1{ font-family:var(--display); font-size:clamp(42px, 6vw, 80px); line-height:1.02; letter-spacing:-.032em; word-spacing:.06em; margin:0 0 24px; font-weight:760; }
-  h1 .hl{ }
-  .lede{ font-size:clamp(18px, 1.7vw, 20px); color:var(--soft); max-width:40ch; margin:0 0 32px; }
+    .lede{ font-size:clamp(18px, 1.7vw, 20px); color:var(--soft); max-width:40ch; margin:0 0 32px; }
   .go{ display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
   .tiny{ margin:26px 0 0; font-size:14.5px; color:var(--soft); display:flex; gap:10px; align-items:center; }
   .tiny svg{ width:18px; height:18px; stroke:var(--ok); fill:none; stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; flex:none; }
