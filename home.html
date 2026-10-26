@@ -50,13 +50,13 @@
   .brand img{ width:38px; height:38px; display:block; }
   header nav{ display:flex; gap:28px; font-size:15.5px; margin-left:10px; }
   header nav a{ text-decoration:none; color:var(--soft); padding:6px 0; border-bottom:2px solid transparent; }
-  header nav a:hover{ color:var(--ink); border-color:var(--sun); }
+  header nav a:hover{ color:var(--ink); border-color:var(--ink); }
   header .r{ margin-left:auto; display:flex; align-items:center; gap:22px; font-size:15.5px; }
   header .r .login{ text-decoration:none; color:var(--soft); } header .r .login:hover{ color:var(--ink); }
 
-  .btn{ display:inline-flex; align-items:center; gap:10px; font:inherit; font-size:16px; font-weight:700; padding:15px 28px; border-radius:14px; background:var(--ink); color:#fff; text-decoration:none; border:2px solid var(--ink); cursor:pointer; line-height:1.2; box-shadow:4px 4px 0 var(--sun); transition:transform .12s, box-shadow .12s; }
-  .btn:hover{ transform:translate(2px,2px); box-shadow:2px 2px 0 var(--sun); }
-  .btn.sm{ padding:10px 20px; font-size:15px; border-radius:12px; box-shadow:3px 3px 0 var(--sun); }
+  .btn{ display:inline-flex; align-items:center; gap:10px; font:inherit; font-size:16px; font-weight:700; padding:15px 28px; border-radius:14px; background:var(--ink); color:#fff; text-decoration:none; border:2px solid var(--ink); cursor:pointer; line-height:1.2; transition:background .15s, border-color .15s; }
+  .btn:hover{ background:#000; }
+  .btn.sm{ padding:10px 20px; font-size:15px; border-radius:12px; }
   .btn.plain{ background:transparent; color:var(--ink); box-shadow:none; border-color:#cfc8b6; }
   .btn.plain:hover{ transform:none; background:#fff; border-color:var(--ink); }
   .btn svg{ width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
@@ -70,7 +70,7 @@
   .eyebrow{ display:inline-flex; align-items:center; gap:10px; font-size:14.5px; color:var(--soft); margin:0 0 20px; }
   
   h1{ font-family:var(--display); font-size:clamp(42px, 6vw, 80px); line-height:1.02; letter-spacing:-.032em; word-spacing:.06em; margin:0 0 24px; font-weight:760; }
-  h1 .hl{ background:linear-gradient(transparent 62%, var(--sun) 62%, var(--sun) 90%, transparent 90%); padding:0 4px; margin:0 -4px; -webkit-box-decoration-break:clone; box-decoration-break:clone; }
+  h1 .hl{ }
   .lede{ font-size:clamp(18px, 1.7vw, 20px); color:var(--soft); max-width:40ch; margin:0 0 32px; }
   .go{ display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
   .tiny{ margin:26px 0 0; font-size:14.5px; color:var(--soft); display:flex; gap:10px; align-items:center; }
