@@ -117,7 +117,7 @@
       <a class="nav-item" href="#support" data-nav="support"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3zM9 12l2 2 4-4"/></svg><span>Support access</span><span class="badge-count" id="navSupport" hidden></span></a>
       <a class="nav-item" href="#inside" data-nav="inside" id="navInside" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg><span>Look inside</span><span class="badge-count hot" id="navLive">live</span></a>
       <div class="nav-group">Go to</div>
-      <a class="nav-item" href="owner.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span>All organisations</span></a>
+      <a class="nav-item" href="owner"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span>All organisations</span></a>
     </nav>
     <button type="button" id="logoutBtn" class="side-logout">Log out</button>
   </aside>
@@ -216,10 +216,10 @@
   function closeNav(){ sidenav.classList.remove('open'); navScrim.classList.remove('open'); navToggle.setAttribute('aria-expanded', 'false'); }
   navToggle.addEventListener('click', function(){ var o = !sidenav.classList.contains('open'); sidenav.classList.toggle('open', o); navScrim.classList.toggle('open', o); navToggle.setAttribute('aria-expanded', o ? 'true' : 'false'); });
   navScrim.addEventListener('click', closeNav);
-  $('logoutBtn').addEventListener('click', function(){ API.post('/api/auth/logout').then(function(){ location.href = 'login.html'; }); });
+  $('logoutBtn').addEventListener('click', function(){ API.post('/api/auth/logout').then(function(){ location.href = 'login'; }); });
 
   API.get('/api/auth/me').then(function(r){
-    if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return; }
+    if(r.status !== 200 || !r.data.ok){ location.href = 'login'; return; }
     if(r.data.user.role !== 'OWNER'){ location.href = homeFor(r.data.user.role); return; }
     $('whoEmail').textContent = r.data.user.email; $('whoEmail').title = r.data.user.email;
     $('userAvatar').textContent = (r.data.user.email || 'O').charAt(0).toUpperCase();

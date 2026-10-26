@@ -293,13 +293,13 @@
 
   // ---- Session and navigation ----
   API.get('/api/auth/me').then(function(r){
-    if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return; }
+    if(r.status !== 200 || !r.data.ok){ location.href = 'login'; return; }
     if(r.data.user.role !== 'OWNER'){ location.href = homeFor(r.data.user.role); return; }
     $('whoEmail').textContent = r.data.user.email; $('whoEmail').title = r.data.user.email;
     $('userAvatar').textContent = (r.data.user.email || 'O').charAt(0).toUpperCase();
     showView(location.hash.replace('#', '')); load();
   }).catch(function(){ $('orgList').textContent = 'No connection. Reload to try again.'; });
-  $('logoutBtn').addEventListener('click', function(){ API.post('/api/auth/logout').then(function(){ location.href = 'login.html'; }); });
+  $('logoutBtn').addEventListener('click', function(){ API.post('/api/auth/logout').then(function(){ location.href = 'login'; }); });
   API.get('/api/owner/plans').then(function(r){ if(r.status === 200 && r.data.ok) PLAN_META = r.data; });
 
   var sidenav = $('sidenav'), navScrim = $('navScrim'), navToggle = $('navToggle');
@@ -392,7 +392,7 @@
     state.orgs.slice().sort(function(a, b){ return b.attendance - a.attendance; }).forEach(function(o){
       var tr = document.createElement('tr');
       var td = el('td'); var nm = el('div', 'nm'); var img = el('img', 'lg'); img.src = '/api/org-logo/' + encodeURIComponent(o.slug); img.alt = ''; img.style.cssText = 'width:30px;height:30px;border-radius:8px;padding:2px;';
-      var a = el('a', null, o.name); a.href = 'owner-org.html?id=' + encodeURIComponent(o.id); nm.appendChild(img); nm.appendChild(a); td.appendChild(nm); tr.appendChild(td);
+      var a = el('a', null, o.name); a.href = 'owner-org?id=' + encodeURIComponent(o.id); nm.appendChild(img); nm.appendChild(a); td.appendChild(nm); tr.appendChild(td);
       var r = el('td'); var sh = el('span', 'share'); var i = document.createElement('i'); i.style.width = Math.max(4, Math.round(o.attendance / max * 100)) + '%'; sh.appendChild(i); r.appendChild(sh); r.appendChild(document.createTextNode(o.attendance.toLocaleString('en-KE'))); tr.appendChild(r);
       tr.appendChild(el('td', 'num', ago(o.lastActivityAt))); tb.appendChild(tr);
     });
@@ -417,7 +417,7 @@
     var row = el('article', 'orow' + (o.status === 'ACTIVE' ? '' : ' off'));
     var who = el('div', 'who'); var img = el('img', 'lg'); img.src = '/api/org-logo/' + encodeURIComponent(o.slug); img.alt = ''; who.appendChild(img);
     var txt = el('div'); txt.style.minWidth = '0';
-    var nm = el('div', 'nm'); var a = el('a', null, o.name + (o.shortName ? ' (' + o.shortName + ')' : '')); a.href = 'owner-org.html?id=' + encodeURIComponent(o.id); nm.appendChild(a); txt.appendChild(nm);
+    var nm = el('div', 'nm'); var a = el('a', null, o.name + (o.shortName ? ' (' + o.shortName + ')' : '')); a.href = 'owner-org?id=' + encodeURIComponent(o.id); nm.appendChild(a); txt.appendChild(nm);
     txt.appendChild(el('div', 'sub', o.slug + ' · added ' + dateOf(o.createdAt) + (o.customDomain ? ' · ' + o.customDomain + (o.domainVerified ? '' : ' (unconfirmed)') : '')));
     var pills = el('div', 'pills');
     pills.appendChild(el('span', 'pill ' + (o.status === 'ACTIVE' ? 'ok' : 'bad'), o.status === 'ACTIVE' ? 'Active' : 'Suspended'));
@@ -435,7 +435,7 @@
     row.appendChild(m);
 
     var act = el('div', 'oact');
-    var open = el('a', 'btn', 'Open'); open.href = 'owner-org.html?id=' + encodeURIComponent(o.id); act.appendChild(open);
+    var open = el('a', 'btn', 'Open'); open.href = 'owner-org?id=' + encodeURIComponent(o.id); act.appendChild(open);
     var more = el('details', 'ev-more'); var sum2 = el('summary', null, 'Manage'); sum2.setAttribute('aria-label', 'Manage ' + o.name); more.appendChild(sum2);
     var menu = el('div', 'ev-menu');
     menu.appendChild(menuItem('Plan and limits…', function(){ openPlan(o); }));

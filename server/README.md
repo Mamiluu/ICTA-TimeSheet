@@ -79,6 +79,10 @@ A `render.yaml` blueprint at the repo root does most of this for you.
   the API, has every account of one try to reach the other's data, and fails on anything that
   is not refused. Run it against a test database after any change that touches who can see what
   (start the server with `LOGIN_RATE_LIMIT=100`).
+- Page addresses: pages are reached without the file extension (`/login`, `/admin`, `/verify?code=...`).
+  The attendee sign in page, `index.html`, is `/attend`. The old `.html` addresses still answer, with a
+  redirect that keeps the query string, because they are in emails and printed QR codes. The list of
+  redirected pages is `CLEAN_PAGES` in `src/index.js`; a new page needs adding there.
 - Branding: each organisation sets its own name, address, phone, website, the line in the band at the
   foot of printed payment sheets (`footerLine`; ICT Authority's default is its State Corporation
   statement, other organisations print none until they set one; migration

@@ -75,7 +75,7 @@
   <h1>My events</h1>
   <p class="lede">Every event you have signed in to on this device, with how far along it is and your certificate once the event is over. This list is built from this browser only: nothing is stored about you elsewhere.</p>
   <div id="root"><p class="note">Looking for your events…</p></div>
-  <p class="foot"><a href="privacy.html">Privacy policy</a> · © 2026 Asya Hafidh. All rights reserved.</p>
+  <p class="foot"><a href="privacy">Privacy policy</a> · © 2026 Asya Hafidh. All rights reserved.</p>
 </main>
 
 <script>
@@ -136,13 +136,13 @@
 
     var actions = el('div', 'actions');
     var open = el('a', null, e.status === 'IN_PROGRESS' || e.status === 'UPCOMING' ? 'Open sheet & pass' : 'Open sheet');
-    open.href = 'index.html?event=' + encodeURIComponent(e.slug);
+    open.href = 'attend?event=' + encodeURIComponent(e.slug);
     actions.appendChild(open);
 
     var msg = el('span', 'err');
     if(e.certificateCode){
       var view = el('a', 'primary', 'View certificate');
-      view.href = 'certificate.html?code=' + encodeURIComponent(e.certificateCode);
+      view.href = 'certificate?code=' + encodeURIComponent(e.certificateCode);
       view.target = '_blank'; view.rel = 'noopener';
       actions.appendChild(view);
     } else if(e.certificateReady && e.certificatesEnabled){
@@ -153,7 +153,7 @@
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId: clientIdBySlug[e.slug] })
         }).then(function(r){ return r.json(); }).then(function(d){
           get.disabled = false;
-          if(d && d.ok){ e.certificateCode = d.code; window.open('certificate.html?code=' + encodeURIComponent(d.code), '_blank'); load(); return; }
+          if(d && d.ok){ e.certificateCode = d.code; window.open('certificate?code=' + encodeURIComponent(d.code), '_blank'); load(); return; }
           msg.textContent = (d && d.message) || 'Could not prepare your certificate right now.';
         }).catch(function(){ get.disabled = false; msg.textContent = 'No connection. Please try again.'; });
       });

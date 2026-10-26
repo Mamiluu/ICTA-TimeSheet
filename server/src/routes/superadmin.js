@@ -161,7 +161,7 @@ superadminRouter.post('/admins', ah(async (req, res) => {
   }
 
   const raw = await issueToken(admin.id, 'ACTIVATION');
-  const activateUrl = `${baseUrlFor(req.user.organisation)}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(req.user.organisation.slug)}`;
+  const activateUrl = `${baseUrlFor(req.user.organisation)}/activate?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(req.user.organisation.slug)}`;
   sendActivationEmailBestEffort(admin.email, activateUrl, admin.county, admin.organisationId);
   await writeAudit({ actorId: req.user.id, action: 'ADMIN_CREATE', targetType: 'User', targetId: admin.id, metadata: { county, access, paymentRole }, req });
 
@@ -182,7 +182,7 @@ superadminRouter.post('/admins/:id/activation-link', ah(async (req, res) => {
   if (admin.status !== 'PENDING') return res.status(409).json({ ok: false, error: 'NOT_PENDING' });
 
   const raw = await issueToken(admin.id, 'ACTIVATION');
-  const activateUrl = `${baseUrlFor(req.user.organisation)}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(req.user.organisation.slug)}`;
+  const activateUrl = `${baseUrlFor(req.user.organisation)}/activate?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(req.user.organisation.slug)}`;
   await writeAudit({ actorId: req.user.id, action: 'ADMIN_ACTIVATION_LINK_VIEWED', targetType: 'User', targetId: admin.id, req });
 
   res.json({ ok: true, url: activateUrl });
@@ -245,7 +245,7 @@ superadminRouter.post('/admins/:id/reactivate', ah(async (req, res) => {
   }
 
   const raw = await issueToken(updated.id, 'ACTIVATION');
-  const activateUrl = `${baseUrlFor(req.user.organisation)}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(req.user.organisation.slug)}`;
+  const activateUrl = `${baseUrlFor(req.user.organisation)}/activate?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(req.user.organisation.slug)}`;
   sendActivationEmailBestEffort(updated.email, activateUrl, updated.county, updated.organisationId);
   await writeAudit({ actorId: req.user.id, action: 'ADMIN_REACTIVATE', targetType: 'User', targetId: updated.id, req });
 

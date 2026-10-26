@@ -52,10 +52,10 @@ var API = (function(){
 // account that does not belong on it. One place, so the pages can never send a
 // role back and forth between two dashboards.
 function homeFor(role){
-  if(role === 'OWNER') return 'owner.html';
-  if(role === 'PLATFORM_ADMIN') return 'platform.html';
-  if(role === 'SUPER_ADMIN') return 'superadmin.html';
-  return 'admin.html';
+  if(role === 'OWNER') return 'owner';
+  if(role === 'PLATFORM_ADMIN') return 'platform';
+  if(role === 'SUPER_ADMIN') return 'superadmin';
+  return 'admin';
 }
 
 // Every value rendered via string-concatenated innerHTML elsewhere on these

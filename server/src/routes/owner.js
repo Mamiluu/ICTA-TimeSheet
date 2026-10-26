@@ -30,7 +30,7 @@ ownerRouter.use(requireRole('OWNER'));
 
 // The page opens in the organisation's own look because the link names it.
 function activationUrl(raw, org) {
-  return `${baseUrlFor(org)}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(org.slug)}`;
+  return `${baseUrlFor(org)}/activate?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(org.slug)}`;
 }
 
 function isUnique(err) {

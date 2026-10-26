@@ -97,7 +97,7 @@
 <body>
 
 <div class="toolbar" id="toolbar" style="display:none;">
-  <a class="quiet" href="certificate.html">Verify another</a>
+  <a class="quiet" href="certificate">Verify another</a>
   <button type="button" id="printBtn">Print or save as PDF</button>
 </div>
 
@@ -135,7 +135,7 @@
     form.addEventListener('submit', function(e){
       e.preventDefault();
       var code = input.value.replace(/[^0-9A-Za-z]/g, '').toUpperCase();
-      if(code) location.href = 'certificate.html?code=' + encodeURIComponent(code);
+      if(code) location.href = 'certificate?code=' + encodeURIComponent(code);
     });
     box.appendChild(form);
     root.appendChild(box);
@@ -229,7 +229,7 @@
     vt.appendChild(el('div', 'code', d.code.slice(0, 5) + '-' + d.code.slice(5)));
     var vtext = el('div', 'vtext');
     vtext.appendChild(document.createTextNode('Check this certificate at '));
-    vtext.appendChild(el('b', null, location.host + '/certificate.html'));
+    vtext.appendChild(el('b', null, location.host + '/certificate'));
     vtext.appendChild(document.createTextNode(' with the code above, or scan the QR code. The check reads the live attendance record.'));
     vt.appendChild(vtext);
     verify.appendChild(qr); verify.appendChild(vt);

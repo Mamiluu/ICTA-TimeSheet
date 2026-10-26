@@ -44,7 +44,7 @@ function publicSuperAdmin(u) {
 }
 
 function activationUrl(raw, org) {
-  return `${baseUrlFor(org)}/activate.html?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(org.slug)}`;
+  return `${baseUrlFor(org)}/activate?token=${encodeURIComponent(raw)}&org=${encodeURIComponent(org.slug)}`;
 }
 
 function sendActivationBestEffort(user, url, departmentName) {

@@ -44,7 +44,7 @@ function sendConfirmationIfEmailed(row, event, day, dayCount, recordedAt) {
     endAt: day ? day.endAt : event.endAt,
     dayPosition: day ? day.position : undefined,
     dayCount,
-    passUrl: dayCount > 1 ? `${base}/index.html?event=${encodeURIComponent(event.slug)}&pass=${encodeURIComponent(row.clientId)}` : undefined,
+    passUrl: dayCount > 1 ? `${base}/attend?event=${encodeURIComponent(event.slug)}&pass=${encodeURIComponent(row.clientId)}` : undefined,
     timezone: event.timezone,
     locationType: event.locationType,
     address: event.address,
@@ -398,7 +398,7 @@ publicRouter.post('/events/:slug/attendance/:rowId/request-signature', attendanc
 
   res.json({
     ok: true,
-    link: `${await orgBaseUrl(event.organisationId)}/sign.html?token=${encodeURIComponent(raw)}`,
+    link: `${await orgBaseUrl(event.organisationId)}/sign?token=${encodeURIComponent(raw)}`,
     expiresAt
   });
 }));
@@ -452,7 +452,7 @@ publicRouter.get('/seals/:code/qr', attendanceLimiter, ah(async (req, res) => {
   const seal = await prisma.sheetSeal.findUnique({ where: { id: code }, select: { id: true, event: { select: { organisationId: true } } } });
   if (!seal) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
 
-  const png = await QRCode.toBuffer(`${await orgBaseUrl(seal.event.organisationId)}/verify.html?code=${code}`, { width: 120, margin: 1 });
+  const png = await QRCode.toBuffer(`${await orgBaseUrl(seal.event.organisationId)}/verify?code=${code}`, { width: 120, margin: 1 });
   res.set('Content-Type', 'image/png');
   res.set('Cache-Control', 'public, max-age=86400');
   res.send(png);
@@ -565,7 +565,7 @@ publicRouter.get('/certificates/:code/qr', attendanceLimiter, ah(async (req, res
   if (!SEAL_CODE_PATTERN.test(code)) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
   const cert = await prisma.attendanceCertificate.findUnique({ where: { id: code }, select: { id: true, event: { select: { organisationId: true } } } });
   if (!cert) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
-  const png = await QRCode.toBuffer(`${await orgBaseUrl(cert.event.organisationId)}/certificate.html?code=${code}`, { width: 240, margin: 1 });
+  const png = await QRCode.toBuffer(`${await orgBaseUrl(cert.event.organisationId)}/certificate?code=${code}`, { width: 240, margin: 1 });
   res.set('Content-Type', 'image/png');
   res.set('Cache-Control', 'public, max-age=86400');
   res.send(png);
@@ -751,7 +751,7 @@ publicRouter.post('/events/:slug/pass-qr', attendanceLimiter, ah(async (req, res
   const clientId = String(req.body.clientId || '');
   const row = clientId ? await prisma.attendance.findUnique({ where: { eventId_clientId: { eventId: event.id, clientId } }, select: { id: true } }) : null;
   if (!row) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
-  const url = `${await orgBaseUrl(event.organisationId)}/index.html?event=${encodeURIComponent(event.slug)}&pass=${encodeURIComponent(clientId)}`;
+  const url = `${await orgBaseUrl(event.organisationId)}/attend?event=${encodeURIComponent(event.slug)}&pass=${encodeURIComponent(clientId)}`;
   const png = await QRCode.toBuffer(url, { width: 220, margin: 1 });
   res.set('Content-Type', 'image/png');
   res.set('Cache-Control', 'no-store');

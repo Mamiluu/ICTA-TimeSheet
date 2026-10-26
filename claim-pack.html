@@ -125,7 +125,7 @@
 <body>
 
 <div class="toolbar" id="toolbar" style="display:none;">
-  <a class="quiet" href="admin.html#events">&larr; Back to events</a>
+  <a class="quiet" href="admin#events">&larr; Back to events</a>
   <span class="spacer"></span>
   <button type="button" class="quiet" id="printBtn">Print or save as PDF</button>
 </div>
@@ -269,7 +269,7 @@
         var seal = el('div', 'seal');
         var qr = document.createElement('img'); qr.src = '/api/seals/' + encodeURIComponent(code) + '/qr'; qr.alt = 'QR code to verify this record'; qr.width = 96; qr.height = 96;
         var t = el('div'); t.appendChild(el('div', 'code', code.slice(0, 5) + '-' + code.slice(5)));
-        t.appendChild(el('div', 'how', 'Verify at ' + location.host + '/verify.html with this code, or scan the QR. The check compares this record with the live attendance data.'));
+        t.appendChild(el('div', 'how', 'Verify at ' + location.host + '/verify with this code, or scan the QR. The check compares this record with the live attendance data.'));
         seal.appendChild(qr); seal.appendChild(t); ap.appendChild(seal);
       }
       sheet.appendChild(ap);
@@ -317,7 +317,7 @@
   function load(){
     if(!eventId){ message('No event selected. Open a claim pack from the Events page.'); return; }
     API.get('/api/admin/events/' + encodeURIComponent(eventId) + '/claim-pack').then(function(r){
-      if(r.status === 401 || r.status === 403){ location.href = 'login.html'; return; }
+      if(r.status === 401 || r.status === 403){ location.href = 'login'; return; }
       if(!r.data || !r.data.ok){ message('Could not load this claim pack. It may not be one of your events.'); return; }
       render(r.data);
     }).catch(function(){ message('Could not reach the server. Try again in a moment.'); });

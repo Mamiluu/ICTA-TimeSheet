@@ -839,7 +839,7 @@
 <div class="notice" id="noEventNotice" style="display:none;">
   <h2 id="noEventTitle">No event selected</h2>
   <p id="noEventBody">This link is missing an event. Ask your event organizer for the attendance link, or scan the QR code posted at the venue.</p>
-  <p id="noEventAdminLink"><a href="admin.html">Event organizer? Manage events →</a></p>
+  <p id="noEventAdminLink"><a href="admin">Event organizer? Manage events →</a></p>
 </div>
 
 <div id="mainContent">
@@ -884,7 +884,7 @@
 
   <div class="privacy-badge" id="privacyBadge">
     <span class="icon" aria-hidden="true">&#128274;</span>
-    <span><strong>Your entry is sealed.</strong> You can only see your own row never anyone else's name, phone, email, or signature, and not even how many people have signed in. Only this event's organizer sees the full list. <a href="privacy.html" target="_blank" rel="noopener">Read the privacy policy →</a></span>
+    <span><strong>Your entry is sealed.</strong> You can only see your own row never anyone else's name, phone, email, or signature, and not even how many people have signed in. Only this event's organizer sees the full list. <a href="privacy" target="_blank" rel="noopener">Read the privacy policy →</a></span>
   </div>
 
   <div class="receipt-banner" id="receiptBanner">
@@ -1000,7 +1000,7 @@
   </div>
 </div>
 
-<footer class="credit">Digital ICT Authority paper attendance sheet. <a href="wallet.html">My events on this device</a> · <a href="privacy.html" target="_blank" rel="noopener">Privacy policy</a><br>© 2026 Asya Hafidh. All rights reserved.</footer>
+<footer class="credit">Digital ICT Authority paper attendance sheet. <a href="wallet">My events on this device</a> · <a href="privacy" target="_blank" rel="noopener">Privacy policy</a><br>© 2026 Asya Hafidh. All rights reserved.</footer>
 </div>
 
 <div class="modal-backdrop" id="sigBackdrop">
@@ -1046,7 +1046,7 @@
   // next.
   var pendingSigLinks = {};
   // Export/print live exclusively in the authenticated admin dashboard now
-  // (see admin.html + GET /api/admin/events/:id/attendance), so every
+  // (see admin + GET /api/admin/events/:id/attendance), so every
   // download of personal data -- name, phone, email, signature -- gets an
   // audit trail. This page never offers those buttons at all, for anyone.
 
@@ -1240,7 +1240,7 @@
   // renders an event's UTC-stored startAt/endAt in *its own* timezone
   // regardless of the visitor's own device/browser locale, so "2pm" reads
   // as 2pm Nairobi time for everyone, not 2pm-wherever-they-happen-to-be.
-  // Duplicated rather than shared with the server (or with admin.html's
+  // Duplicated rather than shared with the server (or with admin's
   // identical copy) because this is a plain static page with no shared
   // module loading between them.
   function clientFormatEventWhen(startAtIso, endAtIso, timezone){
@@ -2632,7 +2632,7 @@
         }
         // A payment sheet has its own signing page: it is a closed list, not an open register.
         if(data.event && data.event.kind === 'DUTY_ROLL'){
-          location.replace('duty-sign.html?event=' + encodeURIComponent(eventId));
+          location.replace('duty-sign?event=' + encodeURIComponent(eventId));
           return;
         }
         if(data.expired){
@@ -2730,7 +2730,7 @@
       .catch(function(){ /* offline — keep showing last known state */ });
   }
 
-  // The admin dashboard's Print action (see admin.html) opens this exact
+  // The admin dashboard's Print action (see admin) opens this exact
   // page with &print=1 rather than duplicating the letterhead/roster
   // markup and print stylesheet a second time elsewhere -- it just waits
   // for the real data to render, then hands off to the browser's native
@@ -2758,7 +2758,7 @@
       .then(function(res){ return res.json(); })
       .then(function(d){
         if(d && d.ok){
-          var verifyUrl = window.location.origin + '/verify.html?code=' + sealCode;
+          var verifyUrl = window.location.origin + '/verify?code=' + sealCode;
           document.getElementById('sealDay').textContent = (d.scope === 'EVENT' ? (d.dayCount > 1 ? 'All ' + d.dayCount + ' days of ' : '') : 'Day ' + d.dayPosition + ' of ') + d.eventName;
           document.getElementById('sealWhen').textContent = 'Sealed ' + new Date(d.sealedAt).toLocaleString();
           document.getElementById('sealCodeText').textContent = sealCode;
@@ -2896,7 +2896,7 @@
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId: own.clientId })
     }).then(function(res){ return res.json(); }).then(function(d){
       btn.disabled = false;
-      if(d && d.ok){ certMsg.textContent = ''; window.open('certificate.html?code=' + encodeURIComponent(d.code), '_blank'); return; }
+      if(d && d.ok){ certMsg.textContent = ''; window.open('certificate?code=' + encodeURIComponent(d.code), '_blank'); return; }
       certMsg.className = 'rp-msg err';
       certMsg.textContent = (d && d.message) || 'Could not prepare your certificate right now.';
     }).catch(function(){ btn.disabled = false; certMsg.className = 'rp-msg err'; certMsg.textContent = 'No connection. Please try again.'; });

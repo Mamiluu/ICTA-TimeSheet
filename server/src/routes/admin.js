@@ -243,7 +243,7 @@ adminRouter.get('/events/:id/qr', ah(async (req, res) => {
   if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
 
   // A payment sheet has its own signing page; everything else uses the attendance page.
-  const page = event.kind === 'DUTY_ROLL' ? 'duty-sign.html' : 'index.html';
+  const page = event.kind === 'DUTY_ROLL' ? 'duty-sign' : 'attend';
   const url = `${await orgBaseUrl(event.organisationId)}/${page}?event=${encodeURIComponent(event.slug)}`;
   const png = await QRCode.toBuffer(url, { width: 180, margin: 1 });
   res.set('Content-Type', 'image/png');
@@ -423,7 +423,7 @@ adminRouter.post('/events/:id/days/:dayId/seal', ah(async (req, res) => {
     code,
     digest,
     sealedAt: seal.createdAt,
-    verifyUrl: `${await orgBaseUrl(event.organisationId)}/verify.html?code=${code}`
+    verifyUrl: `${await orgBaseUrl(event.organisationId)}/verify?code=${code}`
   });
 }));
 
@@ -474,7 +474,7 @@ export async function sealWholeEvent(event, req) {
     digest,
     dayCount: days.length,
     sealedAt: seal.createdAt,
-    verifyUrl: `${await orgBaseUrl(event.organisationId)}/verify.html?code=${code}`
+    verifyUrl: `${await orgBaseUrl(event.organisationId)}/verify?code=${code}`
   };
 }
 
@@ -515,7 +515,7 @@ adminRouter.get('/events/:id/claim-pack', ah(async (req, res) => {
     matrix: data.matrix,
     findings: data.findings,
     retiredCount: data.retiredCount,
-    seal: seal ? { code: seal.id, sealedAt: seal.createdAt, verifyUrl: `${await orgBaseUrl(event.organisationId)}/verify.html?code=${seal.id}` } : null,
+    seal: seal ? { code: seal.id, sealedAt: seal.createdAt, verifyUrl: `${await orgBaseUrl(event.organisationId)}/verify?code=${seal.id}` } : null,
     approval: approval
       ? { by: approval.actorEmail, at: approval.createdAt, note: approval.metadata?.note || '', sealCode: approval.metadata?.sealCode || null }
       : null

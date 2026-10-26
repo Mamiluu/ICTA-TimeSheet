@@ -76,11 +76,28 @@ app.use('/api', publicRouter);
 // The front page. Without this the bare address answered NOT_FOUND, which is
 // what anyone opening the link without a page name saw first.
 app.get('/', (req, res) => res.sendFile(path.join(REPO_ROOT, 'home.html')));
+// The attendee sign in page, reached through every event's link and QR code.
+app.get('/attend', (req, res) => res.sendFile(path.join(REPO_ROOT, 'index.html')));
 // REPO_ROOT also contains this server/ directory (with .env and source) --
 // block it explicitly before the static handler below, which would
 // otherwise happily serve anything else under REPO_ROOT by path.
 app.use('/server', (req, res) => res.status(404).json({ ok: false, error: 'NOT_FOUND' }));
-app.use(express.static(REPO_ROOT, { dotfiles: 'ignore', index: false }));
+// Pages are reached by name, /login and not /login.html. The old file addresses still work (they are
+// in emails and printed QR codes) and send the reader to the clean one, keeping the rest of the
+// address. The attendee sign in page, index.html, is /attend.
+const CLEAN_PAGES = new Set([
+  'login', 'signup', 'admin', 'superadmin', 'platform', 'owner', 'owner-org', 'verify', 'wallet', 'privacy',
+  'activate', 'forgot-password', 'reset-password', 'certificate', 'sign', 'duty-roll', 'duty-review', 'duty-sign', 'claim-pack'
+]);
+app.get(/^\/([a-z0-9-]+)\.html$/, (req, res, next) => {
+  const name = req.params[0];
+  const query = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+  if (name === 'home') return res.redirect(302, '/' + query);
+  if (name === 'index') return res.redirect(302, '/attend' + query);
+  if (CLEAN_PAGES.has(name)) return res.redirect(302, '/' + name + query);
+  return next();
+});
+app.use(express.static(REPO_ROOT, { dotfiles: 'ignore', index: false, extensions: ['html'] }));
 
 app.use((req, res) => res.status(404).json({ ok: false, error: 'NOT_FOUND' }));
 

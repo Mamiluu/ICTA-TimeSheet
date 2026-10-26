@@ -178,7 +178,7 @@
       <a class="nav-item" href="#all" data-filter="all"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>All sheets</span><span class="badge-count" id="navAll" hidden></span></a>
       <a class="nav-item" href="#done" data-filter="done"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3zM9 12l2 2 4-4"/></svg><span>Verified</span><span class="badge-count" id="navDone" hidden></span></a>
       <div class="nav-group">Go to</div>
-      <a class="nav-item" id="backNav" href="admin.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span>Back to my dashboard</span></a>
+      <a class="nav-item" id="backNav" href="admin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg><span>Back to my dashboard</span></a>
     </nav>
     <button type="button" id="logoutBtn" class="side-logout">Log out</button>
   </aside>
@@ -266,11 +266,11 @@
   // ---- Who is here ----
   function requireSession(){
     return API.get('/api/auth/me').then(function(r){
-      if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return null; }
+      if(r.status !== 200 || !r.data.ok){ location.href = 'login'; return null; }
       var u = r.data.user;
       var reviewer = u.role === 'SUPER_ADMIN' || (u.role === 'COUNTY_ADMIN' && (u.paymentRole === 'AUTHORISER' || u.paymentRole === 'FINANCE'));
       if(!reviewer){ location.href = homeFor(u.role); return null; }
-      $('backNav').href = u.role === 'SUPER_ADMIN' ? 'superadmin.html' : 'admin.html';
+      $('backNav').href = u.role === 'SUPER_ADMIN' ? 'superadmin' : 'admin';
       $('whoEmail').textContent = u.email; $('whoEmail').title = u.email;
       $('userAvatar').textContent = (u.email || 'A').charAt(0).toUpperCase();
       var role = u.role === 'SUPER_ADMIN' ? 'Super admin' : (ROLE[u.paymentRole] || 'Reviewer');
@@ -278,7 +278,7 @@
       return u;
     });
   }
-  $('logoutBtn').addEventListener('click', function(){ API.post('/api/auth/logout').then(function(){ location.href = 'login.html'; }); });
+  $('logoutBtn').addEventListener('click', function(){ API.post('/api/auth/logout').then(function(){ location.href = 'login'; }); });
 
   var sidenav = $('sidenav'), navScrim = $('navScrim'), navToggle = $('navToggle');
   function closeNav(){ sidenav.classList.remove('open'); navScrim.classList.remove('open'); navToggle.setAttribute('aria-expanded', 'false'); }
@@ -419,7 +419,7 @@
       li.appendChild(el('div', 'w', STEP_WORD[a.step] || a.step));
       li.appendChild(el('div', 'who', a.by + ' · ' + when(a.at, d.event.timezone)));
       if(a.note) li.appendChild(el('div', 'nt', '“' + a.note + '”'));
-      if(a.sealCode){ var v = el('a', null, 'Check seal ' + a.sealCode); v.href = 'verify.html?code=' + encodeURIComponent(a.sealCode); v.target = '_blank'; v.rel = 'noopener'; li.appendChild(v); }
+      if(a.sealCode){ var v = el('a', null, 'Check seal ' + a.sealCode); v.href = 'verify?code=' + encodeURIComponent(a.sealCode); v.target = '_blank'; v.rel = 'noopener'; li.appendChild(v); }
       tl.appendChild(li);
     });
 

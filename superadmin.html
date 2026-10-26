@@ -149,7 +149,7 @@
       <div class="nav-group">Security</div>
       <a class="nav-item" href="#audit" data-nav="audit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Audit trail</span></a>
       <div class="nav-group">Payments</div>
-      <a class="nav-item" href="duty-review.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12l2 2 4-4M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3z"/></svg><span>Payment approvals</span></a>
+      <a class="nav-item" href="duty-review"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12l2 2 4-4M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3z"/></svg><span>Payment approvals</span></a>
       <div class="nav-group">Settings</div>
       <a class="nav-item" href="#profile" data-nav="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Profile</span></a>
     </nav>
@@ -262,7 +262,7 @@
           <dt>Role</dt><dd>Super admin</dd>
           <dt id="profDeptRow" hidden>Department</dt><dd id="profDept"></dd>
         </dl>
-        <p><a href="forgot-password.html">Change my password</a></p>
+        <p><a href="forgot-password">Change my password</a></p>
       </div>
     </section>
 
@@ -353,13 +353,13 @@
     if(mods.indexOf('PAYMENT') !== -1) return;
     Array.prototype.forEach.call(document.querySelectorAll('#newAccess option[value=PAYMENT], #newAccess option[value=BOTH]'), function(o){ o.remove(); });
     Array.prototype.forEach.call(document.querySelectorAll('input[name=accessOpt][value=PAYMENT], input[name=accessOpt][value=BOTH]'), function(r){ r.closest('label').style.display = 'none'; });
-    var nav = document.querySelector('a[href="duty-review.html"]');
+    var nav = document.querySelector('a[href="duty-review"]');
     if(nav){ nav.style.display = 'none'; if(nav.previousElementSibling && nav.previousElementSibling.className === 'nav-group') nav.previousElementSibling.style.display = 'none'; }
   }
 
   function requireSession(){
     return API.get('/api/auth/me').then(function(r){
-      if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return null; }
+      if(r.status !== 200 || !r.data.ok){ location.href = 'login'; return null; }
       if(r.data.user.role !== 'SUPER_ADMIN'){ location.href = homeFor(r.data.user.role); return null; }
       whoEmail.textContent = r.data.user.email;
       whoEmail.title = r.data.user.email;
@@ -378,7 +378,7 @@
   }
 
   document.getElementById('logoutBtn').addEventListener('click', function(){
-    API.post('/api/auth/logout').then(function(){ location.href = 'login.html'; });
+    API.post('/api/auth/logout').then(function(){ location.href = 'login'; });
   });
 
   function el(tag, cls, text){

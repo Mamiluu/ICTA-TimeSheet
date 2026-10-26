@@ -9,7 +9,7 @@
 // queue -- the Background Sync API this might otherwise reach for isn't
 // supported in Safari/iOS as of this writing, which is exactly the device
 // class a walk-in attendee is most likely holding.
-const CACHE_VERSION = 'v36';
+const CACHE_VERSION = 'v37';
 const SHELL_CACHE = 'icta-shell-' + CACHE_VERSION;
 // admin.html and its scripts are here so the door scanner can open with no signal.
 // Nothing under /api/ is ever cached, so what the page shows is still live data
@@ -53,7 +53,13 @@ self.addEventListener('fetch', (event) => {
 
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request, { ignoreSearch: true }).then((cached) => cached || caches.match('index.html')))
+      fetch(event.request).catch(() => {
+        // A clean address such as /admin is stored under its file name, /admin.html.
+        const file = url.pathname === '/' ? '/home.html' : /\.[a-z0-9]+$/i.test(url.pathname) ? url.pathname : url.pathname + '.html';
+        return caches.match(event.request, { ignoreSearch: true })
+          .then((cached) => cached || caches.match(file, { ignoreSearch: true }))
+          .then((cached) => cached || caches.match('index.html'));
+      })
     );
     return;
   }

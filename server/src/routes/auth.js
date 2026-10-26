@@ -125,7 +125,7 @@ authRouter.post('/forgot-password', forgotPasswordLimiter, ah(async (req, res) =
     const user = await prisma.user.findUnique({ where: { email }, include: { organisation: true } });
     if (user && user.status === 'ACTIVE') {
       const raw = await issueToken(user.id, 'PASSWORD_RESET');
-      const resetUrl = `${baseUrlFor(user.organisation)}/reset-password.html?token=${encodeURIComponent(raw)}${user.organisationId ? '&org=' + encodeURIComponent(user.organisation.slug) : ''}`;
+      const resetUrl = `${baseUrlFor(user.organisation)}/reset-password?token=${encodeURIComponent(raw)}${user.organisationId ? '&org=' + encodeURIComponent(user.organisation.slug) : ''}`;
       (user.organisationId ? brandForOrgId(user.organisationId) : Promise.resolve(brandFromOrg(null)))
         .then((brand) => sendPasswordResetEmail(user.email, resetUrl, emailBrand(brand)))
         .catch((err) => logger.error('sendPasswordResetEmail failed', { stack: err.stack }));

@@ -363,7 +363,7 @@
           <dt>Email</dt><dd id="profEmail"></dd>
           <dt>Role</dt><dd>Platform admin</dd>
         </dl>
-        <p><a href="forgot-password.html">Change my password</a></p>
+        <p><a href="forgot-password">Change my password</a></p>
       </div>
     </section>
 
@@ -431,7 +431,7 @@
 
   function requireSession(){
     return API.get('/api/auth/me').then(function(r){
-      if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return null; }
+      if(r.status !== 200 || !r.data.ok){ location.href = 'login'; return null; }
       if(r.data.user.role !== 'PLATFORM_ADMIN'){ location.href = homeFor(r.data.user.role); return null; }
       whoEmail.textContent = r.data.user.email;
       whoEmail.title = r.data.user.email;
@@ -442,7 +442,7 @@
   }
 
   document.getElementById('logoutBtn').addEventListener('click', function(){
-    API.post('/api/auth/logout').then(function(){ location.href = 'login.html'; });
+    API.post('/api/auth/logout').then(function(){ location.href = 'login'; });
   });
 
   function el(tag, cls, text){

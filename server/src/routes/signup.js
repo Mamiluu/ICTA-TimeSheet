@@ -36,7 +36,7 @@ signupRouter.post('/', signupLimiter, ah(async (req, res) => {
   if (open) await prisma.organisationRequest.update({ where: { id: open.id }, data });
   else await prisma.organisationRequest.create({ data });
 
-  const url = `${platformBase()}/signup.html?verify=${encodeURIComponent(raw)}`;
+  const url = `${platformBase()}/signup?verify=${encodeURIComponent(raw)}`;
   sendSignupVerifyEmail(v.contactEmail, url, v.contactName).catch((err) => logger.error('sendSignupVerifyEmail failed', { stack: err.stack }));
   res.json(SAME_ANSWER);
 }));

@@ -106,7 +106,7 @@
      seven buttons (Open/Copy/Kiosk/Edit/Export/Print/Delete) -- wide
      enough to overflow on narrower screens. Scope the fix to this wrapper
      rather than loosening nowrap globally in theme.css, which other pages
-     (e.g. superadmin.html's shorter action lists) don't need. */
+     (e.g. superadmin's shorter action lists) don't need. */
   #eventsWrap{ overflow-x:auto; }
 
   textarea{
@@ -314,7 +314,7 @@
       <a class="nav-item" href="#door" data-nav="door"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M4 12h16"/></svg><span>Door scan</span></a>
       <div class="nav-group">Other</div>
       <a class="nav-item" href="#activity" data-nav="activity"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>My activity</span></a>
-      <a class="nav-item" id="navReview" href="duty-review.html" style="display:none;"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12l2 2 4-4M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3z"/></svg><span>Payment approvals</span></a>
+      <a class="nav-item" id="navReview" href="duty-review" style="display:none;"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12l2 2 4-4M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3z"/></svg><span>Payment approvals</span></a>
       <div class="nav-group">Settings</div>
       <a class="nav-item" href="#profile" data-nav="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Profile</span></a>
     </nav>
@@ -552,7 +552,7 @@
       <dt>County</dt><dd id="profCounty"></dd>
       <dt>Role</dt><dd>County admin</dd>
     </dl>
-    <p><a href="forgot-password.html">Change my password</a></p>
+    <p><a href="forgot-password">Change my password</a></p>
   </div>
   </section>
 
@@ -582,8 +582,8 @@
 <script>
 (function(){
   function attendeePageUrl(){
-    // admin.html and the attendee page are served from the same folder.
-    return location.href.replace(/admin\.html.*$/, 'index.html');
+    // admin and the attendee page are served from the same folder.
+    return new URL('attend', location.href).href;
   }
 
   applyTopbarBranding('Event Admin');
@@ -598,7 +598,7 @@
     if(waiting && !window.confirm(waiting + ' door scan' + (waiting === 1 ? ' has' : 's have') + ' not been sent yet and will be lost if you log out. Log out anyway?')) return;
     API.post('/api/auth/logout').then(function(){
       try{ ['icta_door_roster_v1', 'icta_door_queue_v1', 'icta_door_issues_v1', 'icta_admin_user_v1', 'icta_admin_events_v1'].forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
-      location.href = 'login.html';
+      location.href = 'login';
     });
   });
 
@@ -633,7 +633,7 @@
   }
   function requireSession(){
     return API.get('/api/auth/me').then(function(r){
-      if(r.status !== 200 || !r.data.ok){ location.href = 'login.html'; return null; }
+      if(r.status !== 200 || !r.data.ok){ location.href = 'login'; return null; }
       if(r.data.user.role !== 'COUNTY_ADMIN'){ location.href = homeFor(r.data.user.role); return null; }
       showUser(r.data.user);
       try{ localStorage.setItem(USER_KEY, JSON.stringify({ email: r.data.user.email, county: r.data.user.county, role: r.data.user.role, department: r.data.user.department ? r.data.user.department.name : null })); }catch(e){}
@@ -1339,7 +1339,7 @@
       }
       if(!editingEventId && r.data.event.kind === 'DUTY_ROLL'){
         // A payment sheet is managed on its own page: add the people, share the link.
-        location.href = 'duty-roll.html?event=' + encodeURIComponent(r.data.event.id);
+        location.href = 'duty-roll?event=' + encodeURIComponent(r.data.event.id);
         return;
       }
       if(!editingEventId){
@@ -1432,7 +1432,7 @@
 
   function buildEventCard(ev){
     var isDuty = ev.kind === 'DUTY_ROLL';
-    var url = isDuty ? attendeePageUrl().replace(/index\.html$/, 'duty-sign.html') + '?event=' + encodeURIComponent(ev.slug) : attendeePageUrl() + '?event=' + encodeURIComponent(ev.slug);
+    var url = isDuty ? attendeePageUrl().replace(/index\.html$/, 'duty-sign') + '?event=' + encodeURIComponent(ev.slug) : attendeePageUrl() + '?event=' + encodeURIComponent(ev.slug);
     // &kiosk=1 tells the server (see GET /events/:slug in public.js) to render
     // this exact page as a plain attendee would see it, even in a browser that
     // is still logged in as this admin. Use it whenever the *device*, not just
@@ -1479,7 +1479,7 @@
     var actions = document.createElement('div'); actions.className = 'ev-actions';
     var openBtn = document.createElement('button');
     openBtn.type = 'button'; openBtn.className = 'primary'; openBtn.textContent = isDuty ? 'Open payment sheet' : 'Open sheet';
-    openBtn.addEventListener('click', function(){ if(isDuty) window.open('duty-roll.html?event=' + encodeURIComponent(ev.id), '_blank'); else window.open(url, '_blank'); });
+    openBtn.addEventListener('click', function(){ if(isDuty) window.open('duty-roll?event=' + encodeURIComponent(ev.id), '_blank'); else window.open(url, '_blank'); });
     var copyBtn = document.createElement('button');
     copyBtn.type = 'button'; copyBtn.textContent = 'Copy link';
     copyBtn.addEventListener('click', function(){
@@ -1504,7 +1504,7 @@
       }));
       menu.appendChild(menuItem('Export CSV', function(b){ exportEventCsv(ev, b); }));
       menu.appendChild(menuItem('Print sheet', function(b){ printEventSheet(ev, b); }));
-      menu.appendChild(menuItem('Claim pack', function(){ window.open('claim-pack.html?event=' + encodeURIComponent(ev.id), '_blank'); }));
+      menu.appendChild(menuItem('Claim pack', function(){ window.open('claim-pack?event=' + encodeURIComponent(ev.id), '_blank'); }));
       menu.appendChild(menuItem('Seal & print', function(b){ sealEventDay(ev, b); }));
     }
     menu.appendChild(menuItem('Reopen a day', function(){ openReopenModal(ev); }));
