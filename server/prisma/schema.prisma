@@ -401,6 +401,9 @@ model Event {
   paidAt        DateTime?
   paidReference String?
   paidByEmail   String?
+  // When a sheet that is stuck with someone was last nudged by email, and how many times.
+  remindedAt    DateTime?
+  reminderCount Int       @default(0)
   dutyApprovals DutyApproval[]
   dutyQueries  DutyQuery[]
 

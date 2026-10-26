@@ -86,6 +86,9 @@ A `render.yaml` blueprint at the repo root does most of this for you.
   department's super admins are told. Finance records payment with `POST /api/duty-review/sheets/:id/paid`
   (a reference is required; the preparer cannot do it); it is stored on the event (`paidAt`, `paidReference`)
   and migration `20261026090000_payment_followup` adds the columns.
+  Reminders (`lib/dutyReminders.js`): a sheet still waiting on someone three days after its last step is
+  emailed to the people who must act, again every three days, up to four times. `PAYMENT_REMINDER_DAYS` changes
+  the wait; `0` turns them off. Checked every three hours and on start; migration `20261027090000_payment_reminders`.
 - Page addresses: pages are reached without the file extension (`/login`, `/admin`, `/verify?code=...`).
   The attendee sign in page, `index.html`, is `/attend`. The old `.html` addresses still answer, with a
   redirect that keeps the query string, because they are in emails and printed QR codes. The list of

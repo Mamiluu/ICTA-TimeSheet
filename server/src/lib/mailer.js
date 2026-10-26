@@ -305,6 +305,7 @@ export async function sendDutyStepEmail(toEmail, d, brandIn = null) {
   const copy = DUTY_COPY[d.kind];
   if (!copy) throw new Error('Unknown payment sheet email kind');
   devLogLink(`payment sheet ${d.kind} for ${toEmail}`, d.url);
+  const waiting = d.reminder ? `<p style="font-size:13px;color:#8a5a00;background:#fdf3dc;padding:9px 12px;border-radius:4px;">This sheet has been waiting${d.waitingDays ? ' ' + escapeHtml(d.waitingDays) + (Number(d.waitingDays) === 1 ? ' day' : ' days') : ''} for you.</p>` : '';
   const rows = [
     ['Sheet', d.eventName],
     d.department ? ['Department', d.department] : null,
@@ -317,10 +318,11 @@ export async function sendDutyStepEmail(toEmail, d, brandIn = null) {
   const html = wrapHtml(brand, `
     <p style="font-size:15px;font-weight:700;color:#1a1a1a;margin:0 0 6px;">${escapeHtml(copy.heading)}</p>
     <p style="font-size:13.5px;color:#333;">${escapeHtml(copy.body)}</p>
+    ${waiting}
     <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:13px;color:#1a1a1a;margin:14px 0;">${table}</table>
     ${d.note ? `<p style="font-size:13px;color:#333;background:#f4f4f4;padding:10px 12px;border-radius:4px;">&ldquo;${escapeHtml(d.note)}&rdquo;</p>` : ''}
     <p style="margin:22px 0;"><a href="${escapeHtml(d.url)}" style="background:${brand.accent};color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">${escapeHtml(copy.button)}</a></p>
     <p style="font-size:11.5px;color:#888;">You need to be logged in. If the button does not work, copy this link: ${escapeHtml(d.url)}</p>
   `);
-  await sendViaBrevo({ to: toEmail, subject: copy.subject, html, brand, kind: 'payment' });
+  await sendViaBrevo({ to: toEmail, subject: (d.reminder ? 'Reminder: ' : '') + copy.subject, html, brand, kind: 'payment' });
 }

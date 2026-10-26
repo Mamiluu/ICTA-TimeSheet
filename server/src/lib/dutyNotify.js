@@ -20,7 +20,7 @@ import { sendDutyStepEmail } from './mailer.js';
 const clean = (e) => String(e || '').trim().toLowerCase();
 
 // users: active people of the department, each { email, role, paymentRole, access }.
-export function pickRecipients({ kind, users, preparerEmail, financeEmail, actorEmail }) {
+export function pickRecipients({ kind, users, preparerEmail, financeEmail, actorEmail, reminder = false }) {
   const canDoPayments = (u) => u.role === 'SUPER_ADMIN' || ['PAYMENT', 'BOTH'].includes(u.access);
   const withRole = (r) => users.filter((u) => u.role === 'COUNTY_ADMIN' && u.paymentRole === r && canDoPayments(u)).map((u) => u.email);
   const supers = () => users.filter((u) => u.role === 'SUPER_ADMIN').map((u) => u.email);
@@ -33,7 +33,8 @@ export function pickRecipients({ kind, users, preparerEmail, financeEmail, actor
     list = withRole('FINANCE');
     if (financeEmail) list.push(financeEmail);
     if (!list.length) list = supers();
-    if (kind === 'VERIFIED' && preparerEmail) list.push(preparerEmail);
+    // A reminder goes only to the people who have to act, not to the preparer.
+    if (kind === 'VERIFIED' && preparerEmail && !reminder) list.push(preparerEmail);
   } else if (kind === 'RETURNED' || kind === 'PAID') {
     if (preparerEmail) list.push(preparerEmail);
   }
@@ -50,7 +51,7 @@ function linkFor(kind, base, event) {
 
 // Sends without ever failing the step that triggered it: an email problem must not leave a sheet
 // half approved. Failures are logged and show up in the owner's email health view.
-export function notifyDuty(event, kind, { actorEmail = null, note = null, reference = null, people = null, amount = null } = {}) {
+export function notifyDuty(event, kind, { actorEmail = null, note = null, reference = null, people = null, amount = null, reminder = false, waitingDays = null } = {}) {
   (async () => {
     const [dept, users, owner, org] = await Promise.all([
       event.departmentId ? prisma.department.findUnique({ where: { id: event.departmentId }, select: { name: true, financeEmail: true } }) : null,
@@ -58,13 +59,13 @@ export function notifyDuty(event, kind, { actorEmail = null, note = null, refere
       event.ownerId ? prisma.user.findUnique({ where: { id: event.ownerId }, select: { email: true } }) : null,
       prisma.organisation.findUnique({ where: { id: event.organisationId }, select: { customDomain: true, domainVerifiedAt: true } })
     ]);
-    const to = pickRecipients({ kind, users, preparerEmail: owner && owner.email, financeEmail: dept && dept.financeEmail, actorEmail });
+    const to = pickRecipients({ kind, users, preparerEmail: owner && owner.email, financeEmail: dept && dept.financeEmail, actorEmail, reminder });
     if (!to.length) return;
     const brand = emailBrand(await brandForOrgId(event.organisationId));
     const url = linkFor(kind, baseUrlFor(org), event);
     for (const addr of to) {
       try {
-        await sendDutyStepEmail(addr, { kind, eventName: event.name, department: dept && dept.name, authorityRef: event.authorityRef, note, reference, people, amount, url }, brand);
+        await sendDutyStepEmail(addr, { kind, eventName: event.name, department: dept && dept.name, authorityRef: event.authorityRef, note, reference, people, amount, url, reminder, waitingDays }, brand);
       } catch (err) {
         logger.error('payment sheet email failed', { kind, message: String(err.message || err).replace(/[\w.+-]+@[\w.-]+/g, '[address]') });
       }

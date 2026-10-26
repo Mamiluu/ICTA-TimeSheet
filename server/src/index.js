@@ -19,6 +19,7 @@ import { signupRouter } from './routes/signup.js';
 import { adminRouter } from './routes/admin.js';
 import { publicRouter } from './routes/public.js';
 import { startAnchorJob } from './lib/anchor.js';
+import { startReminderJob } from './lib/dutyReminders.js';
 import { bootstrapPlatformAdmin, bootstrapOwner } from './lib/bootstrapPlatformAdmin.js';
 import { logger, requestLogger, logRequestError, newErrorRef } from './lib/logger.js';
 
@@ -119,6 +120,7 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
   logger.info('server listening', { port });
   startAnchorJob();
+  startReminderJob();
   bootstrapOwner().catch((err) => logger.error('owner bootstrap failed', { stack: err.stack }));
   bootstrapPlatformAdmin().catch((err) => logger.error('platform admin bootstrap failed', { stack: err.stack }));
 });

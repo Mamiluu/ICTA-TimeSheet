@@ -328,3 +328,43 @@ test('emails fall back to the super admins when nobody holds the role, and skip 
   );
   assert.deepEqual(pickRecipients({ kind: 'PAID', users: people, preparerEmail: null, actorEmail: 'x' }), []);
 });
+
+import { reminderDue, reminderDays, MAX_REMINDERS } from '../src/lib/dutyReminders.js';
+
+test('a reminder is due only once a sheet has waited long enough, and never after payment', () => {
+  const day = 24 * 3600 * 1000;
+  const now = Date.parse('2026-10-27T09:00:00Z');
+  const sheetAt = (daysAgo) => new Date(now - daysAgo * day);
+  const base = { stage: 'SUBMITTED', paidAt: null, count: 0, now, days: 3 };
+  assert.equal(reminderDue({ ...base, lastStepAt: sheetAt(2) }), false, 'two days is too soon');
+  assert.equal(reminderDue({ ...base, lastStepAt: sheetAt(3) }), true);
+  assert.equal(reminderDue({ ...base, lastStepAt: sheetAt(9), remindedAt: sheetAt(1) }), false, 'it was nudged yesterday');
+  assert.equal(reminderDue({ ...base, lastStepAt: sheetAt(9), remindedAt: sheetAt(4) }), true);
+  assert.equal(reminderDue({ ...base, stage: 'OPEN', lastStepAt: sheetAt(9) }), false);
+  assert.equal(
+    reminderDue({ ...base, stage: 'VERIFIED', paidAt: new Date(), lastStepAt: sheetAt(9) }),
+    false,
+    'paid sheets are left alone'
+  );
+  assert.equal(reminderDue({ ...base, lastStepAt: sheetAt(9), count: MAX_REMINDERS }), false, 'it stops after a few');
+  assert.equal(reminderDue({ ...base, days: 0, lastStepAt: sheetAt(9) }), false, 'zero days means reminders are off');
+});
+
+test('the reminder wait comes from PAYMENT_REMINDER_DAYS, with 3 days as the default', () => {
+  assert.equal(reminderDays(undefined), 3);
+  assert.equal(reminderDays(''), 3);
+  assert.equal(reminderDays('5'), 5);
+  assert.equal(reminderDays('0'), 0);
+  assert.equal(reminderDays('lots'), 3);
+});
+
+test('a reminder for a verified sheet goes to finance only, not the preparer', () => {
+  const users = [{ email: 'fin@x.go.ke', role: 'COUNTY_ADMIN', paymentRole: 'FINANCE', access: 'PAYMENT' }];
+  assert.deepEqual(pickRecipients({ kind: 'VERIFIED', users, preparerEmail: 'prep@x.go.ke', actorEmail: null, reminder: true }), [
+    'fin@x.go.ke'
+  ]);
+  assert.deepEqual(pickRecipients({ kind: 'VERIFIED', users, preparerEmail: 'prep@x.go.ke', actorEmail: null }), [
+    'fin@x.go.ke',
+    'prep@x.go.ke'
+  ]);
+});
