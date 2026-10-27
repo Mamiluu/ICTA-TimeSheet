@@ -76,7 +76,15 @@
     // The loading screen starts as plain Daymark and takes the organisation's name and logo
     // as soon as they are known, so nobody sees another organisation's mark while a page opens.
     var pl = document.querySelector('.preloader-logo'), po = document.querySelector('.preloader-org');
-    if(pl && b.logoUrl && pl.id !== 'preloaderLogo') pl.setAttribute('src', b.logoUrl);
+    // A picture keeps showing its old image while a new one downloads, so the previous mark would sit
+    // beside the new name. Hide it until the organisation's own logo has arrived.
+    if(pl && b.logoUrl && pl.id !== 'preloaderLogo' && pl.getAttribute('src') !== b.logoUrl){
+      pl.style.visibility = 'hidden';
+      var show = function(){ pl.style.visibility = ''; };
+      pl.onload = show; pl.onerror = show;
+      setTimeout(show, 4000);
+      pl.setAttribute('src', b.logoUrl);
+    }
     if(po) po.textContent = b.orgName;
     if(b.orgName !== DEFAULT_NAME && document.title.indexOf(DEFAULT_NAME) !== -1) document.title = swapName(document.title);
     if(document.body) walk(document.body);
