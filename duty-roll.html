@@ -169,7 +169,7 @@
   .sheet-page td.sig img{ max-width:96%; max-height:8.4mm; }
   /* A cell nobody signed is struck through corner to corner; a row nobody uses is struck through along its middle. */
   .sheet-page td.sig.xout{ background:linear-gradient(to top right, transparent calc(50% - .7px), #000 50%, transparent calc(50% + .7px)); }
-  .sheet-page tr.unused td{ background:linear-gradient(#000, #000) center / 100% 1px no-repeat; }
+  .sheet-page tr.unused td:not(.sno){ background:linear-gradient(#000, #000) center / 100% 1px no-repeat; }
   .sheet-page td.nm, .sheet-page td.og{ font-size:calc(10.5px * var(--sfs, 1)); }
   .sheet-page .dayhead small{ display:block; font-weight:400; font-size:8px; line-height:1.15; }
   .sheet-page .signoff{ display:flex; gap:22px; align-items:flex-end; margin-top:10px; font-size:calc(10px * var(--sfs, 1)); }
@@ -654,13 +654,18 @@
         + '<tr><td class="k">MAIN AGENDA/SUBJECT:</td><td colspan="3">' + escapeHtml(data.event.name) + '</td></tr>';
       pg.appendChild(hdr);
 
-      // Every day column is the same width, so the last page of a long engagement is
-      // narrower instead of stretching its few columns across the sheet.
-      var total = 42 + chunk.length * 6.4 + (last ? 6 : 0);
+      // Like the paper form, the table always spans the page with nine day columns. Days this
+      // engagement does not have stay as empty, numbered columns, so the sheet looks the same
+      // whether it covers one day or nine.
+      var SLOTS = 9;
+      var total = 46 + SLOTS * 6 + (last ? 6 : 0);
       var pct = function(n){ return (n / total * 100).toFixed(2) + '%'; };
-      var t = document.createElement('table'); t.style.marginTop = '5mm'; t.style.width = Math.min(100, total) + '%';
-      var h = '<thead><tr><th style="width:' + pct(5) + '">S/NO.</th><th style="width:' + pct(22) + '">NAME</th><th style="width:' + pct(15) + '">ORGANISATION</th>';
-      chunk.forEach(function(d){ h += '<th class="dayhead" style="width:' + pct(6.4) + '">Day ' + d.position + '<small>' + escapeHtml(shortDate(d.startAt)) + '</small></th>'; });
+      var t = document.createElement('table'); t.style.marginTop = '5mm'; t.style.width = '100%';
+      var h = '<thead><tr><th style="width:' + pct(5) + '">S/NO.</th><th style="width:' + pct(24) + '">NAME</th><th style="width:' + pct(17) + '">ORGANISATION</th>';
+      for(var k = 0; k < SLOTS; k++){
+        var d0 = chunk[k];
+        h += '<th class="dayhead" style="width:' + pct(6) + '">Day ' + (pi * SLOTS + k + 1) + (d0 ? '<small>' + escapeHtml(shortDate(d0.startAt)) + '</small>' : '') + '</th>';
+      }
       if(last) h += '<th style="width:' + pct(6) + '">DAYS</th>';
       h += '</tr></thead>';
       t.innerHTML = h;
@@ -672,12 +677,13 @@
         tr.appendChild(el('td', 'sno', String(n + 1) + '.'));
         tr.appendChild(el('td', 'nm', r ? r.name : ''));
         tr.appendChild(el('td', 'og', r ? (r.organisation || (r.payeeType === 'STAFF' ? brand.orgName : '')) : ''));
-        chunk.forEach(function(d){
-          var td = el('td', 'sig'); var cell = r ? r.cells.filter(function(c){ return c.dayId === d.id; })[0] : null;
+        for(var c = 0; c < SLOTS; c++){
+          var d = chunk[c];
+          var td = el('td', 'sig'); var cell = (r && d) ? r.cells.filter(function(x){ return x.dayId === d.id; })[0] : null;
           if(cell && cell.status === 'SIGNED' && cell.signature){ var im = document.createElement('img'); im.src = cell.signature; im.alt = 'signature'; td.appendChild(im); }
           else if(r && cell && cell.status === 'ABSENT') td.className = 'sig xout';
           tr.appendChild(td);
-        });
+        }
         if(last) tr.appendChild(el('td', 'sno', r ? String(r.daysSigned) : ''));
         tb.appendChild(tr);
       }
