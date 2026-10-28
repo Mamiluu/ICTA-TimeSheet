@@ -862,6 +862,17 @@
 
   <div class="conn-pill" id="connPill"><span class="dot"></span><span id="connPillText"></span></div>
 
+  <div class="closing-soon-banner" id="liveBanner" role="status">
+    <span class="icon">📷</span>
+    <span><strong>Scan the code at the venue. </strong> <span id="liveBannerText"></span>
+      <form id="liveForm" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;" autocomplete="off">
+        <input id="liveTyped" inputmode="numeric" maxlength="7" placeholder="6 digit code" aria-label="Code shown on the screen" style="width:150px; padding:7px 10px; font:inherit; letter-spacing:.12em;">
+        <button type="submit" id="liveGo" style="padding:7px 14px; font:inherit; cursor:pointer;">Continue</button>
+        <span id="liveTypedMsg" style="flex-basis:100%; font-size:12.5px;"></span>
+      </form>
+    </span>
+  </div>
+
   <div class="closing-soon-banner" id="closingSoonBanner">
     <span class="icon">⏳</span>
     <span><strong>Closing soon </strong> <span id="closingSoonText"></span></span>
@@ -1073,6 +1084,56 @@
   // physically is.
   var kioskMode = /(?:^|[?&])kiosk=1(?:&|$)/.test(location.search);
   var eventQuery = encodeURIComponent(eventId) + (kioskMode ? '?kiosk=1' : '');
+
+  // Some events ask people to scan a code that changes every minute on a screen at the venue. The code
+  // arrives in the link (k=) and is traded for a proof that lasts long enough to fill in the form. Neither
+  // is kept in the address bar afterwards, so copying that address passes nothing useful on.
+  var liveKey = (/(?:^|[?&])k=([A-Za-z0-9_-]{16})(?:&|$)/.exec(location.search) || [])[1] || '';
+  var liveProof = '', liveProofExp = 0;
+  try{
+    var savedLive = JSON.parse(sessionStorage.getItem('live:' + eventId) || 'null');
+    if(savedLive && savedLive.exp > Date.now()){ liveProof = savedLive.proof; liveProofExp = savedLive.exp; }
+  }catch(e){}
+  var metaQuery = eventQuery + (liveKey ? (kioskMode ? '&' : '?') + 'k=' + encodeURIComponent(liveKey) : '');
+  var liveForm = document.getElementById('liveForm');
+  if(liveForm) liveForm.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    var typed = document.getElementById('liveTyped'), say = document.getElementById('liveTypedMsg'), go = document.getElementById('liveGo');
+    if(typed.value.replace(/\D/g, '').length !== 6){ say.textContent = 'Type the six digits shown on the screen.'; return; }
+    go.disabled = true; say.textContent = '';
+    fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/live-code', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: typed.value })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      go.disabled = false;
+      if(d && d.ok){ typed.value = ''; applyLive({ required: true, ok: true, proof: d.proof, proofExpiresAt: d.proofExpiresAt }); return; }
+      say.textContent = (d && d.message) || 'That code did not work. Try again.';
+    }).catch(function(){ go.disabled = false; say.textContent = 'No connection. Please try again.'; });
+  });
+  function withLive(body){
+    if(liveKey) body.liveKey = liveKey;
+    if(liveProof) body.liveProof = liveProof;
+    return body;
+  }
+  function applyLive(live){
+    var banner = document.getElementById('liveBanner'), text = document.getElementById('liveBannerText');
+    if(!banner) return;
+    if(!live || !live.required){ banner.classList.remove('show'); return; }
+    if(live.ok && live.proof){
+      liveProof = live.proof; liveProofExp = live.proofExpiresAt;
+      try{ sessionStorage.setItem('live:' + eventId, JSON.stringify({ proof: liveProof, exp: liveProofExp })); }catch(e){}
+      if(liveKey){
+        liveKey = '';
+        try{ var u = new URL(location.href); u.searchParams.delete('k'); history.replaceState(null, '', u.pathname + u.search + u.hash); }catch(e){}
+      }
+      banner.classList.remove('show');
+      return;
+    }
+    if(liveProof && liveProofExp > Date.now()){ banner.classList.remove('show'); return; }
+    text.textContent = live.state === 'EXPIRED'
+      ? 'That code has expired. Scan the code on the screen again, or type the six digits shown.'
+      : 'This event needs the code on the screen. Scan it with your phone camera, or type the six digits shown.';
+    banner.classList.add('show');
+  }
 
   var noEventNotice = document.getElementById('noEventNotice');
   var noEventTitle = document.getElementById('noEventTitle');
@@ -2248,7 +2309,7 @@
       return fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(withLive(payload))
       });
     })
       .then(function(res){ return res.json(); })
@@ -2672,7 +2733,7 @@
   }
 
   function loadRemote(){
-    return fetch(API_BASE + '/api/events/' + eventQuery)
+    return fetch(API_BASE + '/api/events/' + metaQuery)
       .then(function(res){ return res.json(); })
       .then(function(data){
         if(!data || !data.ok){
@@ -2686,6 +2747,7 @@
           location.replace('duty-sign?event=' + encodeURIComponent(eventId));
           return;
         }
+        applyLive(data.live);
         if(data.expired){
           state.meta = data.event || state.meta;
           isAdmin = false;
@@ -3049,7 +3111,7 @@
     if(!phone){ rpSay('Enter your phone number first.', true); return; }
     var btn = this; btn.disabled = true; rpSay('Looking…');
     fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/days/' + encodeURIComponent(day.id) + '/lookup', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: phone })
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(withLive({ phone: phone }))
     }).then(function(res){ return res.json(); }).then(function(data){
       btn.disabled = false;
       if(!data || !data.ok){ rpSay((data && data.message) || 'Could not check that number right now.', true); return; }
@@ -3074,7 +3136,7 @@
     whereAmI().then(function(loc){
       return fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/days/' + encodeURIComponent(target.dayId) + '/check-in', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: target.phone, signature: sigData, location: loc })
+        body: JSON.stringify(withLive({ phone: target.phone, signature: sigData, location: loc }))
       });
     }).then(function(res){ return res.json(); }).then(function(data){
       if(data && data.ok){
@@ -3101,7 +3163,7 @@
       return fetch(API_BASE + '/api/events/' + encodeURIComponent(eventId) + '/days/' + encodeURIComponent(dayId) + '/signatures', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId: own.clientId, signature: daySig, location: loc })
+        body: JSON.stringify(withLive({ clientId: own.clientId, signature: daySig, location: loc }))
       });
     })
       .then(function(res){ return res.json(); })

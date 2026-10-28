@@ -366,6 +366,10 @@ model Event {
   // organiser, never a block. geoRadiusM is how close counts as at the venue.
   geoCheck    Boolean @default(false)
   geoRadiusM  Int?
+  // When on, signing needs the code shown on the organiser's screen at the venue, which changes every
+  // minute (lib/liveCode.js). liveSecret is what the codes are made from and never leaves the server.
+  liveCode    Boolean @default(false)
+  liveSecret  String?
 
   // Nullable so the owning admin can be hard-deleted (superadminRouter DELETE
   // /admins/:id) without being blocked forever. Deliberately not cascaded:

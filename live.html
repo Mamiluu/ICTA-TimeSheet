@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Live code</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<style>
+  :root{ --bg:#0f1420; --panel:#fff; --ink:#0f1420; --muted:#8b93a7; --line:#262d40; --accent:#c8102e; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{ background:var(--bg); color:#fff; font-family:Figtree, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; display:flex; flex-direction:column; min-height:100vh; }
+  header{ display:flex; align-items:center; gap:12px; padding:16px 22px; border-bottom:1px solid var(--line); }
+  header h1{ margin:0; font-size:17px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  header button{ background:transparent; color:#cfd5e4; border:1px solid var(--line); border-radius:9px; padding:7px 12px; font:inherit; font-size:13px; cursor:pointer; }
+  header button:hover{ border-color:#4a5372; color:#fff; }
+  main{ flex:1; display:flex; align-items:center; justify-content:center; gap:clamp(24px, 5vw, 64px); padding:24px; flex-wrap:wrap; }
+  .qrbox{ position:relative; background:var(--panel); border-radius:22px; padding:clamp(14px, 2vw, 24px); line-height:0; }
+  .qrbox img{ width:min(62vh, 78vw, 520px); height:auto; image-rendering:pixelated; transition:opacity .25s; }
+  .qrbox.stale img{ opacity:.28; }
+  .side{ max-width:380px; }
+  .side h2{ margin:0 0 8px; font-size:clamp(26px, 3.4vw, 40px); line-height:1.1; font-weight:700; }
+  .side p{ margin:0 0 18px; color:#b9c0d3; font-size:clamp(15px, 1.6vw, 18px); line-height:1.5; }
+  .timer{ display:flex; align-items:center; gap:14px; }
+  .ring{ width:58px; height:58px; transform:rotate(-90deg); flex:none; }
+  .ring circle{ fill:none; stroke-width:5; }
+  .ring .track{ stroke:var(--line); }
+  .ring .bar{ stroke:var(--accent); stroke-linecap:round; transition:stroke-dashoffset .4s linear; }
+  .timer strong{ display:block; font-size:20px; font-variant-numeric:tabular-nums; }
+  .timer span{ color:var(--muted); font-size:13px; }
+  .typed{ margin-top:22px; padding-top:18px; border-top:1px solid var(--line); }
+  .typed span{ display:block; color:var(--muted); font-size:13px; margin-bottom:4px; }
+  .typed strong{ display:block; white-space:nowrap; font-size:clamp(34px, 5vw, 56px); letter-spacing:.14em; font-variant-numeric:tabular-nums; font-weight:700; }
+  body.virtual main{ flex-direction:row-reverse; }
+  body.virtual .qrbox img{ width:min(34vh, 60vw, 280px); }
+  body.virtual .side{ max-width:560px; }
+  body.virtual .typed strong{ font-size:clamp(44px, 6.4vw, 76px); }
+  .msg{ margin-top:18px; font-size:13.5px; color:#e8b04a; min-height:1.4em; }
+  .gate{ max-width:420px; text-align:center; }
+  .gate a{ color:#fff; }
+  footer{ padding:12px 22px 18px; color:var(--muted); font-size:12.5px; text-align:center; }
+  @media (prefers-reduced-motion:reduce){ .ring .bar, .qrbox img{ transition:none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="evName">Live code</h1>
+  <button type="button" id="fsBtn">Full screen</button>
+</header>
+
+<main id="stage">
+  <div class="qrbox stale" id="qrBox"><img id="qr" alt="QR code to sign in" width="520" height="520" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></div>
+  <div class="side">
+    <h2 id="head">Scan to sign in</h2>
+    <p id="lead">Point your phone camera at this code. It changes every minute, so a link sent to someone who is not here will not work.</p>
+    <div class="timer">
+      <svg class="ring" viewBox="0 0 44 44" aria-hidden="true"><circle class="track" cx="22" cy="22" r="19"/><circle class="bar" id="bar" cx="22" cy="22" r="19" stroke-dasharray="119.4" stroke-dashoffset="0"/></svg>
+      <div><strong id="count">&nbsp;</strong><span>until the next code</span></div>
+    </div>
+    <div class="typed"><span id="typedLabel">Or type this code on the sign in page</span><strong id="short">&nbsp;</strong></div>
+    <div class="msg" id="msg" role="status"></div>
+  </div>
+</main>
+
+<footer>Keep this screen open while people sign in. In a meeting, share this window with everyone. It stays awake on its own where the device allows it.</footer>
+
+<script>
+(function(){
+  var qs = new URLSearchParams(location.search);
+  var eventId = qs.get('event') || '';
+  var stage = document.getElementById('stage');
+  var box = document.getElementById('qrBox'), img = document.getElementById('qr');
+  var bar = document.getElementById('bar'), count = document.getElementById('count'), msg = document.getElementById('msg');
+  var CIRC = 119.4;
+  var changesAt = 0, stepMs = 60000, skew = 0, timer = null, lastOk = 0;
+
+  function gate(html){
+    stage.innerHTML = '<div class="gate">' + html + '</div>';
+  }
+
+  function tick(){
+    var left = changesAt - (Date.now() + skew);
+    if(left < 0) left = 0;
+    var s = Math.ceil(left / 1000);
+    count.textContent = s + ' s';
+    bar.style.strokeDashoffset = String(CIRC * (1 - Math.min(1, left / stepMs)));
+    // A code that could not be renewed is still good for a few minutes, so the screen keeps showing it
+    // and says so once it has been stale for longer than that.
+    box.classList.toggle('stale', lastOk && Date.now() - lastOk > 150000);
+  }
+
+  function load(){
+    clearTimeout(timer);
+    fetch('/api/admin/events/' + encodeURIComponent(eventId) + '/live', { credentials: 'include', cache: 'no-store' })
+      .then(function(r){ return r.json().then(function(d){ return { status: r.status, d: d }; }); })
+      .then(function(x){
+        var d = x.d;
+        if(x.status === 401 || x.status === 403){
+          gate('<h2>Sign in first</h2><p>Open this from your admin page while you are signed in.</p><p><a href="login">Go to sign in</a></p>');
+          return;
+        }
+        if(!d || !d.ok){
+          if(d && d.error === 'NOT_LIVE') gate('<h2>Live code is off</h2><p>Turn on "Use a live code at the venue" when you edit this event, then open this screen again.</p>');
+          else if(d && d.error === 'NOT_FOUND') gate('<h2>Event not found</h2><p>Open this screen from the event card on your admin page.</p>');
+          else throw new Error('bad');
+          return;
+        }
+        document.getElementById('evName').textContent = d.name;
+        document.title = 'Live code - ' + d.name;
+        img.src = d.qr;
+        document.getElementById('short').textContent = d.short || '';
+        if(d.virtual && !document.body.classList.contains('virtual')){
+          document.body.classList.add('virtual');
+          document.getElementById('head').textContent = 'Type this code to sign in';
+          document.getElementById('lead').textContent = 'Open the sign in link you were sent and type the six digits below. The code changes every minute, so a link passed to someone who is not in the meeting will not work.';
+          document.getElementById('typedLabel').textContent = 'Code';
+        }
+        changesAt = d.changesAt; stepMs = d.stepMs || 60000; skew = d.now - Date.now();
+        lastOk = Date.now(); box.classList.remove('stale'); msg.textContent = '';
+        timer = setTimeout(load, Math.max(1500, changesAt - (Date.now() + skew) + 400));
+      })
+      .catch(function(){
+        msg.textContent = 'Reconnecting. The last code still works for a few minutes.';
+        timer = setTimeout(load, 5000);
+      });
+  }
+
+  // Keep the screen from going to sleep while people are signing in.
+  var lock = null;
+  function keepAwake(){
+    if(!navigator.wakeLock || document.visibilityState !== 'visible') return;
+    navigator.wakeLock.request('screen').then(function(l){ lock = l; }).catch(function(){});
+  }
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible'){ keepAwake(); load(); } });
+
+  var fs = document.getElementById('fsBtn');
+  fs.addEventListener('click', function(){
+    if(document.fullscreenElement){ document.exitFullscreen(); return; }
+    if(document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(function(){});
+  });
+  document.addEventListener('fullscreenchange', function(){ fs.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; });
+
+  if(!eventId){
+    gate('<h2>No event chosen</h2><p>Open this screen from the event card on your admin page.</p>');
+  } else {
+    load(); keepAwake();
+    setInterval(tick, 250); tick();
+  }
+})();
+</script>
+</body>
+</html>

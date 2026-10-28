@@ -95,6 +95,13 @@ A `render.yaml` blueprint at the repo root does most of this for you.
   content security policy). When someone signs, their phone is asked for its location; the server turns it into
   AT_VENUE, NEAR, FAR or NOT_SHARED (`lib/geo.js`) and stores only that and the distance, never the
   coordinates. It is a marker beside the signature, never a block. Migration `20261028090000_geo_check`.
+- Live code (optional, per event): the organiser ticks "Use a live code at the venue" and opens
+  `live.html` (event card, More, Live code screen) on a projector or phone. It shows a QR whose link carries a
+  code that changes every minute (`lib/liveCode.js`: a keyed hash of the event and the minute, from
+  `Event.liveSecret`; nothing is stored per code). Registering, signing a later day and phone check in are
+  refused without a code from the last three minutes. A good code is traded for a 20 minute proof held by the
+  page, so a slow form does not fail, and the code is removed from the address bar. The event's own organiser
+  is not asked. In a virtual meeting the organiser shares the live code screen and people type the six digits shown (`POST /api/events/:slug/live-code`, rate limited, traded for the same proof). Migration `20261029090000_live_code`. Not offered for payment sheets.
 - Page addresses: pages are reached without the file extension (`/login`, `/admin`, `/verify?code=...`).
   The attendee sign in page, `index.html`, is `/attend`. The old `.html` addresses still answer, with a
   redirect that keeps the query string, because they are in emails and printed QR codes. The list of

@@ -24,6 +24,7 @@ import { hasModule } from '../lib/plans.js';
 import { eventLimitRefusal } from '../lib/orgPlan.js';
 import { orgBaseUrl } from '../lib/tenantHost.js';
 import QRCode from 'qrcode';
+import { newSecret, currentCode, currentShortCode, nextChangeAt, STEP_MS } from '../lib/liveCode.js';
 
 export const adminRouter = Router();
 adminRouter.use(requireRole('COUNTY_ADMIN'));
@@ -43,6 +44,7 @@ function publicEvent(ev, count) {
     longitude: ev.longitude,
     geoCheck: ev.geoCheck,
     geoRadiusM: ev.geoRadiusM,
+    liveCode: ev.liveCode,
     meetingLink: ev.meetingLink,
     certificatesEnabled: ev.certificatesEnabled,
     kind: ev.kind,
@@ -90,6 +92,8 @@ export function requireEventFields(body) {
   const longitude = locationType === 'PHYSICAL' ? coord(body.longitude) : null;
   // Checking where people sign needs a physical event with a pin. The radius is one of a few choices.
   const geoCheck = locationType === 'PHYSICAL' && body.geoCheck === true && latitude != null && longitude != null;
+  // Scanned in a room, or typed from a screen shared in a meeting.
+  const liveCode = body.liveCode === true;
   const geoRadiusM = geoCheck ? (GEO_RADIUS_CHOICES.includes(Number(body.geoRadiusM)) ? Number(body.geoRadiusM) : GEO_DEFAULT_RADIUS_M) : null;
 
   const missing = [];
@@ -100,7 +104,7 @@ export function requireEventFields(body) {
   if (locationType === 'PHYSICAL' && !address) missing.push('address');
   if (locationType === 'VIRTUAL' && !meetingLink) missing.push('meeting link');
 
-  return { name, description, startAt, endAt, timezone, locationType, address, latitude, longitude, meetingLink, certificatesEnabled, geoCheck, geoRadiusM, requestedGeo: body.geoCheck === true, missing };
+  return { name, description, startAt, endAt, timezone, locationType, address, latitude, longitude, meetingLink, certificatesEnabled, geoCheck, geoRadiusM, liveCode, requestedGeo: body.geoCheck === true, missing };
 }
 
 export function validateEventFields(f) {
@@ -208,7 +212,7 @@ adminRouter.post('/events', ah(async (req, res) => {
     data: {
       slug: eventSlugId(f.name), name: f.name, description: f.description,
       startAt, endAt, timezone: f.timezone,
-      locationType: f.locationType, address: f.address, latitude: f.latitude, longitude: f.longitude, geoCheck: f.geoCheck, geoRadiusM: f.geoRadiusM, meetingLink: f.meetingLink, certificatesEnabled: kind === 'DUTY_ROLL' || !hasModule(req.user.organisation, 'CERTIFICATES') ? false : f.certificatesEnabled,
+      locationType: f.locationType, address: f.address, latitude: f.latitude, longitude: f.longitude, geoCheck: f.geoCheck, geoRadiusM: f.geoRadiusM, liveCode: kind !== 'DUTY_ROLL' && f.liveCode, liveSecret: kind !== 'DUTY_ROLL' && f.liveCode ? newSecret() : null, meetingLink: f.meetingLink, certificatesEnabled: kind === 'DUTY_ROLL' || !hasModule(req.user.organisation, 'CERTIFICATES') ? false : f.certificatesEnabled,
       kind, authorisedBy: authority.authorisedBy, authorityRef: authority.authorityRef,
       county: req.user.county, ownerId: req.user.id, departmentId: req.user.departmentId, organisationId: req.user.organisationId,
       days: { create: days.map((d, i) => ({ position: i + 1, startAt: d.startAt, endAt: d.endAt, place: d.place })) }
@@ -238,6 +242,12 @@ async function findOwnEvent(req) {
 
 registerDutyRoutes(adminRouter, findOwnEvent);
 
+// Switching the live code on makes a secret for the event once; switching it off keeps the secret, so
+// turning it on again does not matter. A payment sheet never uses it.
+function liveFields(event, f) {
+  if (event.kind === 'DUTY_ROLL') return {};
+  return { liveCode: f.liveCode, ...(f.liveCode && !event.liveSecret ? { liveSecret: newSecret() } : {}) };
+}
 // Door scanning is a module the organisation can have switched off.
 adminRouter.use(['/events/:id/days/:dayId/door-checkin', '/events/:id/door-checkins', '/events/:id/door-roster'], (req, res, next) => {
   if (hasModule(req.user.organisation, 'DOOR_SCAN')) return next();
@@ -266,6 +276,22 @@ adminRouter.get('/events/:id/qr', ah(async (req, res) => {
   res.send(png);
 }));
 
+// The live code screen: the sign-in link with the code of this minute in it, drawn as a QR. The page
+// asks again before it changes, so what is on the projector is always one the server will accept.
+adminRouter.get('/events/:id/live', ah(async (req, res) => {
+  const event = await findOwnEvent(req);
+  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  if (!event.liveCode || !event.liveSecret) {
+    return res.status(400).json({ ok: false, error: 'NOT_LIVE', message: 'The live code is not switched on for this event.' });
+  }
+  const now = Date.now();
+  const code = currentCode(event.liveSecret, event.id, now);
+  const url = `${await orgBaseUrl(event.organisationId)}/attend?event=${encodeURIComponent(event.slug)}&k=${code}`;
+  const qr = await QRCode.toDataURL(url, { width: 640, margin: 1, errorCorrectionLevel: 'M' });
+  const short = currentShortCode(event.liveSecret, event.id, now);
+  res.set('Cache-Control', 'no-store');
+  res.json({ ok: true, name: event.name, virtual: event.locationType === 'VIRTUAL', qr, short: short.slice(0, 3) + ' ' + short.slice(3), changesAt: nextChangeAt(now), now, stepMs: STEP_MS });
+}));
 adminRouter.put('/events/:id', ah(async (req, res) => {
   const event = await findOwnEvent(req);
   if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
@@ -335,7 +361,7 @@ adminRouter.put('/events/:id', ah(async (req, res) => {
     }
     return tx.event.update({
       where: { id: event.id },
-      data: { ...after, latitude: f.latitude, longitude: f.longitude, geoCheck: f.geoCheck, geoRadiusM: f.geoRadiusM, certificatesEnabled: event.kind === 'DUTY_ROLL' ? false : f.certificatesEnabled, ...(authority || {}) }
+      data: { ...after, latitude: f.latitude, longitude: f.longitude, geoCheck: f.geoCheck, geoRadiusM: f.geoRadiusM, ...liveFields(event, f), certificatesEnabled: event.kind === 'DUTY_ROLL' ? false : f.certificatesEnabled, ...(authority || {}) }
     });
   });
   await writeAudit({

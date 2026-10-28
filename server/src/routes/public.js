@@ -6,7 +6,7 @@ import { Prisma } from '@prisma/client';
 import QRCode from 'qrcode';
 import { prisma } from '../lib/prisma.js';
 import { normalizePhone, normalizeEmail, isValidEmailShape } from '../lib/normalize.js';
-import { attendanceLimiter, checkInLimiter } from '../middleware/rateLimit.js';
+import { attendanceLimiter, checkInLimiter, liveCodeLimiter } from '../middleware/rateLimit.js';
 import { ah } from '../lib/asyncHandler.js';
 import { MAX_ATTENDANCE_PER_EVENT, SIGNATURE_REQUEST_TTL_MS, EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
 import { randomToken, hashToken } from '../lib/tokens.js';
@@ -16,6 +16,7 @@ import { logger } from '../lib/logger.js';
 import { resolveBrand, DEFAULT_ORG_SLUG, monogramSvg, brandFromOrg, brandForOrgId, emailBrand } from '../lib/brand.js';
 import { dayIsOpen, dayOpensAt, dayClosesAt, ensureFirstDay, pickSigningDay, anchorDayFor } from '../lib/days.js';
 import { geoStatusFor } from '../lib/geo.js';
+import { liveCheck, makeProof, shortCodeIsValid, LIVE_REFUSAL } from '../lib/liveCode.js';
 import { maskName } from '../lib/mask.js';
 import { walletEntry } from '../lib/wallet.js';
 import { certificateEligible, loadCertificateSnapshot, certificateStillHolds, publicCertificateView } from '../lib/certificate.js';
@@ -142,12 +143,30 @@ function isLinkExpired(event) {
 // Shared by both the expired and the normal branch of GET /events/:slug
 // below, so the two never drift into showing a different field set for
 // the same event depending on whether its link happens to still be open.
+// An event on the live code takes a signature only with a code from the screen at the venue (or the
+// proof one earned) in the request. The people who run the event are not asked: they are not the
+// ones the code is there to check, and the organiser's own device may be the one showing it.
+function liveRefusal(event, req) {
+  if (!event.liveCode || canManageEvent(req.user, event)) return null;
+  const c = liveCheck(event, { key: req.body && req.body.liveKey, proof: req.body && req.body.liveProof });
+  if (c.ok) return null;
+  return { ok: false, error: 'LIVE_CODE_REQUIRED', state: c.state, message: LIVE_REFUSAL[c.state] || LIVE_REFUSAL.MISSING };
+}
 // What to store about where a signer was, for an event that checks location. Nothing for one that does not.
 function geoFields(event, location) {
   const g = geoStatusFor(event, location);
   return g ? { geoStatus: g.status, geoDistanceM: g.distanceM } : {};
 }
 
+// For the sign-in page: is a code from the screen needed, and did this visit bring a good one. A good
+// code is swapped for a proof that outlasts it, so a slow form does not fail at the last step.
+function liveStateFor(event, k) {
+  if (!event.liveCode) return undefined;
+  const c = liveCheck(event, { key: typeof k === 'string' ? k : '' });
+  if (!c.ok) return { required: true, ok: false, state: c.state };
+  const p = makeProof(event.liveSecret, event.id);
+  return { required: true, ok: true, proof: p.proof, proofExpiresAt: p.expiresAt };
+}
 function publicEventMeta(event) {
   return {
     id: event.slug,
@@ -164,6 +183,8 @@ function publicEventMeta(event) {
     certificatesEnabled: event.certificatesEnabled,
     // Tells the sign in page to ask the phone where it is. The pin itself is not what decides anything.
     geoCheck: Boolean(event.geoCheck),
+    // Tells the page that signing needs the code on the screen at the venue.
+    liveCode: Boolean(event.liveCode),
     kind: event.kind
   };
 }
@@ -294,6 +315,7 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
       open: dayIsOpen(d)
     })),
     rows: attendance.map(publicRow),
+    live: manage ? undefined : liveStateFor(event, req.query.k),
     submittedCount,
     capacity: MAX_ATTENDANCE_PER_EVENT,
     canManage: manage,
@@ -600,6 +622,17 @@ publicRouter.post('/events/:slug/my-attendance', attendanceLimiter, ah(async (re
   res.json({ ok: true, rows: rows.map(ownRow) });
 }));
 
+// Trades the six digits read off the live code screen for a proof, for people who cannot scan it.
+publicRouter.post('/events/:slug/live-code', liveCodeLimiter, ah(async (req, res) => {
+  const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
+  if (!event || event.deletedAt || !event.liveCode || !event.liveSecret) return res.json({ ok: false, error: 'NOT_LIVE', message: 'This event does not use a live code.' });
+  if (!shortCodeIsValid(event.liveSecret, event.id, req.body && req.body.code)) {
+    return res.json({ ok: false, error: 'BAD_CODE', message: 'That code is not right, or it has changed. Read the new one from the screen and try again.' });
+  }
+  const p = makeProof(event.liveSecret, event.id);
+  res.json({ ok: true, proof: p.proof, proofExpiresAt: p.expiresAt });
+}));
+
 publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, res) => {
   const event = await prisma.event.findUnique({ where: { slug: req.params.slug } });
   if (!event || event.deletedAt) return res.json({ ok: false, error: 'Unknown event' });
@@ -617,6 +650,9 @@ publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, 
   if (isLinkExpired(event)) {
     return res.json({ ok: false, error: 'LINK_EXPIRED', message: 'Sign-in for this event has closed.' });
   }
+
+  const live = liveRefusal(event, req);
+  if (live) return res.json(live);
 
   const clientId = String(req.body.clientId || '');
   const phone = String(req.body.phone || '');
@@ -707,6 +743,8 @@ publicRouter.post('/events/:slug/days/:dayId/signatures', attendanceLimiter, ah(
 
   const day = await prisma.eventDay.findFirst({ where: { id: req.params.dayId, eventId: event.id } });
   if (!day) return res.json({ ok: false, error: 'UNKNOWN_DAY', message: 'That day is not part of this event.' });
+  const live = liveRefusal(event, req);
+  if (live) return res.json(live);
 
   const clientId = String(req.body.clientId || '');
   const attendee = clientId
@@ -788,6 +826,8 @@ async function findForPhoneCheckIn(req) {
   }
   const day = await prisma.eventDay.findFirst({ where: { id: req.params.dayId, eventId: event.id } });
   if (!day) return { error: { ok: false, error: 'UNKNOWN_DAY', message: 'That day is not part of this event.' } };
+  const live = liveRefusal(event, req);
+  if (live) return { error: live };
   if (!dayIsOpen(day)) {
     return { error: { ok: false, error: 'DAY_NOT_OPEN', message: 'Signing for this day is not open right now.', opensAt: dayOpensAt(day), closesAt: dayClosesAt(day) } };
   }

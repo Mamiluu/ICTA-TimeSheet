@@ -44,6 +44,16 @@ export const attendanceLimiter = rateLimit({
 
 // Phone-number check-in for later days is a guessable-credential route, so it
 // gets a much tighter per-IP cap than ordinary sign-in.
+// Typing the live code. A whole room can share one Wi-Fi address, so this allows far more than the
+// check-in limit, while still making a guess at six digits pointless.
+export const liveCodeLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 80,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: 'TOO_MANY_ATTEMPTS', message: 'Too many tries. Wait a few minutes and try again.' }
+});
+
 export const checkInLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   limit: 12,

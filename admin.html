@@ -129,6 +129,7 @@
 
   .geo-box{ margin:4px 0 10px; padding:12px 14px; border:1px solid var(--c-line, #e3e6ec); border-radius:12px; background:var(--c-accent-wash, #fafbfc); }
   .geo-box .geo-toggle{ margin:0; }
+  .live-note{ margin:6px 0 0 26px; }
   .geo-box #geoPanel{ margin-top:10px; padding-top:10px; border-top:1px solid var(--c-line, #e3e6ec); }
   .venue-save{ display:flex; align-items:center; gap:8px; font-weight:normal; color:#444; margin:0 0 4px 2px; font-size:13.5px; }
   .venue-save input{ margin:0; width:auto; }
@@ -467,7 +468,10 @@
       <label for="newMeetingLink">Meeting link</label>
       <input type="text" id="newMeetingLink" placeholder="https://meet.google.com/abc-defg-hij">
     </div>
-
+    <div class="geo-box" id="liveCard">
+      <label class="geo-toggle live-toggle"><input type="checkbox" id="newLiveCode"> <span id="liveLabel">Use a live code at the venue</span> <em>(stops shared links)</em></label>
+      <p class="geo-note live-note" id="liveNote" hidden></p>
+    </div>
     <label class="venue-save">
       <input type="checkbox" id="saveAsVenueTemplate">
       Save this location for next time
@@ -892,6 +896,7 @@
     newAddressField.style.display = newLocType === 'PHYSICAL' ? '' : 'none';
     newMeetingLinkField.style.display = newLocType === 'VIRTUAL' ? '' : 'none';
     if(typeof syncGeoPanel === 'function') syncGeoPanel();
+    if(typeof syncLiveNote === 'function') syncLiveNote();
     refreshCreateBtnState();
   }
   Array.prototype.forEach.call(newLocTypeToggle.querySelectorAll('button'), function(btn){
@@ -909,6 +914,8 @@
   // The map opens on the admin's own county, so the pin is dropped somewhere near. Leaflet and the
   // county outlines are only fetched the first time someone ticks the box.
   var geoCheckBox = document.getElementById('newGeoCheck');
+  var liveBox = document.getElementById('newLiveCode');
+  var liveNote = document.getElementById('liveNote');
   var geoPanel = document.getElementById('geoPanel');
   var geoRadius = document.getElementById('newGeoRadius');
   var geoNote = document.getElementById('geoNote');
@@ -1026,6 +1033,17 @@
     });
   }
   geoCheckBox.addEventListener('change', function(){ syncGeoPanel(); refreshCreateBtnState(); });
+  // What the live code means depends on where the event is: a screen in a room, or a screen shared in a meeting.
+  function syncLiveNote(){
+    if(!liveBox || !liveNote) return;
+    var virtual = newLocType === 'VIRTUAL';
+    document.getElementById('liveLabel').textContent = virtual ? 'Use a live code in the meeting' : 'Use a live code at the venue';
+    liveNote.textContent = virtual
+      ? 'Share the live code screen in the meeting. People type the six digits on it to sign, so a link sent to someone who is not in the call stops working. The code changes every minute. Open it from the event card, More, Live code screen.'
+      : 'You show a screen at the venue with a QR code that changes every minute. People scan it to sign, so a link or photo sent to someone who is not there stops working within a few minutes. Open it from the event card, More, Live code screen.';
+    liveNote.hidden = !liveBox.checked;
+  }
+  liveBox.addEventListener('change', syncLiveNote);
   document.getElementById('geoClear').addEventListener('click', clearPin);
   // --- Saved venues (quick-fill) ---
   // Deliberately device-local (localStorage), not a server-side model: no
@@ -1305,6 +1323,7 @@
     var duty = kind === 'DUTY_ROLL';
     document.getElementById('dutyBox').style.display = duty ? '' : 'none';
     document.getElementById('newCertificates').closest('label').style.display = duty || !certificatesModule ? 'none' : '';
+    document.getElementById('liveCard').style.display = duty ? 'none' : '';
     if(!editingEventId){
       formTitle.textContent = duty ? 'Create a payment sheet' : 'Create a new event';
       createBtn.textContent = duty ? 'Create payment sheet' : 'Create event';
@@ -1389,6 +1408,7 @@
     newAddress.value = ''; newMeetingLink.value = '';
     newLatitude.value = ''; newLongitude.value = '';
     geoCheckBox.checked = false; geoRadius.value = '300'; clearPin(); syncGeoPanel();
+    liveBox.checked = false; syncLiveNote();
     venueTemplateSelect.value = '';
     deleteVenueTemplateBtn.style.display = 'none';
     saveAsVenueTemplate.checked = false;
@@ -1444,6 +1464,7 @@
     newLatitude.value = (ev.locationType === 'PHYSICAL' && ev.latitude != null) ? ev.latitude : '';
     newLongitude.value = (ev.locationType === 'PHYSICAL' && ev.longitude != null) ? ev.longitude : '';
     geoCheckBox.checked = !!ev.geoCheck; geoRadius.value = String(ev.geoRadiusM || 300); syncGeoPanel();
+    liveBox.checked = !!ev.liveCode; syncLiveNote();
     createError.style.display = 'none';
     document.getElementById('dutyAuthBy').value = ev.authorisedBy || '';
     document.getElementById('dutyAuthRef').value = ev.authorityRef || '';
@@ -1478,6 +1499,7 @@
       longitude: newLocType === 'PHYSICAL' && newLongitude.value ? Number(newLongitude.value) : null,
       geoCheck: newLocType === 'PHYSICAL' && geoCheckBox.checked,
       geoRadiusM: Number(geoRadius.value),
+      liveCode: liveBox.checked,
       meetingLink: newLocType === 'VIRTUAL' ? newMeetingLink.value.trim() : '',
       certificatesEnabled: document.getElementById('newCertificates').checked
     };
@@ -1632,6 +1654,9 @@
     if(isDuty){
       var pp = document.createElement('span'); pp.className = 'pill days'; pp.textContent = 'Payment sheet'; pills.appendChild(pp);
     }
+    if(ev.liveCode){
+      var lp = document.createElement('span'); lp.className = 'pill days'; lp.textContent = 'Live code'; pills.appendChild(lp);
+    }
     if(ev.days && ev.days.length > 1){
       var dp = document.createElement('span'); dp.className = 'pill days'; dp.textContent = ev.days.length + ' days'; pills.appendChild(dp);
     }
@@ -1660,6 +1685,7 @@
     // a drawn signature) leaves the sheet as a file or printout. Both go
     // through the audited endpoint so there is a record of who took a copy.
     if(!isDuty){
+      if(ev.liveCode) menu.appendChild(menuItem('Live code screen', function(){ window.open('live?event=' + encodeURIComponent(ev.id), '_blank'); }));
       menu.appendChild(menuItem('Kiosk link', function(){
         if(navigator.clipboard) navigator.clipboard.writeText(kioskUrl);
       }));

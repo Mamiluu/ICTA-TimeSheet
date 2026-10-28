@@ -94,7 +94,7 @@ app.use('/server', (req, res) => res.status(404).json({ ok: false, error: 'NOT_F
 // address. The attendee sign in page, index.html, is /attend.
 const CLEAN_PAGES = new Set([
   'login', 'signup', 'admin', 'superadmin', 'platform', 'owner', 'owner-org', 'verify', 'wallet', 'privacy',
-  'activate', 'forgot-password', 'reset-password', 'certificate', 'sign', 'duty-roll', 'duty-review', 'duty-sign', 'claim-pack'
+  'activate', 'forgot-password', 'reset-password', 'certificate', 'sign', 'duty-roll', 'duty-review', 'duty-sign', 'claim-pack', 'live'
 ]);
 app.get(/^\/([a-z0-9-]+)\.html$/, (req, res, next) => {
   const name = req.params[0];
