@@ -56,7 +56,9 @@ app.use(helmet({
       'script-src': ["'self'", "'unsafe-inline'"],
       'style-src': ["'self'", "'unsafe-inline'"],
       // The venue map on the event form draws its tiles from OpenStreetMap.
-      'img-src': ["'self'", 'data:', 'https://tile.openstreetmap.org']
+      'img-src': ["'self'", 'data:', 'https://tile.openstreetmap.org'],
+      // One test tile is fetched to see whether OpenStreetMap will serve this address.
+      'connect-src': ["'self'", 'https://tile.openstreetmap.org']
     }
   }
 }));

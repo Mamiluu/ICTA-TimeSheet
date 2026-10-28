@@ -9,7 +9,7 @@
 // queue -- the Background Sync API this might otherwise reach for isn't
 // supported in Safari/iOS as of this writing, which is exactly the device
 // class a walk-in attendee is most likely holding.
-const CACHE_VERSION = 'v43';
+const CACHE_VERSION = 'v44';
 const SHELL_CACHE = 'icta-shell-' + CACHE_VERSION;
 // admin.html and its scripts are here so the door scanner can open with no signal.
 // Nothing under /api/ is ever cached, so what the page shows is still live data

@@ -945,7 +945,21 @@
       geoState.county = counties.filter(function(c){ return normCounty(c.name) === want; })[0] || null;
       L.Icon.Default.imagePath = 'assets/vendor/leaflet/images/';
       var map = L.map('geoMap', { zoomControl: true, attributionControl: true });
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, referrerPolicy: 'strict-origin-when-cross-origin', attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+      // OpenStreetMap refuses some addresses (a local test address, or a busy shared host) and answers
+      // with a picture that says "Access blocked", which the browser shows as if it were a map. So one
+      // tile is asked for first, and the street map is added only if it comes back as a normal answer;
+      // otherwise the plain county outline stays, which still takes a pin.
+      var streetMap = function(){
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, referrerPolicy: 'strict-origin-when-cross-origin', attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+      };
+      var plainMap = function(){
+        document.getElementById('geoMap').style.background = '#f4f1ec';
+        var help = document.getElementById('geoHelp');
+        help.textContent += ' The street map is not available right now, so only the county outline is shown. Tap inside it to place the pin.';
+      };
+      fetch('https://tile.openstreetmap.org/0/0/0.png', { referrerPolicy: 'strict-origin-when-cross-origin' })
+        .then(function(r){ if(r.ok) streetMap(); else plainMap(); })
+        .catch(plainMap);
       var bounds;
       if(geoState.county){
         var layers = geoState.county.polys.map(function(p){ return p.map(function(c){ return [c[1], c[0]]; }); });
