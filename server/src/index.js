@@ -47,6 +47,9 @@ app.set('trust proxy', 1); // Render/other reverse proxies sit in front of us; n
 // assets/map-config.js for notes on re-enabling a map picker later), so
 // there's nothing extra to allow here beyond that.
 app.use(helmet({
+  // OpenStreetMap refuses map tiles that arrive with no referrer (a grey map and a 403 picture), so
+  // other sites are told only the origin, never the page address or its query string.
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   contentSecurityPolicy: {
     directives: {
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),

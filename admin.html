@@ -945,7 +945,7 @@
       geoState.county = counties.filter(function(c){ return normCounty(c.name) === want; })[0] || null;
       L.Icon.Default.imagePath = 'assets/vendor/leaflet/images/';
       var map = L.map('geoMap', { zoomControl: true, attributionControl: true });
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, referrerPolicy: 'strict-origin-when-cross-origin', attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
       var bounds;
       if(geoState.county){
         var layers = geoState.county.polys.map(function(p){ return p.map(function(c){ return [c[1], c[0]]; }); });
