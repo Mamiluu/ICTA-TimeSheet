@@ -83,8 +83,11 @@ export function requireEventFields(body) {
   // rather than guessed at. A pin without a matching address would be
   // actively misleading on the attendee-facing map, so this only ever
   // carries a coordinate pair that came from a real lookup.
-  const latitude = locationType === 'PHYSICAL' && Number.isFinite(Number(body.latitude)) ? Number(body.latitude) : null;
-  const longitude = locationType === 'PHYSICAL' && Number.isFinite(Number(body.longitude)) ? Number(body.longitude) : null;
+  // Number(null) and Number('') are 0, which would turn "no pin" into a point in the sea, so an
+  // empty value is read as none before it is converted.
+  const coord = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
+  const latitude = locationType === 'PHYSICAL' ? coord(body.latitude) : null;
+  const longitude = locationType === 'PHYSICAL' ? coord(body.longitude) : null;
   // Checking where people sign needs a physical event with a pin. The radius is one of a few choices.
   const geoCheck = locationType === 'PHYSICAL' && body.geoCheck === true && latitude != null && longitude != null;
   const geoRadiusM = geoCheck ? (GEO_RADIUS_CHOICES.includes(Number(body.geoRadiusM)) ? Number(body.geoRadiusM) : GEO_DEFAULT_RADIUS_M) : null;

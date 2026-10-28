@@ -43,3 +43,17 @@ test('a pin has to be in Kenya', () => {
   assert.equal(validPoint(51.5, -0.12), false);
   assert.equal(validPoint(NaN, 36), false);
 });
+
+test('an event with no pin keeps no coordinates and passes validation', async () => {
+  const { requireEventFields, validateEventFields } = await import('../src/routes/admin.js');
+  const base = { name: 'Summit', startAt: '2026-10-29T06:00:00Z', endAt: '2026-10-29T14:00:00Z', timezone: 'Africa/Nairobi', locationType: 'PHYSICAL', address: 'Swahilipot hub' };
+  for (const none of [{ latitude: null, longitude: null }, { latitude: '', longitude: '' }, {}]) {
+    const f = requireEventFields({ ...base, ...none });
+    assert.equal(f.latitude, null);
+    assert.equal(f.longitude, null);
+    assert.equal(validateEventFields(f), null);
+  }
+  const pinned = requireEventFields({ ...base, latitude: -4.05, longitude: 39.67 });
+  assert.equal(pinned.latitude, -4.05);
+  assert.equal(validateEventFields(pinned), null);
+});
