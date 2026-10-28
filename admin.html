@@ -127,7 +127,12 @@
     background:#fff; color:#1a1a1a;
   }
 
-  .geo-box{ margin:2px 0 14px; }
+  .geo-box{ margin:4px 0 10px; padding:12px 14px; border:1px solid var(--c-line, #e3e6ec); border-radius:12px; background:var(--c-accent-wash, #fafbfc); }
+  .geo-box .geo-toggle{ margin:0; }
+  .geo-box #geoPanel{ margin-top:10px; padding-top:10px; border-top:1px solid var(--c-line, #e3e6ec); }
+  .venue-save{ display:flex; align-items:center; gap:8px; font-weight:normal; color:#444; margin:0 0 4px 2px; font-size:13.5px; }
+  .venue-save input{ margin:0; width:auto; }
+  .event-opts{ margin:16px 0 14px; padding-top:14px; border-top:1px solid var(--c-line, #e3e6ec); }
   .geo-toggle{ display:flex; align-items:center; gap:9px; font-weight:600; font-size:13.5px; cursor:pointer; margin:0 0 8px; }
   .geo-toggle input{ width:auto; margin:0; }
   .geo-toggle em{ font-style:normal; font-weight:400; color:#888; }
@@ -463,15 +468,15 @@
       <input type="text" id="newMeetingLink" placeholder="https://meet.google.com/abc-defg-hij">
     </div>
 
-    <label style="display:flex; align-items:center; gap:6px; font-weight:normal; color:#444; margin-top:-6px;">
-      <input type="checkbox" id="saveAsVenueTemplate" style="margin:0; width:auto;">
+    <label class="venue-save">
+      <input type="checkbox" id="saveAsVenueTemplate">
       Save this location for next time
     </label>
     <div id="venueTemplateNameField" style="display:none; margin-top:8px;">
       <input type="text" id="venueTemplateName" placeholder="Name this venue, e.g. &quot;Mombasa County Hall&quot;">
     </div>
 
-    <label style="display:flex; align-items:flex-start; gap:8px; font-weight:normal; color:#444; margin:2px 0 14px;">
+    <label class="event-opts" style="display:flex; align-items:flex-start; gap:8px; font-weight:normal; color:#444;">
       <input type="checkbox" id="newCertificates" checked style="margin:3px 0 0; width:auto;">
       <span><strong>Offer attendance certificates</strong><br><span style="color:#777;font-size:12px;">After the last day, each attendee can get a certificate listing the days they attended. Anyone can verify it with its QR code.</span></span>
     </label>
