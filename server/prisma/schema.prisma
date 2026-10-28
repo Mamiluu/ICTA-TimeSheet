@@ -362,6 +362,10 @@ model Event {
   latitude  Float?
   longitude Float?
   meetingLink String?
+  // When on, each signature records whether the signer's phone was near the pin above. A hint for the
+  // organiser, never a block. geoRadiusM is how close counts as at the venue.
+  geoCheck    Boolean @default(false)
+  geoRadiusM  Int?
 
   // Nullable so the owning admin can be hard-deleted (superadminRouter DELETE
   // /admins/:id) without being blocked forever. Deliberately not cascaded:
@@ -469,6 +473,10 @@ model SessionSignature {
   // verified; DOOR is an organiser scanning the attendee's pass, stored with
   // a generated 'scanned' stamp instead of a drawn signature.
   method              String    @default("DEVICE")
+  // Where the signer's phone was when they signed, when the event checks location: AT_VENUE, NEAR,
+  // FAR or NOT_SHARED. Only the verdict and the distance are kept, never the coordinates.
+  geoStatus           String?
+  geoDistanceM        Int?
   signedAt            DateTime  @default(now())
 
   @@unique([attendanceId, dayId])

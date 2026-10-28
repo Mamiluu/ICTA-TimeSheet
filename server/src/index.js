@@ -52,7 +52,8 @@ app.use(helmet({
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
       'script-src': ["'self'", "'unsafe-inline'"],
       'style-src': ["'self'", "'unsafe-inline'"],
-      'img-src': ["'self'", 'data:']
+      // The venue map on the event form draws its tiles from OpenStreetMap.
+      'img-src': ["'self'", 'data:', 'https://tile.openstreetmap.org']
     }
   }
 }));

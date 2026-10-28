@@ -15,6 +15,7 @@ import { sendAttendanceConfirmationEmail } from '../lib/mailer.js';
 import { logger } from '../lib/logger.js';
 import { resolveBrand, DEFAULT_ORG_SLUG, monogramSvg, brandFromOrg, brandForOrgId, emailBrand } from '../lib/brand.js';
 import { dayIsOpen, dayOpensAt, dayClosesAt, ensureFirstDay, pickSigningDay, anchorDayFor } from '../lib/days.js';
+import { geoStatusFor } from '../lib/geo.js';
 import { maskName } from '../lib/mask.js';
 import { walletEntry } from '../lib/wallet.js';
 import { certificateEligible, loadCertificateSnapshot, certificateStillHolds, publicCertificateView } from '../lib/certificate.js';
@@ -107,7 +108,7 @@ function publicRow(r) {
     signature: r.signature,
     hasPendingSignatureRequest: !!r.signatureRequestTokenHash,
     signedDayIds: (r.daySignatures || []).map((s) => s.dayId),
-    daySignatures: (r.daySignatures || []).map((s) => ({ dayId: s.dayId, signature: s.signature, method: s.method })),
+    daySignatures: (r.daySignatures || []).map((s) => ({ dayId: s.dayId, signature: s.signature, method: s.method, geoStatus: s.geoStatus || null })),
     status: r.status,
     statusReason: r.statusReason,
     statusAt: r.statusAt,
@@ -141,6 +142,12 @@ function isLinkExpired(event) {
 // Shared by both the expired and the normal branch of GET /events/:slug
 // below, so the two never drift into showing a different field set for
 // the same event depending on whether its link happens to still be open.
+// What to store about where a signer was, for an event that checks location. Nothing for one that does not.
+function geoFields(event, location) {
+  const g = geoStatusFor(event, location);
+  return g ? { geoStatus: g.status, geoDistanceM: g.distanceM } : {};
+}
+
 function publicEventMeta(event) {
   return {
     id: event.slug,
@@ -155,6 +162,8 @@ function publicEventMeta(event) {
     longitude: event.longitude,
     meetingLink: event.meetingLink,
     certificatesEnabled: event.certificatesEnabled,
+    // Tells the sign in page to ask the phone where it is. The pin itself is not what decides anything.
+    geoCheck: Boolean(event.geoCheck),
     kind: event.kind
   };
 }
@@ -265,7 +274,7 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
       ? prisma.attendance.findMany({
           where: { eventId: event.id },
           orderBy: { createdAt: 'asc' },
-          include: { daySignatures: { select: { dayId: true, signature: true, method: true } } }
+          include: { daySignatures: { select: { dayId: true, signature: true, method: true, geoStatus: true } } }
         })
       : Promise.resolve([]),
     prisma.eventDay.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' } })
@@ -586,7 +595,7 @@ publicRouter.post('/events/:slug/my-attendance', attendanceLimiter, ah(async (re
 
   const rows = await prisma.attendance.findMany({
     where: { eventId: event.id, clientId: { in: clientIds } },
-    include: { daySignatures: { select: { dayId: true, signature: true, method: true } } }
+    include: { daySignatures: { select: { dayId: true, signature: true, method: true, geoStatus: true } } }
   });
   res.json({ ok: true, rows: rows.map(ownRow) });
 }));
@@ -662,7 +671,7 @@ publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, 
         phoneNormalized,
         signature,
         photoVideoConsent: req.body.photoVideoConsent,
-        daySignatures: { create: { dayId: signingDay.id, signature } }
+        daySignatures: { create: { dayId: signingDay.id, signature, ...geoFields(event, req.body.location) } }
       }
     });
     const dayCount = await prisma.eventDay.count({ where: { eventId: event.id } });
@@ -730,7 +739,7 @@ publicRouter.post('/events/:slug/days/:dayId/signatures', attendanceLimiter, ah(
 
   try {
     const sig = await prisma.sessionSignature.create({
-      data: { attendanceId: attendee.id, dayId: day.id, signature: String(req.body.signature) }
+      data: { attendanceId: attendee.id, dayId: day.id, signature: String(req.body.signature), ...geoFields(event, req.body.location) }
     });
     notifyDaySigned(attendee, event, day, sig);
     return res.json({ ok: true, id: sig.id });
@@ -819,7 +828,7 @@ publicRouter.post('/events/:slug/days/:dayId/check-in', checkInLimiter, ah(async
 
   try {
     const sig = await prisma.sessionSignature.create({
-      data: { attendanceId: attendee.id, dayId: day.id, signature: String(req.body.signature), method: 'PHONE' }
+      data: { attendanceId: attendee.id, dayId: day.id, signature: String(req.body.signature), method: 'PHONE', ...geoFields(event, req.body.location) }
     });
     await writeAudit({
       actorId: null, action: 'DAY_CHECKIN_BY_PHONE', targetType: 'Attendance', targetId: attendee.id,

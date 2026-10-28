@@ -10,6 +10,7 @@ import { eventSlugId, isValidMeetingLink } from '../lib/normalize.js';
 import { isValidTimeZone } from '../lib/timezone.js';
 import { ah } from '../lib/asyncHandler.js';
 import { resolveSchedule, dayClosesAt, REOPEN_DEFAULT_HOURS, REOPEN_MAX_HOURS } from '../lib/days.js';
+import { GEO_RADIUS_CHOICES, GEO_DEFAULT_RADIUS_M, validPoint } from '../lib/geo.js';
 import { EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
 import { bucketByDay, countsByKey, summarizeDays, meetingMix } from '../lib/analytics.js';
 import { doorStampDataUri, clockInZone } from '../lib/stamp.js';
@@ -40,6 +41,8 @@ function publicEvent(ev, count) {
     address: ev.address,
     latitude: ev.latitude,
     longitude: ev.longitude,
+    geoCheck: ev.geoCheck,
+    geoRadiusM: ev.geoRadiusM,
     meetingLink: ev.meetingLink,
     certificatesEnabled: ev.certificatesEnabled,
     kind: ev.kind,
@@ -82,6 +85,9 @@ export function requireEventFields(body) {
   // carries a coordinate pair that came from a real lookup.
   const latitude = locationType === 'PHYSICAL' && Number.isFinite(Number(body.latitude)) ? Number(body.latitude) : null;
   const longitude = locationType === 'PHYSICAL' && Number.isFinite(Number(body.longitude)) ? Number(body.longitude) : null;
+  // Checking where people sign needs a physical event with a pin. The radius is one of a few choices.
+  const geoCheck = locationType === 'PHYSICAL' && body.geoCheck === true && latitude != null && longitude != null;
+  const geoRadiusM = geoCheck ? (GEO_RADIUS_CHOICES.includes(Number(body.geoRadiusM)) ? Number(body.geoRadiusM) : GEO_DEFAULT_RADIUS_M) : null;
 
   const missing = [];
   if (!name) missing.push('event name');
@@ -91,7 +97,7 @@ export function requireEventFields(body) {
   if (locationType === 'PHYSICAL' && !address) missing.push('address');
   if (locationType === 'VIRTUAL' && !meetingLink) missing.push('meeting link');
 
-  return { name, description, startAt, endAt, timezone, locationType, address, latitude, longitude, meetingLink, certificatesEnabled, missing };
+  return { name, description, startAt, endAt, timezone, locationType, address, latitude, longitude, meetingLink, certificatesEnabled, geoCheck, geoRadiusM, requestedGeo: body.geoCheck === true, missing };
 }
 
 export function validateEventFields(f) {
@@ -103,6 +109,12 @@ export function validateEventFields(f) {
   }
   if (!isValidTimeZone(f.timezone)) {
     return { ok: false, error: 'INVALID_TIMEZONE', message: 'That time zone isn\'t recognized.' };
+  }
+  if (f.latitude != null && !validPoint(f.latitude, f.longitude)) {
+    return { ok: false, error: 'INVALID_PIN', message: 'The pin on the map is not in Kenya. Place it again.' };
+  }
+  if (f.requestedGeo && !f.geoCheck && f.locationType === 'PHYSICAL') {
+    return { ok: false, error: 'PIN_REQUIRED', message: 'Place the venue pin on the map to check where people sign.' };
   }
   if (f.locationType === 'VIRTUAL' && !isValidMeetingLink(f.meetingLink)) {
     return { ok: false, error: 'INVALID_MEETING_LINK', message: 'Enter a valid meeting link (starting with http:// or https://).' };
@@ -193,7 +205,7 @@ adminRouter.post('/events', ah(async (req, res) => {
     data: {
       slug: eventSlugId(f.name), name: f.name, description: f.description,
       startAt, endAt, timezone: f.timezone,
-      locationType: f.locationType, address: f.address, latitude: f.latitude, longitude: f.longitude, meetingLink: f.meetingLink, certificatesEnabled: kind === 'DUTY_ROLL' || !hasModule(req.user.organisation, 'CERTIFICATES') ? false : f.certificatesEnabled,
+      locationType: f.locationType, address: f.address, latitude: f.latitude, longitude: f.longitude, geoCheck: f.geoCheck, geoRadiusM: f.geoRadiusM, meetingLink: f.meetingLink, certificatesEnabled: kind === 'DUTY_ROLL' || !hasModule(req.user.organisation, 'CERTIFICATES') ? false : f.certificatesEnabled,
       kind, authorisedBy: authority.authorisedBy, authorityRef: authority.authorityRef,
       county: req.user.county, ownerId: req.user.id, departmentId: req.user.departmentId, organisationId: req.user.organisationId,
       days: { create: days.map((d, i) => ({ position: i + 1, startAt: d.startAt, endAt: d.endAt, place: d.place })) }
@@ -320,7 +332,7 @@ adminRouter.put('/events/:id', ah(async (req, res) => {
     }
     return tx.event.update({
       where: { id: event.id },
-      data: { ...after, latitude: f.latitude, longitude: f.longitude, certificatesEnabled: event.kind === 'DUTY_ROLL' ? false : f.certificatesEnabled, ...(authority || {}) }
+      data: { ...after, latitude: f.latitude, longitude: f.longitude, geoCheck: f.geoCheck, geoRadiusM: f.geoRadiusM, certificatesEnabled: event.kind === 'DUTY_ROLL' ? false : f.certificatesEnabled, ...(authority || {}) }
     });
   });
   await writeAudit({

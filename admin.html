@@ -127,6 +127,17 @@
     background:#fff; color:#1a1a1a;
   }
 
+  .geo-box{ margin:2px 0 14px; }
+  .geo-toggle{ display:flex; align-items:center; gap:9px; font-weight:600; font-size:13.5px; cursor:pointer; margin:0 0 8px; }
+  .geo-toggle input{ width:auto; margin:0; }
+  .geo-toggle em{ font-style:normal; font-weight:400; color:#888; }
+  .geo-help{ font-size:12.5px; color:#666; margin:0 0 8px; }
+  .geo-map{ height:280px; border:1px solid #d3d7de; border-radius:10px; overflow:hidden; background:#eef1f5; }
+  .geo-row{ display:flex; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap; font-size:13px; }
+  .geo-row label{ margin:0; font-weight:600; }
+  .geo-row select{ width:auto; margin:0; }
+  .geo-note{ font-size:12px; color:#6a7080; margin:8px 0 0; }
+  .geo-note.warn{ color:#8a5a00; font-weight:600; }
   /* Physical/Virtual segmented toggle -- two mutually-exclusive buttons
      rather than a checkbox/select, since only one location type ever
      applies and the choice determines which field appears below it. */
@@ -433,6 +444,19 @@
            future map/search picker (see assets/map-config.js) would. -->
       <input type="hidden" id="newLatitude">
       <input type="hidden" id="newLongitude">
+      <div class="geo-box">
+        <label class="geo-toggle"><input type="checkbox" id="newGeoCheck"> <span>Check where people are when they sign <em>(optional)</em></span></label>
+        <div id="geoPanel" hidden>
+          <p class="geo-help" id="geoHelp">Tap the map to place the venue pin.</p>
+          <div id="geoMap" class="geo-map" aria-label="Map to place the venue pin"></div>
+          <div class="geo-row">
+            <label for="newGeoRadius">Counts as at the venue within</label>
+            <select id="newGeoRadius"><option value="100">100 m</option><option value="300" selected>300 m</option><option value="1000">1 km</option></select>
+            <button type="button" id="geoClear" class="link">Clear pin</button>
+          </div>
+          <p class="geo-note" id="geoNote">Each signature is marked at the venue, near, far, or location not shared. Nobody is stopped from signing.</p>
+        </div>
+      </div>
     </div>
     <div id="newMeetingLinkField" style="display:none;">
       <label for="newMeetingLink">Meeting link</label>
@@ -606,7 +630,9 @@
   // secrets) so that, with no signal, the page can still open to the door
   // scanner. Anything that talks to the server still needs the real session.
   var USER_KEY = 'icta_admin_user_v1';
+  var adminCounty = '';
   function showUser(user){
+    adminCounty = user.county || '';
     whoEmail.textContent = user.email;
     // From the server the department is a record with a name; from the copy kept for offline use it is just the name.
     var deptName = user.department && typeof user.department === 'object' ? user.department.name : user.department;
@@ -860,6 +886,7 @@
     });
     newAddressField.style.display = newLocType === 'PHYSICAL' ? '' : 'none';
     newMeetingLinkField.style.display = newLocType === 'VIRTUAL' ? '' : 'none';
+    if(typeof syncGeoPanel === 'function') syncGeoPanel();
     refreshCreateBtnState();
   }
   Array.prototype.forEach.call(newLocTypeToggle.querySelectorAll('button'), function(btn){
@@ -873,6 +900,114 @@
   newAddress.addEventListener('change', refreshCreateBtnState);
   newMeetingLink.addEventListener('change', refreshCreateBtnState);
 
+  // --- Venue pin and the optional "where did they sign" check ---
+  // The map opens on the admin's own county, so the pin is dropped somewhere near. Leaflet and the
+  // county outlines are only fetched the first time someone ticks the box.
+  var geoCheckBox = document.getElementById('newGeoCheck');
+  var geoPanel = document.getElementById('geoPanel');
+  var geoRadius = document.getElementById('newGeoRadius');
+  var geoNote = document.getElementById('geoNote');
+  var geoNoteDefault = geoNote.textContent;
+  var geoState = { map: null, marker: null, county: null, ready: null };
+
+  function loadOnce(tag, attrs){
+    return new Promise(function(ok, fail){
+      var el = document.createElement(tag);
+      Object.keys(attrs).forEach(function(k){ el[k] = attrs[k]; });
+      el.onload = ok; el.onerror = fail;
+      document.head.appendChild(el);
+    });
+  }
+  // The county file spells a few names differently from how people write them.
+  var COUNTY_ALIAS = { elgeyomarakwet: 'keiyomarakwet', tharakanithi: 'tharaka', nairobicity: 'nairobi', muranga: 'muranga', taita: 'taitataveta' };
+  function normCounty(s){ var n = String(s || '').toLowerCase().replace(/county/g, '').replace(/[^a-z]/g, ''); return COUNTY_ALIAS[n] || n; }
+
+  function pointInRing(lng, lat, ring){
+    var inside = false;
+    for(var i = 0, j = ring.length - 1; i < ring.length; j = i++){
+      var xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+      if(((yi > lat) !== (yj > lat)) && (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+  }
+  function inCounty(county, lat, lng){
+    return !!county && county.polys.some(function(p){ return pointInRing(lng, lat, p); });
+  }
+
+  function ensureGeoMap(){
+    if(geoState.ready) return geoState.ready;
+    geoState.ready = Promise.all([
+      loadOnce('link', { rel: 'stylesheet', href: 'assets/vendor/leaflet/leaflet.css' }),
+      loadOnce('script', { src: 'assets/vendor/leaflet/leaflet.js' }),
+      fetch('assets/data/counties.json').then(function(r){ return r.json(); })
+    ]).then(function(parts){
+      var counties = parts[2], want = normCounty(adminCounty);
+      geoState.county = counties.filter(function(c){ return normCounty(c.name) === want; })[0] || null;
+      L.Icon.Default.imagePath = 'assets/vendor/leaflet/images/';
+      var map = L.map('geoMap', { zoomControl: true, attributionControl: true });
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+      var bounds;
+      if(geoState.county){
+        var layers = geoState.county.polys.map(function(p){ return p.map(function(c){ return [c[1], c[0]]; }); });
+        var outline = L.polygon(layers, { color: '#c8102e', weight: 2, fillOpacity: 0.04, interactive: false }).addTo(map);
+        bounds = outline.getBounds();
+        map.fitBounds(bounds, { padding: [10, 10] });
+        map.setMaxBounds(bounds.pad(0.35));
+        map.setMinZoom(Math.max(5, map.getZoom() - 1));
+        document.getElementById('geoHelp').textContent = 'Tap the map to place the venue pin. The map shows ' + geoState.county.name + ' county.';
+      } else {
+        bounds = L.latLngBounds([-4.9, 33.8], [5.6, 42.0]);
+        map.fitBounds(bounds);
+        document.getElementById('geoHelp').textContent = 'Tap the map to place the venue pin.';
+      }
+      map.on('click', function(e){ placePin(e.latlng.lat, e.latlng.lng); });
+      geoState.map = map;
+    });
+    return geoState.ready;
+  }
+
+  function placePin(lat, lng){
+    if(!geoState.map) return;
+    lat = Math.round(lat * 1e6) / 1e6; lng = Math.round(lng * 1e6) / 1e6;
+    if(!geoState.marker){
+      geoState.marker = L.marker([lat, lng], { draggable: true }).addTo(geoState.map);
+      geoState.marker.on('dragend', function(){ var p = geoState.marker.getLatLng(); placePin(p.lat, p.lng); });
+    } else geoState.marker.setLatLng([lat, lng]);
+    newLatitude.value = lat; newLongitude.value = lng;
+    if(geoState.county && !inCounty(geoState.county, lat, lng)){
+      geoNote.textContent = 'This pin is outside ' + geoState.county.name + ' county. You can still use it if the venue really is there.';
+      geoNote.className = 'geo-note warn';
+    } else { geoNote.textContent = geoNoteDefault; geoNote.className = 'geo-note'; }
+    refreshCreateBtnState();
+  }
+
+  function clearPin(){
+    if(geoState.marker && geoState.map){ geoState.map.removeLayer(geoState.marker); geoState.marker = null; }
+    newLatitude.value = ''; newLongitude.value = '';
+    geoNote.textContent = geoNoteDefault; geoNote.className = 'geo-note';
+    refreshCreateBtnState();
+  }
+
+  // Shows or hides the panel, and puts the saved pin back when an event is being edited.
+  function syncGeoPanel(){
+    var physical = newLocType === 'PHYSICAL';
+    document.querySelector('.geo-box').style.display = physical ? '' : 'none';
+    var on = physical && geoCheckBox.checked;
+    geoPanel.hidden = !on;
+    if(!on) return;
+    ensureGeoMap().then(function(){
+      geoState.map.invalidateSize();
+      if(newLatitude.value && newLongitude.value){
+        var lat = Number(newLatitude.value), lng = Number(newLongitude.value);
+        if(!geoState.marker) placePin(lat, lng);
+        geoState.map.setView([lat, lng], Math.max(geoState.map.getZoom(), 14));
+      }
+    }).catch(function(){
+      geoNote.textContent = 'The map could not load. Check your connection and tick the box again.'; geoNote.className = 'geo-note warn';
+    });
+  }
+  geoCheckBox.addEventListener('change', function(){ syncGeoPanel(); refreshCreateBtnState(); });
+  document.getElementById('geoClear').addEventListener('click', clearPin);
   // --- Saved venues (quick-fill) ---
   // Deliberately device-local (localStorage), not a server-side model: no
   // schema, no migration, nothing another admin or device ever sees --
@@ -954,6 +1089,8 @@
       address: newLocType === 'PHYSICAL' ? newAddress.value.trim() : '',
       latitude: newLocType === 'PHYSICAL' && newLatitude.value ? Number(newLatitude.value) : null,
       longitude: newLocType === 'PHYSICAL' && newLongitude.value ? Number(newLongitude.value) : null,
+      geoCheck: newLocType === 'PHYSICAL' && geoCheckBox.checked,
+      geoRadiusM: Number(geoRadius.value),
       meetingLink: newLocType === 'VIRTUAL' ? newMeetingLink.value.trim() : '',
       timezone: newTimezone.value
     });
@@ -1129,6 +1266,7 @@
       if(!document.getElementById('dutyAuthBy').value.trim() || !document.getElementById('dutyAuthRef').value.trim()) return false;
       for(var i = 0; i < n; i++){ if(!(dayPlaces[i] || '').trim()) return false; }
     }
+    if(newLocType === 'PHYSICAL' && geoCheckBox && geoCheckBox.checked && !(newLatitude.value && newLongitude.value)) return false;
     return newLocType === 'PHYSICAL' ? !!newAddress.value.trim() : !!newMeetingLink.value.trim();
   }
   function refreshCreateBtnState(){
@@ -1231,6 +1369,7 @@
     document.getElementById('newCertificates').checked = true;
     newAddress.value = ''; newMeetingLink.value = '';
     newLatitude.value = ''; newLongitude.value = '';
+    geoCheckBox.checked = false; geoRadius.value = '300'; clearPin(); syncGeoPanel();
     venueTemplateSelect.value = '';
     deleteVenueTemplateBtn.style.display = 'none';
     saveAsVenueTemplate.checked = false;
@@ -1285,6 +1424,7 @@
     // than silently dropping the next time it's saved.
     newLatitude.value = (ev.locationType === 'PHYSICAL' && ev.latitude != null) ? ev.latitude : '';
     newLongitude.value = (ev.locationType === 'PHYSICAL' && ev.longitude != null) ? ev.longitude : '';
+    geoCheckBox.checked = !!ev.geoCheck; geoRadius.value = String(ev.geoRadiusM || 300); syncGeoPanel();
     createError.style.display = 'none';
     document.getElementById('dutyAuthBy').value = ev.authorisedBy || '';
     document.getElementById('dutyAuthRef').value = ev.authorityRef || '';
@@ -1317,6 +1457,8 @@
       address: newLocType === 'PHYSICAL' ? newAddress.value.trim() : '',
       latitude: newLocType === 'PHYSICAL' && newLatitude.value ? Number(newLatitude.value) : null,
       longitude: newLocType === 'PHYSICAL' && newLongitude.value ? Number(newLongitude.value) : null,
+      geoCheck: newLocType === 'PHYSICAL' && geoCheckBox.checked,
+      geoRadiusM: Number(geoRadius.value),
       meetingLink: newLocType === 'VIRTUAL' ? newMeetingLink.value.trim() : '',
       certificatesEnabled: document.getElementById('newCertificates').checked
     };

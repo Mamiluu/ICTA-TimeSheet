@@ -89,6 +89,12 @@ A `render.yaml` blueprint at the repo root does most of this for you.
   Reminders (`lib/dutyReminders.js`): a sheet still waiting on someone three days after its last step is
   emailed to the people who must act, again every three days, up to four times. `PAYMENT_REMINDER_DAYS` changes
   the wait; `0` turns them off. Checked every three hours and on start; migration `20261027090000_payment_reminders`.
+- Where people signed (optional, per event): the organiser ticks "Check where people are when they sign" on the
+  event form and drops a pin on a map that opens on their own county (`assets/data/counties.json`, from the
+  openAFRICA Kenya counties file, CC BY, Code for Africa; map tiles from OpenStreetMap, allowed in the
+  content security policy). When someone signs, their phone is asked for its location; the server turns it into
+  AT_VENUE, NEAR, FAR or NOT_SHARED (`lib/geo.js`) and stores only that and the distance, never the
+  coordinates. It is a marker beside the signature, never a block. Migration `20261028090000_geo_check`.
 - Page addresses: pages are reached without the file extension (`/login`, `/admin`, `/verify?code=...`).
   The attendee sign in page, `index.html`, is `/attend`. The old `.html` addresses still answer, with a
   redirect that keeps the query string, because they are in emails and printed QR codes. The list of
