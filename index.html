@@ -864,7 +864,7 @@
 
   <div class="closing-soon-banner" id="liveBanner" role="status">
     <span class="icon">📷</span>
-    <span><strong>Scan the code at the venue. </strong> <span id="liveBannerText"></span>
+    <span><strong>This event uses a live code. </strong> <span id="liveBannerText"></span>
       <form id="liveForm" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;" autocomplete="off">
         <input id="liveTyped" inputmode="numeric" maxlength="7" placeholder="6 digit code" aria-label="Code shown on the screen" style="width:150px; padding:7px 10px; font:inherit; letter-spacing:.12em;">
         <button type="submit" id="liveGo" style="padding:7px 14px; font:inherit; cursor:pointer;">Continue</button>
@@ -1130,8 +1130,8 @@
     }
     if(liveProof && liveProofExp > Date.now()){ banner.classList.remove('show'); return; }
     text.textContent = live.state === 'EXPIRED'
-      ? 'That code has expired. Scan the code on the screen again, or type the six digits shown.'
-      : 'This event needs the code on the screen. Scan it with your phone camera, or type the six digits shown.';
+      ? 'That code has expired. Scan the QR code on the screen again, or type the six digits shown there.'
+      : 'The organiser shows a screen with a QR code and six digits that change every minute. Scan that QR code with your phone camera, or type the six digits here. This link on its own will not work.';
     banner.classList.add('show');
   }
 

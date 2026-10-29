@@ -489,13 +489,20 @@
     <p class="error" id="createError" style="display:none;"></p>
 
     <div class="result" id="createResult">
-      <div><strong>Event created.</strong> Share this link or QR code at the venue:</div>
-      <div class="link-row">
-        <input type="text" id="resultLink" readonly>
-        <button id="copyLinkBtn">Copy</button>
-        <button id="openLinkBtn">Open</button>
+      <div id="resultLive" hidden>
+        <div><strong>Event created.</strong> This event uses a live code.</div>
+        <p class="geo-note" style="margin:8px 0 12px;">There is no fixed link or QR code to share. At the venue, or in the meeting, open the live code screen and show it. People scan its QR code, or type the six digits on it, to sign. You can open it again any time from the event card: More, Live code screen.</p>
+        <button type="button" class="primary" id="openLiveBtn">Open the live code screen</button>
       </div>
-      <img class="qr" id="resultQr" width="180" height="180" alt="QR code for event link">
+      <div id="resultPlain">
+        <div><strong>Event created.</strong> Share this link or QR code at the venue:</div>
+        <div class="link-row">
+          <input type="text" id="resultLink" readonly>
+          <button id="copyLinkBtn">Copy</button>
+          <button id="openLinkBtn">Open</button>
+        </div>
+        <img class="qr" id="resultQr" width="180" height="180" alt="QR code for event link">
+      </div>
     </div>
   </div>
 
@@ -848,9 +855,10 @@
   var resultLink = document.getElementById('resultLink');
   var resultQr = document.getElementById('resultQr');
 
-  var lastCreatedEventSlug = null;
+  var lastCreatedEventSlug = null, lastCreatedEventId = null;
   function hideCreateResult(){
     createResult.classList.remove('open');
+    document.getElementById('resultLive').hidden = true; document.getElementById('resultPlain').hidden = false;
     resultLink.value = '';
     resultQr.src = '';
     lastCreatedEventSlug = null;
@@ -1534,6 +1542,10 @@
         // auth rides along automatically since this is a same-origin
         // <img> request, same as any other same-origin resource.
         resultQr.src = '/api/admin/events/' + encodeURIComponent(r.data.event.id) + '/qr';
+        // An event on the live code has no fixed link or QR worth sharing: it would only lead to a page that asks for the code.
+        lastCreatedEventId = r.data.event.id;
+        document.getElementById('resultLive').hidden = !r.data.event.liveCode;
+        document.getElementById('resultPlain').hidden = !!r.data.event.liveCode;
         createResult.classList.add('open');
         maybeSaveVenueTemplate();
       }
@@ -1553,6 +1565,9 @@
     resultLink.select();
     if(navigator.clipboard) navigator.clipboard.writeText(resultLink.value);
     else document.execCommand('copy');
+  });
+  document.getElementById('openLiveBtn').addEventListener('click', function(){
+    if(lastCreatedEventId) window.open('live?event=' + encodeURIComponent(lastCreatedEventId), '_blank');
   });
   document.getElementById('openLinkBtn').addEventListener('click', function(){
     window.open(resultLink.value, '_blank');
