@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanSignup, verifyLinkExpired } from '../src/lib/signup.js';
+import { cleanSignup, verifyLinkExpired, emailStateOf, safeEmailError } from '../src/lib/signup.js';
 import { cleanDomain, isPlatformHost, checkPointsAt, hostKey } from '../src/lib/domains.js';
 
 const good = {
@@ -99,4 +99,22 @@ test("domains: a request's host name is read as a wildcard name, an own address,
     value: 'attend.kplc.co.ke'
   });
   assert.equal(hostKey('', 'platform.onrender.com', null), null);
+});
+
+test('a request shows whether its confirmation email went out', () => {
+  assert.deepEqual(emailStateOf({ verifyEmailSentAt: new Date(), verifyEmailError: null }), { state: 'SENT', error: null });
+  assert.deepEqual(emailStateOf({ verifyEmailSentAt: null, verifyEmailError: 'Brevo send failed (400)' }), {
+    state: 'FAILED',
+    error: 'Brevo send failed (400)'
+  });
+  assert.deepEqual(emailStateOf({ verifyEmailSentAt: null, verifyEmailError: null }), { state: 'UNKNOWN', error: null });
+  assert.equal(emailStateOf({ verifyEmailSentAt: new Date(), verifyEmailError: 'x' }).state, 'FAILED');
+});
+
+test('an email failure reason never carries an address and stays short', () => {
+  const msg = safeEmailError('Brevo send failed (400): sender jane@kplc.co.ke is not valid');
+  assert.ok(!msg.includes('@'));
+  assert.ok(msg.includes('[address]'));
+  assert.equal(safeEmailError('x'.repeat(500)).length, 200);
+  assert.equal(safeEmailError(''), 'failed');
 });

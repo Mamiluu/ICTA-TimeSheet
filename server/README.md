@@ -148,7 +148,7 @@ A `render.yaml` blueprint at the repo root does most of this for you.
   one place, and it gives the same answer whatever happens, so it cannot reveal which addresses are
   already registered. Approving creates the organisation on the Starter plan and invites the person
   who asked as its first administrator; declining sends them the reason.
-- Own web addresses: the owner saves an address for an organisation (for example
+  A request whose confirmation email never arrives is not lost: it stays `UNVERIFIED` and the owner sees it under\n  Requests to join, Waiting for their email, with whether the email was sent or the reason it failed\n  (`verifyEmailSentAt` and `verifyEmailError`, migration `20261030090000_request_email_state`). The owner can\n  send the link again or confirm the request personally; approving still invites that address. The sign up page\n  has a Send it again button after 45 seconds, and someone who already has an account or a waiting request is\n  emailed what applies to them, while the page answers everyone the same.\n- Own web addresses: the owner saves an address for an organisation (for example
   `attend.theirname.go.ke`) and presses Check, which looks up its CNAME record and only then switches
   it on, so nobody can claim an address they do not control. The organisation is then recognised by
   the address a request arrives on: pages and emails use its look, links in its emails and its QR
