@@ -63,6 +63,10 @@
   .done .badge svg{ width:28px; height:28px; stroke:var(--ok); fill:none; stroke-width:2.8; stroke-linecap:round; stroke-linejoin:round; }
   .done .badge.bad{ background:#ffdfe3; } .done .badge.bad svg{ stroke:var(--bad); }
   .done h1{ font-size:24px; }
+  .again{ margin:14px 0 0; font-size:13.5px; color:var(--soft); }
+  .again button{ background:none; border:0; padding:0; font:inherit; color:inherit; text-decoration:underline; cursor:pointer; }
+  .again button:disabled{ opacity:.55; cursor:default; text-decoration:none; }
+  .again .ok{ color:var(--ok); }
   .done p{ color:var(--soft); margin:6px auto 18px; max-width:34ch; font-size:15.5px; }
   [hidden]{ display:none !important; }
 
@@ -98,6 +102,7 @@
       <h1>Check your email</h1>
       <p id="doneText"></p>
       <a class="btn" href="/">Back to the home page</a>
+      <p class="again" id="again">Nothing yet? Look in your spam folder. <button type="button" id="resend" disabled>Send it again</button> <span id="resendMsg" role="status"></span></p>
     </div>
   </div>
   <p class="fine" id="fine">Already registered? <a href="login">Log in</a></p>
@@ -138,6 +143,24 @@
     return;
   }
 
+  // The page gives the same answer whatever happens, so a person whose email did not arrive needs a way
+  // to ask again. It unlocks after a short wait so it cannot be used to flood an inbox.
+  var lastBody = null, wait = null;
+  function waitToResend(){
+    var btn = $('resend'), msg = $('resendMsg'), left = 45;
+    clearInterval(wait); btn.disabled = true;
+    function tick(){ msg.textContent = left > 0 ? '(in ' + left + ' s)' : ''; if(left-- <= 0){ clearInterval(wait); btn.disabled = false; } }
+    tick(); wait = setInterval(tick, 1000);
+  }
+  $('resend').addEventListener('click', function(){
+    if(!lastBody) return;
+    var msg = $('resendMsg'); $('resend').disabled = true; msg.className = ''; msg.textContent = 'Sending…';
+    post('/api/signup', lastBody).then(function(d){
+      if(d.ok){ msg.className = 'ok'; msg.textContent = 'Sent again.'; setTimeout(waitToResend, 1500); }
+      else { msg.textContent = d.message || 'Could not send it again.'; $('resend').disabled = false; }
+    }).catch(function(){ msg.textContent = 'No connection. Try again.'; $('resend').disabled = false; });
+  });
+
   $('addNote').addEventListener('click', function(){ $('noteField').hidden = false; this.hidden = true; $('message').focus(); });
 
   $('form').addEventListener('submit', function(e){
@@ -149,12 +172,14 @@
     };
     if(!body.organisationName.trim() || !body.contactName.trim() || !body.contactEmail.trim()){ say('Please fill in your organisation, your name and your email.', 'err'); return; }
     btn.disabled = true; say('Sending…');
+    lastBody = body;
     post('/api/signup', body).then(function(d){
       btn.disabled = false;
       if(!d.ok){ say(d.message || 'Could not send your request.', 'err'); return; }
       say('');
       $('doneText').textContent = d.message || 'We have sent you a link. Click it to confirm your email address.';
       $('formBox').hidden = true; $('doneBox').hidden = false; $('fine').hidden = true;
+      waitToResend();
     }).catch(function(){ btn.disabled = false; say('No connection. Please try again.', 'err'); });
   });
 })();

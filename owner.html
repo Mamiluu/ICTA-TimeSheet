@@ -105,6 +105,11 @@
   .req .why{ margin-top:8px; padding:8px 12px; background:var(--c-soft); border-radius:var(--r-md); font-size:13px; }
   .req .acts{ display:flex; gap:8px; }
   .req .acts button{ margin:0; }
+  .req.soft{ border-color:var(--c-line, #e3e6ec); }
+  .req-h{ margin:18px 0 8px; font-size:14px; }
+  .req-note{ margin:0 0 10px; color:var(--c-muted); font-size:13px; max-width:70ch; }
+  .req .mail{ margin-top:6px; font-size:12.5px; font-weight:600; }
+  .req .mail.bad{ color:#b3261e; } .req .mail.ok{ color:#1a7f4b; } .req .mail.none{ color:var(--c-muted); }
   .form4{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:0 18px; max-width:760px; }
   .form4 label{ display:block; }
   .form4 .opt{ font-weight:400; color:var(--c-muted); }
@@ -288,7 +293,7 @@
   var NET = 'No connection. Please try again.';
 
   var VIEWS = ['overview', 'orgs', 'requests', 'add', 'health'];
-  var state = { orgs: [], requests: [], health: null, platformHost: '', filter: 'all', q: '' };
+  var state = { orgs: [], requests: [], unconfirmed: [], health: null, platformHost: '', filter: 'all', q: '' };
   var PLAN_META = null;
 
   // ---- Session and navigation ----
@@ -327,7 +332,7 @@
       API.get('/api/owner/organisations'), API.get('/api/owner/requests'), API.get('/api/owner/health')
     ]).then(function(rs){
       if(rs[0].status === 200 && rs[0].data.ok){ state.orgs = rs[0].data.organisations; state.platformHost = rs[0].data.platformHost || ''; }
-      if(rs[1].status === 200 && rs[1].data.ok) state.requests = rs[1].data.waiting;
+      if(rs[1].status === 200 && rs[1].data.ok) { state.requests = rs[1].data.waiting; state.unconfirmed = rs[1].data.unconfirmed || []; }
       if(rs[2].status === 200 && rs[2].data.ok) state.health = rs[2].data;
       renderAll();
     }).catch(function(){ $('orgList').textContent = ''; $('orgList').appendChild(el('p', 'empty', NET)); });
@@ -335,7 +340,7 @@
   function renderAll(){ renderTiles(); renderAttention(); renderGlance(); renderOrgs(); renderRequests(); renderHealth(); badges(); }
   function badges(){
     function set(id, n){ var b = $(id); b.hidden = !n; b.textContent = String(n); }
-    set('navOrgs', state.orgs.length); set('navReq', state.requests.length);
+    set('navOrgs', state.orgs.length); set('navReq', state.requests.length + state.unconfirmed.length);
     var f = state.health ? state.health.emails24h.failed : 0; set('navHealth', f);
   }
 
@@ -467,11 +472,12 @@
   // ---- Requests ----
   function renderRequests(){
     var box = $('reqList'); box.textContent = '';
-    if(!state.requests.length){ var e = el('div', 'empty-state'); e.appendChild(el('h3', null, 'No requests waiting')); e.appendChild(el('p', null, 'When someone asks to add their organisation and confirms their email address, it shows up here for your decision.')); box.appendChild(e); return; }
+    if(!state.requests.length && !state.unconfirmed.length){ var e = el('div', 'empty-state'); e.appendChild(el('h3', null, 'No requests yet')); e.appendChild(el('p', null, 'When someone asks to add their organisation it shows up here, first as waiting for their email, then for your decision.')); box.appendChild(e); return; }
+    if(state.requests.length) box.appendChild(el('h3', 'req-h', 'Ready for your decision'));
     state.requests.forEach(function(q){
       var r = el('article', 'req'); var left = el('div');
       left.appendChild(el('div', 'nm', q.organisationName));
-      left.appendChild(el('div', 'sub', q.contactName + ' · ' + q.contactEmail + (q.phone ? ' · ' + q.phone : '') + ' · asked ' + ago(q.requestedAt)));
+      left.appendChild(el('div', 'sub', q.contactName + ' · ' + q.contactEmail + (q.phone ? ' · ' + q.phone : '') + ' · asked ' + ago(q.requestedAt) + (q.confirmedAt ? '' : ' · email not confirmed, you vouched for it')));
       if(q.message) left.appendChild(el('div', 'why', '“' + q.message + '”'));
       r.appendChild(left);
       var acts = el('div', 'acts');
@@ -479,8 +485,40 @@
       var no = el('button', null, 'Decline'); no.type = 'button'; no.addEventListener('click', function(){ decideRequest(q, 'decline', no); });
       acts.appendChild(ok); acts.appendChild(no); r.appendChild(acts); box.appendChild(r);
     });
+    if(state.unconfirmed.length){
+      var h = el('h3', 'req-h', 'Waiting for their email'); box.appendChild(h);
+      box.appendChild(el('p', 'req-note', 'These people sent the form but have not opened the confirmation link yet. If the email did not go out, the reason is shown. You can send it again, or confirm the request yourself if you know who they are.'));
+      state.unconfirmed.forEach(function(q){
+        var r = el('article', 'req soft'); var left = el('div');
+        left.appendChild(el('div', 'nm', q.organisationName));
+        left.appendChild(el('div', 'sub', q.contactName + ' · ' + q.contactEmail + (q.phone ? ' · ' + q.phone : '') + ' · asked ' + ago(q.requestedAt)));
+        var st = q.email.state === 'FAILED' ? 'The email could not be sent: ' + q.email.error : (q.email.state === 'SENT' ? 'Email sent, not opened yet' + (q.linkExpired ? ' · the link has expired' : '') : 'No record of the email being sent');
+        left.appendChild(el('div', 'mail ' + (q.email.state === 'FAILED' ? 'bad' : (q.email.state === 'SENT' ? 'ok' : 'none')), st));
+        r.appendChild(left);
+        var acts = el('div', 'acts');
+        var again = el('button', null, 'Send again'); again.type = 'button'; again.addEventListener('click', function(){ resendRequest(q, again); });
+        var vouch = el('button', null, 'Confirm myself'); vouch.type = 'button'; vouch.addEventListener('click', function(){ confirmRequest(q, vouch); });
+        acts.appendChild(again); acts.appendChild(vouch); r.appendChild(acts); box.appendChild(r);
+      });
+    }
   }
-  function decideRequest(q, action, btn){
+  function resendRequest(q, btn){
+    btn.disabled = true; btn.textContent = 'Sending…';
+    API.post('/api/owner/requests/' + encodeURIComponent(q.id) + '/resend', {}).then(function(r){
+      btn.disabled = false; btn.textContent = 'Send again';
+      window.alert(r.data.message || (r.data.ok ? 'Sent.' : 'Could not send it.'));
+      load();
+    }).catch(function(){ btn.disabled = false; btn.textContent = 'Send again'; window.alert(NET); });
+  }
+  function confirmRequest(q, btn){
+    if(!window.confirm('Confirm ' + q.organisationName + ' yourself? Only do this if you know who is asking. It moves to your decision list. Approving still sends an invitation to ' + q.contactEmail + ' and they must open it to take the account.')) return;
+    btn.disabled = true;
+    API.post('/api/owner/requests/' + encodeURIComponent(q.id) + '/confirm', {}).then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ window.alert(r.data.message || 'Could not do that.'); return; }
+      load();
+    }).catch(function(){ btn.disabled = false; window.alert(NET); });
+  }  function decideRequest(q, action, btn){
     var body = {};
     if(action === 'approve'){ if(!window.confirm('Approve ' + q.organisationName + '? They get the Starter plan and an invitation at ' + q.contactEmail + '. You can change the plan afterwards.')) return; }
     else { var why = window.prompt('Why are you declining? This is sent to ' + q.contactName + '.'); if(!why) return; body.reason = why; }
