@@ -2,7 +2,7 @@
 // Proprietary and confidential. See LICENSE in the repository root.
 
 import { formatEventWhen } from './timezone.js';
-import { brandFromOrg, emailBrand } from './brand.js';
+import { brandFromOrg, emailBrand, platformEmailBrand } from './brand.js';
 import { prisma } from './prisma.js';
 
 // Sent over Brevo's HTTPS API rather than SMTP. Render's free web services
@@ -44,7 +44,7 @@ async function sendViaBrevoRaw({ to, subject, html, brand }) {
       Accept: 'application/json'
     },
     body: JSON.stringify({
-      sender: { name: `${brand.orgName} — ${brand.productName}`, email: process.env.GMAIL_SENDER_ADDRESS },
+      sender: { name: brand.productName ? `${brand.orgName} — ${brand.productName}` : brand.orgName, email: process.env.GMAIL_SENDER_ADDRESS },
       to: [{ email: to }],
       subject,
       htmlContent: html
@@ -66,11 +66,17 @@ function brandOf(given) {
   return { ...b, orgHtml: escapeHtml(b.orgName), productHtml: escapeHtml(b.productName), logoHtml: escapeHtml(b.logoUrl) };
 }
 
+// A button that cannot break: a table cell carries the colour, so it stays one solid block when a
+// narrow screen or a dark mode would split a link's own background across two lines.
+function button(brand, url, label) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0;"><tr><td bgcolor="${brand.accent}" style="background:${brand.accent};border-radius:8px;"><a href="${url}" style="display:inline-block;padding:13px 24px;font-size:14px;font-weight:600;line-height:1.2;color:#ffffff;text-decoration:none;white-space:nowrap;">${label}</a></td></tr></table>`;
+}
+
 function wrapHtml(brand, bodyHtml) {
   return `<!doctype html>
-<html><body style="margin:0;padding:24px;background:#e9e9e9;font-family:'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;">
+<html><head><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"></head><body style="margin:0;padding:24px;background:#e9e9e9;font-family:'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;">
   <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:4px;padding:28px 32px;box-shadow:0 4px 24px rgba(0,0,0,.15);">
-    <table role="presentation" style="margin:0 0 16px;"><tr><td style="padding-right:10px;"><img src="${brand.logoHtml}" alt="" height="34" style="display:block;height:34px;max-width:120px;"></td><td><h1 style="font-size:16px;margin:0;color:#1a1a1a;">${brand.orgHtml} — ${brand.productHtml}</h1></td></tr></table>
+    <table role="presentation" style="margin:0 0 16px;"><tr><td style="padding-right:10px;"><img src="${brand.logoHtml}" alt="" height="34" style="display:block;height:34px;max-width:120px;"></td><td><h1 style="font-size:16px;margin:0;color:#1a1a1a;">${brand.productHtml ? `${brand.orgHtml} — ${brand.productHtml}` : brand.orgHtml}</h1></td></tr></table>
     ${bodyHtml}
     <p style="font-size:11px;color:#888;margin-top:28px;">© 2026 Asya Hafidh. All rights reserved.</p>
   </div>
@@ -99,7 +105,7 @@ export async function sendActivationEmail(toEmail, activateUrl, county, departme
           : `the <strong>${county}</strong> county admin`
     }.</p>
     <p style="font-size:13.5px;color:#333;">Click the button below to set your own password and activate your account. This link can only be used once and expires in 48 hours.</p>
-    <p style="margin:22px 0;"><a href="${activateUrl}" style="background:${brand.accent};color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Activate your account</a></p>
+    ${button(brand, activateUrl, 'Activate your account')}
     <p style="font-size:11.5px;color:#888;">If the button doesn't work, copy this link: ${activateUrl}</p>
   `);
   await sendViaBrevo({ to: toEmail, subject: `Activate your ${brand.orgName} account`, html, brand, kind: 'activation' });
@@ -110,7 +116,7 @@ export async function sendPasswordResetEmail(toEmail, resetUrl, brandIn = null) 
   devLogLink(`password reset link for ${toEmail}`, resetUrl);
   const html = wrapHtml(brand, `
     <p style="font-size:13.5px;color:#333;">A password reset was requested for this account. Click below to set a new password. This link can only be used once and expires in 1 hour.</p>
-    <p style="margin:22px 0;"><a href="${resetUrl}" style="background:${brand.accent};color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Reset your password</a></p>
+    ${button(brand, resetUrl, 'Reset your password')}
     <p style="font-size:11.5px;color:#888;">If you didn't request this, you can safely ignore this email — your password will not change.</p>
     <p style="font-size:11.5px;color:#888;">If the button doesn't work, copy this link: ${resetUrl}</p>
   `);
@@ -196,7 +202,7 @@ export async function sendAttendanceConfirmationEmail(toEmail, details, brandIn 
     </table>`;
 
   const html = `<!doctype html>
-<html><body style="margin:0;padding:24px;background:${pageBg};font-family:'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;">
+<html><head><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"></head><body style="margin:0;padding:24px;background:${pageBg};font-family:'Trebuchet MS',Tahoma,Verdana,Arial,sans-serif;">
   <div style="max-width:440px;margin:0 auto;">
     <div style="max-width:440px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.15);">
       <div style="height:6px;background:${brand.accent};"></div>
@@ -247,14 +253,14 @@ export async function sendAttendanceConfirmationEmail(toEmail, details, brandIn 
 // Asks someone who has requested an organisation to confirm the email address. Sent in the
 // platform's default look: there is no organisation yet.
 export async function sendSignupVerifyEmail(toEmail, verifyUrl, contactName, brandIn = null) {
-  const brand = brandOf(brandIn);
+  const brand = brandOf(brandIn || platformEmailBrand());
   devLogLink(`signup confirmation for ${toEmail}`, verifyUrl);
   const html = wrapHtml(
     brand,
     `
     <p style="font-size:13.5px;color:#333;">Hello ${escapeHtml(contactName)},</p>
     <p style="font-size:13.5px;color:#333;">We received a request to add your organisation to the platform. Please confirm that this email address is yours. We review confirmed requests and write back to you.</p>
-    <p style="margin:22px 0;"><a href="${verifyUrl}" style="background:${brand.accent};color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Confirm my email address</a></p>
+    ${button(brand, verifyUrl, 'Confirm my email address')}
     <p style="font-size:11.5px;color:#888;">The link works for two days. If you did not ask for this, you can ignore this email.</p>
   `
   );
@@ -264,10 +270,10 @@ export async function sendSignupVerifyEmail(toEmail, verifyUrl, contactName, bra
 // What someone gets when they ask again after already having an account or a request waiting. The
 // page answers every request the same way, so this is how they learn what actually applies to them.
 export async function sendSignupNoticeEmail(toEmail, contactName, kind, url, brandIn = null) {
-  const brand = brandOf(brandIn);
+  const brand = brandOf(brandIn || platformEmailBrand());
   const body = kind === 'EXISTING'
     ? `<p style="font-size:13.5px;color:#333;">You asked to add an organisation, but this email address already has an account.</p>
-       <p style="margin:22px 0;"><a href="${url}" style="background:${brand.accent};color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Log in</a></p>
+       ${button(brand, url, 'Log in')}
        <p style="font-size:11.5px;color:#888;">If you forgot your password, use the Forgot password link on the log in page.</p>`
     : `<p style="font-size:13.5px;color:#333;">We already have your request and it is waiting for review. You do not need to send it again. We will write to you at this address.</p>`;
   const html = wrapHtml(brand, `<p style="font-size:13.5px;color:#333;">Hello ${escapeHtml(contactName)},</p>${body}`);
@@ -275,7 +281,7 @@ export async function sendSignupNoticeEmail(toEmail, contactName, kind, url, bra
 }
 
 export async function sendSignupDeclinedEmail(toEmail, contactName, organisationName, reason, brandIn = null) {
-  const brand = brandOf(brandIn);
+  const brand = brandOf(brandIn || platformEmailBrand());
   const html = wrapHtml(
     brand,
     `
@@ -334,7 +340,7 @@ export async function sendDutyStepEmail(toEmail, d, brandIn = null) {
     ${waiting}
     <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:13px;color:#1a1a1a;margin:14px 0;">${table}</table>
     ${d.note ? `<p style="font-size:13px;color:#333;background:#f4f4f4;padding:10px 12px;border-radius:4px;">&ldquo;${escapeHtml(d.note)}&rdquo;</p>` : ''}
-    <p style="margin:22px 0;"><a href="${escapeHtml(d.url)}" style="background:${brand.accent};color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">${escapeHtml(copy.button)}</a></p>
+    ${button(brand, escapeHtml(d.url), escapeHtml(copy.button))}
     <p style="font-size:11.5px;color:#888;">You need to be logged in. If the button does not work, copy this link: ${escapeHtml(d.url)}</p>
   `);
   await sendViaBrevo({ to: toEmail, subject: (d.reminder ? 'Reminder: ' : '') + copy.subject, html, brand, kind: 'payment' });

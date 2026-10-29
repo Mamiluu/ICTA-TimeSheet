@@ -116,6 +116,12 @@ export function emailBrand(brand) {
   return { ...brand, logoUrl: /^https?:/.test(brand.logoUrl) ? brand.logoUrl : base + brand.logoUrl };
 }
 
+// The platform's own look, for email that belongs to no organisation: someone asking to join, or being
+// told about that request. Daymark is the product; ICT Authority is only the first customer.
+export function platformEmailBrand() {
+  const base = String(process.env.PUBLIC_APP_URL || '').replace(/\/$/, '');
+  return { orgName: 'Daymark', productName: '', accent: '#1d2433', logoUrl: `${base}/assets/daymark-180.png` };
+}
 // The first letters of an organisation's name, for the generated logo.
 export function monogram(name) {
   const words = String(name || '')
