@@ -5,9 +5,9 @@ import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { ah } from '../lib/asyncHandler.js';
 import { randomToken, hashToken } from '../lib/tokens.js';
-import { sendSignupVerifyEmail } from '../lib/mailer.js';
+import { sendSignupVerifyEmail, sendSignupNoticeEmail } from '../lib/mailer.js';
 import { logger } from '../lib/logger.js';
-import { cleanSignup, verifyLinkExpired } from '../lib/signup.js';
+import { cleanSignup, verifyLinkExpired, safeEmailError } from '../lib/signup.js';
 import { platformBase } from '../lib/tenantHost.js';
 import { signupLimiter } from '../middleware/rateLimit.js';
 
@@ -18,29 +18,44 @@ export const signupRouter = Router();
 
 const SAME_ANSWER = { ok: true, message: 'Thank you. If the details are right, we have sent a confirmation link to your email address. Open it to finish your request.' };
 
+// Sends the confirmation link and writes down how that went, so a request whose email never arrived
+// shows up for the owner (with the reason) instead of vanishing.
+export async function deliverVerifyEmail(request, raw) {
+  const url = `${platformBase()}/signup?verify=${encodeURIComponent(raw)}`;
+  try {
+    await sendSignupVerifyEmail(request.contactEmail, url, request.contactName);
+    await prisma.organisationRequest.update({ where: { id: request.id }, data: { verifyEmailSentAt: new Date(), verifyEmailError: null } });
+    return { sent: true };
+  } catch (err) {
+    logger.error('sendSignupVerifyEmail failed', { stack: err.stack });
+    const error = safeEmailError(err.message);
+    await prisma.organisationRequest.update({ where: { id: request.id }, data: { verifyEmailSentAt: null, verifyEmailError: error } }).catch(() => {});
+    return { sent: false, error };
+  }
+}
+
 signupRouter.post('/', signupLimiter, ah(async (req, res) => {
   const parsed = cleanSignup(req.body);
   if (parsed.bot) return res.json(SAME_ANSWER);
   if (parsed.error) return res.status(400).json({ ok: false, error: 'INVALID_REQUEST', message: parsed.error });
   const v = parsed.value;
+  const tell = (kind) => sendSignupNoticeEmail(v.contactEmail, v.contactName, kind, `${platformBase()}/login`).catch((err) => logger.error('sendSignupNoticeEmail failed', { stack: err.stack }));
 
-  // Someone who already has an account here gets nothing sent, and the same answer.
+  // The answer on the page is the same whatever is true, so nobody can probe for registered addresses;
+  // the email is what tells the real owner of the address what applies to them.
   const existingUser = await prisma.user.findUnique({ where: { email: v.contactEmail }, select: { id: true } });
-  if (existingUser) return res.json(SAME_ANSWER);
+  if (existingUser) { tell('EXISTING'); return res.json(SAME_ANSWER); }
 
   const open = await prisma.organisationRequest.findFirst({ where: { contactEmail: v.contactEmail, status: { in: ['UNVERIFIED', 'PENDING'] } } });
-  if (open && open.status === 'PENDING') return res.json(SAME_ANSWER);
+  if (open && open.status === 'PENDING') { tell('WAITING'); return res.json(SAME_ANSWER); }
 
   const raw = randomToken();
-  const data = { ...v, status: 'UNVERIFIED', tokenHash: hashToken(raw), createdAt: new Date() };
-  if (open) await prisma.organisationRequest.update({ where: { id: open.id }, data });
-  else await prisma.organisationRequest.create({ data });
+  const data = { ...v, status: 'UNVERIFIED', tokenHash: hashToken(raw), createdAt: new Date(), verifyEmailSentAt: null, verifyEmailError: null };
+  const request = open ? await prisma.organisationRequest.update({ where: { id: open.id }, data }) : await prisma.organisationRequest.create({ data });
 
-  const url = `${platformBase()}/signup?verify=${encodeURIComponent(raw)}`;
-  sendSignupVerifyEmail(v.contactEmail, url, v.contactName).catch((err) => logger.error('sendSignupVerifyEmail failed', { stack: err.stack }));
+  deliverVerifyEmail(request, raw);
   res.json(SAME_ANSWER);
 }));
-
 signupRouter.post('/verify', signupLimiter, ah(async (req, res) => {
   const token = String(req.body.token || '');
   const request = token ? await prisma.organisationRequest.findUnique({ where: { tokenHash: hashToken(token) } }) : null;

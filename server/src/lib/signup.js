@@ -34,6 +34,18 @@ export function cleanSignup(body) {
   return { value: { organisationName, contactName, contactEmail, phone: phone || null, message: message || null } };
 }
 
+// What the owner is told about a confirmation email: sent, failed (with the reason) or not known. An
+// address inside an error message is taken out, so the reason can be shown without exposing it.
+export function safeEmailError(message) {
+  return String(message || 'failed').replace(/[\w.+-]+@[\w.-]+/g, '[address]').slice(0, 200);
+}
+
+export function emailStateOf(request) {
+  if (request.verifyEmailError) return { state: 'FAILED', error: request.verifyEmailError };
+  if (request.verifyEmailSentAt) return { state: 'SENT', error: null };
+  return { state: 'UNKNOWN', error: null };
+}
+
 // A confirmation link works for two days from when it was sent.
 export function verifyLinkExpired(createdAt, now = Date.now()) {
   return now - new Date(createdAt).getTime() > REQUEST_VERIFY_HOURS * 60 * 60 * 1000;

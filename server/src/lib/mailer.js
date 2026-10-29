@@ -261,6 +261,19 @@ export async function sendSignupVerifyEmail(toEmail, verifyUrl, contactName, bra
   await sendViaBrevo({ to: toEmail, subject: 'Confirm your request', html, brand, kind: 'signup' });
 }
 
+// What someone gets when they ask again after already having an account or a request waiting. The
+// page answers every request the same way, so this is how they learn what actually applies to them.
+export async function sendSignupNoticeEmail(toEmail, contactName, kind, url, brandIn = null) {
+  const brand = brandOf(brandIn);
+  const body = kind === 'EXISTING'
+    ? `<p style="font-size:13.5px;color:#333;">You asked to add an organisation, but this email address already has an account.</p>
+       <p style="margin:22px 0;"><a href="${url}" style="background:${brand.accent};color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Log in</a></p>
+       <p style="font-size:11.5px;color:#888;">If you forgot your password, use the Forgot password link on the log in page.</p>`
+    : `<p style="font-size:13.5px;color:#333;">We already have your request and it is waiting for review. You do not need to send it again. We will write to you at this address.</p>`;
+  const html = wrapHtml(brand, `<p style="font-size:13.5px;color:#333;">Hello ${escapeHtml(contactName)},</p>${body}`);
+  await sendViaBrevo({ to: toEmail, subject: kind === 'EXISTING' ? 'You already have an account' : 'Your request is waiting', html, brand, kind: 'signup' });
+}
+
 export async function sendSignupDeclinedEmail(toEmail, contactName, organisationName, reason, brandIn = null) {
   const brand = brandOf(brandIn);
   const html = wrapHtml(

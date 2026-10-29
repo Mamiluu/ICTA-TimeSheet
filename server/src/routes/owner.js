@@ -5,7 +5,7 @@ import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { requireRole } from '../middleware/auth.js';
-import { issueToken } from '../lib/tokens.js';
+import { issueToken, randomToken, hashToken } from '../lib/tokens.js';
 import { sendActivationEmail, sendSignupDeclinedEmail } from '../lib/mailer.js';
 import { writeAudit } from '../lib/audit.js';
 import { isValidEmailShape } from '../lib/normalize.js';
@@ -16,6 +16,8 @@ import { brandFromOrg, emailBrand } from '../lib/brand.js';
 import { lastAnchorAt } from '../lib/anchor.js';
 import { supportState, isOpenState, cleanSupportRequest, supportAllowed } from '../lib/support.js';
 import { platformRouter } from './platform.js';
+import { deliverVerifyEmail } from './signup.js';
+import { emailStateOf, verifyLinkExpired } from '../lib/signup.js';
 import { PLANS, MODULES, cleanPlanInput } from '../lib/plans.js';
 import { invalidatePlanCache } from '../lib/orgPlan.js';
 import { baseUrlFor, platformHost, invalidateHostCache } from '../lib/tenantHost.js';
@@ -139,14 +141,38 @@ ownerRouter.post('/organisations', ah(async (req, res) => {
 // ---- Organisations asking to join ------------------------------------------------
 
 ownerRouter.get('/requests', ah(async (req, res) => {
-  const [waiting, recent] = await Promise.all([
+  const [waiting, unconfirmed, recent] = await Promise.all([
     prisma.organisationRequest.findMany({ where: { status: 'PENDING' }, orderBy: { createdAt: 'asc' } }),
+    prisma.organisationRequest.findMany({ where: { status: 'UNVERIFIED' }, orderBy: { createdAt: 'desc' }, take: 50 }),
     prisma.organisationRequest.findMany({ where: { status: { in: ['APPROVED', 'DECLINED'] } }, orderBy: { decidedAt: 'desc' }, take: 10 })
   ]);
-  const view = (r) => ({ id: r.id, organisationName: r.organisationName, contactName: r.contactName, contactEmail: r.contactEmail, phone: r.phone, message: r.message, status: r.status, requestedAt: r.createdAt, confirmedAt: r.emailVerifiedAt, decidedAt: r.decidedAt, declineReason: r.declineReason });
-  res.json({ ok: true, waiting: waiting.map(view), recent: recent.map(view) });
+  const view = (r) => ({ id: r.id, organisationName: r.organisationName, contactName: r.contactName, contactEmail: r.contactEmail, phone: r.phone, message: r.message, status: r.status, requestedAt: r.createdAt, confirmedAt: r.emailVerifiedAt, decidedAt: r.decidedAt, declineReason: r.declineReason, email: emailStateOf(r), linkExpired: r.status === 'UNVERIFIED' && verifyLinkExpired(r.createdAt) });
+  res.json({ ok: true, waiting: waiting.map(view), unconfirmed: unconfirmed.map(view), recent: recent.map(view) });
 }));
 
+// A request whose confirmation email never arrived: send a fresh link and say plainly whether it went.
+ownerRouter.post('/requests/:id/resend', ah(async (req, res) => {
+  const request = await prisma.organisationRequest.findUnique({ where: { id: req.params.id } });
+  if (!request) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  if (request.status !== 'UNVERIFIED') return res.status(409).json({ ok: false, error: 'NOT_WAITING', message: 'This request is already confirmed or dealt with.' });
+  const raw = randomToken();
+  const fresh = await prisma.organisationRequest.update({ where: { id: request.id }, data: { tokenHash: hashToken(raw), createdAt: new Date() } });
+  const r = await deliverVerifyEmail(fresh, raw);
+  if (!r.sent) return res.json({ ok: false, error: 'EMAIL_FAILED', message: `The email could not be sent: ${r.error}` });
+  res.json({ ok: true, message: 'A new confirmation link was sent.' });
+}));
+
+// The owner can vouch for a request whose confirmation email cannot be delivered (for instance a person
+// the owner has spoken to). Nothing is created by this: approving still invites that address, and the
+// invitation has to be opened to take the account, so the address is proven then.
+ownerRouter.post('/requests/:id/confirm', ah(async (req, res) => {
+  const request = await prisma.organisationRequest.findUnique({ where: { id: req.params.id } });
+  if (!request) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  if (request.status !== 'UNVERIFIED') return res.status(409).json({ ok: false, error: 'NOT_WAITING', message: 'This request is already confirmed or dealt with.' });
+  await prisma.organisationRequest.update({ where: { id: request.id }, data: { status: 'PENDING', tokenHash: null } });
+  await writeAudit({ actorId: req.user.id, action: 'ORG_REQUEST_CONFIRMED_BY_OWNER', targetType: 'OrganisationRequest', targetId: request.id, metadata: { name: request.organisationName }, req });
+  res.json({ ok: true });
+}));
 // Approving makes the organisation on the Starter plan (change it afterwards if they should have
 // more) and invites the person who asked as its first administrator.
 ownerRouter.post('/requests/:id/approve', ah(async (req, res) => {

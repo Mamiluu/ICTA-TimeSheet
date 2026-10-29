@@ -91,6 +91,9 @@ model OrganisationRequest {
   status           String    @default("UNVERIFIED")
   tokenHash        String?   @unique
   emailVerifiedAt  DateTime?
+  // Whether the confirmation email went out, so a request whose email never arrived is visible to the owner.
+  verifyEmailSentAt DateTime?
+  verifyEmailError  String?
   decidedById      String?
   decidedAt        DateTime?
   declineReason    String?
