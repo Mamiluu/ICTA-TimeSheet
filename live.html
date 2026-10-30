@@ -53,7 +53,7 @@
   <div class="qrbox stale" id="qrBox"><img id="qr" alt="QR code to sign in" width="520" height="520" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></div>
   <div class="side">
     <h2 id="head">Scan to sign in</h2>
-    <p id="lead">Point your phone camera at this code. It changes every minute, so a link sent to someone who is not here will not work.</p>
+    <p id="lead">Point your phone camera at this code. It changes every 5 minutes, so a link sent to someone who is not here will not work for long.</p>
     <div class="timer">
       <svg class="ring" viewBox="0 0 44 44" aria-hidden="true"><circle class="track" cx="22" cy="22" r="19"/><circle class="bar" id="bar" cx="22" cy="22" r="19" stroke-dasharray="119.4" stroke-dashoffset="0"/></svg>
       <div><strong id="count">&nbsp;</strong><span>until the next code</span></div>
@@ -85,9 +85,9 @@
     var s = Math.ceil(left / 1000);
     count.textContent = s + ' s';
     bar.style.strokeDashoffset = String(CIRC * (1 - Math.min(1, left / stepMs)));
-    // A code that could not be renewed is still good for a few minutes, so the screen keeps showing it
+    // A code that could not be renewed is still good for several minutes, so the screen keeps showing it
     // and says so once it has been stale for longer than that.
-    box.classList.toggle('stale', lastOk && Date.now() - lastOk > 150000);
+    box.classList.toggle('stale', lastOk && Date.now() - lastOk > 480000);
   }
 
   function load(){
@@ -113,7 +113,7 @@
         if(d.virtual && !document.body.classList.contains('virtual')){
           document.body.classList.add('virtual');
           document.getElementById('head').textContent = 'Type this code to sign in';
-          document.getElementById('lead').textContent = 'Open the sign in link you were sent and type the six digits below. The code changes every minute, so a link passed to someone who is not in the meeting will not work.';
+          document.getElementById('lead').textContent = 'Open the sign in link you were sent and type the six digits below. The code changes every 5 minutes, so a link passed to someone who is not in the meeting will not work for long.';
           document.getElementById('typedLabel').textContent = 'Code';
         }
         changesAt = d.changesAt; stepMs = d.stepMs || 60000; skew = d.now - Date.now();
@@ -121,7 +121,7 @@
         timer = setTimeout(load, Math.max(1500, changesAt - (Date.now() + skew) + 400));
       })
       .catch(function(){
-        msg.textContent = 'Reconnecting. The last code still works for a few minutes.';
+        msg.textContent = 'Reconnecting. The last code still works for several minutes.';
         timer = setTimeout(load, 5000);
       });
   }

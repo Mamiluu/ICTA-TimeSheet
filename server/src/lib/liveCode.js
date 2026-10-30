@@ -3,18 +3,20 @@
 
 import crypto from 'node:crypto';
 
-// The live code: a value shown on a screen at the venue that changes every minute. Signing an event
-// that uses it needs a code made in the last few minutes, so a link or a photo passed on to someone
+// The live code: a value shown on a screen at the venue that changes every five minutes. Signing an event
+// that uses it needs a code made in the last ten minutes at most, so a link or a photo passed on to someone
 // who is not there stops working almost at once. Nothing is stored per code: each one is a keyed hash
-// of the event and the minute, so the server can make it and check it from the event's secret alone.
+// of the event and the five minute slot, so the server can make it and check it from the event's secret alone.
 //
 // Filling in the form takes longer than a few minutes, so a valid code is exchanged for a proof that
 // lasts a little longer (PROOF_TTL_MS). The proof is held by the page, never put in a link, so it
 // cannot be passed on the way a link can.
 
-export const STEP_MS = 60 * 1000;
-// A scanned code is good for the minute it was made in and the three before it, to forgive slow phones.
-export const KEY_GRACE_STEPS = 3;
+// Five minutes, because phones are slow, networks buffer and people type slowly.
+export const STEP_MS = 5 * 60 * 1000;
+// A scanned code is good for the slot it was made in and the one before it, so one that was on screen a moment
+// ago still works. In all a code is accepted for between five and ten minutes.
+export const KEY_GRACE_STEPS = 1;
 export const PROOF_TTL_MS = 20 * 60 * 1000;
 
 export function newSecret() {

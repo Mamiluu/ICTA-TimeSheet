@@ -97,9 +97,9 @@ A `render.yaml` blueprint at the repo root does most of this for you.
   coordinates. It is a marker beside the signature, never a block. Migration `20261028090000_geo_check`.
 - Live code (optional, per event): the organiser ticks "Use a live code at the venue" and opens
   `live.html` (event card, More, Live code screen) on a projector or phone. It shows a QR whose link carries a
-  code that changes every minute (`lib/liveCode.js`: a keyed hash of the event and the minute, from
+  code that changes every five minutes (`lib/liveCode.js`: a keyed hash of the event and the time slot, from
   `Event.liveSecret`; nothing is stored per code). Registering, signing a later day and phone check in are
-  refused without a code from the last three minutes. A good code is traded for a 20 minute proof held by the
+  refused without a code from the last five to ten minutes. A good code is traded for a 20 minute proof held by the
   page, so a slow form does not fail, and the code is removed from the address bar. The event's own organiser
   is not asked. In a virtual meeting the organiser shares the live code screen and people type the six digits shown (`POST /api/events/:slug/live-code`, rate limited, traded for the same proof). Migration `20261029090000_live_code`. Not offered for payment sheets.
 - Page addresses: pages are reached without the file extension (`/login`, `/admin`, `/verify?code=...`).

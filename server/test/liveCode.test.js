@@ -45,7 +45,7 @@ test('a code from the future, another event or another secret is refused', () =>
 test('a proof lasts longer than a code, and only for its own event', () => {
   const { proof, expiresAt } = makeProof(secret, ev.id, t0);
   assert.equal(expiresAt, t0 + PROOF_TTL_MS);
-  assert.equal(proofIsValid(secret, ev.id, proof, t0 + 10 * STEP_MS), true);
+  assert.equal(proofIsValid(secret, ev.id, proof, t0 + 2 * STEP_MS), true);
   assert.equal(proofIsValid(secret, ev.id, proof, expiresAt + 1), false);
   assert.equal(proofIsValid(secret, 'evt-2', proof, t0), false);
   assert.equal(
@@ -74,9 +74,9 @@ test('liveCheck asks for nothing when the event does not use the code', () => {
 test('liveCheck tells a missing code from an expired one', () => {
   assert.equal(liveCheck(ev, {}, t0).state, 'MISSING');
   const old = currentCode(secret, ev.id, t0);
-  assert.equal(liveCheck(ev, { key: old }, t0 + 10 * STEP_MS).state, 'EXPIRED');
+  assert.equal(liveCheck(ev, { key: old }, t0 + 2 * STEP_MS).state, 'EXPIRED');
   assert.equal(liveCheck(ev, { key: old }, t0).via, 'key');
-  assert.equal(liveCheck(ev, { proof: makeProof(secret, ev.id, t0).proof }, t0 + STEP_MS * 10).via, 'proof');
+  assert.equal(liveCheck(ev, { proof: makeProof(secret, ev.id, t0).proof }, t0 + STEP_MS * 2).via, 'proof');
 });
 test('the typed code is six digits, accepted for a few minutes, and never confused with another event', () => {
   const code = currentShortCode(secret, ev.id, t0);

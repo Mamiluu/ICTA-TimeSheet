@@ -1047,8 +1047,8 @@
     var virtual = newLocType === 'VIRTUAL';
     document.getElementById('liveLabel').textContent = virtual ? 'Use a live code in the meeting' : 'Use a live code at the venue';
     liveNote.textContent = virtual
-      ? 'Share the live code screen in the meeting. People type the six digits on it to sign, so a link sent to someone who is not in the call stops working. The code changes every minute. Open it from the event card, More, Live code screen.'
-      : 'You show a screen at the venue with a QR code that changes every minute. People scan it to sign, so a link or photo sent to someone who is not there stops working within a few minutes. Open it from the event card, More, Live code screen.';
+      ? 'Share the live code screen in the meeting. People type the six digits on it to sign, so a link sent to someone who is not in the call stops working. The code changes every 5 minutes. Open it from the event card, Live code screen.'
+      : 'You show a screen at the venue with a QR code that changes every 5 minutes. People scan it to sign, so a link or photo sent to someone who is not there stops working within about ten minutes. Open it from the event card, Live code screen.';
     liveNote.hidden = !liveBox.checked;
   }
   liveBox.addEventListener('change', syncLiveNote);
