@@ -2,7 +2,6 @@
 // Proprietary and confidential. See LICENSE in the repository root.
 
 import { Router } from 'express';
-import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { hashPassword, verifyPassword, isPasswordAcceptable } from '../lib/password.js';
 import { issueToken, consumeToken } from '../lib/tokens.js';
@@ -90,21 +89,6 @@ authRouter.post('/activate/:token', ah(async (req, res) => {
     });
   } catch (err) {
     if (err.tokenError) return res.status(400).json({ ok: false, error: err.tokenError });
-    // The per-county active-admin cap (see trg_enforce_active_admin_per_county
-    // in prisma/migrations/20260811170000_per_county_admin_cap -- most
-    // counties allow 1 active admin, Nairobi allows up to 3) is a real,
-    // deliberate business rule -- not a bug -- but a raw trigger exception
-    // would otherwise surface as an opaque INTERNAL_ERROR that gives the
-    // person activating (and whoever they ask for help) zero indication
-    // that the county's slots are simply full, rather than anything being
-    // wrong with their link or password.
-    if (err instanceof Prisma.PrismaClientUnknownRequestError && String(err.message).includes('COUNTY_ADMIN_SLOTS_FULL')) {
-      return res.status(409).json({
-        ok: false,
-        error: 'COUNTY_ADMIN_SLOTS_FULL',
-        message: 'This county already has its maximum number of active admins. Ask your super admin to disable one first, then try activating again.'
-      });
-    }
     throw err;
   }
 
