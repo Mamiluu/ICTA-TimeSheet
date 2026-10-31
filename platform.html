@@ -63,6 +63,66 @@
   .result-box.info{ background:var(--c-soft); border:1px solid var(--c-line); color:var(--c-text); }
 
   .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:0 16px; }
+  /* ---- Plan and billing ---- */
+  .pb-hero{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:14px 28px; align-items:end; padding:22px 24px; border:1px solid var(--c-line); border-radius:var(--r-lg); background:linear-gradient(135deg, #fff 55%, var(--c-accent-wash, #f6f7fa)); }
+  .pb-hero .kick{ font-size:11.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--c-muted); font-weight:700; }
+  .pb-hero h3{ margin:4px 0 8px; font-size:34px; line-height:1.05; letter-spacing:-.02em; }
+  .pb-chip{ display:inline-flex; align-items:center; gap:8px; padding:7px 13px; border-radius:999px; font-size:13px; font-weight:600; background:#eef0f4; color:var(--c-text); }
+  .pb-chip i{ width:8px; height:8px; border-radius:50%; background:#9aa1b2; }
+  .pb-chip.ok{ background:#e3f4ea; color:#14683a; } .pb-chip.ok i{ background:#1f9d57; }
+  .pb-chip.warn{ background:#fdf0d4; color:#8a5a00; } .pb-chip.warn i{ background:#e0a100; }
+  .pb-chip.bad{ background:#fde3e6; color:#a5172b; } .pb-chip.bad i{ background:#d8263f; }
+  .pb-mods{ display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+  .pb-mods span{ font-size:12px; padding:4px 10px; border-radius:999px; border:1px solid var(--c-line); background:#fff; }
+  .pb-mods span.off{ color:var(--c-muted); border-style:dashed; text-decoration:line-through; text-decoration-color:#c5c9d4; }
+  .pb-meters{ display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; margin:14px 0 0; }
+  .pb-meter{ padding:16px 18px; border:1px solid var(--c-line); border-radius:var(--r-lg); background:#fff; }
+  .pb-meter .top{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+  .pb-meter .lab{ font-size:13px; color:var(--c-muted); }
+  .pb-meter .num{ font-size:22px; font-weight:700; letter-spacing:-.01em; }
+  .pb-meter .num small{ font-size:13px; font-weight:500; color:var(--c-muted); }
+  .pb-track{ height:9px; border-radius:99px; background:#eceef3; margin:12px 0 8px; overflow:hidden; }
+  .pb-fill{ height:100%; border-radius:99px; background:#2a3244; width:0; transition:width .7s cubic-bezier(.2,.7,.2,1); }
+  .pb-meter.warn .pb-fill{ background:#e0a100; } .pb-meter.full .pb-fill{ background:#d8263f; }
+  .pb-meter.free .pb-fill{ background:repeating-linear-gradient(135deg, #cfd4df 0 6px, #e4e7ee 6px 12px); width:100% !important; }
+  .pb-meter .foot{ font-size:12.5px; color:var(--c-muted); }
+  .pb-meter.warn .foot{ color:#8a5a00; font-weight:600; } .pb-meter.full .foot{ color:#a5172b; font-weight:600; }
+  .pb-note{ display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; padding:13px 16px; margin:14px 0 0; border-radius:var(--r-md); background:#fff6dd; border:1px solid #f0dca0; font-size:13.5px; }
+  .pb-note.wait{ background:#eef3ff; border-color:#cdd9f5; }
+  .pb-note.bad{ background:#fde9ec; border-color:#f3c3cb; }
+  .pb-note button{ margin:0; }
+  .pb-h{ margin:28px 0 4px; font-size:19px; letter-spacing:-.01em; }
+  .pb-sub{ margin:0 0 14px; color:var(--c-muted); font-size:13.5px; max-width:70ch; }
+  .pb-plans{ display:grid; grid-template-columns:repeat(auto-fit, minmax(235px, 1fr)); gap:14px; }
+  .pb-plan{ position:relative; display:flex; flex-direction:column; padding:20px 20px 18px; border:1px solid var(--c-line); border-radius:var(--r-lg); background:#fff; }
+  .pb-plan.mine{ border-color:var(--c-accent); box-shadow:0 0 0 1px var(--c-accent), 0 10px 28px rgba(20,24,34,.08); }
+  .pb-plan.pick{ border-color:#2a3244; box-shadow:0 0 0 1px #2a3244; }
+  .pb-plan.custom{ border-style:dashed; background:transparent; }
+  .pb-plan .tag{ position:absolute; top:-10px; left:18px; padding:3px 10px; border-radius:99px; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; background:var(--c-accent); color:#fff; }
+  .pb-plan .tag.alt{ background:#2a3244; }
+  .pb-plan h4{ margin:0; font-size:18px; }
+  .pb-plan .blurb{ min-height:2.7em; margin:4px 0 12px; font-size:13px; color:var(--c-muted); line-height:1.4; }
+  .pb-price{ font-size:28px; font-weight:700; letter-spacing:-.02em; line-height:1.1; }
+  .pb-price small{ font-size:13px; font-weight:500; color:var(--c-muted); letter-spacing:0; }
+  .pb-price.ask{ font-size:19px; color:var(--c-muted); font-weight:600; }
+  .pb-year{ min-height:1.4em; margin:4px 0 14px; font-size:12.5px; color:var(--c-muted); }
+  .pb-year b{ color:#14683a; }
+  .pb-feat{ list-style:none; margin:0 0 16px; padding:14px 0 0; border-top:1px solid var(--c-line); display:grid; gap:8px; font-size:13.5px; }
+  .pb-feat li{ display:flex; gap:9px; align-items:flex-start; line-height:1.35; }
+  .pb-feat svg{ width:16px; height:16px; flex:none; margin-top:1px; fill:none; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
+  .pb-feat .y svg{ stroke:#1f9d57; } .pb-feat .n{ color:var(--c-muted); } .pb-feat .n svg{ stroke:#b9bfcc; }
+  .pb-plan .go{ margin-top:auto; width:100%; }
+  .pb-plan .here{ margin-top:auto; text-align:center; font-size:13px; font-weight:700; color:var(--c-accent); padding:9px 0; }
+  .pb-ask{ margin-top:16px; padding:18px 20px; border:1px solid #2a3244; border-radius:var(--r-lg); background:#fff; }
+  .pb-ask h4{ margin:0 0 4px; font-size:16px; }
+  .pb-ask textarea{ width:100%; min-height:70px; margin:8px 0 10px; }
+  .pb-ask .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .pb-how{ margin-top:26px; display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; counter-reset:how; }
+  .pb-how div{ counter-increment:how; padding:14px 16px 14px 52px; position:relative; border:1px solid var(--c-line); border-radius:var(--r-md); font-size:13.5px; line-height:1.45; background:#fff; }
+  .pb-how div::before{ content:counter(how); position:absolute; left:14px; top:13px; width:26px; height:26px; border-radius:50%; background:#2a3244; color:#fff; display:grid; place-items:center; font-size:13px; font-weight:700; }
+  .pb-how b{ display:block; margin-bottom:2px; }
+  @media (max-width:640px){ .pb-hero{ grid-template-columns:1fr; } .pb-hero h3{ font-size:28px; } }
+  @media (prefers-reduced-motion:reduce){ .pb-fill{ transition:none; } }
   .help{ font-size:13px; color:var(--c-muted); margin:0 0 16px; line-height:1.55; max-width:70ch; }
   .note{ font-size:13px; padding:11px 14px; border-radius:var(--r-md); margin-top:14px; }
   .note.ok{ background:var(--c-ok-wash); border:1px solid #b7e0c7; color:#084d27; }
@@ -165,6 +225,7 @@
       <a class="nav-item" href="#integrity" data-nav="integrity"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6l8-3zM9 12l2 2 4-4"/></svg><span>Integrity</span></a>
       <a class="nav-item" href="#support" data-nav="support"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13a8 8 0 0 1 16 0v4a2 2 0 0 1-2 2h-1v-6h3M4 13v4a2 2 0 0 0 2 2h1v-6H4M12 19v2"/></svg><span>Support access</span><span class="badge-count" id="supportBadge" hidden></span></a>
       <div class="nav-group">Settings</div>
+      <a class="nav-item" href="#billing" data-nav="billing"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7zM3 10h18M7 15h4"/></svg><span>Plan and billing</span><span class="badge-count hot" id="billingBadge" hidden></span></a>
       <a class="nav-item" href="#branding" data-nav="branding"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.2 0 2-.8 2-1.8 0-.6-.3-1-.6-1.4-.3-.4-.4-.7-.4-1.1 0-.9.7-1.7 1.7-1.7H17a4 4 0 0 0 4-4C21 6.5 17 3 12 3zM7.5 12a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM10 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM15 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/></svg><span>Branding</span></a>
       <a class="nav-item" href="#profile" data-nav="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Profile</span></a>
     </nav>
@@ -177,7 +238,7 @@
     <!-- Overview -->
     <section class="view" data-view="overview" data-title="Overview">
       <div class="sheet wide" id="planCard" hidden>
-        <h2 class="section">Your plan</h2>
+        <h2 class="section">Your plan <button type="button" class="link" data-goto="billing" style="font-size:13px; margin-left:8px;">Plans and billing</button></h2>
         <div id="planWrap"></div>
       </div>
       <div class="sheet wide">
@@ -300,6 +361,10 @@
       </div>
     </section>
 
+    <!-- Plan and billing -->
+    <section class="view" data-view="billing" data-title="Plan and billing">
+      <div id="pbWrap"><p class="empty">Loading…</p></div>
+    </section>
     <!-- Branding -->
     <section class="view" data-view="branding" data-title="Branding">
       <div class="sheet wide">
@@ -378,7 +443,7 @@
   applyTopbarBranding('Platform Admin');
 
   var whoEmail = document.getElementById('whoEmail');
-  var VIEWS = ['overview', 'departments', 'admins', 'add', 'audit', 'integrity', 'support', 'branding', 'profile'];
+  var VIEWS = ['overview', 'departments', 'admins', 'add', 'audit', 'integrity', 'support', 'billing', 'branding', 'profile'];
   var currentView = null;
 
   // --- Sidebar sections: one view at a time, addressable by #hash ---
@@ -413,6 +478,7 @@
     if(changed && name === 'integrity') showAnchorStatus();
     if(changed && name === 'branding') loadBranding();
     if(changed && name === 'support') loadSupport();
+    if(changed && name === 'billing') loadBilling();
   }
   navToggle.addEventListener('click', function(){
     var open = !sidenav.classList.contains('open');
@@ -949,6 +1015,176 @@
     }).catch(function(){});
   }
 
+  // --- Plan and billing: the plan now, how much of it is used, what the others cost, and asking to change ---
+  var PB_ICON_YES = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
+  var PB_ICON_NO = '<svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg>';
+  var pb = null, pbPick = null;
+  function kes(n){ return 'KES ' + Number(n).toLocaleString('en-KE'); }
+  function dayOf(d){ return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
+
+  function pbBillingChip(d){
+    var b = d.billing, c = el('span', 'pb-chip'); c.appendChild(el('i'));
+    var text;
+    if(b.state === 'NOT_SET'){ text = d.current.plan === 'PILOT' ? 'No charge during your pilot' : 'Billing is not set up yet'; }
+    else if(b.state === 'PAID'){ c.classList.add('ok'); text = 'Paid until ' + dayOf(b.paidUntil); }
+    else if(b.state === 'DUE_SOON'){ c.classList.add('warn'); text = 'Renewal due ' + (b.days <= 0 ? 'today' : 'in ' + plural(b.days, 'day')) + ' · ' + dayOf(b.paidUntil); }
+    else { c.classList.add('bad'); text = 'Payment overdue' + (b.days ? ' by ' + plural(b.days, 'day') : '') + ' · was due ' + dayOf(b.paidUntil); }
+    c.appendChild(document.createTextNode(text));
+    return c;
+  }
+
+  function pbMeter(label, u, noun, up){
+    var m = el('div', 'pb-meter ' + (u.limit === null ? 'free' : u.level));
+    var top = el('div', 'top'); top.appendChild(el('span', 'lab', label));
+    var n = el('span', 'num', String(u.used)); if(u.limit !== null) n.appendChild(el('small', null, ' of ' + u.limit));
+    top.appendChild(n); m.appendChild(top);
+    var track = el('div', 'pb-track'); var fill = el('div', 'pb-fill'); track.appendChild(fill); m.appendChild(track);
+    var foot = u.limit === null ? 'No limit on your plan'
+      : u.level === 'full' ? 'All ' + noun + ' are used'
+      : u.level === 'warn' ? 'Nearly full · ' + (u.limit - u.used) + ' left'
+      : (u.limit - u.used) + ' left';
+    m.appendChild(el('div', 'foot', foot));
+    var w = u.limit === null ? 100 : Math.max(u.used > 0 ? 4 : 0, Math.min(100, Math.round(u.used / u.limit * 100)));
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ if(u.limit !== null) fill.style.width = w + '%'; }); });
+    return m;
+  }
+
+  function pbPlanCard(p, d){
+    var mine = d.current.plan === p.key, waiting = !!d.request;
+    var c = el('article', 'pb-plan' + (mine ? ' mine' : '') + (pbPick === p.key ? ' pick' : ''));
+    if(mine) c.appendChild(el('span', 'tag', 'Your plan'));
+    else if(d.suggestion && d.suggestion.plan === p.key) c.appendChild(el('span', 'tag alt', 'Fits your use'));
+    c.appendChild(el('h4', null, p.label));
+    c.appendChild(el('p', 'blurb', p.blurb || ''));
+    var price = el('div', 'pb-price' + (p.monthlyKes === null ? ' ask' : ''));
+    if(p.monthlyKes === null) price.textContent = 'Price on request';
+    else { price.appendChild(document.createTextNode(kes(p.monthlyKes))); price.appendChild(el('small', null, ' a month')); }
+    c.appendChild(price);
+    var yr = el('div', 'pb-year');
+    if(p.yearlyKes !== null){ yr.appendChild(document.createTextNode('or ' + kes(p.yearlyKes) + ' a year')); if(p.savingPct){ yr.appendChild(document.createTextNode(' · ')); yr.appendChild(el('b', null, 'save ' + p.savingPct + '%')); } }
+    c.appendChild(yr);
+    var ul = el('ul', 'pb-feat');
+    p.modules.forEach(function(m){ var li = el('li', m.on ? 'y' : 'n'); li.innerHTML = m.on ? PB_ICON_YES : PB_ICON_NO; li.appendChild(el('span', null, m.label)); ul.appendChild(li); });
+    var lim = function(text){ var li = el('li', 'y'); li.innerHTML = PB_ICON_YES; li.appendChild(el('span', null, text)); ul.appendChild(li); };
+    lim(p.maxAdmins === null ? 'As many administrators as you need' : 'Up to ' + p.maxAdmins + ' administrators');
+    lim(p.maxEventsPerMonth === null ? 'No limit on events' : 'Up to ' + p.maxEventsPerMonth + ' events a month');
+    c.appendChild(ul);
+    if(mine) c.appendChild(el('div', 'here', 'You are on this plan'));
+    else {
+      var b = el('button', pbPick === p.key ? 'primary go' : 'go', waiting ? 'A request is waiting' : 'Ask for ' + p.label);
+      b.type = 'button'; b.disabled = waiting;
+      b.addEventListener('click', function(){ pbPick = p.key; renderBilling(); var box = $('pbAsk'); if(box) box.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); });
+      c.appendChild(b);
+    }
+    return c;
+  }
+
+  function pbCustomCard(d){
+    var mine = d.current.plan === 'CUSTOM', waiting = !!d.request;
+    var c = el('article', 'pb-plan custom' + (mine ? ' mine' : '') + (pbPick === 'CUSTOM' ? ' pick' : ''));
+    if(mine) c.appendChild(el('span', 'tag', 'Your plan'));
+    c.appendChild(el('h4', null, 'Custom'));
+    c.appendChild(el('p', 'blurb', 'Hundreds of administrators, very large events, or your own mix of features.'));
+    c.appendChild(el('div', 'pb-price ask', 'Let us quote you'));
+    c.appendChild(el('div', 'pb-year', 'Usually agreed for a year'));
+    var ul = el('ul', 'pb-feat');
+    ['Choose exactly which features you need', 'Limits set to fit your organisation', 'Help with setting up'].forEach(function(t){ var li = el('li', 'y'); li.innerHTML = PB_ICON_YES; li.appendChild(el('span', null, t)); ul.appendChild(li); });
+    c.appendChild(ul);
+    if(mine) c.appendChild(el('div', 'here', 'You are on this plan'));
+    else {
+      var b = el('button', 'go', waiting ? 'A request is waiting' : 'Talk to us'); b.type = 'button'; b.disabled = waiting;
+      b.addEventListener('click', function(){ pbPick = 'CUSTOM'; renderBilling(); var box = $('pbAsk'); if(box) box.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); });
+      c.appendChild(b);
+    }
+    return c;
+  }
+
+  function renderBilling(){
+    var wrap = $('pbWrap'); wrap.textContent = '';
+    var d = pb; if(!d) return;
+
+    var hero = el('div', 'pb-hero');
+    var left = el('div'); left.appendChild(el('div', 'kick', d.organisation));
+    left.appendChild(el('h3', null, d.current.label + ' plan'));
+    left.appendChild(pbBillingChip(d));
+    var mods = el('div', 'pb-mods'); d.current.modules.forEach(function(m){ mods.appendChild(el('span', m.on ? '' : 'off', m.label)); }); left.appendChild(mods);
+    hero.appendChild(left); wrap.appendChild(hero);
+
+    var meters = el('div', 'pb-meters');
+    meters.appendChild(pbMeter('Administrator places', d.usage.admins, 'places', 'admins'));
+    meters.appendChild(pbMeter('Events created this month', d.usage.events, 'events', 'events'));
+    wrap.appendChild(meters);
+
+    if(d.request){
+      var w = el('div', 'pb-note wait');
+      w.appendChild(el('span', null, 'You asked for the ' + d.request.toLabel + ' plan on ' + dayOf(d.request.at) + '. The platform team will be in touch to agree it. Nothing changes until then.'));
+      var cancel = el('button', null, 'Cancel request'); cancel.type = 'button';
+      cancel.addEventListener('click', function(){
+        cancel.disabled = true;
+        API.del('/api/platform/billing/request').then(function(){ loadBilling(); }).catch(function(){ cancel.disabled = false; window.alert(NET_ERR); });
+      });
+      w.appendChild(cancel); wrap.appendChild(w);
+    } else if(d.recent.length && d.recent[0].status === 'DECLINED'){
+      var r0 = d.recent[0], dn = el('div', 'pb-note bad');
+      dn.appendChild(el('span', null, 'Your request for the ' + r0.toLabel + ' plan was not taken forward: ' + (r0.declineReason || 'no reason given') + '.'));
+      wrap.appendChild(dn);
+    } else if(d.recent.length && d.recent[0].status === 'APPLIED' && d.recent[0].to === d.current.plan){
+      wrap.appendChild(el('div', 'pb-note wait', 'Your plan was changed to ' + d.current.label + ' on ' + dayOf(d.recent[0].decidedAt) + '.'));
+    }
+    if(d.suggestion && !d.request){
+      var s = el('div', 'pb-note');
+      var name = (d.catalog.filter(function(p){ return p.key === d.suggestion.plan; })[0] || {}).label || d.suggestion.plan;
+      s.appendChild(el('span', null, d.suggestion.reason.charAt(0).toUpperCase() + d.suggestion.reason.slice(1) + '. The ' + name + ' plan has more room.'));
+      var see = el('button', 'primary', 'Ask for ' + name); see.type = 'button';
+      see.addEventListener('click', function(){ pbPick = d.suggestion.plan; renderBilling(); });
+      s.appendChild(see); wrap.appendChild(s);
+    }
+
+    wrap.appendChild(el('h3', 'pb-h', 'Plans'));
+    wrap.appendChild(el('p', 'pb-sub', 'Every plan is for the whole organisation, however many departments you have. Prices are in Kenya shillings.'));
+    var grid = el('div', 'pb-plans');
+    d.catalog.forEach(function(p){ grid.appendChild(pbPlanCard(p, d)); });
+    grid.appendChild(pbCustomCard(d));
+    wrap.appendChild(grid);
+
+    if(pbPick && !d.request){
+      var label = pbPick === 'CUSTOM' ? 'Custom' : (d.catalog.filter(function(p){ return p.key === pbPick; })[0] || {}).label;
+      var ask = el('div', 'pb-ask'); ask.id = 'pbAsk';
+      ask.appendChild(el('h4', null, pbPick === 'CUSTOM' ? 'Tell us what you need' : 'Ask for the ' + label + ' plan'));
+      ask.appendChild(el('p', 'help', 'This sends a request to the platform team. Nothing changes and nothing is charged until you have agreed it together.'));
+      var note = el('textarea'); note.maxLength = 500; note.placeholder = pbPick === 'CUSTOM' ? 'How many administrators, how big your events are, and anything else we should know' : 'Anything the platform team should know (optional)';
+      ask.appendChild(note);
+      var row = el('div', 'row');
+      var send = el('button', 'primary', 'Send request'); send.type = 'button';
+      var back = el('button', null, 'Not now'); back.type = 'button';
+      var msg = el('span', 'help'); msg.style.margin = '0';
+      back.addEventListener('click', function(){ pbPick = null; renderBilling(); });
+      send.addEventListener('click', function(){
+        send.disabled = true; msg.textContent = 'Sending…';
+        API.post('/api/platform/billing/request', { plan: pbPick, note: note.value }).then(function(r){
+          if(!r.data.ok){ send.disabled = false; msg.textContent = r.data.message || 'Could not send the request.'; return; }
+          pbPick = null; loadBilling();
+        }).catch(function(){ send.disabled = false; msg.textContent = NET_ERR; });
+      });
+      row.appendChild(send); row.appendChild(back); row.appendChild(msg); ask.appendChild(row);
+      wrap.appendChild(ask);
+    }
+
+    wrap.appendChild(el('h3', 'pb-h', 'How it works'));
+    var how = el('div', 'pb-how');
+    [['Ask', 'Choose a plan above and send the request. It costs nothing to ask.'], ['Agree', 'The platform team confirms the price and the start date with your administrator.'], ['Pay', 'You are invoiced by email and the payment is recorded against your organisation.'], ['Switch', 'Your new plan switches on as soon as it is agreed. Nothing you have already created is removed.']].forEach(function(s){
+      var b = el('div'); b.appendChild(el('b', null, s[0])); b.appendChild(document.createTextNode(s[1])); how.appendChild(b);
+    });
+    wrap.appendChild(how);
+  }
+
+  function loadBilling(){
+    return API.get('/api/platform/billing').then(function(r){
+      if(r.status !== 200 || !r.data.ok){ $('pbWrap').innerHTML = '<p class="empty">Could not load your plan.</p>'; return; }
+      pb = r.data; renderBilling();
+      var badge = $('billingBadge'); if(badge){ var hot = pb.usage.admins.level !== 'ok' || pb.usage.events.level !== 'ok' || pb.billing.state === 'OVERDUE'; badge.hidden = !hot; badge.textContent = '!'; }
+    }).catch(function(){ $('pbWrap').innerHTML = '<p class="empty">' + NET_ERR + '</p>'; });
+  }
   // --- Support access ---
   var SUPPORT_STATE = { PENDING: ['pending', 'Waiting for you'], ACTIVE: ['active', 'Active'], ENDED: ['disabled', 'Ended'], DENIED: ['disabled', 'Declined'], REVOKED: ['disabled', 'Ended early'], LAPSED: ['disabled', 'Not answered'] };
   function loadSupport(){
@@ -1089,6 +1325,7 @@
     refreshAll();
     loadSupport();
     loadPlan();
+    loadBilling();
   });
 })();
 </script>

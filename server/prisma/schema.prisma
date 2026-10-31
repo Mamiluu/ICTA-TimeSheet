@@ -637,3 +637,31 @@ model Department {
   @@unique([organisationId, slug])
   @@index([organisationId])
 }
+
+// What the platform owner charges for each plan, in Kenya shillings. Prices are the owner's own business
+// and are kept here, not in code; a plan with no price shows as "price on request".
+model PlanPrice {
+  plan       String   @id
+  monthlyKes Int?
+  yearlyKes  Int?
+  blurb      String?
+  updatedAt  DateTime @default(now()) @updatedAt
+}
+
+// An organisation asking to move to another plan. Nothing changes until the owner applies it.
+model PlanChangeRequest {
+  id               String    @id @default(uuid())
+  organisationId   String
+  fromPlan         String
+  toPlan           String
+  note             String?
+  status           String    @default("PENDING")
+  requestedById    String?
+  requestedByEmail String?
+  declineReason    String?
+  createdAt        DateTime  @default(now())
+  decidedAt        DateTime?
+
+  @@index([organisationId, status])
+  @@index([status, createdAt])
+}

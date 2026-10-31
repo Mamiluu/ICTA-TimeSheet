@@ -280,6 +280,21 @@ export async function sendSignupNoticeEmail(toEmail, contactName, kind, url, bra
   await sendViaBrevo({ to: toEmail, subject: kind === 'EXISTING' ? 'You already have an account' : 'Your request is waiting', html, brand, kind: 'signup' });
 }
 
+// Tells the platform owner that an organisation asked to change plan. Sent in the platform's own look.
+export async function sendPlanRequestEmail(toEmail, d, brandIn = null) {
+  const brand = brandOf(brandIn || platformEmailBrand());
+  const html = wrapHtml(
+    brand,
+    `
+    <p style="font-size:13.5px;color:#333;"><strong>${escapeHtml(d.organisation)}</strong> asked to move from <strong>${escapeHtml(d.from)}</strong> to <strong>${escapeHtml(d.to)}</strong>.</p>
+    ${d.note ? `<p style="font-size:13.5px;color:#333;border-left:3px solid #ddd;padding-left:12px;">${escapeHtml(d.note)}</p>` : ''}
+    <p style="font-size:13.5px;color:#333;">Nothing changes until you apply it.</p>
+    ${button(brand, escapeHtml(d.url), 'Review the request')}
+  `
+  );
+  await sendViaBrevo({ to: toEmail, subject: `Plan change: ${d.organisation}`, html, brand, kind: 'plan' });
+}
+
 export async function sendSignupDeclinedEmail(toEmail, contactName, organisationName, reason, brandIn = null) {
   const brand = brandOf(brandIn || platformEmailBrand());
   const html = wrapHtml(

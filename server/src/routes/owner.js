@@ -19,6 +19,7 @@ import { platformRouter } from './platform.js';
 import { deliverVerifyEmail } from './signup.js';
 import { emailStateOf, verifyLinkExpired } from '../lib/signup.js';
 import { PLANS, MODULES, cleanPlanInput } from '../lib/plans.js';
+import { ORDERED, cleanPrice, cleanBlurb } from '../lib/billing.js';
 import { invalidatePlanCache } from '../lib/orgPlan.js';
 import { baseUrlFor, platformHost, invalidateHostCache } from '../lib/tenantHost.js';
 import { cleanDomain, isPlatformHost, checkPointsAt } from '../lib/domains.js';
@@ -255,9 +256,71 @@ ownerRouter.post('/organisations/:id/domain/check', ah(async (req, res) => {
 }));
 
 // The plans on offer and the modules they switch on, so the console never has its own copy.
-ownerRouter.get('/plans', (req, res) => {
-  res.json({ ok: true, plans: Object.entries(PLANS).map(([key, p]) => ({ key, ...p })), modules: Object.entries(MODULES).map(([key, label]) => ({ key, label })) });
-});
+ownerRouter.get('/plans', ah(async (req, res) => {
+  const rows = await prisma.planPrice.findMany();
+  const prices = {};
+  for (const r of rows) prices[r.plan] = { monthlyKes: r.monthlyKes, yearlyKes: r.yearlyKes, blurb: r.blurb };
+  res.json({ ok: true, plans: Object.entries(PLANS).map(([key, p]) => ({ key, ...p })), modules: Object.entries(MODULES).map(([key, label]) => ({ key, label })), prices, ladder: ORDERED });
+}));
+
+// What each plan costs, in whole shillings. Empty means "price on request" on the organisation's page.
+ownerRouter.put('/plans/:key/price', ah(async (req, res) => {
+  const key = String(req.params.key || '').toUpperCase();
+  if (!ORDERED.includes(key)) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const monthly = cleanPrice(req.body.monthlyKes, 'The monthly price');
+  if (monthly.error) return res.status(400).json({ ok: false, error: 'INVALID_PRICE', message: monthly.error });
+  const yearly = cleanPrice(req.body.yearlyKes, 'The yearly price');
+  if (yearly.error) return res.status(400).json({ ok: false, error: 'INVALID_PRICE', message: yearly.error });
+  const data = { monthlyKes: monthly.value, yearlyKes: yearly.value, blurb: cleanBlurb(req.body.blurb) };
+  await prisma.planPrice.upsert({ where: { plan: key }, create: { plan: key, ...data }, update: data });
+  await writeAudit({ actorId: req.user.id, action: 'PLAN_PRICE_SET', targetType: 'Plan', targetId: key, metadata: data, req });
+  res.json({ ok: true });
+}));
+
+// Organisations asking to change plan. Applying one sets the plan's modules and limits, the same as
+// choosing it by hand; a request for Custom has no preset, so it is only marked as dealt with and the
+// owner sets the modules and limits under Manage, Plan and limits.
+ownerRouter.get('/plan-requests', ah(async (req, res) => {
+  const [waiting, recent] = await Promise.all([
+    prisma.planChangeRequest.findMany({ where: { status: 'PENDING' }, orderBy: { createdAt: 'asc' } }),
+    prisma.planChangeRequest.findMany({ where: { status: { in: ['APPLIED', 'DECLINED'] } }, orderBy: { decidedAt: 'desc' }, take: 10 })
+  ]);
+  const orgs = await prisma.organisation.findMany({ where: { id: { in: [...new Set([...waiting, ...recent].map((r) => r.organisationId))] } }, select: { id: true, name: true, slug: true } });
+  const name = new Map(orgs.map((o) => [o.id, o]));
+  const label = (k) => (k === 'CUSTOM' ? 'Custom' : PLANS[k] ? PLANS[k].label : k);
+  const view = (r) => ({ id: r.id, organisation: (name.get(r.organisationId) || {}).name || 'Removed organisation', organisationId: r.organisationId, from: label(r.fromPlan), to: r.toPlan, toLabel: label(r.toPlan), note: r.note, by: r.requestedByEmail, status: r.status, declineReason: r.declineReason, at: r.createdAt, decidedAt: r.decidedAt });
+  res.json({ ok: true, waiting: waiting.map(view), recent: recent.map(view) });
+}));
+
+ownerRouter.post('/plan-requests/:id/apply', ah(async (req, res) => {
+  const request = await prisma.planChangeRequest.findUnique({ where: { id: req.params.id } });
+  if (!request) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  if (request.status !== 'PENDING') return res.status(409).json({ ok: false, error: 'NOT_WAITING', message: 'This request has already been dealt with.' });
+  const org = await prisma.organisation.findUnique({ where: { id: request.organisationId } });
+  if (!org) return res.status(409).json({ ok: false, error: 'NO_ORG', message: 'That organisation no longer exists.' });
+  let changed = false;
+  if (request.toPlan !== 'CUSTOM') {
+    const parsed = cleanPlanInput({ plan: request.toPlan });
+    if (parsed.error) return res.status(400).json({ ok: false, error: 'INVALID_PLAN', message: parsed.error });
+    await prisma.organisation.update({ where: { id: org.id }, data: parsed.value });
+    invalidatePlanCache();
+    changed = true;
+    await writeAudit({ actorId: req.user.id, action: 'ORG_PLAN_CHANGED', targetType: 'Organisation', targetId: org.id, metadata: { name: org.name, from: { plan: org.plan }, to: parsed.value, viaRequest: request.id }, req, organisationId: org.id });
+  }
+  await prisma.planChangeRequest.update({ where: { id: request.id }, data: { status: 'APPLIED', decidedAt: new Date() } });
+  res.json({ ok: true, changed });
+}));
+
+ownerRouter.post('/plan-requests/:id/decline', ah(async (req, res) => {
+  const request = await prisma.planChangeRequest.findUnique({ where: { id: req.params.id } });
+  if (!request) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  if (request.status !== 'PENDING') return res.status(409).json({ ok: false, error: 'NOT_WAITING', message: 'This request has already been dealt with.' });
+  const reason = String(req.body.reason || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  if (reason.length < 5) return res.status(400).json({ ok: false, error: 'REASON_REQUIRED', message: 'Write a short reason. The organisation sees it.' });
+  await prisma.planChangeRequest.update({ where: { id: request.id }, data: { status: 'DECLINED', decidedAt: new Date(), declineReason: reason } });
+  await writeAudit({ actorId: req.user.id, action: 'PLAN_CHANGE_DECLINED', targetType: 'PlanChangeRequest', targetId: request.id, metadata: { reason }, req });
+  res.json({ ok: true });
+}));
 
 // Sets what an organisation has switched on and its limits. The new rules apply on the next
 // thing anyone there does; nothing already created is removed.
@@ -317,6 +380,7 @@ ownerRouter.delete('/organisations/:id', ah(async (req, res) => {
     prisma.user.deleteMany({ where: { organisationId: org.id } }),
     prisma.department.deleteMany({ where: { organisationId: org.id } }),
     prisma.supportAccess.deleteMany({ where: { organisationId: org.id } }),
+    prisma.planChangeRequest.deleteMany({ where: { organisationId: org.id } }),
     prisma.auditLog.deleteMany({ where: { organisationId: org.id } }),
     prisma.organisation.delete({ where: { id: org.id } })
   ]);

@@ -7,7 +7,7 @@ import { prisma } from '../lib/prisma.js';
 import { requireRole } from '../middleware/auth.js';
 import { issueToken } from '../lib/tokens.js';
 import { destroyAllSessionsForUser } from '../lib/session.js';
-import { sendActivationEmail } from '../lib/mailer.js';
+import { sendActivationEmail, sendPlanRequestEmail } from '../lib/mailer.js';
 import { writeAudit } from '../lib/audit.js';
 import { isValidEmailShape } from '../lib/normalize.js';
 import { ah } from '../lib/asyncHandler.js';
@@ -18,9 +18,11 @@ import { cleanBranding } from '../lib/brandInput.js';
 import { brandFromOrg, brandForOrgId, emailBrand, invalidateBrandCache } from '../lib/brand.js';
 import { detectImage, MAX_LOGO_BYTES } from '../lib/imageSniff.js';
 import { supportState } from '../lib/support.js';
-import { baseUrlFor } from '../lib/tenantHost.js';
+import { baseUrlFor, platformBase } from '../lib/tenantHost.js';
 import { adminSeatRefusal, adminSeatsUsed, eventsThisMonth, orgPlanFor } from '../lib/orgPlan.js';
-import { MODULES } from '../lib/plans.js';
+import { MODULES, PLANS } from '../lib/plans.js';
+import { billingState } from '../lib/organisations.js';
+import { catalog as billingCatalog, suggestion, usageLevel, REQUESTABLE } from '../lib/billing.js';
 import { chainHead, lastAnchorAt, sendAnchor, checkAnchor } from '../lib/anchor.js';
 import { DEFAULT_DEPARTMENTS, MAX_SUPER_ADMINS_PER_DEPARTMENT, cleanDepartmentName, departmentSlug } from '../lib/departments.js';
 
@@ -401,6 +403,76 @@ platformRouter.get('/plan', ah(async (req, res) => {
   });
 }));
 
+// ---- Plan and billing --------------------------------------------------------------
+
+const planLabel = (key) => (key === 'CUSTOM' ? 'Custom' : PLANS[key] ? PLANS[key].label : key);
+
+// Everything the Plan and billing page shows: the plan now, how much of each limit is used, what the
+// owner's plans cost, and any request already waiting. Prices the owner has not set come back as null.
+platformRouter.get('/billing', ah(async (req, res) => {
+  const orgId = req.user.organisationId;
+  const [org, plan, adminsUsed, eventsUsed, prices, pending, recent] = await Promise.all([
+    prisma.organisation.findUnique({ where: { id: orgId }, select: { name: true, paidUntil: true } }),
+    orgPlanFor(orgId),
+    adminSeatsUsed(orgId),
+    eventsThisMonth(orgId),
+    prisma.planPrice.findMany(),
+    prisma.planChangeRequest.findFirst({ where: { organisationId: orgId, status: 'PENDING' }, orderBy: { createdAt: 'desc' } }),
+    prisma.planChangeRequest.findMany({ where: { organisationId: orgId, status: { not: 'PENDING' } }, orderBy: { createdAt: 'desc' }, take: 3 })
+  ]);
+  const admins = { used: adminsUsed, limit: plan.maxAdmins ?? null };
+  const events = { used: eventsUsed, limit: plan.maxEventsPerMonth ?? null };
+  const view = (r) => (r ? { id: r.id, from: r.fromPlan, to: r.toPlan, toLabel: planLabel(r.toPlan), note: r.note, status: r.status, declineReason: r.declineReason, at: r.createdAt, decidedAt: r.decidedAt } : null);
+  res.json({
+    ok: true,
+    organisation: org.name,
+    current: {
+      plan: plan.plan,
+      label: planLabel(plan.plan),
+      modules: Object.entries(MODULES).map(([key, label]) => ({ key, label, on: !plan.modules || plan.modules.includes(key) }))
+    },
+    usage: { admins: { ...admins, level: usageLevel(admins.used, admins.limit) }, events: { ...events, level: usageLevel(events.used, events.limit) } },
+    billing: { ...billingState(org.paidUntil), paidUntil: org.paidUntil },
+    catalog: billingCatalog(prices),
+    suggestion: suggestion(plan.plan, admins, events),
+    request: view(pending),
+    recent: recent.map(view)
+  });
+}));
+
+// Asks to move to another plan. Nothing changes by itself: the platform owner is told, agrees terms and an
+// invoice with the organisation, and applies the plan. One request waits at a time.
+platformRouter.post('/billing/request', ah(async (req, res) => {
+  const orgId = req.user.organisationId;
+  const to = String(req.body.plan || '').toUpperCase();
+  if (!REQUESTABLE.includes(to)) return res.status(400).json({ ok: false, error: 'INVALID_PLAN', message: 'Choose one of the plans.' });
+  const plan = await orgPlanFor(orgId);
+  if (plan.plan === to) return res.status(409).json({ ok: false, error: 'SAME_PLAN', message: 'That is the plan you already have.' });
+  if (await prisma.planChangeRequest.findFirst({ where: { organisationId: orgId, status: 'PENDING' }, select: { id: true } })) {
+    return res.status(409).json({ ok: false, error: 'ALREADY_ASKED', message: 'You already have a request waiting. Cancel it first if you want to ask for a different plan.' });
+  }
+  const note = String(req.body.note || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+  const request = await prisma.planChangeRequest.create({ data: { organisationId: orgId, fromPlan: plan.plan, toPlan: to, note: note || null, requestedById: req.user.id, requestedByEmail: req.user.email } });
+  await writeAudit({ actorId: req.user.id, action: 'PLAN_CHANGE_REQUESTED', targetType: 'PlanChangeRequest', targetId: request.id, metadata: { from: plan.plan, to }, req });
+
+  // Fire and forget: the request is saved whether or not the owner's email goes out.
+  prisma.user.findMany({ where: { role: 'OWNER', status: 'ACTIVE' }, select: { email: true } })
+    .then(async (owners) => {
+      const org = await prisma.organisation.findUnique({ where: { id: orgId }, select: { name: true } });
+      for (const o of owners) {
+        await sendPlanRequestEmail(o.email, { organisation: org.name, from: planLabel(plan.plan), to: planLabel(to), note, url: `${platformBase()}/owner#plans` }).catch((err) => logger.error('sendPlanRequestEmail failed', { stack: err.stack }));
+      }
+    })
+    .catch((err) => logger.error('plan request notification failed', { stack: err.stack }));
+  res.json({ ok: true });
+}));
+
+platformRouter.delete('/billing/request', ah(async (req, res) => {
+  const r = await prisma.planChangeRequest.updateMany({ where: { organisationId: req.user.organisationId, status: 'PENDING' }, data: { status: 'CANCELLED', decidedAt: new Date() } });
+  if (!r.count) return res.status(404).json({ ok: false, error: 'NOT_FOUND', message: 'There is no request waiting.' });
+  await writeAudit({ actorId: req.user.id, action: 'PLAN_CHANGE_CANCELLED', targetType: 'Organisation', targetId: req.user.organisationId, req });
+  res.json({ ok: true });
+}));
 // ---- How the organisation looks ---------------------------------------------
 
 async function loadOwnOrg(req) {
