@@ -17,8 +17,8 @@ export function invalidatePlanCache() {
 export async function orgPlanFor(organisationId) {
   const hit = cache.get(organisationId);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.plan;
-  const org = await prisma.organisation.findUnique({ where: { id: organisationId }, select: { plan: true, modules: true, maxAdmins: true, maxEventsPerMonth: true } });
-  const plan = org || { plan: 'PILOT', modules: undefined, maxAdmins: null, maxEventsPerMonth: null };
+  const org = await prisma.organisation.findUnique({ where: { id: organisationId }, select: { plan: true, modules: true, maxAdmins: true, maxEventsPerMonth: true, maxAttendeesPerEvent: true } });
+  const plan = org || { plan: 'PILOT', modules: undefined, maxAdmins: null, maxEventsPerMonth: null, maxAttendeesPerEvent: 500 };
   cache.set(organisationId, { at: Date.now(), plan });
   return plan;
 }

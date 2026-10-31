@@ -102,6 +102,16 @@ A `render.yaml` blueprint at the repo root does most of this for you.
   refused without a code from the last five to ten minutes. A good code is traded for a 20 minute proof held by the
   page, so a slow form does not fail, and the code is removed from the address bar. The event's own organiser
   is not asked. In a virtual meeting the organiser shares the live code screen and people type the six digits shown (`POST /api/events/:slug/live-code`, rate limited, traded for the same proof). Migration `20261029090000_live_code`. Not offered for payment sheets.
+- Plan and billing: each organisation's administrator has a Plan and billing page (`platform.html`, `/api/platform/billing`) showing
+  the plan, how full the administrator and events-per-month limits are (`lib/billing.js`), the date paid until, the plans
+  with their prices, and a request to change plan (`PlanChangeRequest`). Nothing changes by itself: the owner is emailed,
+  agrees the price, and applies the plan at `owner.html`, Plans and prices (`/api/owner/plan-requests`). The owner sets each
+  plan's monthly and yearly price in Kenya shillings there (`PlanPrice`); a plan with no price shows as price on request.
+  Plans are for the whole organisation, not per department. Migration `20261031090000_plan_billing`. Invoices are not built yet.
+- People per event: each plan sets how many people can sign one event (`maxAttendeesPerEvent`: Pilot 500, Starter 200, Standard 500,
+  Full 2,000; Custom is set by hand under Manage, Plan and limits). An empty value means the platform ceiling, `HARD_MAX_ATTENDEES`
+  (5,000) in `lib/plans.js`, which no plan can pass. The sign in page shows the organisation's own figure. Existing organisations
+  keep 500 (migration `20261101090000_attendees_per_event`). A payment sheet roster still uses the fixed 500.
 - Page addresses: pages are reached without the file extension (`/login`, `/admin`, `/verify?code=...`).
   The attendee sign in page, `index.html`, is `/attend`. The old `.html` addresses still answer, with a
   redirect that keeps the query string, because they are in emails and printed QR codes. The list of

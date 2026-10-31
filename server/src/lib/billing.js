@@ -58,7 +58,8 @@ export function catalog(prices) {
       blurb: p.blurb || null,
       modules: MODULE_KEYS.map((m) => ({ key: m, label: MODULES[m], on: preset.modules.includes(m) })),
       maxAdmins: preset.maxAdmins,
-      maxEventsPerMonth: preset.maxEventsPerMonth
+      maxEventsPerMonth: preset.maxEventsPerMonth,
+      maxAttendeesPerEvent: preset.maxAttendeesPerEvent
     };
   });
 }

@@ -73,6 +73,7 @@ ownerRouter.get('/organisations', ah(async (req, res) => {
         modules: o.modules,
         maxAdmins: o.maxAdmins,
         maxEventsPerMonth: o.maxEventsPerMonth,
+        maxAttendeesPerEvent: o.maxAttendeesPerEvent,
         adminSeats: mine.filter((u) => (u.role === 'SUPER_ADMIN' || u.role === 'COUNTY_ADMIN') && u.status !== 'DISABLED').reduce((n, u) => n + u._count._all, 0),
         departments: by(departments, o.id, (r) => r._count._all) || 0,
         orgAdmins: count('PLATFORM_ADMIN'),
@@ -331,7 +332,7 @@ ownerRouter.put('/organisations/:id/plan', ah(async (req, res) => {
   if (parsed.error) return res.status(400).json({ ok: false, error: 'INVALID_PLAN', message: parsed.error });
   await prisma.organisation.update({ where: { id: org.id }, data: parsed.value });
   invalidatePlanCache();
-  const was = { plan: org.plan, modules: org.modules, maxAdmins: org.maxAdmins, maxEventsPerMonth: org.maxEventsPerMonth };
+  const was = { plan: org.plan, modules: org.modules, maxAdmins: org.maxAdmins, maxEventsPerMonth: org.maxEventsPerMonth, maxAttendeesPerEvent: org.maxAttendeesPerEvent };
   await writeAudit({ actorId: req.user.id, action: 'ORG_PLAN_CHANGED', targetType: 'Organisation', targetId: org.id, metadata: { name: org.name, from: was, to: parsed.value }, req, organisationId: org.id });
   res.json({ ok: true, plan: parsed.value });
 }));

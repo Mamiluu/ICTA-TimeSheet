@@ -8,7 +8,7 @@ import { prisma } from '../lib/prisma.js';
 import { normalizePhone, normalizeEmail, isValidEmailShape } from '../lib/normalize.js';
 import { attendanceLimiter, checkInLimiter, liveCodeLimiter } from '../middleware/rateLimit.js';
 import { ah } from '../lib/asyncHandler.js';
-import { MAX_ATTENDANCE_PER_EVENT, SIGNATURE_REQUEST_TTL_MS, EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
+import { SIGNATURE_REQUEST_TTL_MS, EVENT_LINK_VISIBILITY_MS } from '../lib/constants.js';
 import { randomToken, hashToken } from '../lib/tokens.js';
 import { writeAudit, verifyChain } from '../lib/audit.js';
 import { sendAttendanceConfirmationEmail } from '../lib/mailer.js';
@@ -21,7 +21,8 @@ import { maskName } from '../lib/mask.js';
 import { walletEntry } from '../lib/wallet.js';
 import { certificateEligible, loadCertificateSnapshot, certificateStillHolds, publicCertificateView } from '../lib/certificate.js';
 import { canAccessKind, dayStatus, STAGE_LABEL } from '../lib/duty.js';
-import { moduleOn } from '../lib/orgPlan.js';
+import { moduleOn, orgPlanFor } from '../lib/orgPlan.js';
+import { attendeeCap } from '../lib/plans.js';
 import { orgBaseUrl } from '../lib/tenantHost.js';
 import { newSealCode, SEAL_CODE_PATTERN, buildDaySnapshot, buildEventSnapshot, summarizeSnapshot, digestOf } from '../lib/seal.js';
 
@@ -255,6 +256,7 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
   // see admin.html -- so the choice to use it is deliberate, not a trap
   // toggled by a stray query string on the normal link.
   const kiosk = req.query.kiosk === '1' || req.query.kiosk === 'true';
+  const cap = attendeeCap(await orgPlanFor(event.organisationId));
   const manage = kiosk ? false : canManageEvent(req.user, event);
 
   // The public sign-in link closes after EVENT_LINK_VISIBILITY_MS -- for anyone who
@@ -272,7 +274,7 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
       expired: true,
       rows: [],
       submittedCount: 0,
-      capacity: MAX_ATTENDANCE_PER_EVENT,
+      capacity: cap,
       canManage: false
     });
   }
@@ -317,7 +319,7 @@ publicRouter.get('/events/:slug', ah(async (req, res) => {
     rows: attendance.map(publicRow),
     live: manage ? undefined : liveStateFor(event, req.query.k),
     submittedCount,
-    capacity: MAX_ATTENDANCE_PER_EVENT,
+    capacity: cap,
     canManage: manage,
     // Deliberately narrower than canManage: a county admin can still view
     // the full roster and use the kiosk convenience tools for their own
@@ -685,8 +687,9 @@ publicRouter.post('/events/:slug/attendance', attendanceLimiter, ah(async (req, 
   // handful of rows past 500, not a broken guarantee. Retired rows are
   // excluded so retiring a duplicate/fraudulent entry frees its seat.
   const attendeeCount = await prisma.attendance.count({ where: { eventId: event.id, status: { not: 'RETIRED' } } });
-  if (attendeeCount >= MAX_ATTENDANCE_PER_EVENT) {
-    return res.json({ ok: false, error: 'EVENT_FULL', message: 'This event has reached its maximum of ' + MAX_ATTENDANCE_PER_EVENT + ' attendees.' });
+  const cap = attendeeCap(await orgPlanFor(event.organisationId));
+  if (attendeeCount >= cap) {
+    return res.json({ ok: false, error: 'EVENT_FULL', message: 'This event has reached its maximum of ' + cap + ' attendees.' });
   }
 
   // A new person signs the day they actually arrived on, not always day 1.

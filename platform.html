@@ -1068,6 +1068,7 @@
     var lim = function(text){ var li = el('li', 'y'); li.innerHTML = PB_ICON_YES; li.appendChild(el('span', null, text)); ul.appendChild(li); };
     lim(p.maxAdmins === null ? 'As many administrators as you need' : 'Up to ' + p.maxAdmins + ' administrators');
     lim(p.maxEventsPerMonth === null ? 'No limit on events' : 'Up to ' + p.maxEventsPerMonth + ' events a month');
+    lim('Up to ' + (p.maxAttendeesPerEvent == null ? '5,000' : Number(p.maxAttendeesPerEvent).toLocaleString('en-KE')) + ' people at one event');
     c.appendChild(ul);
     if(mine) c.appendChild(el('div', 'here', 'You are on this plan'));
     else {

@@ -105,6 +105,19 @@
   .req .why{ margin-top:8px; padding:8px 12px; background:var(--c-soft); border-radius:var(--r-md); font-size:13px; }
   .req .acts{ display:flex; gap:8px; }
   .req .acts button{ margin:0; }
+  .pp-h{ margin:26px 0 4px; font-size:17px; }
+  .pp-rows{ display:grid; gap:10px; }
+  .pp-row{ display:grid; grid-template-columns:minmax(150px,1.1fr) minmax(110px,.8fr) minmax(110px,.8fr) minmax(180px,1.6fr) auto; gap:10px 14px; align-items:end; padding:16px 18px; background:#fff; border:1px solid var(--c-line); border-radius:var(--r-lg); }
+  .pp-row .nm{ font-weight:700; font-size:15px; }
+  .pp-row .lim{ color:var(--c-muted); font-size:12.5px; margin-top:2px; }
+  .pp-row label{ display:block; font-size:11.5px; font-weight:600; color:var(--c-muted); margin-bottom:3px; letter-spacing:.02em; }
+  .pp-row input{ width:100%; margin:0; }
+  .pp-row .go{ display:flex; flex-direction:column; align-items:flex-start; gap:4px; }
+  .pp-row .go button{ margin:0; }
+  .pp-row .hint{ font-size:12px; color:var(--c-muted); min-height:1.2em; }
+  .pp-row .hint.ok{ color:#14683a; } .pp-row .hint.err{ color:#a5172b; }
+  @media (max-width:980px){ .pp-row{ grid-template-columns:1fr 1fr; } .pp-row > :first-child, .pp-row > :nth-child(4){ grid-column:1 / -1; } }
+  .req .tag{ display:inline-block; margin-left:6px; padding:2px 8px; border-radius:99px; background:#eef0f4; font-size:11.5px; font-weight:600; }
   .req.soft{ border-color:var(--c-line, #e3e6ec); }
   .req-h{ margin:18px 0 8px; font-size:14px; }
   .req-note{ margin:0 0 10px; color:var(--c-muted); font-size:13px; max-width:70ch; }
@@ -182,6 +195,7 @@
       <a class="nav-item" href="#overview" data-nav="overview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></svg><span>Overview</span></a>
       <a class="nav-item" href="#orgs" data-nav="orgs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6M9 10h.01M15 10h.01"/></svg><span>Organisations</span><span class="badge-count" id="navOrgs" hidden></span></a>
       <a class="nav-item" href="#requests" data-nav="requests"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H8l-4 4V4z"/></svg><span>Requests to join</span><span class="badge-count hot" id="navReq" hidden></span></a>
+      <a class="nav-item" href="#plans" data-nav="plans"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7zM3 10h18M7 15h4"/></svg><span>Plans and prices</span><span class="badge-count hot" id="navPlans" hidden></span></a>
       <div class="nav-group">Manage</div>
       <a class="nav-item" href="#add" data-nav="add"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 8v8M8 12h8"/></svg><span>Add an organisation</span></a>
       <div class="nav-group">System</div>
@@ -223,6 +237,14 @@
       <div id="reqList"></div>
     </section>
 
+    <!-- Plans and prices -->
+    <section class="view" data-view="plans" data-title="Plans and prices">
+      <p class="help">What each plan costs, and organisations asking to change plan. Prices show on every organisation's Plan and billing page, in Kenya shillings. A plan with no price shows as "price on request".</p>
+      <h3 class="pp-h" style="margin-top:6px;">Asking to change plan</h3>
+      <div id="planReqs"></div>
+      <h3 class="pp-h">Prices</h3>
+      <div id="planPrices" class="pp-rows"></div>
+    </section>
     <!-- Add -->
     <section class="view" data-view="add" data-title="Add an organisation">
       <div class="sheet wide">
@@ -269,6 +291,7 @@
   <div class="lims">
     <div><label for="planAdmins">Administrators allowed</label><input type="number" id="planAdmins" min="1" placeholder="no limit"></div>
     <div><label for="planEvents">Events a month</label><input type="number" id="planEvents" min="1" placeholder="no limit"></div>
+    <div><label for="planPeople">People per event</label><input type="number" id="planPeople" min="1" max="5000" placeholder="up to 5000"></div>
   </div>
   <p class="help" style="margin:0;">Applies to what they do from now on. Nothing they have already created is removed.</p>
   <p class="say err" id="planErr" style="display:none;"></p>
@@ -292,8 +315,8 @@
   function dateOf(iso){ return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
   var NET = 'No connection. Please try again.';
 
-  var VIEWS = ['overview', 'orgs', 'requests', 'add', 'health'];
-  var state = { orgs: [], requests: [], unconfirmed: [], health: null, platformHost: '', filter: 'all', q: '' };
+  var VIEWS = ['overview', 'orgs', 'requests', 'plans', 'add', 'health'];
+  var state = { orgs: [], requests: [], unconfirmed: [], planRequests: [], health: null, platformHost: '', filter: 'all', q: '' };
   var PLAN_META = null;
 
   // ---- Session and navigation ----
@@ -329,18 +352,20 @@
   function load(){
     if(!state.orgs.length){ var l = $('orgList'); l.textContent = ''; for(var i = 0; i < 3; i++) l.appendChild(el('div', 'skel')); }
     return Promise.all([
-      API.get('/api/owner/organisations'), API.get('/api/owner/requests'), API.get('/api/owner/health')
+      API.get('/api/owner/organisations'), API.get('/api/owner/requests'), API.get('/api/owner/health'), API.get('/api/owner/plan-requests'), API.get('/api/owner/plans')
     ]).then(function(rs){
       if(rs[0].status === 200 && rs[0].data.ok){ state.orgs = rs[0].data.organisations; state.platformHost = rs[0].data.platformHost || ''; }
       if(rs[1].status === 200 && rs[1].data.ok) { state.requests = rs[1].data.waiting; state.unconfirmed = rs[1].data.unconfirmed || []; }
       if(rs[2].status === 200 && rs[2].data.ok) state.health = rs[2].data;
+      if(rs[3].status === 200 && rs[3].data.ok) state.planRequests = rs[3].data.waiting;
+      if(rs[4].status === 200 && rs[4].data.ok) PLAN_META = rs[4].data;
       renderAll();
     }).catch(function(){ $('orgList').textContent = ''; $('orgList').appendChild(el('p', 'empty', NET)); });
   }
-  function renderAll(){ renderTiles(); renderAttention(); renderGlance(); renderOrgs(); renderRequests(); renderHealth(); badges(); }
+  function renderAll(){ renderTiles(); renderAttention(); renderGlance(); renderOrgs(); renderRequests(); renderPlans(); renderHealth(); badges(); }
   function badges(){
     function set(id, n){ var b = $(id); b.hidden = !n; b.textContent = String(n); }
-    set('navOrgs', state.orgs.length); set('navReq', state.requests.length + state.unconfirmed.length);
+    set('navOrgs', state.orgs.length); set('navReq', state.requests.length + state.unconfirmed.length); set('navPlans', state.planRequests.length);
     var f = state.health ? state.health.emails24h.failed : 0; set('navHealth', f);
   }
 
@@ -551,6 +576,64 @@
     }).catch(function(){ btn.disabled = false; window.alert(NET); });
   }
 
+  // ---- Plans and prices ----
+  function planLimits(p){ return (p.maxAdmins === null ? 'Any number of administrators' : 'Up to ' + p.maxAdmins + ' administrators') + ' · ' + (p.maxEventsPerMonth === null ? 'no limit on events' : p.maxEventsPerMonth + ' events a month') + ' · ' + (p.maxAttendeesPerEvent == null ? 'up to 5000' : p.maxAttendeesPerEvent) + ' people per event'; }
+  function renderPlans(){
+    var box = $('planReqs'); box.textContent = '';
+    if(!state.planRequests.length) box.appendChild(el('p', 'help', 'No one is waiting. When an organisation asks for another plan it shows here, and you get an email.'));
+    state.planRequests.forEach(function(q){
+      var r = el('article', 'req'); var left = el('div');
+      var nm = el('div', 'nm', q.organisation); nm.appendChild(el('span', 'tag', q.from + ' to ' + q.toLabel)); left.appendChild(nm);
+      left.appendChild(el('div', 'sub', 'asked ' + ago(q.at) + (q.by ? ' · ' + q.by : '')));
+      if(q.note) left.appendChild(el('div', 'why', '“' + q.note + '”'));
+      r.appendChild(left);
+      var acts = el('div', 'acts');
+      var ok = el('button', 'primary', q.to === 'CUSTOM' ? 'Mark as handled' : 'Apply ' + q.toLabel); ok.type = 'button'; ok.addEventListener('click', function(){ decidePlanRequest(q, 'apply', ok); });
+      var no = el('button', null, 'Decline'); no.type = 'button'; no.addEventListener('click', function(){ decidePlanRequest(q, 'decline', no); });
+      acts.appendChild(ok); acts.appendChild(no); r.appendChild(acts); box.appendChild(r);
+    });
+
+    var rows = $('planPrices'); rows.textContent = '';
+    var meta = PLAN_META || { plans: [], prices: {}, ladder: [] };
+    (meta.ladder || []).forEach(function(key){
+      var p = meta.plans.filter(function(x){ return x.key === key; })[0]; if(!p) return;
+      var pr = (meta.prices || {})[key] || {};
+      var row = el('div', 'pp-row');
+      var who = el('div'); who.appendChild(el('div', 'nm', p.label)); who.appendChild(el('div', 'lim', planLimits(p))); row.appendChild(who);
+      function field(label, val, ph, attrs){ var d = el('div'); d.appendChild(el('label', null, label)); var i = el('input'); i.type = 'text'; i.inputMode = attrs && attrs.num ? 'numeric' : 'text'; i.placeholder = ph; i.value = val == null ? '' : val; if(attrs && attrs.max) i.maxLength = attrs.max; d.appendChild(i); row.appendChild(d); return i; }
+      var m = field('Monthly (KES)', pr.monthlyKes, 'e.g. 20000', { num: true });
+      var y = field('Yearly (KES)', pr.yearlyKes, 'e.g. 200000', { num: true });
+      var b = field('One line for the plan card', pr.blurb, 'Who it is for', { max: 140 });
+      var go = el('div', 'go'); var save = el('button', 'primary', 'Save'); save.type = 'button'; var hint = el('div', 'hint'); go.appendChild(save); go.appendChild(hint); row.appendChild(go);
+      save.addEventListener('click', function(){
+        save.disabled = true; hint.className = 'hint'; hint.textContent = 'Saving…';
+        API.put('/api/owner/plans/' + key + '/price', { monthlyKes: m.value, yearlyKes: y.value, blurb: b.value }).then(function(r){
+          save.disabled = false;
+          if(!r.data.ok){ hint.className = 'hint err'; hint.textContent = r.data.message || 'Could not save.'; return; }
+          var mm = Number(String(m.value).replace(/[,\s]/g, '')), yy = Number(String(y.value).replace(/[,\s]/g, ''));
+          var save12 = mm && yy && yy < mm * 12 ? ' Yearly saves ' + Math.round((mm * 12 - yy) / (mm * 12) * 100) + '%.' : '';
+          hint.className = 'hint ok'; hint.textContent = 'Saved.' + save12;
+          meta.prices[key] = { monthlyKes: m.value === '' ? null : mm, yearlyKes: y.value === '' ? null : yy, blurb: b.value || null };
+        }).catch(function(){ save.disabled = false; hint.className = 'hint err'; hint.textContent = NET; });
+      });
+      rows.appendChild(row);
+    });
+  }
+  function decidePlanRequest(q, action, btn){
+    var body = {};
+    if(action === 'apply'){
+      var msg = q.to === 'CUSTOM'
+        ? 'Mark this request from ' + q.organisation + ' as handled? Nothing changes by itself: set their modules and limits under Manage, Plan and limits.'
+        : 'Switch ' + q.organisation + ' to the ' + q.toLabel + ' plan now? Their modules and limits change straight away. Only do this once the price is agreed and any payment is recorded.';
+      if(!window.confirm(msg)) return;
+    } else { var why = window.prompt('Why are you declining? ' + q.organisation + ' will see this.'); if(!why) return; body.reason = why; }
+    btn.disabled = true;
+    API.post('/api/owner/plan-requests/' + encodeURIComponent(q.id) + '/' + action, body).then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ window.alert(r.data.message || 'Could not do that.'); return; }
+      load();
+    }).catch(function(){ btn.disabled = false; window.alert(NET); });
+  }
   // ---- Health ----
   function renderHealth(){
     var box = $('health'); box.textContent = '';
@@ -652,6 +735,7 @@
     if(!p) return;
     Array.prototype.forEach.call($('planMods').querySelectorAll('input'), function(c){ c.checked = p.modules.indexOf(c.value) !== -1; });
     $('planAdmins').value = p.maxAdmins == null ? '' : p.maxAdmins; $('planEvents').value = p.maxEventsPerMonth == null ? '' : p.maxEventsPerMonth;
+    $('planPeople').value = p.maxAttendeesPerEvent == null ? '' : p.maxAttendeesPerEvent;
   }
   function openPlan(o){
     if(!PLAN_META){ window.alert('Still loading. Try again in a moment.'); return; }
@@ -662,6 +746,7 @@
     var box = $('planMods'); box.textContent = '';
     PLAN_META.modules.forEach(function(m){ var l = el('label'); var c = document.createElement('input'); c.type = 'checkbox'; c.value = m.key; c.checked = (o.modules || []).indexOf(m.key) !== -1; l.appendChild(c); l.appendChild(document.createTextNode(m.label)); box.appendChild(l); });
     $('planAdmins').value = o.maxAdmins == null ? '' : o.maxAdmins; $('planEvents').value = o.maxEventsPerMonth == null ? '' : o.maxEventsPerMonth;
+    $('planPeople').value = o.maxAttendeesPerEvent == null ? '' : o.maxAttendeesPerEvent;
     $('planErr').style.display = 'none';
     if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
   }
@@ -671,7 +756,7 @@
     var btn = this, err = $('planErr'); err.style.display = 'none';
     var mods = Array.prototype.filter.call($('planMods').querySelectorAll('input'), function(c){ return c.checked; }).map(function(c){ return c.value; });
     btn.disabled = true;
-    API.put('/api/owner/organisations/' + encodeURIComponent(planOrg.id) + '/plan', { plan: $('planKey').value, modules: mods, maxAdmins: $('planAdmins').value === '' ? null : Number($('planAdmins').value), maxEventsPerMonth: $('planEvents').value === '' ? null : Number($('planEvents').value) }).then(function(r){
+    API.put('/api/owner/organisations/' + encodeURIComponent(planOrg.id) + '/plan', { plan: $('planKey').value, modules: mods, maxAdmins: $('planAdmins').value === '' ? null : Number($('planAdmins').value), maxEventsPerMonth: $('planEvents').value === '' ? null : Number($('planEvents').value), maxAttendeesPerEvent: $('planPeople').value === '' ? null : Number($('planPeople').value) }).then(function(r){
       btn.disabled = false;
       if(!r.data.ok){ err.textContent = r.data.message || 'Could not save the plan.'; err.style.display = ''; return; }
       if(dlg.close) dlg.close(); else dlg.removeAttribute('open');

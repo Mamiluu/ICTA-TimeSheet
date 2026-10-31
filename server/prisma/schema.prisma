@@ -33,6 +33,8 @@ model Organisation {
   modules           String[] @default(["ATTENDANCE", "PAYMENT", "DOOR_SCAN", "CERTIFICATES"])
   maxAdmins         Int?
   maxEventsPerMonth Int?
+  // How many people can sign one event. Null means the platform's own ceiling (HARD_MAX_ATTENDEES in plans.js).
+  maxAttendeesPerEvent Int? @default(500)
   createdAt DateTime  @default(now())
 
   // Billing is kept by hand by the platform owner: the date until which the organisation

@@ -14,11 +14,21 @@ export const MODULES = {
 export const MODULE_KEYS = Object.keys(MODULES);
 
 export const PLANS = {
-  PILOT: { label: 'Pilot', modules: MODULE_KEYS, maxAdmins: null, maxEventsPerMonth: null },
-  STARTER: { label: 'Starter', modules: ['ATTENDANCE', 'CERTIFICATES'], maxAdmins: 5, maxEventsPerMonth: 30 },
-  STANDARD: { label: 'Standard', modules: ['ATTENDANCE', 'CERTIFICATES', 'DOOR_SCAN'], maxAdmins: 25, maxEventsPerMonth: 300 },
-  FULL: { label: 'Full', modules: MODULE_KEYS, maxAdmins: 100, maxEventsPerMonth: null }
+  PILOT: { label: 'Pilot', modules: MODULE_KEYS, maxAdmins: null, maxEventsPerMonth: null, maxAttendeesPerEvent: 500 },
+  STARTER: { label: 'Starter', modules: ['ATTENDANCE', 'CERTIFICATES'], maxAdmins: 5, maxEventsPerMonth: 30, maxAttendeesPerEvent: 200 },
+  STANDARD: { label: 'Standard', modules: ['ATTENDANCE', 'CERTIFICATES', 'DOOR_SCAN'], maxAdmins: 25, maxEventsPerMonth: 300, maxAttendeesPerEvent: 500 },
+  FULL: { label: 'Full', modules: MODULE_KEYS, maxAdmins: 100, maxEventsPerMonth: null, maxAttendeesPerEvent: 2000 }
 };
+
+// However a plan is set, one event never takes more than this. Each signature is a picture, so an
+// unlimited event would be limited by the database, not by anything the owner chose.
+export const HARD_MAX_ATTENDEES = 5000;
+
+// How many people can sign one event for an organisation's plan.
+export function attendeeCap(plan) {
+  const own = plan && Number.isInteger(plan.maxAttendeesPerEvent) ? plan.maxAttendeesPerEvent : null;
+  return own === null ? HARD_MAX_ATTENDEES : Math.min(own, HARD_MAX_ATTENDEES);
+}
 
 // An organisation row with nothing recorded (an old row, a test) has everything on.
 export function hasModule(org, key) {
@@ -49,9 +59,12 @@ export function cleanPlanInput(body) {
   if (admins.error) return { error: admins.error };
   const events = limit(body.maxEventsPerMonth, preset ? preset.maxEventsPerMonth : null, 'The events-per-month limit');
   if (events.error) return { error: events.error };
+  const people = limit(body.maxAttendeesPerEvent, preset ? preset.maxAttendeesPerEvent : null, 'The people-per-event limit');
+  if (people.error) return { error: people.error };
+  if (people.value !== null && people.value > HARD_MAX_ATTENDEES) return { error: `The people-per-event limit cannot be more than ${HARD_MAX_ATTENDEES}.` };
 
-  const same = preset && picked.join() === preset.modules.join() && admins.value === preset.maxAdmins && events.value === preset.maxEventsPerMonth;
-  return { value: { plan: same ? planKey : 'CUSTOM', modules: picked, maxAdmins: admins.value, maxEventsPerMonth: events.value } };
+  const same = preset && picked.join() === preset.modules.join() && admins.value === preset.maxAdmins && events.value === preset.maxEventsPerMonth && people.value === preset.maxAttendeesPerEvent;
+  return { value: { plan: same ? planKey : 'CUSTOM', modules: picked, maxAdmins: admins.value, maxEventsPerMonth: events.value, maxAttendeesPerEvent: people.value } };
 }
 
 // Whether one more of something fits. limit null means no limit.
