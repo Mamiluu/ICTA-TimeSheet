@@ -44,7 +44,7 @@ var API = (function(){
     post: function(path, body){ return request('POST', path, body); },
     put: function(path, body){ return request('PUT', path, body); },
     patch: function(path, body){ return request('PATCH', path, body); },
-    del: function(path){ return request('DELETE', path); }
+    del: function(path, body){ return request('DELETE', path, body); }
   };
 })();
 
@@ -147,6 +147,9 @@ var AUDIT_ACTION_META = {
   SUPPORT_VIEWED: { label: 'Support viewed a page', tone: 'info' },
   ORG_REQUEST_APPROVED: { label: 'Approved a request to join', tone: 'positive' },
   ORG_REQUEST_DECLINED: { label: 'Declined a request to join', tone: 'neutral' },
+  ORG_REQUEST_DELETED: { label: 'Deleted a request to join', tone: 'danger' },
+  ORG_REQUEST_CONFIRMED_BY_OWNER: { label: 'Confirmed a request to join', tone: 'neutral' },
+  ORG_DELETE: { label: 'Deleted organisation', tone: 'danger' },
   ORG_DOMAIN_SET: { label: 'Set web address', tone: 'neutral' },
   ORG_DOMAIN_VERIFIED: { label: 'Web address confirmed', tone: 'positive' },
   ORG_PLAN_CHANGED: { label: 'Plan changed', tone: 'warning' },

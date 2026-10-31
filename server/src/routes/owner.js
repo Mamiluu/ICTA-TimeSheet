@@ -12,7 +12,7 @@ import { isValidEmailShape } from '../lib/normalize.js';
 import { ah } from '../lib/asyncHandler.js';
 import { logger } from '../lib/logger.js';
 import { cleanOrgName, cleanShortName, isValidOrgSlug, orgSlug, billingState, extendPaidUntil } from '../lib/organisations.js';
-import { brandFromOrg, emailBrand } from '../lib/brand.js';
+import { brandFromOrg, emailBrand, DEFAULT_ORG_SLUG } from '../lib/brand.js';
 import { lastAnchorAt } from '../lib/anchor.js';
 import { supportState, isOpenState, cleanSupportRequest, supportAllowed } from '../lib/support.js';
 import { platformRouter } from './platform.js';
@@ -173,6 +173,15 @@ ownerRouter.post('/requests/:id/confirm', ah(async (req, res) => {
   await writeAudit({ actorId: req.user.id, action: 'ORG_REQUEST_CONFIRMED_BY_OWNER', targetType: 'OrganisationRequest', targetId: request.id, metadata: { name: request.organisationName }, req });
   res.json({ ok: true });
 }));
+// Clears a request from the list, for test sign ups and spam. It never touches an organisation that was
+// already made from it.
+ownerRouter.delete('/requests/:id', ah(async (req, res) => {
+  const request = await prisma.organisationRequest.findUnique({ where: { id: req.params.id } });
+  if (!request) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  await prisma.organisationRequest.delete({ where: { id: request.id } });
+  await writeAudit({ actorId: req.user.id, action: 'ORG_REQUEST_DELETED', targetType: 'OrganisationRequest', targetId: request.id, metadata: { name: request.organisationName, status: request.status }, req });
+  res.json({ ok: true });
+}));
 // Approving makes the organisation on the Starter plan (change it afterwards if they should have
 // more) and invites the person who asked as its first administrator.
 ownerRouter.post('/requests/:id/approve', ah(async (req, res) => {
@@ -291,6 +300,29 @@ async function findOrg(req) {
   return prisma.organisation.findUnique({ where: { id: req.params.id } });
 }
 
+// Removes an organisation that was only ever a test: one with no events at all. Anything that holds
+// records is refused, because those records belong to its people and are kept (suspend it instead).
+// ICT Authority, the platform's first organisation, can never be removed. The owner has to type the
+// organisation's name, and the removal is written to the owner's own audit trail.
+ownerRouter.delete('/organisations/:id', ah(async (req, res) => {
+  const org = await findOrg(req);
+  if (!org) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  if (org.slug === DEFAULT_ORG_SLUG) return res.status(409).json({ ok: false, error: 'PROTECTED', message: 'The platform\'s first organisation cannot be removed.' });
+  if (String(req.body.confirmName || '').trim() !== org.name) return res.status(400).json({ ok: false, error: 'CONFIRM_NAME', message: 'Type the organisation\'s name exactly to confirm.' });
+  const events = await prisma.event.count({ where: { organisationId: org.id } });
+  if (events > 0) return res.status(409).json({ ok: false, error: 'HAS_RECORDS', message: `${org.name} has ${events} event${events === 1 ? '' : 's'} with records, so it cannot be removed. Suspend it instead.` });
+
+  const users = await prisma.user.count({ where: { organisationId: org.id } });
+  await prisma.$transaction([
+    prisma.user.deleteMany({ where: { organisationId: org.id } }),
+    prisma.department.deleteMany({ where: { organisationId: org.id } }),
+    prisma.supportAccess.deleteMany({ where: { organisationId: org.id } }),
+    prisma.auditLog.deleteMany({ where: { organisationId: org.id } }),
+    prisma.organisation.delete({ where: { id: org.id } })
+  ]);
+  await writeAudit({ actorId: req.user.id, action: 'ORG_DELETE', targetType: 'Organisation', targetId: org.id, metadata: { name: org.name, slug: org.slug, accountsRemoved: users }, req });
+  res.json({ ok: true });
+}));
 ownerRouter.post('/organisations/:id/suspend', ah(async (req, res) => {
   const org = await findOrg(req);
   if (!org) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });

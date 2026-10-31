@@ -413,6 +413,14 @@
     if(b.state === 'DUE_SOON') return el('span', 'pill warn', 'Due ' + (b.days <= 0 ? 'today' : 'in ' + plural(b.days, 'day')));
     return el('span', 'pill bad', 'Overdue' + (b.days ? ' ' + plural(b.days, 'day') : ''));
   }
+  function deleteOrg(o){
+    var typed = window.prompt('Delete ' + o.name + '?\n\nThis removes the organisation, its ' + plural(o.superAdmins + o.countyAdmins + o.orgAdmins, 'account') + ' and its activity log. It cannot be undone. Only an organisation with no events can be deleted.\n\nType its name to confirm:');
+    if(typed === null) return;
+    API.del('/api/owner/organisations/' + encodeURIComponent(o.id), { confirmName: typed }).then(function(r){
+      if(!r.data.ok){ window.alert(r.data.message || 'Could not delete it.'); return; }
+      load();
+    }).catch(function(){ window.alert(NET); });
+  }
   function menuItem(label, fn, cls){
     var b = el('button', 'ev-menu-item' + (cls ? ' ' + cls : ''), label); b.type = 'button';
     b.addEventListener('click', function(){ var d = b.closest('details'); if(d) d.removeAttribute('open'); fn(b); });
@@ -449,6 +457,8 @@
     if(o.orgAdminsActive === 0) menu.appendChild(menuItem('Copy activation link', function(b){ copyLink(o, b); }));
     menu.appendChild(el('div', 'ev-menu-sep'));
     menu.appendChild(menuItem(o.status === 'ACTIVE' ? 'Suspend…' : 'Resume', function(){ toggle(o); }, o.status === 'ACTIVE' ? 'danger' : ''));
+    // Only an organisation with no events can be removed; one with records is suspended instead.
+    if(!o.events) menu.appendChild(menuItem('Delete organisation…', function(){ deleteOrg(o); }, 'danger'));
     more.appendChild(menu); act.appendChild(more); row.appendChild(act);
     return row;
   }
@@ -483,7 +493,8 @@
       var acts = el('div', 'acts');
       var ok = el('button', 'primary', 'Approve'); ok.type = 'button'; ok.addEventListener('click', function(){ decideRequest(q, 'approve', ok); });
       var no = el('button', null, 'Decline'); no.type = 'button'; no.addEventListener('click', function(){ decideRequest(q, 'decline', no); });
-      acts.appendChild(ok); acts.appendChild(no); r.appendChild(acts); box.appendChild(r);
+      var rm2 = el('button', null, 'Delete'); rm2.type = 'button'; rm2.addEventListener('click', function(){ deleteRequest(q, rm2); });
+      acts.appendChild(ok); acts.appendChild(no); acts.appendChild(rm2); r.appendChild(acts); box.appendChild(r);
     });
     if(state.unconfirmed.length){
       var h = el('h3', 'req-h', 'Waiting for their email'); box.appendChild(h);
@@ -498,9 +509,19 @@
         var acts = el('div', 'acts');
         var again = el('button', null, 'Send again'); again.type = 'button'; again.addEventListener('click', function(){ resendRequest(q, again); });
         var vouch = el('button', null, 'Confirm myself'); vouch.type = 'button'; vouch.addEventListener('click', function(){ confirmRequest(q, vouch); });
-        acts.appendChild(again); acts.appendChild(vouch); r.appendChild(acts); box.appendChild(r);
+        var rm = el('button', null, 'Delete'); rm.type = 'button'; rm.addEventListener('click', function(){ deleteRequest(q, rm); });
+        acts.appendChild(again); acts.appendChild(vouch); acts.appendChild(rm); r.appendChild(acts); box.appendChild(r);
       });
     }
+  }
+  function deleteRequest(q, btn){
+    if(!window.confirm('Delete the request from ' + q.organisationName + ' (' + q.contactEmail + ')? They are not told. This cannot be undone.')) return;
+    btn.disabled = true;
+    API.del('/api/owner/requests/' + encodeURIComponent(q.id), {}).then(function(r){
+      btn.disabled = false;
+      if(!r.data.ok){ window.alert(r.data.message || 'Could not delete it.'); return; }
+      load();
+    }).catch(function(){ btn.disabled = false; window.alert(NET); });
   }
   function resendRequest(q, btn){
     btn.disabled = true; btn.textContent = 'Sending…';
