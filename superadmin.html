@@ -447,7 +447,7 @@
         return;
       }
       if(r.data.error === 'COUNTY_CAP_REACHED'){
-        createError.textContent = 'The pilot cap of ' + r.data.cap + ' active county admins has been reached. Disable an existing admin to free a slot.';
+        createError.textContent = 'The limit of ' + r.data.cap + ' active county admins has been reached. Disable an existing admin to free a slot.';
       } else if(r.data.error === 'EMAIL_IN_USE'){
         createError.textContent = 'That email address is already registered.';
       } else if(r.data.error === 'INVALID_COUNTY'){
@@ -579,7 +579,7 @@
       if(!r.data.ok){
         btn.disabled = false;
         if(r.data.error === 'COUNTY_CAP_REACHED'){
-          window.alert('Cannot reactivate: the pilot cap of ' + r.data.cap + ' active admins has been reached.');
+          window.alert('Cannot reactivate: the limit of ' + r.data.cap + ' active admins has been reached.');
         } else {
           window.alert(r.data.message || 'Could not update admin.');
         }
