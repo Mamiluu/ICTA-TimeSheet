@@ -2,9 +2,8 @@
 // Proprietary and confidential. See LICENSE in the repository root.
 
 // All 47 Kenyan counties, selectable when a super admin assigns a county
-// admin. The MAX_ACTIVE_COUNTY_ADMINS cap (24, the pilot phase size) limits
-// how many of these can have an active admin at once within one department -- it does not
-// restrict which specific counties may be chosen.
+// admin. A county may have any number of admins; MAX_ACTIVE_COUNTY_ADMINS
+// only limits how many are active at once within one department.
 export const KENYA_COUNTIES = [
   'Mombasa', 'Kwale', 'Kilifi', 'Tana River', 'Lamu', 'Taita-Taveta',
   'Garissa', 'Wajir', 'Mandera', 'Marsabit', 'Isiolo', 'Meru',
@@ -16,7 +15,8 @@ export const KENYA_COUNTIES = [
   'Homa Bay', 'Migori', 'Kisii', 'Nyamira', 'Nairobi'
 ];
 
-export const MAX_ACTIVE_COUNTY_ADMINS = 24;
+// Active county admins in one department. A safety ceiling; an organisation's plan sets its own admin limit.
+export const MAX_ACTIVE_COUNTY_ADMINS = 50;
 
 // Pilot-phase ceiling on how many people can sign in to a single event's
 // attendance sheet. Raise (or remove) once the pilot graduates to general
