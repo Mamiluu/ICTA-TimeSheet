@@ -85,7 +85,7 @@
     width:100%;
     max-width:900px;
     padding:26px 30px 24px;
-    border:1px solid var(--ledger-line);
+    border:1px solid var(--line);
     position:relative;
     container-type:inline-size;
     container-name:sheet;
@@ -171,7 +171,7 @@
     width:100%;
     background:var(--paper);
     color:var(--ink);
-    border:1px solid var(--ledger-line);
+    border:1px solid var(--line);
     padding:32px 28px;
     text-align:center;
   }
@@ -250,14 +250,14 @@
     padding:2px 6px;
     line-height:1.2;
     cursor:pointer;
-    border:1px solid #bbb;
+    border:1px solid #000;
     background:#f7f7f7;
     border-radius:3px;
     flex:none;
   }
   table.roster td.sign-cell .sig-link-input{
     box-sizing:border-box; width:100%; max-width:150px; font-size:9.5px;
-    padding:2px 4px; border:1px solid #bbb; border-radius:3px;
+    padding:2px 4px; border:1px solid #000; border-radius:3px;
   }
   table.roster td.sign-cell .sig-request-hint{ font-size:9px; color:var(--muted); line-height:1.3; }
   table.roster td.consent-cell{ text-align:center; vertical-align:middle; padding-top:2px; padding-bottom:2px; }
@@ -315,7 +315,7 @@
     display:inline-flex;
     flex-wrap:wrap;
     max-width:100%;
-    border:1px solid var(--ledger-line);
+    border:1px solid var(--line);
     overflow:hidden;
     background:var(--paper);
     vertical-align:middle;
@@ -330,7 +330,7 @@
     height:23px;
     color:#777;
     cursor:pointer;
-    border-right:1px solid #eee;
+    border-right:1px solid #000;
   }
   .action-group .ag-btn:last-child{ border-right:none; }
   .action-group .ag-btn svg{ width:12px; height:12px; display:block; }
@@ -443,7 +443,7 @@
     align-items:flex-start;
     gap:9px;
     background:transparent;
-    border:1px dashed var(--ledger-line);
+    border:1px dashed var(--line);
     color:var(--muted);
     padding:10px 14px;
     font-size:12.5px;
@@ -488,14 +488,14 @@
   .days-panel .dp-title{ font-weight:700; font-size:14.5px; margin-bottom:3px; font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; }
   .days-panel .dp-sub{ opacity:.8; margin-bottom:8px; }
   .days-panel .dp-list{ list-style:none; margin:0; padding:0; }
-  .days-panel .dp-row{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:8px 0; border-top:1px solid var(--ledger-line); }
+  .days-panel .dp-row{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:8px 0; border-top:1px solid var(--line); }
   .days-panel .dp-state{ font-size:12px; opacity:.8; }
   .days-panel .dp-btn{ font:inherit; padding:6px 12px; border:1px solid var(--ink); background:var(--paper); color:var(--ink); cursor:pointer; }
   .days-panel .rp-form, .days-panel .rp-confirm{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:6px; }
   .days-panel .rp-form input{ font:inherit; padding:6px 9px; border:1px solid var(--ink); background:var(--paper); color:var(--ink); min-width:190px; }
   .pass-card{ display:flex; gap:16px; align-items:center; margin-top:12px; padding:12px 14px; max-width:480px; border:1px dashed var(--ink); background:var(--paper); }
   .pass-card[hidden]{ display:none; }
-  .pass-card img{ flex:none; width:150px; height:150px; background:#fff; border:1px solid var(--ledger-line); padding:4px; image-rendering:pixelated; }
+  .pass-card img{ flex:none; width:150px; height:150px; background:#fff; border:1px solid var(--line); padding:4px; image-rendering:pixelated; }
   .pass-card .pass-text{ font-size:12.5px; line-height:1.5; }
   .pass-card .pass-text p{ margin:4px 0 8px; opacity:.85; }
   .pass-card .pass-text a{ color:var(--ink); font-weight:600; }
@@ -536,7 +536,7 @@
     align-items:flex-start;
     gap:9px;
     background:transparent;
-    border:1px dashed var(--ledger-line);
+    border:1px dashed var(--line);
     color:var(--ink);
     padding:10px 14px;
     font-size:12.5px;
@@ -570,7 +570,7 @@
   table.roster td.sign-cell button{
     font-family:inherit;
     display:inline-flex; align-items:center; gap:5px;
-    border:1px solid var(--ledger-line);
+    border:1px solid var(--line);
     border-radius:5px;
     background:var(--paper);
     color:var(--ink);
@@ -602,7 +602,7 @@
   .modal{
     background:var(--paper); color:var(--ink); border-radius:10px; padding:20px;
     width:360px; max-width:90vw;
-    border:1px solid var(--ledger-line);
+    border:1px solid var(--line);
     box-shadow:0 24px 60px -20px rgba(0,0,0,.5);
     animation:modalPop .18s cubic-bezier(.2,.8,.25,1);
   }
@@ -610,7 +610,7 @@
   .modal h3{ margin:0 0 4px; font-size:15.5px; font-family:"Trebuchet MS", Tahoma, Verdana, Arial, sans-serif; }
   .modal .modal-hint{ margin:0 0 12px; font-size:11.5px; color:var(--muted); }
   .modal canvas{
-    border:1.5px dashed var(--ledger-line); border-radius:6px; touch-action:none;
+    border:1.5px dashed var(--line); border-radius:6px; touch-action:none;
     width:100%; height:150px; background:transparent; cursor:crosshair;
   }
   /* A single guide rule near the bottom of the pad -- like the printed
@@ -625,7 +625,7 @@
   .modal .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
   .modal .modal-actions button{
     font-family:inherit; font-size:13px; padding:8px 15px; border-radius:7px;
-    border:1px solid var(--ledger-line); background:transparent; color:var(--ink); cursor:pointer;
+    border:1px solid var(--line); background:transparent; color:var(--ink); cursor:pointer;
   }
   .modal .modal-actions button.save{ background:var(--ink); color:var(--paper); border-color:var(--ink); font-weight:600; }
   .modal .modal-actions button.clear{ color:var(--muted); }
