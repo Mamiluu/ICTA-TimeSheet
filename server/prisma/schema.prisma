@@ -394,6 +394,7 @@ model Event {
   days       EventDay[]
   seals      SheetSeal[]
   certificates AttendanceCertificate[]
+  liveScreens  LiveScreen[]
 
   // Whether attendees can issue a verifiable certificate of attendance for
   // this event once its last day has ended.
@@ -432,6 +433,28 @@ model Event {
   @@index([county])
   @@index([ownerId])
   @@index([departmentId])
+}
+
+// A laptop or projector paired to an event's live code screen, so one organiser can put several screens
+// around a venue without signing in on each. The organiser adds a screen and gets a short pairing code;
+// typing it on the device swaps it (once, within minutes) for a long secret that only the device keeps.
+// Only the secret's hash is stored. A screen can show the code and nothing else.
+model LiveScreen {
+  id            String    @id @default(uuid())
+  eventId       String
+  event         Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  label         String
+  // Set while the screen waits to be paired, cleared when it is.
+  pairCode      String?   @unique
+  pairExpiresAt DateTime?
+  tokenHash     String?   @unique
+  createdById   String?
+  createdAt     DateTime  @default(now())
+  pairedAt      DateTime?
+  lastSeenAt    DateTime?
+  revokedAt     DateTime?
+
+  @@index([eventId])
 }
 
 model SheetSeal {

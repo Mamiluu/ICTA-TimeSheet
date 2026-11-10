@@ -24,7 +24,8 @@ import { hasModule } from '../lib/plans.js';
 import { eventLimitRefusal } from '../lib/orgPlan.js';
 import { orgBaseUrl } from '../lib/tenantHost.js';
 import QRCode from 'qrcode';
-import { newSecret, currentCode, currentShortCode, nextChangeAt, STEP_MS } from '../lib/liveCode.js';
+import { newSecret } from '../lib/liveCode.js';
+import { livePayload, screenRefusal, screenStatus, newPairCode, showPairCode, cleanLabel, PAIR_TTL_MS, MAX_SCREENS_PER_EVENT } from '../lib/liveScreen.js';
 
 export const adminRouter = Router();
 adminRouter.use(requireRole('COUNTY_ADMIN'));
@@ -284,13 +285,95 @@ adminRouter.get('/events/:id/live', ah(async (req, res) => {
   if (!event.liveCode || !event.liveSecret) {
     return res.status(400).json({ ok: false, error: 'NOT_LIVE', message: 'The live code is not switched on for this event.' });
   }
-  const now = Date.now();
-  const code = currentCode(event.liveSecret, event.id, now);
-  const url = `${await orgBaseUrl(event.organisationId)}/attend?event=${encodeURIComponent(event.slug)}&k=${code}`;
-  const qr = await QRCode.toDataURL(url, { width: 640, margin: 1, errorCorrectionLevel: 'M' });
-  const short = currentShortCode(event.liveSecret, event.id, now);
   res.set('Cache-Control', 'no-store');
-  res.json({ ok: true, name: event.name, virtual: event.locationType === 'VIRTUAL', qr, short: short.slice(0, 3) + ' ' + short.slice(3), changesAt: nextChangeAt(now), now, stepMs: STEP_MS });
+  res.json({ ok: true, ...(await livePayload(event)) });
+}));
+
+// Screens paired to the live code, so the code can be shown on several laptops around a venue without the
+// organiser's password on any of them. A screen is added here (this gives a short pairing code), paired by
+// typing that code on the laptop (routes/screen.js), and removed here when the event is over.
+function publicScreen(s, now = Date.now()) {
+  return {
+    id: s.id,
+    label: s.label,
+    status: screenStatus(s, now),
+    pairCode: s.pairCode && screenStatus(s, now) === 'WAITING' ? showPairCode(s.pairCode) : null,
+    pairExpiresAt: s.pairExpiresAt,
+    createdAt: s.createdAt,
+    lastSeenAt: s.lastSeenAt
+  };
+}
+
+adminRouter.get('/events/:id/screens', ah(async (req, res) => {
+  const event = await findOwnEvent(req);
+  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const rows = await prisma.liveScreen.findMany({ where: { eventId: event.id, revokedAt: null }, orderBy: { createdAt: 'asc' } });
+  res.set('Cache-Control', 'no-store');
+  res.json({ ok: true, live: event.liveCode, max: MAX_SCREENS_PER_EVENT, screens: rows.map((s) => publicScreen(s)) });
+}));
+
+adminRouter.post('/events/:id/screens', ah(async (req, res) => {
+  const event = await findOwnEvent(req);
+  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const refusal = screenRefusal(event);
+  if (refusal) return res.status(409).json({ ok: false, ...refusal });
+
+  const active = await prisma.liveScreen.count({ where: { eventId: event.id, revokedAt: null } });
+  if (active >= MAX_SCREENS_PER_EVENT) {
+    return res.status(409).json({ ok: false, error: 'SCREENS_FULL', message: `An event can have ${MAX_SCREENS_PER_EVENT} screens at once. Remove one first.` });
+  }
+  const label = cleanLabel(req.body.label, `Screen ${active + 1}`);
+  const now = Date.now();
+  let screen = null;
+  // Six characters out of 31 will very rarely collide with another waiting code; try again if they do.
+  for (let attempt = 0; attempt < 5 && !screen; attempt += 1) {
+    try {
+      screen = await prisma.liveScreen.create({
+        data: { eventId: event.id, label, pairCode: newPairCode(), pairExpiresAt: new Date(now + PAIR_TTL_MS), createdById: req.user.id }
+      });
+    } catch (err) {
+      if (!(err.code === 'P2002')) throw err;
+    }
+  }
+  if (!screen) return res.status(503).json({ ok: false, error: 'TRY_AGAIN', message: 'Could not make a pairing code. Try again.' });
+  await writeAudit({ actorId: req.user.id, action: 'LIVE_SCREEN_ADDED', targetType: 'Event', targetId: event.id, metadata: { label }, req });
+  res.json({ ok: true, screen: publicScreen(screen, now) });
+}));
+
+// Gives a screen that is waiting a fresh pairing code, for when ten minutes passed before it was typed in.
+adminRouter.post('/events/:id/screens/:screenId/code', ah(async (req, res) => {
+  const event = await findOwnEvent(req);
+  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const screen = await prisma.liveScreen.findFirst({ where: { id: req.params.screenId, eventId: event.id, revokedAt: null, tokenHash: null } });
+  if (!screen) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  let updated = null;
+  for (let attempt = 0; attempt < 5 && !updated; attempt += 1) {
+    try {
+      updated = await prisma.liveScreen.update({ where: { id: screen.id }, data: { pairCode: newPairCode(), pairExpiresAt: new Date(Date.now() + PAIR_TTL_MS) } });
+    } catch (err) {
+      if (!(err.code === 'P2002')) throw err;
+    }
+  }
+  if (!updated) return res.status(503).json({ ok: false, error: 'TRY_AGAIN', message: 'Could not make a pairing code. Try again.' });
+  res.json({ ok: true, screen: publicScreen(updated) });
+}));
+
+// Removing a screen stops it at its next request, which is within five minutes.
+adminRouter.delete('/events/:id/screens/:screenId', ah(async (req, res) => {
+  const event = await findOwnEvent(req);
+  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const done = await prisma.liveScreen.updateMany({ where: { id: req.params.screenId, eventId: event.id, revokedAt: null }, data: { revokedAt: new Date(), pairCode: null, pairExpiresAt: null } });
+  if (!done.count) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  await writeAudit({ actorId: req.user.id, action: 'LIVE_SCREEN_REMOVED', targetType: 'Event', targetId: event.id, req });
+  res.json({ ok: true });
+}));
+
+adminRouter.delete('/events/:id/screens', ah(async (req, res) => {
+  const event = await findOwnEvent(req);
+  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  const done = await prisma.liveScreen.updateMany({ where: { eventId: event.id, revokedAt: null }, data: { revokedAt: new Date(), pairCode: null, pairExpiresAt: null } });
+  await writeAudit({ actorId: req.user.id, action: 'LIVE_SCREENS_STOPPED', targetType: 'Event', targetId: event.id, metadata: { count: done.count }, req });
+  res.json({ ok: true, removed: done.count });
 }));
 adminRouter.put('/events/:id', ah(async (req, res) => {
   const event = await findOwnEvent(req);
