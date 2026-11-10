@@ -93,7 +93,7 @@ app.use('/server', (req, res) => res.status(404).json({ ok: false, error: 'NOT_F
 // in emails and printed QR codes) and send the reader to the clean one, keeping the rest of the
 // address. The attendee sign in page, index.html, is /attend.
 const CLEAN_PAGES = new Set([
-  'login', 'signup', 'admin', 'superadmin', 'platform', 'owner', 'owner-org', 'verify', 'wallet', 'privacy',
+  'login', 'signup', 'admin', 'superadmin', 'platform', 'owner', 'owner-org', 'verify', 'privacy',
   'activate', 'forgot-password', 'reset-password', 'certificate', 'sign', 'duty-roll', 'duty-review', 'duty-sign', 'claim-pack', 'live'
 ]);
 app.get(/^\/([a-z0-9-]+)\.html$/, (req, res, next) => {
