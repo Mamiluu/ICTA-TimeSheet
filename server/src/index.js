@@ -18,6 +18,7 @@ import { ownerRouter } from './routes/owner.js';
 import { signupRouter } from './routes/signup.js';
 import { adminRouter } from './routes/admin.js';
 import { publicRouter } from './routes/public.js';
+import { screenRouter } from './routes/screen.js';
 import { startAnchorJob } from './lib/anchor.js';
 import { startReminderJob } from './lib/dutyReminders.js';
 import { bootstrapPlatformAdmin, bootstrapOwner } from './lib/bootstrapPlatformAdmin.js';
@@ -78,6 +79,7 @@ app.use('/api/signup', signupRouter);
 app.use('/api/platform', platformRouter);
 app.use('/api/duty-review', dutyReviewRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/screen', screenRouter);
 app.use('/api', publicRouter);
 
 // The front page. Without this the bare address answered NOT_FOUND, which is

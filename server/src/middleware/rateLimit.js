@@ -54,6 +54,26 @@ export const liveCodeLimiter = rateLimit({
   message: { ok: false, error: 'TOO_MANY_ATTEMPTS', message: 'Too many tries. Wait a few minutes and try again.' }
 });
 
+// Pairing a screen with the short code from the organiser's page. Only wrong codes count, so a venue
+// full of laptops pairing from one Wi-Fi address is fine while guessing is not.
+export const pairScreenLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 12,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: 'TOO_MANY_ATTEMPTS', message: 'Too many wrong codes. Wait a few minutes, then ask for a new one.' }
+});
+
+// A paired screen asks again at every change of code. Several can share one venue address.
+export const screenPollLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: 'TOO_MANY_REQUESTS' }
+});
+
 export const checkInLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   limit: 12,

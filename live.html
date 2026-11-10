@@ -37,8 +37,17 @@
   body.virtual .side{ max-width:560px; }
   body.virtual .typed strong{ font-size:clamp(44px, 6.4vw, 76px); }
   .msg{ margin-top:18px; font-size:13.5px; color:#e8b04a; min-height:1.4em; }
-  .gate{ max-width:420px; text-align:center; }
+  .gate{ max-width:440px; text-align:center; }
   .gate a{ color:#fff; }
+  .gate h2{ margin:0 0 10px; font-size:clamp(24px, 3vw, 32px); }
+  .gate p{ margin:0 0 16px; color:#b9c0d3; line-height:1.5; }
+  .pair{ display:flex; gap:10px; justify-content:center; margin:22px 0 6px; }
+  .pair input{ width:11ch; background:#171d2e; color:#fff; border:1px solid #3a4262; border-radius:12px; padding:14px 12px; font:inherit; font-size:30px; letter-spacing:.18em; text-align:center; text-transform:uppercase; font-variant-numeric:tabular-nums; }
+  .pair input:focus{ outline:none; border-color:#fff; }
+  .pair button{ background:#fff; color:#0f1420; border:0; border-radius:12px; padding:0 22px; font:inherit; font-weight:700; font-size:16px; cursor:pointer; }
+  .pair button:disabled{ opacity:.5; cursor:default; }
+  .chip{ flex:none; border:1px solid var(--line); border-radius:99px; padding:4px 11px; font-size:12.5px; color:#cfd5e4; white-space:nowrap; }
+  .unpair{ background:none; border:0; color:var(--muted); font:inherit; font-size:12.5px; text-decoration:underline; cursor:pointer; padding:0; }
   footer{ padding:12px 22px 18px; color:var(--muted); font-size:12.5px; text-align:center; }
   @media (prefers-reduced-motion:reduce){ .ring .bar, .qrbox img{ transition:none; } }
 </style>
@@ -46,6 +55,7 @@
 <body>
 <header>
   <h1 id="evName">Live code</h1>
+  <span class="chip" id="chip" hidden></span>
   <button type="button" id="fsBtn">Full screen</button>
 </header>
 
@@ -63,12 +73,19 @@
   </div>
 </main>
 
-<footer>Keep this screen open while people sign in. In a meeting, share this window with everyone. It stays awake on its own where the device allows it.</footer>
+<footer>Keep this screen open while people sign in. In a meeting, share this window with everyone. It stays awake on its own where the device allows it.<span id="unpairWrap" hidden> <button type="button" class="unpair" id="unpairBtn">Stop using this laptop as a screen</button></span></footer>
 
 <script>
 (function(){
   var qs = new URLSearchParams(location.search);
   var eventId = qs.get('event') || '';
+  // A laptop paired from the organiser's page keeps its own secret here. It can show the code and nothing else.
+  var KEY = 'live.screen';
+  var token = '';
+  try { token = localStorage.getItem(KEY) || ''; } catch(e){ token = ''; }
+  // Opened from an event card while signed in: that is the organiser's own screen, whatever else this laptop holds.
+  if(eventId) token = '';
+  var stopped = false;
   var stage = document.getElementById('stage');
   var box = document.getElementById('qrBox'), img = document.getElementById('qr');
   var bar = document.getElementById('bar'), count = document.getElementById('count'), msg = document.getElementById('msg');
@@ -76,6 +93,8 @@
   var changesAt = 0, stepMs = 60000, skew = 0, timer = null, lastOk = 0;
 
   function gate(html){
+    stopped = true;
+    clearTimeout(timer);
     stage.innerHTML = '<div class="gate">' + html + '</div>';
   }
 
@@ -90,12 +109,49 @@
     box.classList.toggle('stale', lastOk && Date.now() - lastOk > 480000);
   }
 
+  function forget(){ try { localStorage.removeItem(KEY); } catch(e){} }
+
+  function pairGate(note){
+    gate('<h2>Pair this screen</h2><p>On your admin page, open the event, choose More, then Live code screens, and add a screen. Type the code it shows here.</p>' +
+      '<form class="pair" id="pairForm" autocomplete="off"><input id="pairCode" maxlength="8" placeholder="ABC-123" autocapitalize="characters" spellcheck="false" aria-label="Pairing code"><button type="submit">Pair</button></form>' +
+      '<div class="msg" id="pairMsg" role="status">' + (note || '') + '</div>');
+    var form = document.getElementById('pairForm'), input = document.getElementById('pairCode'), pm = document.getElementById('pairMsg');
+    input.focus();
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      var btn = form.querySelector('button'); btn.disabled = true; pm.textContent = '';
+      fetch('/api/screen/pair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: input.value }) })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if(d && d.ok){ try { localStorage.setItem(KEY, d.token); } catch(e){} location.reload(); return; }
+          btn.disabled = false; pm.textContent = (d && d.message) || 'That did not work. Try again.';
+        })
+        .catch(function(){ btn.disabled = false; pm.textContent = 'Could not reach the server. Check the connection and try again.'; });
+    });
+  }
+
+  function request(){
+    if(token){
+      return fetch('/api/screen/live', { method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store', body: JSON.stringify({ token: token }) });
+    }
+    return fetch('/api/admin/events/' + encodeURIComponent(eventId) + '/live', { credentials: 'include', cache: 'no-store' });
+  }
+
   function load(){
+    if(stopped) return;
     clearTimeout(timer);
-    fetch('/api/admin/events/' + encodeURIComponent(eventId) + '/live', { credentials: 'include', cache: 'no-store' })
+    request()
       .then(function(r){ return r.json().then(function(d){ return { status: r.status, d: d }; }); })
       .then(function(x){
         var d = x.d;
+        if(token && !(d && d.ok)){
+          if(x.status === 404 || (d && d.error === 'REMOVED')){ forget(); pairGate('<span>' + ((d && d.message) || 'This screen is not set up.') + '</span>'); return; }
+          if(x.status === 410 || x.status === 409){
+            gate('<h2>This screen has stopped</h2><p>' + ((d && d.message) || '') + '</p>'); return;
+          }
+          if(x.status !== 429) { throw new Error('bad'); }
+          throw new Error('slow');
+        }
         if(x.status === 401 || x.status === 403){
           gate('<h2>Sign in first</h2><p>Open this from your admin page while you are signed in.</p><p><a href="login">Go to sign in</a></p>');
           return;
@@ -106,6 +162,7 @@
           else throw new Error('bad');
           return;
         }
+        if(token && d.label){ var chip = document.getElementById('chip'); chip.textContent = d.label; chip.hidden = false; }
         document.getElementById('evName').textContent = d.name;
         document.title = 'Live code - ' + d.name;
         img.src = d.qr;
@@ -122,7 +179,7 @@
       })
       .catch(function(){
         msg.textContent = 'Reconnecting. The last code still works for several minutes.';
-        timer = setTimeout(load, 5000);
+        timer = setTimeout(load, 15000);
       });
   }
 
@@ -141,9 +198,15 @@
   });
   document.addEventListener('fullscreenchange', function(){ fs.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; });
 
-  if(!eventId){
-    gate('<h2>No event chosen</h2><p>Open this screen from the event card on your admin page.</p>');
+  document.getElementById('unpairBtn').addEventListener('click', function(){
+    if(!window.confirm('Stop showing the live code on this laptop?')) return;
+    forget(); location.reload();
+  });
+
+  if(!eventId && !token){
+    pairGate('');
   } else {
+    document.getElementById('unpairWrap').hidden = !token;
     load(); keepAwake();
     setInterval(tick, 250); tick();
   }

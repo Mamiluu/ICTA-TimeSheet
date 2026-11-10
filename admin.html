@@ -167,6 +167,23 @@
   .rm-card h3{ margin:0 0 6px; font-size:15px; }
   .rm-help{ font-size:12px; color:#666; margin:0 0 14px; line-height:1.5; }
   .rm-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:6px; }
+  /* Live code screens */
+  .rm-card.sc-card{ max-width:520px; }
+  .sc-url{ display:flex; gap:8px; align-items:center; margin:0 0 14px; }
+  .sc-url code{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; background:#f3f4f7; border:1px solid #000; border-radius:8px; padding:8px 10px; font-size:13px; }
+  .sc-list{ display:flex; flex-direction:column; gap:8px; margin:0 0 14px; max-height:46vh; overflow:auto; }
+  .sc-row{ display:flex; align-items:center; gap:12px; border:1px solid #000; border-radius:10px; padding:10px 12px; }
+  .sc-row .sc-name{ flex:1; min-width:0; }
+  .sc-row .sc-name strong{ display:block; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sc-row .sc-name span{ display:block; font-size:12px; color:#666; margin-top:2px; }
+  .sc-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; background:#9aa0ad; margin-right:6px; vertical-align:baseline; }
+  .sc-dot.on{ background:#1a9b5c; box-shadow:0 0 0 3px rgba(26,155,92,.18); }
+  .sc-dot.wait{ background:#d9981a; }
+  .sc-code{ font-size:22px; font-weight:700; letter-spacing:.14em; font-variant-numeric:tabular-nums; }
+  .sc-row button{ font:inherit; font-size:12.5px; padding:5px 10px; border:1px solid #000; background:#fff; border-radius:7px; cursor:pointer; }
+  .sc-add{ display:flex; gap:8px; margin:0 0 10px; }
+  .sc-add input{ flex:1; min-width:0; font:inherit; padding:9px 11px; border:1px solid #000; border-radius:8px; }
+  .sc-empty{ font-size:13px; color:#666; padding:6px 2px; }
 
   .door-status{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:10px 12px; margin:0 0 14px; border:1px solid #e3e3e3; border-radius:9px; background:#fafafa; }
   .door-status .spacer{ flex:1; }
@@ -615,6 +632,23 @@
     <div class="rm-actions">
       <button type="button" id="rmCancel">Cancel</button>
       <button type="button" class="primary" id="rmConfirm">Reopen day</button>
+    </div>
+  </div>
+</div>
+<div class="rm-backdrop" id="screensModal" role="dialog" aria-modal="true" aria-labelledby="scTitle">
+  <div class="rm-card sc-card">
+    <h3 id="scTitle">Live code screens</h3>
+    <p class="rm-help">Show the live code on several laptops at once, for example one at each entrance. Nobody signs in on those laptops and your password stays with you. On each laptop open the page below, then type the code you get when you add a screen here.</p>
+    <div class="sc-url"><code id="scUrl"></code><button type="button" id="scCopy">Copy</button></div>
+    <div class="sc-list" id="scList" aria-live="polite"></div>
+    <form class="sc-add" id="scForm" autocomplete="off">
+      <input id="scLabel" maxlength="40" placeholder="Name, for example Main entrance" aria-label="Screen name">
+      <button type="submit" class="primary" id="scAdd">Add a screen</button>
+    </form>
+    <p class="error" id="scError" style="display:none;"></p>
+    <div class="rm-actions">
+      <button type="button" id="scStop">Stop all screens</button>
+      <button type="button" class="primary" id="scClose">Done</button>
     </div>
   </div>
 </div>
@@ -1701,6 +1735,7 @@
     // through the audited endpoint so there is a record of who took a copy.
     if(!isDuty){
       if(ev.liveCode) menu.appendChild(menuItem('Live code screen', function(){ window.open('live?event=' + encodeURIComponent(ev.id), '_blank'); }));
+      if(ev.liveCode) menu.appendChild(menuItem('Live code screens', function(){ openScreensModal(ev); }));
       menu.appendChild(menuItem('Kiosk link', function(){
         if(navigator.clipboard) navigator.clipboard.writeText(kioskUrl);
       }));
@@ -1921,6 +1956,129 @@
       rmError.style.display = '';
     });
   });
+  // --- Live code screens: laptops paired to an event's live code ---
+  var scBackdrop = document.getElementById('screensModal');
+  var scList = document.getElementById('scList'), scError = document.getElementById('scError');
+  var scLabel = document.getElementById('scLabel'), scAdd = document.getElementById('scAdd');
+  var scEvent = null, scTimer = null, scTick = null, scScreens = [];
+
+  function scMk(tag, cls, text){
+    var n = document.createElement(tag);
+    if(cls) n.className = cls;
+    if(text !== undefined) n.textContent = text;
+    return n;
+  }
+  function scFail(msg){ scError.textContent = msg; scError.style.display = msg ? '' : 'none'; }
+  function scAgo(iso){
+    if(!iso) return 'not seen yet';
+    var m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if(m < 1) return 'seen just now';
+    if(m < 60) return 'seen ' + m + ' min ago';
+    return 'seen ' + Math.round(m / 60) + ' h ago';
+  }
+  function scApi(method, path, body){
+    var url = '/api/admin/events/' + encodeURIComponent(scEvent.id) + '/screens' + (path || '');
+    return method === 'DELETE' ? API.del(url) : API.post(url, body || {});
+  }
+
+  function scRender(){
+    scList.textContent = '';
+    if(!scScreens.length){
+      scList.appendChild(scMk('div', 'sc-empty', 'No screens yet. Add one, then type its code on the laptop.'));
+      return;
+    }
+    scScreens.forEach(function(s){
+      var row = scMk('div', 'sc-row');
+      var name = scMk('div', 'sc-name');
+      name.appendChild(scMk('strong', '', s.label));
+      var sub = scMk('span');
+      if(s.status === 'WAITING'){
+        var d1 = scMk('i', 'sc-dot wait'); sub.appendChild(d1);
+        sub.appendChild(document.createTextNode('Waiting. Type this code on the laptop'));
+      } else if(s.status === 'CODE_EXPIRED'){
+        sub.appendChild(scMk('i', 'sc-dot'));
+        sub.appendChild(document.createTextNode('The code ran out'));
+      } else if(s.status === 'ONLINE'){
+        sub.appendChild(scMk('i', 'sc-dot on'));
+        sub.appendChild(document.createTextNode('Showing the code, ' + scAgo(s.lastSeenAt)));
+      } else {
+        sub.appendChild(scMk('i', 'sc-dot'));
+        sub.appendChild(document.createTextNode('Not responding, ' + scAgo(s.lastSeenAt)));
+      }
+      name.appendChild(sub);
+      row.appendChild(name);
+      if(s.status === 'WAITING' && s.pairCode) row.appendChild(scMk('div', 'sc-code', s.pairCode));
+      if(s.status === 'CODE_EXPIRED'){
+        var again = scMk('button', '', 'New code'); again.type = 'button';
+        again.addEventListener('click', function(){
+          scApi('POST', '/' + s.id + '/code').then(function(r){
+            if(!r.data.ok){ scFail(r.data.message || 'Could not make a new code.'); return; }
+            scFail(''); scLoad();
+          });
+        });
+        row.appendChild(again);
+      }
+      var rm = scMk('button', '', 'Remove'); rm.type = 'button';
+      rm.addEventListener('click', function(){
+        scApi('DELETE', '/' + s.id).then(function(r){
+          if(!r.data.ok){ scFail(r.data.message || 'Could not remove this screen.'); return; }
+          scFail(''); scLoad();
+        });
+      });
+      row.appendChild(rm);
+      scList.appendChild(row);
+    });
+  }
+
+  function scLoad(){
+    if(!scEvent) return;
+    API.get('/api/admin/events/' + encodeURIComponent(scEvent.id) + '/screens').then(function(r){
+      if(!scEvent) return;
+      if(!r.data.ok){ scFail('Could not load the screens.'); return; }
+      scScreens = r.data.screens || [];
+      document.getElementById('scAdd').disabled = !r.data.live;
+      if(!r.data.live) scFail('The live code is off for this event. Turn it on when you edit the event.');
+      scRender();
+    }).catch(function(){ scFail('Network error — could not reach the backend.'); });
+  }
+
+  function openScreensModal(ev){
+    scEvent = ev; scScreens = []; scFail(''); scList.textContent = ''; scLabel.value = '';
+    document.getElementById('scUrl').textContent = location.origin + '/live';
+    scBackdrop.classList.add('open');
+    scLoad();
+    // Keeps "waiting" and "showing the code" true while the organiser walks round the venue.
+    clearInterval(scTimer); scTimer = setInterval(scLoad, 8000);
+    scLabel.focus();
+  }
+  function closeScreensModal(){ scBackdrop.classList.remove('open'); scEvent = null; clearInterval(scTimer); }
+  document.getElementById('scClose').addEventListener('click', closeScreensModal);
+  scBackdrop.addEventListener('click', function(e){ if(e.target === scBackdrop) closeScreensModal(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && scBackdrop.classList.contains('open')) closeScreensModal(); });
+  document.getElementById('scCopy').addEventListener('click', function(){
+    var b = this; if(navigator.clipboard) navigator.clipboard.writeText(location.origin + '/live');
+    b.textContent = 'Copied ✓'; setTimeout(function(){ b.textContent = 'Copy'; }, 1400);
+  });
+  document.getElementById('scForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    if(!scEvent) return;
+    scAdd.disabled = true; scFail('');
+    scApi('POST', '', { label: scLabel.value }).then(function(r){
+      scAdd.disabled = false;
+      if(!r.data.ok){ scFail(r.data.message || 'Could not add a screen.'); return; }
+      scLabel.value = '';
+      scLoad();
+    }).catch(function(){ scAdd.disabled = false; scFail('Network error — could not reach the backend.'); });
+  });
+  document.getElementById('scStop').addEventListener('click', function(){
+    if(!scEvent || !scScreens.length) return;
+    if(!window.confirm('Stop every screen for this event? They go blank within five minutes.')) return;
+    scApi('DELETE', '').then(function(r){
+      if(!r.data.ok){ scFail(r.data.message || 'Could not stop the screens.'); return; }
+      scFail(''); scLoad(); loadAudit();
+    });
+  });
+
   function deleteEvent(ev, deleteBtn){
     var warning = ev.count > 0
       ? 'Delete "' + ev.name + '"? It already has ' + ev.count + ' submitted attendance record(s) — they will remain on record but this event will no longer be listed. This cannot be undone.'
