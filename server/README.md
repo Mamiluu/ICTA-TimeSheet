@@ -102,6 +102,10 @@ A `render.yaml` blueprint at the repo root does most of this for you.
   refused without a code from the last five to ten minutes. A good code is traded for a 20 minute proof held by the
   page, so a slow form does not fail, and the code is removed from the address bar. The event's own organiser
   is not asked. In a virtual meeting the organiser shares the live code screen and people type the six digits shown (`POST /api/events/:slug/live-code`, rate limited, traded for the same proof). Migration `20261029090000_live_code`. Not offered for payment sheets.
+- Live code screens: one organiser can show the code on up to 10 laptops at once without signing in on them. More, Live code screens
+  (`admin.html`, `/api/admin/events/:id/screens`) adds a screen and gives a six character pairing code (10 minutes, used once). Typing it on `/live` (`POST /api/screen/pair`, wrong
+  guesses rate limited) swaps it for a long secret the laptop keeps in its own storage; only the hash is stored (`LiveScreen`, migration `20261103090000_live_screens`). A screen
+  can show the code and nothing else (`POST /api/screen/live`), and stops when removed, when the live code is turned off, or 12 hours after the event ends.
 - Plan and billing: each organisation's administrator has a Plan and billing page (`platform.html`, `/api/platform/billing`) showing
   the plan, how full the administrator and events-per-month limits are (`lib/billing.js`), the date paid until, the plans
   with their prices, and a request to change plan (`PlanChangeRequest`). Nothing changes by itself: the owner is emailed,

@@ -510,6 +510,7 @@
         <div><strong>Event created.</strong> This event uses a live code.</div>
         <p class="geo-note" style="margin:8px 0 12px;">There is no fixed link or QR code to share. At the venue, or in the meeting, open the live code screen and show it. People scan its QR code, or type the six digits on it, to sign. You can open it again any time from the event card: More, Live code screen.</p>
         <button type="button" class="primary" id="openLiveBtn">Open the live code screen</button>
+        <button type="button" id="openScreensBtn">Show it on more laptops</button>
       </div>
       <div id="resultPlain">
         <div><strong>Event created.</strong> Share this link or QR code at the venue:</div>
@@ -1602,6 +1603,9 @@
   });
   document.getElementById('openLiveBtn').addEventListener('click', function(){
     if(lastCreatedEventId) window.open('live?event=' + encodeURIComponent(lastCreatedEventId), '_blank');
+  });
+  document.getElementById('openScreensBtn').addEventListener('click', function(){
+    if(lastCreatedEventId) openScreensModal({ id: lastCreatedEventId });
   });
   document.getElementById('openLinkBtn').addEventListener('click', function(){
     window.open(resultLink.value, '_blank');
