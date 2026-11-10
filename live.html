@@ -41,7 +41,12 @@
   .gate a{ color:#fff; }
   .gate h2{ margin:0 0 10px; font-size:clamp(24px, 3vw, 32px); }
   .gate p{ margin:0 0 16px; color:#b9c0d3; line-height:1.5; }
+  .gate .steps{ list-style:none; counter-reset:s; margin:18px auto 0; padding:0; text-align:left; display:inline-block; color:#b9c0d3; font-size:16px; line-height:1.45; }
+  .gate .steps li{ counter-increment:s; position:relative; padding:7px 0 7px 38px; }
+  .gate .steps li::before{ content:counter(s); position:absolute; left:0; top:7px; width:24px; height:24px; border-radius:50%; border:1px solid #3a4262; color:#fff; font-size:13px; font-weight:600; display:grid; place-items:center; }
+  .gate .steps b{ color:#fff; font-weight:600; }
   .pair{ display:flex; gap:10px; justify-content:center; margin:22px 0 6px; }
+  .pair input::placeholder{ color:#4a5372; }
   .pair input{ width:11ch; background:#171d2e; color:#fff; border:1px solid #3a4262; border-radius:12px; padding:14px 12px; font:inherit; font-size:30px; letter-spacing:.18em; text-align:center; text-transform:uppercase; font-variant-numeric:tabular-nums; }
   .pair input:focus{ outline:none; border-color:#fff; }
   .pair button{ background:#fff; color:#0f1420; border:0; border-radius:12px; padding:0 22px; font:inherit; font-weight:700; font-size:16px; cursor:pointer; }
@@ -112,10 +117,21 @@
   function forget(){ try { localStorage.removeItem(KEY); } catch(e){} }
 
   function pairGate(note){
-    gate('<h2>Pair this screen</h2><p>On your admin page, open the event, choose More, then Live code screens, and add a screen. Type the code it shows here.</p>' +
-      '<form class="pair" id="pairForm" autocomplete="off"><input id="pairCode" maxlength="8" placeholder="ABC-123" autocapitalize="characters" spellcheck="false" aria-label="Pairing code"><button type="submit">Pair</button></form>' +
+    // Nothing about an earlier event or screen should linger once this laptop is unpaired.
+    document.getElementById('evName').textContent = 'Live code';
+    document.title = 'Live code';
+    document.getElementById('chip').hidden = true;
+    document.getElementById('unpairWrap').hidden = true;
+    gate('<h2>Show the live code on this laptop</h2>' +
+      '<ol class="steps"><li>On your admin page, open the event and choose <b>More</b>.</li><li>Choose <b>Live code screens</b> and add a screen.</li><li>Type the code it gives you below.</li></ol>' +
+      '<form class="pair" id="pairForm" autocomplete="off"><input id="pairCode" maxlength="7" placeholder="&middot;&middot;&middot;-&middot;&middot;&middot;" inputmode="text" autocapitalize="characters" spellcheck="false" aria-label="Pairing code"><button type="submit">Pair</button></form>' +
       '<div class="msg" id="pairMsg" role="status">' + (note || '') + '</div>');
     var form = document.getElementById('pairForm'), input = document.getElementById('pairCode'), pm = document.getElementById('pairMsg');
+    // Shows the code the way the admin page does, with the dash after the third character.
+    input.addEventListener('input', function(){
+      var s = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+      input.value = s.length > 3 ? s.slice(0, 3) + '-' + s.slice(3) : s;
+    });
     input.focus();
     form.addEventListener('submit', function(e){
       e.preventDefault();
@@ -145,7 +161,11 @@
       .then(function(x){
         var d = x.d;
         if(token && !(d && d.ok)){
-          if(x.status === 404 || (d && d.error === 'REMOVED')){ forget(); pairGate('<span>' + ((d && d.message) || 'This screen is not set up.') + '</span>'); return; }
+          if(x.status === 404 || (d && d.error === 'REMOVED')){
+            forget();
+            pairGate(d && d.error === 'REMOVED' ? 'This laptop was removed as a screen. Add it again from your admin page to use it.' : 'This laptop is not set up as a screen. Pair it below.');
+            return;
+          }
           if(x.status === 410 || x.status === 409){
             gate('<h2>This screen has stopped</h2><p>' + ((d && d.message) || '') + '</p>'); return;
           }
