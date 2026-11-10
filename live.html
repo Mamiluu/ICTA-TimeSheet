@@ -6,137 +6,79 @@
 <meta name="robots" content="noindex">
 <title>Live code</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<script>
-  // Before first paint, so the page never flashes the wrong theme. Light by default: it reads as a printed
-  // notice on the wall; the switch is for a projector in a dim hall.
-  try { document.documentElement.setAttribute('data-theme', localStorage.getItem('live.theme') === 'dark' ? 'dark' : 'light'); } catch(e){}
-</script>
 <style>
-  :root{ --bg:#f3eee2; --ink:#14110d; --muted:#6b645a; --cell:#fff; --accent:#c8102e; --card:#fff; }
-  :root[data-theme="dark"]{ --bg:#11151f; --ink:#f2eee4; --muted:#98a0b3; --cell:#1a2030; --card:#fff; }
+  :root{ --bg:#0f1420; --panel:#fff; --ink:#0f1420; --muted:#8b93a7; --line:#262d40; --accent:#c8102e; }
   *{ box-sizing:border-box; }
-  html,body{ margin:0; min-height:100%; }
-  body{
-    background:var(--bg); color:var(--ink);
-    font-family:Figtree, "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
-    min-height:100vh; display:flex; flex-direction:column;
-  }
-
-  header{ display:flex; align-items:center; gap:10px; padding:16px clamp(18px, 4vw, 40px); border-bottom:2px solid var(--ink); }
-  .mark{ flex:1; min-width:0; display:flex; align-items:center; gap:10px; font-size:13px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; }
-  .mark i{ width:12px; height:12px; background:var(--accent); flex:none; }
-  header button, .chip{
-    font:inherit; font-size:13px; color:var(--ink); background:transparent;
-    border:1.5px solid var(--ink); border-radius:4px; padding:6px 11px; cursor:pointer; white-space:nowrap;
-  }
-  .chip{ cursor:default; font-weight:600; }
-  header button:hover{ background:var(--ink); color:var(--bg); }
-
-  main{
-    flex:1; display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:center;
-    gap:clamp(28px, 6vw, 96px); padding:clamp(22px, 4vw, 52px) clamp(18px, 5vw, 72px);
-  }
-
-  .kicker{ margin:0 0 10px; font-size:13px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); }
-  h1#evName{ margin:0; font-size:clamp(32px, 5.2vw, 72px); line-height:1.02; letter-spacing:-.02em; font-weight:800; overflow-wrap:anywhere; }
-  .rule{ height:6px; width:72px; background:var(--accent); margin:clamp(18px, 2.6vw, 30px) 0; }
-
-  .how{ max-width:560px; }
-  .lbl{ margin:0 0 4px; font-size:12.5px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
-  .how p.say{ margin:0 0 clamp(16px, 2.2vw, 26px); font-size:clamp(16px, 1.7vw, 21px); line-height:1.4; }
-
-  .digits{ display:flex; gap:clamp(5px, .8vw, 10px); align-items:center; margin:2px 0 clamp(18px, 2.6vw, 30px); }
-  .digits .d{
-    display:grid; place-items:center; background:var(--cell); border:2px solid var(--ink); border-radius:4px;
-    width:clamp(40px, 5.4vw, 74px); height:clamp(54px, 7.4vw, 100px);
-    font-size:clamp(30px, 4.6vw, 66px); font-weight:800; font-variant-numeric:tabular-nums; line-height:1;
-  }
-  .digits .gap{ width:clamp(8px, 1.4vw, 20px); }
-
-  .left{ display:flex; justify-content:space-between; align-items:baseline; font-size:14px; margin-bottom:7px; }
-  .left strong{ font-size:clamp(20px, 2.2vw, 28px); font-variant-numeric:tabular-nums; }
-  .strip{ height:10px; border:2px solid var(--ink); border-radius:2px; overflow:hidden; background:transparent; }
-  .strip i{ display:block; height:100%; width:100%; background:var(--accent); transition:width .5s linear; }
-  .strip.low i{ animation:blink 1s steps(2, jump-none) infinite; }
-  @keyframes blink{ 50%{ opacity:.35; } }
-  .fine{ margin:16px 0 0; font-size:13.5px; line-height:1.45; color:var(--muted); }
-
-  .card{
-    background:var(--card); border:2px solid var(--ink); border-radius:6px; padding:clamp(12px, 1.6vw, 20px);
-    box-shadow:9px 9px 0 var(--ink); line-height:0;
-  }
-  .card img{ width:min(58vh, 80vw, 500px); height:auto; image-rendering:pixelated; transition:opacity .25s; }
-  .card.stale img{ opacity:.25; }
-  .card .cap{ line-height:1; margin-top:12px; padding-top:10px; border-top:2px solid #14110d; color:#14110d; font-size:13px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; text-align:center; }
-
-  /* In a meeting there is nothing to scan, so the code takes the stage. */
-  body.virtual .card{ display:none; }
-  body.virtual main{ grid-template-columns:minmax(0, 1fr); }
-  body.virtual .scan{ display:none; }
-  body.virtual .digits .d{ width:clamp(48px, 8vw, 110px); height:clamp(64px, 11vw, 150px); font-size:clamp(38px, 7vw, 100px); }
-
-  .msg{ margin-top:14px; font-size:14px; min-height:1.4em; color:#b45309; }
-  :root[data-theme="dark"] .msg{ color:#e8b04a; }
-
-  footer{ padding:12px clamp(18px, 4vw, 40px) 18px; border-top:1px solid color-mix(in srgb, var(--ink) 25%, transparent); color:var(--muted); font-size:12.5px; }
-  .unpair{ background:none; border:0; color:inherit; font:inherit; text-decoration:underline; cursor:pointer; padding:0; }
-
-  /* The pairing and notice pages share the stage. */
-  .gate{ grid-column:1 / -1; justify-self:center; max-width:480px; text-align:center; }
-  .gate a{ color:var(--ink); }
-  .gate h2{ margin:0 0 10px; font-size:clamp(24px, 3vw, 34px); line-height:1.15; letter-spacing:-.01em; }
-  .gate p{ margin:0 0 14px; color:var(--muted); line-height:1.5; }
-  .gate .steps{ list-style:none; counter-reset:s; margin:16px auto 0; padding:0; text-align:left; display:inline-block; color:var(--muted); font-size:16px; line-height:1.45; }
+  html,body{ margin:0; height:100%; }
+  body{ background:var(--bg); color:#fff; font-family:Figtree, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; display:flex; flex-direction:column; min-height:100vh; }
+  header{ display:flex; align-items:center; gap:12px; padding:16px 22px; border-bottom:1px solid var(--line); }
+  header h1{ margin:0; font-size:17px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  header button{ background:transparent; color:#cfd5e4; border:1px solid var(--line); border-radius:9px; padding:7px 12px; font:inherit; font-size:13px; cursor:pointer; }
+  header button:hover{ border-color:#4a5372; color:#fff; }
+  .chip{ flex:none; border:1px solid var(--line); border-radius:99px; padding:4px 11px; font-size:12.5px; color:#cfd5e4; white-space:nowrap; }
+  main{ flex:1; display:flex; align-items:center; justify-content:center; gap:clamp(24px, 5vw, 64px); padding:24px; flex-wrap:wrap; }
+  .qrbox{ position:relative; background:var(--panel); border-radius:22px; padding:clamp(14px, 2vw, 24px); line-height:0; }
+  .qrbox img{ width:min(62vh, 78vw, 520px); height:auto; image-rendering:pixelated; transition:opacity .25s; }
+  .qrbox.stale img{ opacity:.28; }
+  .side{ max-width:380px; }
+  .side h2{ margin:0 0 8px; font-size:clamp(26px, 3.4vw, 40px); line-height:1.1; font-weight:700; }
+  .side p{ margin:0 0 18px; color:#b9c0d3; font-size:clamp(15px, 1.6vw, 18px); line-height:1.5; }
+  .timer{ display:flex; align-items:center; gap:14px; }
+  .ring{ width:58px; height:58px; transform:rotate(-90deg); flex:none; }
+  .ring circle{ fill:none; stroke-width:5; }
+  .ring .track{ stroke:var(--line); }
+  .ring .bar{ stroke:var(--accent); stroke-linecap:round; transition:stroke-dashoffset .4s linear; }
+  .timer strong{ display:block; font-size:20px; font-variant-numeric:tabular-nums; }
+  .timer span{ color:var(--muted); font-size:13px; }
+  .typed{ margin-top:22px; padding-top:18px; border-top:1px solid var(--line); }
+  .typed span{ display:block; color:var(--muted); font-size:13px; margin-bottom:4px; }
+  .typed strong{ display:block; white-space:nowrap; font-size:clamp(34px, 5vw, 56px); letter-spacing:.14em; font-variant-numeric:tabular-nums; font-weight:700; }
+  body.virtual main{ flex-direction:row-reverse; }
+  body.virtual .qrbox img{ width:min(34vh, 60vw, 280px); }
+  body.virtual .side{ max-width:560px; }
+  body.virtual .typed strong{ font-size:clamp(44px, 6.4vw, 76px); }
+  .msg{ margin-top:18px; font-size:13.5px; color:#e8b04a; min-height:1.4em; }
+  .gate{ max-width:440px; text-align:center; }
+  .gate a{ color:#fff; }
+  .gate h2{ margin:0 0 10px; font-size:clamp(24px, 3vw, 32px); }
+  .gate p{ margin:0 0 16px; color:#b9c0d3; line-height:1.5; }
+  .gate .steps{ list-style:none; counter-reset:s; margin:18px auto 0; padding:0; text-align:left; display:inline-block; color:#b9c0d3; font-size:16px; line-height:1.45; }
   .gate .steps li{ counter-increment:s; position:relative; padding:7px 0 7px 38px; }
-  .gate .steps li::before{ content:counter(s); position:absolute; left:0; top:7px; width:24px; height:24px; border-radius:50%; border:1.5px solid var(--ink); color:var(--ink); font-size:13px; font-weight:700; display:grid; place-items:center; }
-  .gate .steps b{ color:var(--ink); font-weight:700; }
+  .gate .steps li::before{ content:counter(s); position:absolute; left:0; top:7px; width:24px; height:24px; border-radius:50%; border:1px solid #3a4262; color:#fff; font-size:13px; font-weight:600; display:grid; place-items:center; }
+  .gate .steps b{ color:#fff; font-weight:600; }
   .pair{ display:flex; gap:10px; justify-content:center; margin:22px 0 6px; }
-  .pair input{ width:11ch; background:var(--cell); color:var(--ink); border:2px solid var(--ink); border-radius:4px; padding:12px; font:inherit; font-size:30px; font-weight:800; letter-spacing:.16em; text-align:center; text-transform:uppercase; font-variant-numeric:tabular-nums; }
-  .pair input::placeholder{ color:var(--muted); opacity:.5; }
-  .pair input:focus{ outline:3px solid var(--accent); outline-offset:2px; }
-  .pair button{ background:var(--ink); color:var(--bg); border:2px solid var(--ink); border-radius:4px; padding:0 22px; font:inherit; font-weight:700; font-size:16px; cursor:pointer; }
+  .pair input::placeholder{ color:#4a5372; }
+  .pair input{ width:11ch; background:#171d2e; color:#fff; border:1px solid #3a4262; border-radius:12px; padding:14px 12px; font:inherit; font-size:30px; letter-spacing:.18em; text-align:center; text-transform:uppercase; font-variant-numeric:tabular-nums; }
+  .pair input:focus{ outline:none; border-color:#fff; }
+  .pair button{ background:#fff; color:#0f1420; border:0; border-radius:12px; padding:0 22px; font:inherit; font-weight:700; font-size:16px; cursor:pointer; }
   .pair button:disabled{ opacity:.5; cursor:default; }
-
-  @media (max-width:860px){
-    main{ grid-template-columns:minmax(0, 1fr); justify-items:start; }
-    .card img{ width:min(70vw, 360px); }
-  }
-  @media (prefers-reduced-motion:reduce){ .strip i, .card img{ transition:none; } .strip.low i{ animation:none; } }
+  .unpair{ background:none; border:0; color:var(--muted); font:inherit; font-size:12.5px; text-decoration:underline; cursor:pointer; padding:0; }
+  footer{ padding:12px 22px 18px; color:var(--muted); font-size:12.5px; text-align:center; }
+  @media (prefers-reduced-motion:reduce){ .ring .bar, .qrbox img{ transition:none; } }
 </style>
 </head>
 <body>
 <header>
-  <div class="mark"><i></i><span>Attendance register</span></div>
+  <h1 id="evName">Live code</h1>
   <span class="chip" id="chip" hidden></span>
-  <button type="button" id="themeBtn">Dark</button>
   <button type="button" id="fsBtn">Full screen</button>
 </header>
 
 <main id="stage">
-  <section>
-    <p class="kicker">Sign in to</p>
-    <h1 id="evName">&nbsp;</h1>
-    <div class="rule"></div>
-    <div class="how">
-      <div class="scan">
-        <p class="lbl">Scan</p>
-        <p class="say">Point your phone camera at the square.</p>
-      </div>
-      <p class="lbl" id="typedLabel">Or type this code</p>
-      <div class="digits" id="short" aria-label="Sign-in code"></div>
-      <div class="left"><span>New code in</span><strong id="count">&nbsp;</strong></div>
-      <div class="strip" id="strip"><i id="bar"></i></div>
-      <p class="fine" id="fine">The code changes every 5 minutes, so a link sent to someone who is not here stops working within about ten.</p>
-      <div class="msg" id="msg" role="status"></div>
+  <div class="qrbox stale" id="qrBox"><img id="qr" alt="QR code to sign in" width="520" height="520" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></div>
+  <div class="side">
+    <h2 id="head">Scan to sign in</h2>
+    <p id="lead">Point your phone camera at this code. It changes every 5 minutes, so a link sent to someone who is not here will not work for long.</p>
+    <div class="timer">
+      <svg class="ring" viewBox="0 0 44 44" aria-hidden="true"><circle class="track" cx="22" cy="22" r="19"/><circle class="bar" id="bar" cx="22" cy="22" r="19" stroke-dasharray="119.4" stroke-dashoffset="0"/></svg>
+      <div><strong id="count">&nbsp;</strong><span>until the next code</span></div>
     </div>
-  </section>
-  <div class="card stale" id="qrBox">
-    <img id="qr" alt="QR code to sign in" width="500" height="500" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">
-    <div class="cap">Scan to sign in</div>
+    <div class="typed"><span id="typedLabel">Or type this code on the sign in page</span><strong id="short">&nbsp;</strong></div>
+    <div class="msg" id="msg" role="status"></div>
   </div>
 </main>
 
-<footer>Keep this screen open while people sign in. It stays awake on its own where the device allows it.<span id="unpairWrap" hidden> <button type="button" class="unpair" id="unpairBtn">Stop using this laptop as a screen</button></span></footer>
+<footer>Keep this screen open while people sign in. In a meeting, share this window with everyone. It stays awake on its own where the device allows it.<span id="unpairWrap" hidden> <button type="button" class="unpair" id="unpairBtn">Stop using this laptop as a screen</button></span></footer>
 
 <script>
 (function(){
@@ -151,8 +93,8 @@
   var stopped = false;
   var stage = document.getElementById('stage');
   var box = document.getElementById('qrBox'), img = document.getElementById('qr');
-  var bar = document.getElementById('bar'), strip = document.getElementById('strip');
-  var count = document.getElementById('count'), msg = document.getElementById('msg'), digits = document.getElementById('short');
+  var bar = document.getElementById('bar'), count = document.getElementById('count'), msg = document.getElementById('msg');
+  var CIRC = 119.4;
   var changesAt = 0, stepMs = 60000, skew = 0, timer = null, lastOk = 0;
 
   function gate(html){
@@ -161,25 +103,13 @@
     stage.innerHTML = '<div class="gate">' + html + '</div>';
   }
 
-  // The six digits, each in its own box, with a gap in the middle the way they are spoken.
-  function drawDigits(text){
-    digits.textContent = '';
-    var s = String(text || '').replace(/\s+/g, '');
-    for(var i = 0; i < s.length; i++){
-      if(i === 3){ var g = document.createElement('span'); g.className = 'gap'; digits.appendChild(g); }
-      var d = document.createElement('span'); d.className = 'd'; d.textContent = s.charAt(i); digits.appendChild(d);
-    }
-    digits.setAttribute('aria-label', 'Sign-in code ' + s.slice(0, 3) + ' ' + s.slice(3));
-  }
-
   function tick(){
     if(stopped) return;
     var left = changesAt - (Date.now() + skew);
     if(left < 0) left = 0;
     var s = Math.ceil(left / 1000);
-    count.textContent = Math.floor(s / 60) + ':' + (s % 60 < 10 ? '0' : '') + (s % 60);
-    bar.style.width = (Math.min(1, left / stepMs) * 100) + '%';
-    strip.classList.toggle('low', left > 0 && left < 30000);
+    count.textContent = s + ' s';
+    bar.style.strokeDashoffset = String(CIRC * (1 - Math.min(1, left / stepMs)));
     // A code that could not be renewed is still good for several minutes, so the screen keeps showing it
     // and says so once it has been stale for longer than that.
     box.classList.toggle('stale', !!(lastOk && Date.now() - lastOk > 480000));
@@ -189,6 +119,7 @@
 
   function pairGate(note){
     // Nothing about an earlier event or screen should linger once this laptop is unpaired.
+    document.getElementById('evName').textContent = 'Live code';
     document.title = 'Live code';
     document.getElementById('chip').hidden = true;
     document.getElementById('unpairWrap').hidden = true;
@@ -256,15 +187,15 @@
         document.getElementById('evName').textContent = d.name;
         document.title = 'Live code - ' + d.name;
         img.src = d.qr;
-        drawDigits(d.short);
+        document.getElementById('short').textContent = d.short || '';
         if(d.virtual && !document.body.classList.contains('virtual')){
           document.body.classList.add('virtual');
-          document.getElementById('typedLabel').textContent = 'Type this code to sign in';
-          document.getElementById('fine').textContent = 'Open the sign-in link you were sent and type the six digits. The code changes every 5 minutes, so a link passed to someone who is not in the meeting stops working within about ten.';
+          document.getElementById('head').textContent = 'Type this code to sign in';
+          document.getElementById('lead').textContent = 'Open the sign in link you were sent and type the six digits below. The code changes every 5 minutes, so a link passed to someone who is not in the meeting will not work for long.';
+          document.getElementById('typedLabel').textContent = 'Code';
         }
         changesAt = d.changesAt; stepMs = d.stepMs || 60000; skew = d.now - Date.now();
         lastOk = Date.now(); box.classList.remove('stale'); msg.textContent = '';
-        tick();
         timer = setTimeout(load, Math.max(1500, changesAt - (Date.now() + skew) + 400));
       })
       .catch(function(){
@@ -289,16 +220,6 @@
   });
   document.addEventListener('fullscreenchange', function(){ fs.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; });
 
-  var themeBtn = document.getElementById('themeBtn'), root = document.documentElement;
-  function showTheme(){ themeBtn.textContent = root.getAttribute('data-theme') === 'dark' ? 'Light' : 'Dark'; }
-  themeBtn.addEventListener('click', function(){
-    var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-    root.setAttribute('data-theme', next);
-    try { localStorage.setItem('live.theme', next); } catch(e){}
-    showTheme();
-  });
-  showTheme();
-
   document.getElementById('unpairBtn').addEventListener('click', function(){
     if(!window.confirm('Stop showing the live code on this laptop?')) return;
     forget(); location.reload();
@@ -309,7 +230,7 @@
   } else {
     document.getElementById('unpairWrap').hidden = !token;
     load(); keepAwake();
-    setInterval(tick, 250);
+    setInterval(tick, 250); tick();
   }
 })();
 </script>
