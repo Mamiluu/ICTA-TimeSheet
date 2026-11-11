@@ -19,6 +19,7 @@
 
 import 'dotenv/config';
 import { prisma } from '../src/lib/prisma.js';
+import { normalizeEmail, isValidEmailShape } from '../src/lib/normalize.js';
 import { writeAudit } from '../src/lib/audit.js';
 import { readSheet } from '../src/lib/readSheet.js';
 import { planImport, insertImport } from '../src/lib/attendanceImport.js';
@@ -62,11 +63,40 @@ async function setConsent(eventQuery, flags) {
   const n = await prisma.attendance.count({ where });
   console.log(`${flags.apply === true ? '' : '[DRY RUN] '}${hits[0].name}: ${n} imported ${n === 1 ? 'person has' : 'people have'} no photo/video answer.`);
   if (flags.apply !== true) {
+    await setEmails(hits[0].id, flags['set-email'], false);
     console.log('Nothing written. Add --apply to set them to Yes.');
     return;
   }
   const r = await prisma.attendance.updateMany({ where, data: { photoVideoConsent: true } });
   console.log(`Set photo/video consent to Yes on ${r.count}.`);
+  await setEmails(hits[0].id, flags['set-email'], true);
+}
+
+// --set-email="Full Name=address" fills in the email of one person on the event who has none.
+async function setEmails(eventId, spec, apply) {
+  if (typeof spec !== 'string') return;
+  const cut = spec.lastIndexOf('=');
+  const name = spec.slice(0, cut).trim();
+  const email = spec.slice(cut + 1).trim();
+  if (cut < 1 || !isValidEmailShape(email)) {
+    console.log(`--set-email needs the form "Full Name=address@example.com"; got "${spec}".`);
+    return;
+  }
+  const rows = await prisma.attendance.findMany({ where: { eventId, name: { equals: name, mode: 'insensitive' }, email: null }, select: { id: true, name: true } });
+  if (rows.length !== 1) {
+    console.log(`Email not set: ${rows.length} people named "${name}" with no email (needs exactly one).`);
+    return;
+  }
+  if (!apply) {
+    console.log(`Would set ${rows[0].name}'s email to ${email}.`);
+    return;
+  }
+  try {
+    await prisma.attendance.update({ where: { id: rows[0].id }, data: { email, emailNormalized: normalizeEmail(email) }, select: { id: true } });
+    console.log(`Set ${rows[0].name}'s email to ${email}.`);
+  } catch (err) {
+    console.log(err.code === 'P2002' ? `Email not set: ${email} is already used by someone else on this event.` : `Email not set: ${err.message}`);
+  }
 }
 
 async function main() {
