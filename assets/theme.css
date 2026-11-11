@@ -3,6 +3,7 @@
    Shared visual chrome for the auth/admin pages -- kept identical to the
    colors/typography/card style already used in index.html/admin.html. */
 :root{
+  color-scheme:only light;
   --ink:#1a1a1a;
   --line:#000;
   --paper:#fff;
@@ -11,9 +12,6 @@
   --accent2:#0a7a3a;
   --bg:#e9e9e9;
 }
-@media (prefers-color-scheme: dark){ :root{ --bg:#1e1e1e; } }
-:root[data-theme="dark"]{ --bg:#1e1e1e; }
-:root[data-theme="light"]{ --bg:#e9e9e9; }
 
 *{ box-sizing:border-box; }
 html{ overflow-x:hidden; }
