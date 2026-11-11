@@ -148,7 +148,7 @@ var AUDIT_ACTION_META = {
   ORG_REQUEST_APPROVED: { label: 'Approved a request to join', tone: 'positive' },
   ORG_REQUEST_DECLINED: { label: 'Declined a request to join', tone: 'neutral' },
   ORG_REQUEST_DELETED: { label: 'Deleted a request to join', tone: 'danger' },
-  EVENT_ATTENDANCE_IMPORTED: { label: 'Added attendees from a list', tone: 'info' },
+  EVENT_ATTENDANCE_IMPORTED: { label: 'Imported attendees from a list', tone: 'info' },
   LIVE_SCREEN_ADDED: { label: 'Added a live code screen', tone: 'neutral' },
   LIVE_SCREEN_REMOVED: { label: 'Removed a live code screen', tone: 'danger' },
   LIVE_SCREENS_STOPPED: { label: 'Stopped all live code screens', tone: 'danger' },

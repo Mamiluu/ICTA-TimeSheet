@@ -184,6 +184,25 @@
   .sc-add{ display:flex; gap:8px; margin:0 0 10px; }
   .sc-add input{ flex:1; min-width:0; font:inherit; padding:9px 11px; border:1px solid #000; border-radius:8px; }
   .sc-empty{ font-size:13px; color:#666; padding:6px 2px; }
+  /* Import attendees */
+  .rm-card.im-card{ max-width:600px; max-height:92vh; overflow:auto; }
+  .im-drop{ display:block; border:1.5px dashed #000; border-radius:10px; padding:22px 16px; text-align:center; cursor:pointer; font-size:13px; line-height:1.5; }
+  .im-drop:hover, .im-drop.over{ background:#f6f6f6; }
+  .im-drop strong{ display:block; font-size:14px; margin-bottom:2px; }
+  .im-drop input{ position:absolute; width:1px; height:1px; opacity:0; }
+  .im-cols{ font-size:12px; color:#666; margin:10px 0 0; line-height:1.5; }
+  .im-sum{ font-size:14px; margin:0 0 10px; }
+  .im-sum b{ font-size:18px; }
+  .im-table-wrap{ border:1px solid #000; border-radius:8px; max-height:34vh; overflow:auto; margin:0 0 12px; }
+  .im-table-wrap table{ min-width:0; font-size:12.5px; }
+  .im-table-wrap th{ position:sticky; top:0; }
+  .im-table-wrap th, .im-table-wrap td{ border-color:#000; }
+  .im-skip{ font-size:12.5px; margin:0 0 12px; padding:10px 12px; background:#fff6e0; border:1px solid #000; border-radius:8px; line-height:1.55; }
+  .im-skip b{ display:block; margin-bottom:2px; }
+  .im-skip ul{ margin:4px 0 0; padding-left:18px; }
+  .im-day{ display:flex; align-items:center; gap:8px; font-size:13px; margin:0 0 12px; }
+  .im-day select{ font:inherit; padding:7px 9px; border:1px solid #000; border-radius:8px; margin:0; width:auto; }
+  .im-done{ font-size:14px; line-height:1.55; margin:4px 0 10px; }
 
   .door-status{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:10px 12px; margin:0 0 14px; border:1px solid #e3e3e3; border-radius:9px; background:#fafafa; }
   .door-status .spacer{ flex:1; }
@@ -650,6 +669,27 @@
     <div class="rm-actions">
       <button type="button" id="scStop">Stop all screens</button>
       <button type="button" class="primary" id="scClose">Done</button>
+    </div>
+  </div>
+</div>
+<div class="rm-backdrop" id="importModal" role="dialog" aria-modal="true" aria-labelledby="imTitle">
+  <div class="rm-card im-card">
+    <h3 id="imTitle">Import attendees</h3>
+    <p class="rm-help" id="imHelp">For people who attended but did not use the sign-in sheet. Upload your list and they are added to this event, each with their own organisation and a signature made from their initials. Anyone already on the sheet is skipped, so nothing is doubled.</p>
+    <div id="imPick">
+      <label class="im-drop" id="imDrop">
+        <input type="file" id="imFile" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv">
+        <strong>Choose an Excel or CSV file</strong>
+        or drop it here
+      </label>
+      <p class="im-cols">The first row must be headings. We look for <b>Full name</b>, <b>Phone number</b>, <b>Email address</b> and <b>Organisation</b> (name and phone are needed; the order does not matter). Other columns are ignored.</p>
+    </div>
+    <div id="imReview" style="display:none;"></div>
+    <p class="error" id="imError" style="display:none;"></p>
+    <div class="rm-actions">
+      <button type="button" id="imBack" style="display:none;">Choose another file</button>
+      <button type="button" class="primary" id="imGo" style="display:none;">Add people</button>
+      <button type="button" id="imClose">Close</button>
     </div>
   </div>
 </div>
@@ -1743,6 +1783,7 @@
       menu.appendChild(menuItem('Kiosk link', function(){
         if(navigator.clipboard) navigator.clipboard.writeText(kioskUrl);
       }));
+      menu.appendChild(menuItem('Import attendees', function(){ openImportModal(ev); }));
       menu.appendChild(menuItem('Export CSV', function(b){ exportEventCsv(ev, b); }));
       menu.appendChild(menuItem('Print sheet', function(b){ printEventSheet(ev, b); }));
       menu.appendChild(menuItem('Claim pack', function(){ window.open('claim-pack?event=' + encodeURIComponent(ev.id), '_blank'); }));
@@ -2081,6 +2122,113 @@
       if(!r.data.ok){ scFail(r.data.message || 'Could not stop the screens.'); return; }
       scFail(''); scLoad(); loadAudit();
     });
+  });
+
+  // --- Import attendees: upload an Excel/CSV list, review who will be added, confirm ---
+  var imBackdrop = document.getElementById('importModal');
+  var imPick = document.getElementById('imPick'), imReview = document.getElementById('imReview');
+  var imFile = document.getElementById('imFile'), imDrop = document.getElementById('imDrop');
+  var imGo = document.getElementById('imGo'), imBack = document.getElementById('imBack');
+  var imError = document.getElementById('imError'), imHelp = document.getElementById('imHelp');
+  var imEvent = null, imPayload = null, imPlan = null;
+
+  function imMk(tag, cls, text){ var n = document.createElement(tag); if(cls) n.className = cls; if(text != null) n.textContent = text; return n; }
+  function imFail(msg){ imError.textContent = msg || ''; imError.style.display = msg ? '' : 'none'; }
+  function imReset(){
+    imPayload = null; imPlan = null; imFile.value = '';
+    imPick.style.display = ''; imReview.style.display = 'none'; imReview.textContent = '';
+    imGo.style.display = 'none'; imBack.style.display = 'none'; imGo.disabled = false;
+    imHelp.style.display = ''; imFail('');
+  }
+  function openImportModal(ev){ imEvent = ev; imReset(); document.getElementById('imClose').textContent = 'Close'; imBackdrop.classList.add('open'); }
+  function closeImportModal(){ imBackdrop.classList.remove('open'); imEvent = null; imPayload = null; imPlan = null; }
+  document.getElementById('imClose').addEventListener('click', closeImportModal);
+  imBack.addEventListener('click', imReset);
+  imBackdrop.addEventListener('click', function(e){ if(e.target === imBackdrop) closeImportModal(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && imBackdrop.classList.contains('open')) closeImportModal(); });
+  ['dragover', 'dragenter'].forEach(function(t){ imDrop.addEventListener(t, function(e){ e.preventDefault(); imDrop.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function(t){ imDrop.addEventListener(t, function(e){ e.preventDefault(); imDrop.classList.remove('over'); }); });
+  imDrop.addEventListener('drop', function(e){ if(e.dataTransfer && e.dataTransfer.files[0]) imHandle(e.dataTransfer.files[0]); });
+  imFile.addEventListener('change', function(){ if(imFile.files[0]) imHandle(imFile.files[0]); });
+
+  function imHandle(file){
+    imFail('');
+    if(!/\.(xlsx|csv)$/i.test(file.name)){ imFail('Choose an Excel (.xlsx) or CSV file. An older .xls file: open it in Excel and save it as .xlsx first.'); return; }
+    if(file.size > 1000000){ imFail('That file is over 1 MB. Split it in two and import each part.'); return; }
+    var fr = new FileReader();
+    fr.onerror = function(){ imFail('Could not read that file.'); };
+    fr.onload = function(){
+      var b64 = String(fr.result).split(',')[1] || '';
+      imPayload = { fileName: file.name, data: b64 };
+      imReview.style.display = ''; imReview.textContent = 'Reading the file…';
+      imPick.style.display = 'none';
+      API.post('/api/admin/events/' + encodeURIComponent(imEvent.id) + '/import', imPayload).then(function(r){
+        if(!r.data.ok){ imReset(); imFail(r.data.message || 'Could not read that file.'); return; }
+        imPlan = r.data.preview; imShowPlan();
+      }).catch(function(){ imReset(); imFail('Network error — could not reach the backend.'); });
+    };
+    fr.readAsDataURL(file);
+  }
+
+  function imShowPlan(){
+    imReview.textContent = '';
+    imHelp.style.display = 'none';
+    var n = imPlan.toAdd.length;
+    var sum = imMk('p', 'im-sum');
+    if(n){ sum.appendChild(imMk('b', '', String(n))); sum.appendChild(document.createTextNode(' ' + (n === 1 ? 'person' : 'people') + ' will be added to ' + imEvent.name + '.')); }
+    else sum.textContent = 'Nobody new to add from this file.';
+    imReview.appendChild(sum);
+
+    if(n){
+      var wrap = imMk('div', 'im-table-wrap'), t = imMk('table'), th = imMk('thead'), hr = imMk('tr');
+      ['Name', 'Organisation', 'Phone'].forEach(function(h){ hr.appendChild(imMk('th', '', h)); });
+      th.appendChild(hr); t.appendChild(th);
+      var tb = imMk('tbody');
+      imPlan.toAdd.forEach(function(p){
+        var tr = imMk('tr');
+        tr.appendChild(imMk('td', '', p.name)); tr.appendChild(imMk('td', '', p.organisation || '—')); tr.appendChild(imMk('td', '', p.phone));
+        tb.appendChild(tr);
+      });
+      t.appendChild(tb); wrap.appendChild(t); imReview.appendChild(wrap);
+    }
+    if(imPlan.notes.length || imPlan.skipped.length){
+      var box = imMk('div', 'im-skip');
+      if(imPlan.notes.length){
+        box.appendChild(imMk('b', '', 'Worth a look'));
+        var u1 = imMk('ul'); imPlan.notes.forEach(function(x){ u1.appendChild(imMk('li', '', 'Row ' + x.rowNum + ': ' + x.note)); }); box.appendChild(u1);
+      }
+      if(imPlan.skipped.length){
+        var h = imMk('b', '', 'Left out (' + imPlan.skipped.length + ')'); if(imPlan.notes.length) h.style.marginTop = '8px'; box.appendChild(h);
+        var u2 = imMk('ul'); imPlan.skipped.forEach(function(x){ u2.appendChild(imMk('li', '', 'Row ' + x.rowNum + (x.name ? ' (' + x.name + ')' : '') + ': ' + x.why)); }); box.appendChild(u2);
+      }
+      imReview.appendChild(box);
+    }
+    if(n && imPlan.days.length){
+      var d = imMk('div', 'im-day'); d.appendChild(imMk('label', '', 'They attended'));
+      var sel = imMk('select'); sel.id = 'imDay';
+      imPlan.days.forEach(function(day, i){ var o = imMk('option', '', 'Day ' + (i + 1) + ' — ' + new Date(day.startAt).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })); o.value = day.id; sel.appendChild(o); });
+      d.appendChild(sel); imReview.appendChild(d);
+    }
+    imBack.style.display = ''; imBack.textContent = n ? 'Choose another file' : 'Try another file';
+    if(n){ imGo.style.display = ''; imGo.textContent = 'Add ' + n + (n === 1 ? ' person' : ' people'); }
+  }
+
+  imGo.addEventListener('click', function(){
+    if(!imEvent || !imPayload) return;
+    imGo.disabled = true; imFail('');
+    var body = { fileName: imPayload.fileName, data: imPayload.data, apply: true };
+    var sel = document.getElementById('imDay'); if(sel) body.dayId = sel.value;
+    API.post('/api/admin/events/' + encodeURIComponent(imEvent.id) + '/import', body).then(function(r){
+      if(!r.data.ok){ imGo.disabled = false; imFail(r.data.message || 'Could not add them.'); return; }
+      imReview.textContent = '';
+      var msg = imMk('p', 'im-done');
+      msg.appendChild(imMk('b', '', r.data.added + (r.data.added === 1 ? ' person' : ' people') + ' added.'));
+      if(r.data.failed && r.data.failed.length) msg.appendChild(document.createTextNode(' ' + r.data.failed.length + ' could not be saved: ' + r.data.failed.map(function(f){ return f.name; }).join(', ') + '.'));
+      imReview.appendChild(msg);
+      imGo.style.display = 'none'; imBack.style.display = 'none';
+      document.getElementById('imClose').textContent = 'Done';
+      loadEvents(); loadAudit();
+    }).catch(function(){ imGo.disabled = false; imFail('Network error — could not reach the backend.'); });
   });
 
   function deleteEvent(ev, deleteBtn){

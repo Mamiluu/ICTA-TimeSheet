@@ -24,6 +24,8 @@ import { hasModule } from '../lib/plans.js';
 import { eventLimitRefusal } from '../lib/orgPlan.js';
 import { orgBaseUrl } from '../lib/tenantHost.js';
 import QRCode from 'qrcode';
+import { readSheetBuffer } from '../lib/readSheet.js';
+import { planImport, insertImport } from '../lib/attendanceImport.js';
 import { newSecret } from '../lib/liveCode.js';
 import { livePayload, screenRefusal, screenStatus, newPairCode, showPairCode, cleanLabel, PAIR_TTL_MS, MAX_SCREENS_PER_EVENT } from '../lib/liveScreen.js';
 
@@ -242,6 +244,72 @@ async function findOwnEvent(req) {
 }
 
 registerDutyRoutes(adminRouter, findOwnEvent);
+
+// Add people from an uploaded Excel/CSV list to an event, for the ones who attended but never used the
+// sign-in sheet. One endpoint, two steps: without `apply` it only reads the file and says who would be
+// added and who left out (nothing is written); with `apply: true` it does it. The file travels as base64
+// in the JSON body, so the browser needs no multipart upload, and the confirm step simply sends it again
+// rather than keeping server-side state between the two calls.
+const IMPORT_MAX_BYTES = 1_400_000; // base64 of this fits the 2 MB JSON body limit
+adminRouter.post('/events/:id/import', ah(async (req, res) => {
+  const event = await findOwnEvent(req);
+  if (!event) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  if (event.kind === 'DUTY_ROLL') {
+    return res.status(400).json({ ok: false, error: 'NOT_ATTENDANCE', message: 'A payment sheet is filled by adding payees, not by importing a list.' });
+  }
+  // A sealed sheet has been printed and signed off; adding names after the fact would contradict it.
+  if (await prisma.sheetSeal.count({ where: { eventId: event.id } })) {
+    return res.status(409).json({ ok: false, error: 'SEALED', message: 'This sheet has been sealed, so it can no longer be changed.' });
+  }
+
+  const { fileName, data, dayId, apply } = req.body || {};
+  const ext = /\.(xlsx|csv)$/i.exec(String(fileName || ''))?.[0].toLowerCase();
+  if (!ext) return res.status(400).json({ ok: false, error: 'BAD_FILE', message: 'Choose an Excel (.xlsx) or CSV file.' });
+  if (typeof data !== 'string' || !/^[A-Za-z0-9+/=\s]+$/.test(data)) {
+    return res.status(400).json({ ok: false, error: 'BAD_FILE', message: 'That file could not be read.' });
+  }
+  const bytes = Buffer.from(data, 'base64');
+  if (!bytes.length || bytes.length > IMPORT_MAX_BYTES) {
+    return res.status(400).json({ ok: false, error: 'BAD_FILE', message: 'That file is empty or too large (the limit is about 1 MB; split it in two).' });
+  }
+
+  let sheet;
+  try {
+    sheet = readSheetBuffer(bytes, ext);
+  } catch {
+    return res.status(400).json({ ok: false, error: 'BAD_FILE', message: 'That does not look like a valid Excel or CSV file. If it is an old .xls file, open it in Excel and save it as .xlsx.' });
+  }
+  const plan = await planImport(event.id, sheet);
+  if (plan.error) return res.status(400).json({ ok: false, error: 'BAD_SHEET', message: plan.error });
+
+  const days = await prisma.eventDay.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' }, select: { id: true, position: true, startAt: true } });
+  const view = {
+    columns: plan.columns,
+    toAdd: plan.toAdd.map((r) => ({ rowNum: r.rowNum, name: r.name, organisation: r.organisation, email: r.email, phone: r.phoneNormalized })),
+    skipped: plan.skipped,
+    notes: plan.notes,
+    days: days.length > 1 ? days : []
+  };
+  if (!apply) return res.json({ ok: true, preview: view });
+
+  let day = days.length === 1 ? days[0] : null;
+  if (days.length > 1) {
+    day = days.find((d) => d.id === dayId) || null;
+    if (!day) return res.status(400).json({ ok: false, error: 'DAY_REQUIRED', message: 'This event runs over several days. Choose which day these people attended.' });
+  }
+  const { added, failed } = await insertImport(event.id, day, plan.toAdd);
+  if (added) {
+    await writeAudit({
+      actorId: req.user.id,
+      action: 'EVENT_ATTENDANCE_IMPORTED',
+      targetType: 'Event',
+      targetId: event.id,
+      metadata: { source: String(fileName).slice(0, 120), added, skipped: plan.skipped.length, failed: failed.length },
+      req
+    });
+  }
+  res.json({ ok: true, added, skipped: plan.skipped.length, failed });
+}));
 
 // Switching the live code on makes a secret for the event once; switching it off keeps the secret, so
 // turning it on again does not matter. A payment sheet never uses it.

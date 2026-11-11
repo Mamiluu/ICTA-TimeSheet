@@ -49,7 +49,9 @@ function readZip(buf) {
       const lo = f.localOffset;
       const dataStart = lo + 30 + buf.readUInt16LE(lo + 26) + buf.readUInt16LE(lo + 28);
       const raw = buf.subarray(dataStart, dataStart + f.compSize);
-      const out = f.method === 0 ? raw : inflateRawSync(raw);
+      // The file may be an upload from a stranger: cap what a part can inflate to, so a tiny zip that
+      // expands to gigabytes (a "zip bomb") fails instead of eating the server's memory.
+      const out = f.method === 0 ? raw : inflateRawSync(raw, { maxOutputLength: 30 * 1024 * 1024 });
       return out.toString('utf8');
     }
   };
@@ -217,8 +219,12 @@ function readCsv(text) {
 // Returns { headers: string[], rows: [{ rowNum, values: {header: value} }] }. rowNum is the 1-based row
 // in the original sheet, so a report can point at the exact line a person would see in Excel.
 export function readSheet(filePath) {
-  const buf = readFileSync(filePath);
-  const ext = path.extname(filePath).toLowerCase();
+  return readSheetBuffer(readFileSync(filePath), path.extname(filePath));
+}
+
+// Same, from bytes already in memory (an upload). `ext` is ".xlsx" or ".csv".
+export function readSheetBuffer(buf, ext) {
+  ext = String(ext || '').toLowerCase();
   const grid = ext === '.csv' ? readCsv(buf.toString('utf8')) : readXlsx(buf);
   const headerIdx = grid.findIndex((r) => r && r.some((c) => String(c ?? '').trim() !== ''));
   if (headerIdx < 0) return { headers: [], rows: [] };
