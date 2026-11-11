@@ -184,7 +184,7 @@ function readCsv(text) {
   let row = [];
   let cur = '';
   let quoted = false;
-  const src = text.replace(/^﻿/, '');
+  const src = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
   for (let i = 0; i < src.length; i++) {
     const ch = src[i];
     if (quoted) {

@@ -237,14 +237,19 @@ async function main() {
   console.log(`Added ${added} of ${toAdd.length}.`);
 
   if (added) {
-    await writeAudit({
-      actorId: event.ownerId || null,
-      action: 'EVENT_ATTENDANCE_IMPORTED',
-      targetType: 'Event',
-      targetId: event.id,
-      metadata: { source: filePath.split(/[\\/]/).pop(), added, skipped: skipped.length, failed: failed.length, viaScript: true }
-    });
-    console.log('Audit entry written.');
+    try {
+      await writeAudit({
+        actorId: event.ownerId || null,
+        action: 'EVENT_ATTENDANCE_IMPORTED',
+        targetType: 'Event',
+        targetId: event.id,
+        metadata: { source: filePath.split(/[\\/]/).pop(), added, skipped: skipped.length, failed: failed.length, viaScript: true }
+      });
+      console.log('Audit entry written.');
+    } catch (err) {
+      // The people are already added; a missing audit line must not look like a failed import.
+      console.log(`Added, but the audit entry could not be written: ${err.message}`);
+    }
   }
 }
 
