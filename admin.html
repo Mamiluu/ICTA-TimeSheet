@@ -2209,6 +2209,13 @@
       imPlan.days.forEach(function(day, i){ var o = imMk('option', '', 'Day ' + (i + 1) + ' — ' + new Date(day.startAt).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })); o.value = day.id; sel.appendChild(o); });
       d.appendChild(sel); imReview.appendChild(d);
     }
+    if(n){
+      var ck = imMk('label', 'im-day'); ck.style.fontWeight = 'normal'; ck.style.alignItems = 'flex-start';
+      var cb = imMk('input'); cb.type = 'checkbox'; cb.id = 'imConsent'; cb.checked = true; cb.style.cssText = 'width:auto;margin:3px 0 0;';
+      ck.appendChild(cb);
+      ck.appendChild(imMk('span', '', 'These people agreed to being photographed and recorded at the event, so record their photo/video consent as Yes. Untick this if you did not collect it.'));
+      imReview.appendChild(ck);
+    }
     imBack.style.display = ''; imBack.textContent = n ? 'Choose another file' : 'Try another file';
     if(n){ imGo.style.display = ''; imGo.textContent = 'Add ' + n + (n === 1 ? ' person' : ' people'); }
   }
@@ -2216,7 +2223,7 @@
   imGo.addEventListener('click', function(){
     if(!imEvent || !imPayload) return;
     imGo.disabled = true; imFail('');
-    var body = { fileName: imPayload.fileName, data: imPayload.data, apply: true };
+    var body = { fileName: imPayload.fileName, data: imPayload.data, apply: true, consent: !!(document.getElementById('imConsent') || {}).checked };
     var sel = document.getElementById('imDay'); if(sel) body.dayId = sel.value;
     API.post('/api/admin/events/' + encodeURIComponent(imEvent.id) + '/import', body).then(function(r){
       if(!r.data.ok){ imGo.disabled = false; imFail(r.data.message || 'Could not add them.'); return; }

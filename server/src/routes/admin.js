@@ -297,14 +297,16 @@ adminRouter.post('/events/:id/import', ah(async (req, res) => {
     day = days.find((d) => d.id === dayId) || null;
     if (!day) return res.status(400).json({ ok: false, error: 'DAY_REQUIRED', message: 'This event runs over several days. Choose which day these people attended.' });
   }
-  const { added, failed } = await insertImport(event.id, day, plan.toAdd);
+  // The organiser's confirmation that these people agreed to photos/video; the screen sends it ticked.
+  const consent = req.body.consent !== false;
+  const { added, failed } = await insertImport(event.id, day, plan.toAdd, { consent });
   if (added) {
     await writeAudit({
       actorId: req.user.id,
       action: 'EVENT_ATTENDANCE_IMPORTED',
       targetType: 'Event',
       targetId: event.id,
-      metadata: { source: String(fileName).slice(0, 120), added, skipped: plan.skipped.length, failed: failed.length },
+      metadata: { source: String(fileName).slice(0, 120), added, skipped: plan.skipped.length, failed: failed.length, photoVideoConsentConfirmed: consent },
       req
     });
   }

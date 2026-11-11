@@ -10,7 +10,8 @@
 //   - there is no drawn signature, so each row gets a generated initials image
 //     and isImportedSignature = true, which the sheet, exports and integrity
 //     checks already treat as "back-filled, not signed by hand";
-//   - photo/video consent is left null ("never asked"), not guessed.
+//   - photo/video consent is recorded as "yes" only because the organiser confirms it
+//     (the import screen's tick box, or the script's default); otherwise it stays null.
 // No confirmation emails go out.
 
 import { randomUUID } from 'node:crypto';
@@ -135,7 +136,9 @@ export async function planImport(eventId, sheet) {
 // Writes the planned rows. `day` is the EventDay they are marked as having signed (null when the event
 // has none). Returns { added, failed: [{rowNum,name,why}] }. Selects only the columns it needs, so it
 // keeps working on a database that is a migration behind the code.
-export async function insertImport(eventId, day, toAdd) {
+// `consent` is true when the organiser confirms these people agreed to photos/video (the default for an
+// import, and what the admin screen's tick box sets); false leaves it "not recorded".
+export async function insertImport(eventId, day, toAdd, { consent = true } = {}) {
   let added = 0;
   const failed = [];
   for (const r of toAdd) {
@@ -154,6 +157,7 @@ export async function insertImport(eventId, day, toAdd) {
           phoneNormalized: r.phoneNormalized,
           signature,
           isImportedSignature: true,
+          photoVideoConsent: consent ? true : null,
           ...(day ? { daySignatures: { create: { dayId: day.id, signature, isImportedSignature: true } } } : {})
         }
       });

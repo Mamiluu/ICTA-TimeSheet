@@ -13,6 +13,7 @@
 //   --event="..."    event name (case-insensitive; a unique partial match is fine) or its slug
 //   --admin=<email>  only look at events owned by this admin (when two events share a name)
 //   --day=<n>        which day these people signed, by position, for multi-day events
+//   --no-consent     leave photo/video consent as "not recorded" (default is yes)
 //   --apply          write to the database. Without it this is a dry run
 
 import 'dotenv/config';
@@ -88,7 +89,7 @@ async function main() {
     return;
   }
 
-  const { added, failed } = await insertImport(event.id, day, plan.toAdd);
+  const { added, failed } = await insertImport(event.id, day, plan.toAdd, { consent: flags['no-consent'] !== true });
   for (const f of failed) console.log(`  x row ${f.rowNum} (${f.name}): ${f.why}`);
   console.log(`Added ${added} of ${plan.toAdd.length}.`);
   if (added) {
