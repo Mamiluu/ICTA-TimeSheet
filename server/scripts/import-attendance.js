@@ -1,27 +1,49 @@
 // Copyright (c) 2026 Asya Hafidh <msanifuasiya@gmail.com>. All Rights Reserved.
 // Proprietary and confidential. See LICENSE in the repository root.
 //
-// One-off backfill: imports a legacy Excel/Google-Forms sign-in sheet into a
-// county admin's event as Attendance rows. There is no drawn signature in
-// the source data, so each row gets a generated initials image instead
-// (isImportedSignature: true marks it as such, distinct from a real drawn
-// signature -- see the matching comment on the schema field).
+// Back-fills people who attended an event but never used the sign-in sheet
+// (a registration list, a paper sheet typed up, a Google Forms export) into
+// that event as ordinary attendance rows. Nothing is created that the system
+// would not create itself, with two honest differences:
+//   - there is no drawn signature, so each row gets a generated initials image
+//     and isImportedSignature = true, which the sheet, exports and integrity
+//     checks already treat as "back-filled, not signed by hand";
+//   - photo/video consent is left null ("never asked"), not guessed.
+// No confirmation emails go out: this writes straight to the database.
+//
+// It only ever adds rows to an event that already exists. It is safe to re-run:
+// anyone whose phone or email is already on the event is skipped and reported.
+// It does nothing until you pass --apply.
 //
 // Usage:
-//   node scripts/import-attendance.js <path-to-xlsx> <admin-email> [options]
+//   node scripts/import-attendance.js <file.xlsx|file.csv> --event="<name or slug>" [options]
 //
 // Options:
-//   --event-name="..."   defaults to "ICT Authority Workshop Talk"
-//   --date=YYYY-MM-DD    defaults to the earliest row's submission date
-//   --location="..."     defaults to "Nairobi" -- pass the real venue
-//   --dry-run            parse and validate only, no database writes
+//   --event="..."    event name (case-insensitive; a unique partial match is fine) or its slug
+//   --admin=<email>  only look at events owned by this admin (use when two events share a name)
+//   --day=<n>        which day the people signed, by position, for multi-day events
+//                    (a single-day event needs nothing)
+//   --apply          write to the database. Without it this is a dry run
+//
+// The sheet's first row must be headers. Columns are found by name, so order does not matter:
+//   name:         "Full name" | "Name"
+//   phone:        "Phone number" | "Phone" | "Mobile"            (required)
+//   email:        "Email address" | "Email"
+//   organisation: "Organisation" | "Organization" | "Company" | "Institution"
 
 import 'dotenv/config';
-import XLSX from 'xlsx';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '../src/lib/prisma.js';
-import { normalizePhone, normalizeEmail, eventSlugId } from '../src/lib/normalize.js';
+import { normalizePhone, normalizeEmail, isValidEmailShape } from '../src/lib/normalize.js';
 import { writeAudit } from '../src/lib/audit.js';
+import { readSheet } from './lib/readSheet.js';
+
+const COLUMNS = {
+  name: ['full name', 'fullname', 'name', 'names', 'participant', 'attendee'],
+  phone: ['phone number', 'phone no', 'phone', 'mobile', 'mobile number', 'telephone', 'tel', 'cell'],
+  email: ['email address', 'email', 'e-mail', 'e-mail address'],
+  organisation: ['organisation', 'organization', 'company', 'institution', 'employer']
+};
 
 function parseArgs(argv) {
   const positional = [];
@@ -30,182 +52,197 @@ function parseArgs(argv) {
     if (a.startsWith('--')) {
       const [k, ...rest] = a.slice(2).split('=');
       flags[k] = rest.length ? rest.join('=') : true;
-    } else {
-      positional.push(a);
-    }
+    } else positional.push(a);
   }
   return { positional, flags };
 }
 
-function initialsFor(name) {
-  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+function findColumn(headers, aliases) {
+  const clean = (s) => s.toLowerCase().replace(/[^a-z0-9 -]/g, '').replace(/\s+/g, ' ').trim();
+  const wanted = aliases.map(clean);
+  return headers.find((h) => wanted.includes(clean(h))) || null;
 }
 
-// A compact cursive-styled SVG standing in for a drawn signature -- sized and
-// colored to sit naturally next to real canvas signatures in the roster
-// table and print view (see index.html's td.sign-cell img{max-height:24px}).
-function initialsSignatureDataUri(initials) {
-  const safe = String(initials).replace(/[<>&]/g, '');
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="90">` +
-    `<text x="50%" y="62%" text-anchor="middle" ` +
-    `font-family="'Segoe Script','Brush Script MT',cursive" ` +
-    `font-size="42" font-style="italic" fill="#16213e">${safe}</text>` +
-    `</svg>`;
+const str = (v) => (v instanceof Date ? '' : String(v ?? '')).replace(/\s+/g, ' ').trim();
+
+// Fix names typed in ALL CAPS or all lower case, leave a mixed-case word (McDonald, O'Neil) alone.
+function tidyName(raw) {
+  return str(raw)
+    .split(' ')
+    .map((w) => (w === w.toUpperCase() || w === w.toLowerCase() ? w.replace(/(^|['-])(\p{L})/gu, (_, a, b) => a + b.toUpperCase()).replace(/(?<=\p{L})(\p{L}+)/gu, (m) => m.toLowerCase()) : w))
+    .join(' ');
+}
+
+function initialsFor(name) {
+  const parts = name.split(' ').filter(Boolean);
+  if (!parts.length) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  // Every name's initial, capped at three so a long name still fits the signature box.
+  const letters = parts.map((p) => p[0]);
+  return (letters.length > 3 ? [letters[0], letters[1], letters[letters.length - 1]] : letters).join('').toUpperCase();
+}
+
+// Same cursive initials mark the earlier backfill used, so imported rows look alike in the roster and print view.
+function initialsSignature(initials) {
+  const safe = initials.replace(/[<>&"']/g, '');
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="90"><text x="50%" y="62%" text-anchor="middle" ` +
+    `font-family="'Segoe Script','Brush Script MT',cursive" font-size="42" font-style="italic" fill="#16213e">${safe}</text></svg>`;
   return 'data:image/svg+xml;base64,' + Buffer.from(svg, 'utf8').toString('base64');
 }
 
-function toIsoDateOnly(d) {
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-}
-
-function findConsentKey(row) {
-  return Object.keys(row).find((k) => /consent/i.test(k));
+async function findEvent(query, adminEmail) {
+  const base = { deletedAt: null, ...(adminEmail ? { owner: { email: adminEmail.trim().toLowerCase() } } : {}) };
+  const select = { id: true, slug: true, name: true, startAt: true, endAt: true, timezone: true, ownerId: true, owner: { select: { email: true } } };
+  let hits = await prisma.event.findMany({ where: { ...base, OR: [{ slug: query }, { name: { equals: query, mode: 'insensitive' } }] }, select });
+  if (!hits.length) hits = await prisma.event.findMany({ where: { ...base, name: { contains: query, mode: 'insensitive' } }, select });
+  return hits;
 }
 
 async function main() {
   const { positional, flags } = parseArgs(process.argv.slice(2));
-  const [filePath, adminEmail] = positional;
-  if (!filePath || !adminEmail) {
-    console.error('Usage: node scripts/import-attendance.js <path-to-xlsx> <admin-email> [--event-name="..."] [--date=YYYY-MM-DD] [--location="..."] [--dry-run]');
+  const [filePath] = positional;
+  const eventQuery = typeof flags.event === 'string' ? flags.event.trim() : '';
+  if (!filePath || !eventQuery) {
+    console.error('Usage: node scripts/import-attendance.js <file.xlsx|file.csv> --event="<name or slug>" [--admin=<email>] [--day=<n>] [--apply]');
     process.exitCode = 1;
     return;
   }
-  const dryRun = !!flags['dry-run'];
+  const apply = flags.apply === true;
 
-  const admin = await prisma.user.findUnique({ where: { email: adminEmail.trim().toLowerCase() } });
-  if (!admin || admin.role !== 'COUNTY_ADMIN') {
-    console.error(`No COUNTY_ADMIN account found for ${adminEmail}.`);
+  // --- event ---
+  const hits = await findEvent(eventQuery, typeof flags.admin === 'string' ? flags.admin : null);
+  if (hits.length !== 1) {
+    console.error(hits.length ? `"${eventQuery}" matches ${hits.length} events -- be more specific, or add --admin=<email>:` : `No event matches "${eventQuery}".`);
+    for (const e of hits) console.error(`  ${e.name}  [slug ${e.slug}]  owner ${e.owner?.email || '(none)'}`);
     process.exitCode = 1;
     return;
   }
-
-  const wb = XLSX.readFile(filePath, { cellDates: true });
-  const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
-  if (!rows.length) {
-    console.error('No rows found in the sheet.');
-    process.exitCode = 1;
-    return;
-  }
-
-  // Chronological order so "first submission wins" when the same person
-  // appears twice in the sheet.
-  rows.sort((a, b) => {
-    const ta = a['Timestamp'] instanceof Date ? a['Timestamp'].getTime() : 0;
-    const tb = b['Timestamp'] instanceof Date ? b['Timestamp'].getTime() : 0;
-    return ta - tb;
-  });
-
-  const eventName = flags['event-name'] || 'ICT Authority Workshop Talk';
-  const firstTimestamp = rows.find((r) => r['Timestamp'] instanceof Date)?.['Timestamp'];
-  const eventDate = flags['date'] || (firstTimestamp ? toIsoDateOnly(firstTimestamp) : toIsoDateOnly(new Date()));
-  const location = flags['location'] || 'Nairobi';
-
-  let event = await prisma.event.findFirst({ where: { ownerId: admin.id, name: eventName, deletedAt: null } });
-  if (!event) {
-    console.log(`Creating event "${eventName}" for ${admin.email} (date=${eventDate}, location="${location}", county=${admin.county}).`);
-    if (!dryRun) {
-      event = await prisma.event.create({
-        data: { slug: eventSlugId(eventName), name: eventName, date: eventDate, location, county: admin.county, ownerId: admin.id }
-      });
+  const event = hits[0];
+  // Only the columns this needs are selected, so the script also works against a database that is a
+  // migration or two behind the code (it never depends on newer columns).
+  const days = await prisma.eventDay.findMany({ where: { eventId: event.id }, orderBy: { position: 'asc' }, select: { id: true, position: true } });
+  let day = null;
+  if (days.length === 1) day = days[0];
+  else if (days.length > 1) {
+    day = days.find((d) => String(d.position) === String(flags.day));
+    if (!day) {
+      console.error(`"${event.name}" runs over ${days.length} days; say which one these people signed with --day=<position>. Positions: ${days.map((d) => d.position).join(', ')}.`);
+      process.exitCode = 1;
+      return;
     }
-  } else {
-    console.log(`Using existing event "${event.name}" (${event.id}).`);
   }
 
-  const seenPhones = new Map();
-  const seenEmails = new Map();
-  const results = { imported: 0, skipped: [], consentFlagged: [] };
+  // --- sheet ---
+  const { headers, rows } = readSheet(filePath);
+  const col = Object.fromEntries(Object.entries(COLUMNS).map(([k, aliases]) => [k, findColumn(headers, aliases)]));
+  if (!col.name || !col.phone) {
+    console.error(`Could not find the ${!col.name ? 'name' : 'phone'} column. Headers seen: ${headers.filter(Boolean).join(' | ')}`);
+    process.exitCode = 1;
+    return;
+  }
+  if (!rows.length) {
+    console.error('The sheet has no data rows.');
+    process.exitCode = 1;
+    return;
+  }
 
-  for (let i = 0; i < rows.length; i++) {
-    const r = rows[i];
-    const rowNum = i + 2; // account for the header row
-    const name = String(r['FULL NAME'] || '').trim().replace(/\s+/g, ' ');
-    const rawEmail = String(r['Email address'] || '').trim();
-    const rawPhone = String(r['Phone Number'] || '').trim();
-    const consentKey = findConsentKey(r);
-    const consent = consentKey ? String(r[consentKey] || '').trim() : '';
+  // Who is already on the event, so a re-run (or someone who did sign in on the day) is never doubled.
+  const existing = await prisma.attendance.findMany({ where: { eventId: event.id }, select: { name: true, phoneNormalized: true, emailNormalized: true } });
+  const havePhone = new Map(existing.map((a) => [a.phoneNormalized, a.name]));
+  const haveEmail = new Map(existing.filter((a) => a.emailNormalized).map((a) => [a.emailNormalized, a.name]));
 
+  console.log(`${apply ? '' : '[DRY RUN] '}Event: ${event.name}  (owner ${event.owner?.email || 'none'}, ${existing.length} already signed in)`);
+  console.log(`File:  ${filePath}  (${rows.length} rows; columns: name="${col.name}", phone="${col.phone}", email="${col.email || '-'}", organisation="${col.organisation || '-'}")\n`);
+
+  const toAdd = [];
+  const skipped = [];
+  const notes = [];
+  const seenPhone = new Map();
+  const seenEmail = new Map();
+  for (const { rowNum, values } of rows) {
+    const name = tidyName(values[col.name]);
+    const rawPhone = str(values[col.phone]);
+    const rawEmail = col.email ? str(values[col.email]) : '';
+    const organisation = col.organisation ? str(values[col.organisation]) : '';
     if (!name) {
-      results.skipped.push({ rowNum, reason: 'missing name' });
+      skipped.push({ rowNum, why: 'no name' });
       continue;
     }
-
     const phoneNormalized = normalizePhone(rawPhone);
     if (!phoneNormalized) {
-      results.skipped.push({ rowNum, name, reason: `unparseable phone "${rawPhone}"` });
+      skipped.push({ rowNum, name, why: `phone "${rawPhone}" is not a valid Kenyan number` });
       continue;
     }
-    const emailNormalized = normalizeEmail(rawEmail);
-
-    if (seenPhones.has(phoneNormalized)) {
-      results.skipped.push({ rowNum, name, reason: `duplicate phone -- already imported from row ${seenPhones.get(phoneNormalized)}` });
+    let email = rawEmail;
+    if (email && !isValidEmailShape(email)) {
+      notes.push({ rowNum, name, note: `email "${email}" is not an email address -- imported without one` });
+      email = '';
+    }
+    const emailNormalized = normalizeEmail(email);
+    if (havePhone.has(phoneNormalized)) {
+      skipped.push({ rowNum, name, why: `phone already on this event (${havePhone.get(phoneNormalized)})` });
       continue;
     }
-    if (emailNormalized && seenEmails.has(emailNormalized)) {
-      results.skipped.push({ rowNum, name, reason: `duplicate email -- already imported from row ${seenEmails.get(emailNormalized)}` });
+    if (seenPhone.has(phoneNormalized)) {
+      skipped.push({ rowNum, name, why: `same phone as row ${seenPhone.get(phoneNormalized)} in this file` });
       continue;
     }
-
-    const createdAt = r['Timestamp'] instanceof Date ? r['Timestamp'] : new Date();
-    const signature = initialsSignatureDataUri(initialsFor(name));
-
-    if (!dryRun) {
-      try {
-        await prisma.attendance.create({
-          data: {
-            eventId: event.id,
-            clientId: 'import-' + randomUUID(),
-            name,
-            organization: null,
-            email: rawEmail || null,
-            emailNormalized,
-            phone: rawPhone,
-            phoneNormalized,
-            signature,
-            isImportedSignature: true,
-            createdAt
-          }
-        });
-      } catch (err) {
-        results.skipped.push({ rowNum, name, reason: `database error: ${err.message}` });
-        continue;
-      }
+    if (emailNormalized && (haveEmail.has(emailNormalized) || seenEmail.has(emailNormalized))) {
+      skipped.push({ rowNum, name, why: haveEmail.has(emailNormalized) ? `email already on this event (${haveEmail.get(emailNormalized)})` : `same email as row ${seenEmail.get(emailNormalized)} in this file` });
+      continue;
     }
+    seenPhone.set(phoneNormalized, rowNum);
+    if (emailNormalized) seenEmail.set(emailNormalized, rowNum);
+    toAdd.push({ rowNum, name, organisation: organisation || null, email: email || null, emailNormalized, phone: rawPhone, phoneNormalized });
+  }
 
-    seenPhones.set(phoneNormalized, rowNum);
-    if (emailNormalized) seenEmails.set(emailNormalized, rowNum);
-    results.imported++;
-    if (/do not agree/i.test(consent) || !consent) {
-      results.consentFlagged.push({ rowNum, name, consent: consent || '(blank)' });
+  for (const r of toAdd) console.log(`  + row ${String(r.rowNum).padStart(2)}  ${r.name.padEnd(24)} ${r.phoneNormalized}  ${r.organisation || ''}`);
+  for (const n of notes) console.log(`  ! row ${n.rowNum} (${n.name}): ${n.note}`);
+  for (const s of skipped) console.log(`  - row ${s.rowNum}${s.name ? ` (${s.name})` : ''}: skipped, ${s.why}`);
+  console.log(`\n${toAdd.length} to add, ${skipped.length} skipped.`);
+
+  if (!apply) {
+    console.log('Nothing written. Add --apply to write these to the database.');
+    return;
+  }
+
+  let added = 0;
+  const failed = [];
+  for (const r of toAdd) {
+    const signature = initialsSignature(initialsFor(r.name));
+    try {
+      await prisma.attendance.create({
+        select: { id: true },
+        data: {
+          eventId: event.id,
+          clientId: 'import-' + randomUUID(),
+          name: r.name,
+          organization: r.organisation,
+          email: r.email,
+          emailNormalized: r.emailNormalized,
+          phone: r.phone,
+          phoneNormalized: r.phoneNormalized,
+          signature,
+          isImportedSignature: true,
+          ...(day ? { daySignatures: { create: { dayId: day.id, signature, isImportedSignature: true } } } : {})
+        }
+      });
+      added++;
+    } catch (err) {
+      failed.push({ rowNum: r.rowNum, name: r.name, why: err.code === 'P2002' ? 'already on the event (added by someone else a moment ago)' : err.message });
     }
   }
+  for (const f of failed) console.log(`  x row ${f.rowNum} (${f.name}): ${f.why}`);
+  console.log(`Added ${added} of ${toAdd.length}.`);
 
-  console.log(`\n${dryRun ? '[DRY RUN] ' : ''}Imported: ${results.imported} / ${rows.length}`);
-  if (results.skipped.length) {
-    console.log(`Skipped: ${results.skipped.length}`);
-    for (const s of results.skipped) console.log(`  row ${s.rowNum}${s.name ? ' (' + s.name + ')' : ''}: ${s.reason}`);
-  }
-  if (results.consentFlagged.length) {
-    console.log(`Imported despite non-affirmative consent answer: ${results.consentFlagged.length}`);
-    for (const c of results.consentFlagged) console.log(`  row ${c.rowNum} (${c.name}): consent="${c.consent}"`);
-  }
-
-  if (!dryRun && results.imported) {
+  if (added) {
     await writeAudit({
-      actorId: admin.id,
+      actorId: event.ownerId || null,
       action: 'EVENT_ATTENDANCE_IMPORTED',
       targetType: 'Event',
       targetId: event.id,
-      metadata: {
-        source: 'excel',
-        fileName: filePath.split(/[\\/]/).pop(),
-        rowCount: results.imported,
-        skippedCount: results.skipped.length,
-        nonConsentingRowsImported: results.consentFlagged.length
-      }
+      metadata: { source: filePath.split(/[\\/]/).pop(), added, skipped: skipped.length, failed: failed.length, viaScript: true }
     });
     console.log('Audit entry written.');
   }
