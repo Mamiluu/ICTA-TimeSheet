@@ -14,6 +14,7 @@
 //   --admin=<email>  only look at events owned by this admin (when two events share a name)
 //   --day=<n>        which day these people signed, by position, for multi-day events
 //   --no-consent     leave photo/video consent as "not recorded" (default is yes)
+//   --set-consent    no file needed: set Yes on already-imported people with no consent answer
 //   --apply          write to the database. Without it this is a dry run
 
 import 'dotenv/config';
@@ -42,10 +43,37 @@ async function findEvent(query, adminEmail) {
   return hits;
 }
 
+// Sets photo/video consent to Yes on people who were imported (not signed by hand) and have no answer
+// recorded, for an event imported before consent was defaulted to Yes. Anyone who answered the question
+// themselves, or any row that was not imported, is left exactly as it is.
+async function setConsent(eventQuery, flags) {
+  if (!eventQuery) {
+    console.error('Usage: node scripts/import-attendance.js --set-consent --event="<name or slug>" [--admin=<email>] [--apply]');
+    process.exitCode = 1;
+    return;
+  }
+  const hits = await findEvent(eventQuery, typeof flags.admin === 'string' ? flags.admin : null);
+  if (hits.length !== 1) {
+    console.error(hits.length ? `"${eventQuery}" matches ${hits.length} events -- be more specific.` : `No event matches "${eventQuery}".`);
+    process.exitCode = 1;
+    return;
+  }
+  const where = { eventId: hits[0].id, isImportedSignature: true, photoVideoConsent: null };
+  const n = await prisma.attendance.count({ where });
+  console.log(`${flags.apply === true ? '' : '[DRY RUN] '}${hits[0].name}: ${n} imported ${n === 1 ? 'person has' : 'people have'} no photo/video answer.`);
+  if (flags.apply !== true) {
+    console.log('Nothing written. Add --apply to set them to Yes.');
+    return;
+  }
+  const r = await prisma.attendance.updateMany({ where, data: { photoVideoConsent: true } });
+  console.log(`Set photo/video consent to Yes on ${r.count}.`);
+}
+
 async function main() {
   const { positional, flags } = parseArgs(process.argv.slice(2));
   const [filePath] = positional;
   const eventQuery = typeof flags.event === 'string' ? flags.event.trim() : '';
+  if (flags['set-consent'] === true) return setConsent(eventQuery, flags);
   if (!filePath || !eventQuery) {
     console.error('Usage: node scripts/import-attendance.js <file.xlsx|file.csv> --event="<name or slug>" [--admin=<email>] [--day=<n>] [--apply]');
     process.exitCode = 1;
